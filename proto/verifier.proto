@@ -1,0 +1,26 @@
+syntax = "proto3";
+
+package verifier;
+
+service Verifier {
+    // Verifies a proof.
+    rpc VerifyProof(VerifyProofRequest) returns (VerifyProofResponse) {}
+}
+
+message VerifyProofRequest {
+    // The proof bytes.
+    bytes proof = 1;
+    // The verification key.
+    bytes vkey = 2;
+    // The mode of the proof.
+    int32 mode = 3;
+    // The version of the prover.
+    string version = 4;
+    // The optional public_values_hash from the execution oracle, only included if the execution
+    // needs to be checked.
+    optional bytes public_values_hash = 5;
+}
+
+message VerifyProofResponse {
+    bool valid = 1;
+}

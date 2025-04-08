@@ -20,6 +20,7 @@ pub(crate) async fn process_requests(prover: Arc<Prover>, owner: &[u8]) -> Resul
         version: Some(VERSION.to_string()),
         fulfillment_status: Some(FulfillmentStatus::Requested.into()),
         execution_status: None,
+        execute_fail_cause: None,
         minimum_deadline: Some(time_now()),
         vk_hash: None,
         requester: None,

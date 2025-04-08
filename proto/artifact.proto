@@ -1,0 +1,32 @@
+syntax = "proto3";
+
+package artifact;
+
+service ArtifactStore {
+    // Creates an artifact that can be used for proof requests.
+    rpc CreateArtifact(CreateArtifactRequest) returns (CreateArtifactResponse) {}
+}
+
+message CreateArtifactRequest {
+    // The signature of the user on a pre-defined message. Used for authentication.
+    bytes signature = 1;
+    // The type of artifact to create.
+    ArtifactType artifact_type = 2;
+}
+
+message CreateArtifactResponse {
+    // The unique resource identifier of the artifact.
+    string artifact_uri = 1;
+    // The presigned url to upload the artifact.
+    string artifact_presigned_url = 2;
+}
+
+enum ArtifactType {
+    UNSPECIFIED_ARTIFACT_TYPE = 0;
+    // A program artifact.
+    PROGRAM = 1;
+    // A stdin artifact.
+    STDIN = 2;
+    // A proof artifact.
+    PROOF = 3;
+}

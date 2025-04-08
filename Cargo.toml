@@ -8,23 +8,89 @@ repository = { workspace = true }
 keywords = { workspace = true }
 categories = { workspace = true }
 
+[workspace]
+members = [
+    "crates/artifacts",
+    "crates/types/network",
+    "crates/types/artifact",
+    "crates/logging",
+    "crates/utils",
+    "crates/fee",
+]
+
+[workspace.package]
+version = "1.0.0"
+edition = "2021"
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/succinctlabs/network"
+keywords = ["succinct", "prover", "network"]
+categories = ["cryptography", "blockchain"]
+
+[workspace.dependencies]
+anyhow = "1.0.71"
+dotenv = "0.15"
+thiserror = "1.0.63"
+tokio = { version = "1.0", features = ["full"] }
+tracing = "0.1"
+serde = { version = "1.0.210", features = ["derive"] }
+serde_json = "1.0.104"
+tonic = { version = "0.12", features = ["tls", "tls-roots", "gzip"] }
+prost = "0.13.3"
+prost-build = "0.13"
+tonic-build = "0.12"
+alloy = "0.11"
+alloy-signer = "0.11.1"
+alloy-signer-local = "0.11.1"
+alloy-primitives = "0.8.18"
+hex = "0.4.3"
+config = "0.14.0"
+futures = "0.3.30"
+const-str = "0.5.7"
+bincode = "1.3.3"
+async-trait = "0.1.68"
+backoff = "0.4"
+aws-config = "1.5.3"
+aws-sdk-s3 = "1.38.0"
+aws-smithy-async = { version = "1.2.1", features = ["rt-tokio"] }
+bytes = "1.6.0"
+lazy_static = "1.5.0"
+twirp = { package = "twirp-rs", version = "0.13.0-succinct" }
+tracing-subscriber = { version = "0.3.18", features = [
+    "json",
+    "std",
+    "env-filter",
+] }
+eyre = "0.6.12"
+sqlx = { version = "0.8", features = [
+    "runtime-tokio",
+    "tls-native-tls",
+    "postgres",
+    "bigdecimal",
+    "time",
+] }
+rustls = "0.23.0"
+
 [dependencies]
-spn-artifacts = { workspace = true }
-spn-network-types = { workspace = true }
-spn-logging = { workspace = true }
-spn-utils = { workspace = true }
-spn-fee = { workspace = true }
+spn-artifacts = { path = "crates/artifacts" }
+spn-network-types = { path = "crates/types/network" }
+spn-logging = { path = "crates/logging" }
+spn-utils = { path = "crates/utils" }
+spn-fee = { path = "crates/fee" }
 sp1-sdk = { version = "4.1.0", features = ["native-gnark"] }
 sp1-prover = { version = "4.1.0" }
 
 anyhow = { workspace = true }
 dotenv = { workspace = true }
+thiserror = { workspace = true }
 tokio = { workspace = true }
 tracing = { workspace = true }
 serde = { workspace = true }
-tonic = { workspace = true }
+serde_json = { workspace = true }
+tonic = { workspace = true, features = ["tls", "tls-roots", "gzip"] }
 alloy = { workspace = true }
+alloy-signer = { workspace = true }
 alloy-signer-local = { workspace = true }
+alloy-primitives = { workspace = true }
 hex = { workspace = true }
 config = { workspace = true }
 futures = { workspace = true }
@@ -32,3 +98,8 @@ const-str = { workspace = true }
 bincode = { workspace = true }
 async-trait = { workspace = true }
 backoff = { workspace = true }
+twirp = { workspace = true }
+tracing-subscriber = { workspace = true }
+eyre = { workspace = true }
+sqlx = { workspace = true }
+rustls = { version = "0.23.0", features = ["ring"] }

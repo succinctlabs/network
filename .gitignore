@@ -1,0 +1,23 @@
+# Ignore build artifacts
+/target/
+
+# Ignore lock files
+Cargo.lock
+
+# Ignore environment files
+.env
+
+# Ignore macOS system files
+.DS_Store
+
+# Ignore other common files
+*.log
+*.tmp
+*.bak
+
+# Ignore generated files
+*.rs.bk
+
+# Ignore IDE specific files
+.idea/
+.vscode/ 

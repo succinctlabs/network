@@ -1,0 +1,19 @@
+[package]
+name = "spn-verifier-types"
+description = ""
+readme = "README.md"
+version = { workspace = true }
+edition = { workspace = true }
+license = { workspace = true }
+repository = { workspace = true }
+keywords = { workspace = true }
+categories = { workspace = true }
+
+[dependencies]
+tonic = { workspace = true }
+prost = { workspace = true }
+serde = { workspace = true }
+
+[build-dependencies]
+prost-build = "0.13"
+tonic-build = "0.12"

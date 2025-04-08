@@ -5,6 +5,7 @@ use anyhow::Result;
 use dotenv::dotenv;
 use tokio::signal;
 use tracing::{error, info, warn};
+use rustls::crypto::CryptoProvider;
 
 use spn_network_types::prover_network_client::ProverNetworkClient;
 use spn_prover::{config::Settings, grpc, Prover};
@@ -19,6 +20,9 @@ async fn main() -> Result<()> {
 
     // Initialize logging with minimal format for the prover binary
     spn_logging::init(settings.log_format);
+
+    // Install the default CryptoProvider
+    rustls::crypto::ring::default_provider().install_default().expect("Failed to install rustls crypto provider");
 
     // Initialize the dependencies.
     let network_channel = grpc::configure_endpoint(settings.rpc_url.clone())?.connect().await?;

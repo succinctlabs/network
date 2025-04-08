@@ -1,0 +1,17 @@
+[package]
+name = "spn-fee"
+description = "Library for handling fee calculations."
+readme = "README.md"
+version = { workspace = true }
+edition = { workspace = true }
+license = { workspace = true }
+repository = { workspace = true }
+keywords = { workspace = true }
+categories = { workspace = true }
+
+[dependencies]
+spn-network-types = { path = "../types/network" }
+
+sqlx = { workspace = true }
+lazy_static = { workspace = true }
+eyre = { workspace = true }

@@ -1,0 +1,19 @@
+[package]
+name = "spn-artifact-types"
+description = ""
+readme = "README.md"
+version = { workspace = true }
+edition = { workspace = true }
+license = { workspace = true }
+repository = { workspace = true }
+keywords = { workspace = true }
+categories = { workspace = true }
+
+[dependencies]
+tonic = { workspace = true, features = ["tls", "tls-roots", "gzip"] }
+prost = { workspace = true }
+serde = { workspace = true }
+
+[build-dependencies]
+prost-build = { workspace = true }
+tonic-build = { workspace = true }

@@ -1,0 +1,2746 @@
+syntax = "proto3";
+
+package network;
+
+service ProverNetwork {
+  /*
+   * Proofs
+   *
+   * These methods are for managing proof requests.
+   */
+
+  // Creates a proof request.
+  rpc RequestProof(RequestProofRequest) returns (RequestProofResponse) {}
+  // Fulfills a proof request. Only callable by the assigned fulfiller.
+  rpc FulfillProof(FulfillProofRequest) returns (FulfillProofResponse) {}
+  // Executes a proof request. Only callable by the execution oracle.
+  rpc ExecuteProof(ExecuteProofRequest) returns (ExecuteProofResponse) {}
+
+  // Fails fulfillment. Only callable by the assigned fulfiller.
+  rpc FailFulfillment(FailFulfillmentRequest) returns (FailFulfillmentResponse) {}
+  // Fails execution. Only callable by the execution oracle.
+  rpc FailExecution(FailExecutionRequest) returns (FailExecutionResponse) {}
+
+  // Get the status of a proof request.
+  rpc GetProofRequestStatus(GetProofRequestStatusRequest)
+      returns (GetProofRequestStatusResponse) {}
+  // Get the details of a proof request.
+  rpc GetProofRequestDetails(GetProofRequestDetailsRequest)
+      returns (GetProofRequestDetailsResponse) {}
+  // Get the proof requests that meet the filter criteria.
+  rpc GetFilteredProofRequests(GetFilteredProofRequestsRequest)
+      returns (GetFilteredProofRequestsResponse) {}
+  // Search for proof requests, programs, and requesters.
+  rpc GetSearchResults(GetSearchResultsRequest) returns (GetSearchResultsResponse) {}
+  // Get metrics for proof requests.
+  rpc GetProofRequestMetrics(GetProofRequestMetricsRequest)
+      returns (GetProofRequestMetricsResponse) {}
+  // Get time series data for proof requests.
+  rpc GetProofRequestGraph(GetProofRequestGraphRequest)
+      returns (GetProofRequestGraphResponse) {}
+  // Get analytics graphs for proof requests.
+  rpc GetAnalyticsGraphs(GetAnalyticsGraphsRequest)
+      returns (GetAnalyticsGraphsResponse) {}
+
+  /*
+   * Accounts
+   *
+   * These methods are for managing accounts.
+   */
+
+  // Get the nonce of the account.
+  rpc GetNonce(GetNonceRequest) returns (GetNonceResponse) {}
+  // Get the delegations of the account.
+  rpc GetFilteredDelegations(GetFilteredDelegationsRequest)
+      returns (GetFilteredDelegationsResponse) {}
+  // Add a delegation. Only callable by the owner of an account.
+  rpc AddDelegation(AddDelegationRequest) returns (AddDelegationResponse) {}
+  // Remove a delegation. Only callable by the owner of an account.
+  rpc RemoveDelegation(RemoveDelegationRequest) returns (RemoveDelegationResponse) {}
+  // Terminate a delegation. Only callable by the delegate of a delegation.
+  rpc TerminateDelegation(TerminateDelegationRequest) returns (TerminateDelegationResponse) {}
+  // Accept a delegation. Only callable by the delegate of a delegation.
+  rpc AcceptDelegation(AcceptDelegationRequest) returns (AcceptDelegationResponse) {}
+  // Set the name of the account. Only callable by the owner of an account.
+  rpc SetAccountName(SetAccountNameRequest) returns (SetAccountNameResponse) {}
+  // Get the name of the account.
+  rpc GetAccountName(GetAccountNameRequest) returns (GetAccountNameResponse) {}
+  // Get whether the account has signed the terms.
+  rpc GetTermsSignature(GetTermsSignatureRequest) returns (GetTermsSignatureResponse) {}
+  // Set whether the account has signed the terms.
+  rpc SetTermsSignature(SetTermsSignatureRequest) returns (SetTermsSignatureResponse) {}
+  // Get all the information about an account.
+  rpc GetAccount(GetAccountRequest) returns (GetAccountResponse) {}
+  // Get the owner of an account. Returns itself if the account is not delegated.
+  rpc GetOwner(GetOwnerRequest) returns (GetOwnerResponse) {}
+
+  /*
+   * Programs
+   *
+   * These methods are for managing programs.
+   */
+
+
+  // Get metadata about a program.
+  rpc GetProgram(GetProgramRequest) returns (GetProgramResponse) {}
+  // Create a new program. Must be called before requesting proofs.
+  rpc CreateProgram(CreateProgramRequest) returns (CreateProgramResponse) {}
+  // Set the name of the program. Only callable by the owner.
+  rpc SetProgramName(SetProgramNameRequest) returns (SetProgramNameResponse) {}
+
+  /*
+   * Payments
+   *
+   * These methods are for managing payments.
+   */
+
+  // Get the available balance of an account.
+  rpc GetBalance(GetBalanceRequest) returns (GetBalanceResponse) {}
+  // Get the balance logs that meet the filter criteria.
+  rpc GetFilteredBalanceLogs(GetFilteredBalanceLogsRequest)
+      returns (GetFilteredBalanceLogsResponse) {}
+  // Add credit to an account.
+  rpc AddCredit(AddCreditRequest) returns (AddCreditResponse) {}
+  // Get the latest processed block in the bridge.
+  rpc GetLatestBridgeBlock(GetLatestBridgeBlockRequest)
+      returns (GetLatestBridgeBlockResponse) {}
+  // Get the gas price estimate for a given fulfillment strategy.
+  rpc GetGasPriceEstimate(GetGasPriceEstimateRequest) returns (GetGasPriceEstimateResponse) {}
+  // Get the details of a transaction.
+  rpc GetTransactionDetails(GetTransactionDetailsRequest) returns (GetTransactionDetailsResponse) {}
+
+
+  /*
+   * Reservations
+   *
+   * These methods are for managing reservations.
+   */
+
+  // Get the reservations that meet the filter criteria.
+  rpc GetFilteredReservations(GetFilteredReservationsRequest)
+      returns (GetFilteredReservationsResponse) {}
+  // Add a reservation for a requester.
+  rpc AddReservation(AddReservationRequest) returns (AddReservationResponse) {}
+  // Remove a reservation for a requester.
+  rpc RemoveReservation(RemoveReservationRequest) returns (RemoveReservationResponse) {}
+
+  /*
+   * Auction
+   *
+   * These methods are for managing the proof contest auction.
+   */
+
+  // Bid for a proof request. Provers that want to be assigned this request must first
+  // bid on it.
+  rpc Bid(BidRequest) returns (BidResponse) {}
+  // Settle the bids on a proof request to choose the assigned prover. Only callable by
+  // the approved auctioneer.
+  rpc Settle(SettleRequest) returns (SettleResponse) {}
+
+
+  /*
+   * Leaderboard
+   *
+   * These methods are for managing the leaderboard.
+   */
+
+  // Sign in with Ethereum
+  rpc SignIn(SignInRequest) returns (SignInResponse) {}
+  // Get the accounts that meet the filter criteria.
+  rpc GetOnboardedAccountsCount(GetOnboardedAccountsCountRequest) returns (GetOnboardedAccountsCountResponse) {}
+  // Get the accounts that have joined the leaderboard.
+  rpc GetFilteredOnboardedAccounts(GetFilteredOnboardedAccountsRequest) returns (GetFilteredOnboardedAccountsResponse) {}
+  // Get the leaderboard.
+  rpc GetLeaderboard(GetLeaderboardRequest) returns (GetLeaderboardResponse) {}
+  // Get the leaderboard stats for a given account.
+  rpc GetLeaderboardStats(GetLeaderboardStatsRequest) returns (GetLeaderboardStatsResponse) {}
+  // Get codes.
+  rpc GetCodes(GetCodesRequest) returns (GetCodesResponse) {}
+  // Redeem a code.
+  rpc RedeemCode(RedeemCodeRequest) returns (RedeemCodeResponse) {}
+  // Connect a Twitter account.
+  rpc ConnectTwitter(ConnectTwitterRequest) returns (ConnectTwitterResponse) {}
+  // Complete onboarding.
+  rpc CompleteOnboarding(CompleteOnboardingRequest) returns (CompleteOnboardingResponse) {}
+  // Set if a user should display their Twitter handle.
+  rpc SetUseTwitterHandle(SetUseTwitterHandleRequest) returns (SetUseTwitterHandleResponse) {}
+  // Set if a user should display their Twitter profile picture.
+  rpc SetUseTwitterImage(SetUseTwitterImageRequest) returns (SetUseTwitterImageResponse) {}
+  // Request a random proof.
+  rpc RequestRandomProof(RequestRandomProofRequest) returns (RequestRandomProofResponse) {}
+  // Submit answers for the captcha game.
+  rpc SubmitCaptchaGame(SubmitCaptchaGameRequest) returns (SubmitCaptchaGameResponse) {}
+  // Redeem stars.
+  rpc RedeemStars(RedeemStarsRequest) returns (RedeemStarsResponse) {}
+  // Get flappy leaderboard.
+  rpc GetFlappyLeaderboard(GetFlappyLeaderboardRequest)
+      returns (GetFlappyLeaderboardResponse) {}
+  // Set the turbo game high score.
+  rpc SetTurboHighScore(SetTurboHighScoreRequest) returns (SetTurboHighScoreResponse) {}
+  // Submit answers for the quiz game.
+  rpc SubmitQuizGame(SubmitQuizGameRequest) returns (SubmitQuizGameResponse) {}
+  // Get the turbo game leaderboard.
+  rpc GetTurboLeaderboard(GetTurboLeaderboardRequest)
+      returns (GetTurboLeaderboardResponse) {}
+  // Submit ETH block metadata.
+  rpc SubmitEthBlockMetadata(SubmitEthBlockMetadataRequest)
+      returns (SubmitEthBlockMetadataResponse) {}
+  // Get ETH block requests that meet the filter criteria.
+  rpc GetFilteredEthBlockRequests(GetFilteredEthBlockRequestsRequest)
+      returns (GetFilteredEthBlockRequestsResponse) {}
+  // Set the 2048 game high score.
+  rpc Set2048HighScore(Set2048HighScoreRequest)
+      returns (Set2048HighScoreResponse) {}
+  // Set the volleyball game high score.
+  rpc SetVolleyballHighScore(SetVolleyballHighScoreRequest)
+      returns (SetVolleyballHighScoreResponse) {}
+  // Get ETH block proof requests metrics.
+  rpc GetEthBlockRequestMetrics(GetEthBlockRequestMetricsRequest)
+      returns (GetEthBlockRequestMetricsResponse) {}
+  // Set the turbo time trial high score.
+  rpc SetTurboTimeTrialHighScore(SetTurboTimeTrialHighScoreRequest)
+      returns (SetTurboTimeTrialHighScoreResponse) {}
+  // Set the coin craze high score.
+  rpc SetCoinCrazeHighScore(SetCoinCrazeHighScoreRequest)
+      returns (SetCoinCrazeHighScoreResponse) {}
+  // Set the lean high score.
+  rpc SetLeanHighScore(SetLeanHighScoreRequest)
+      returns (SetLeanHighScoreResponse) {}
+  // Set the flow high score.
+  rpc SetFlowHighScore(SetFlowHighScoreRequest)
+      returns (SetFlowHighScoreResponse) {}
+
+  /*
+   * Gpu
+   *
+   * These methods are for managing the prover gpus.
+   */
+
+   // Check if address or social identity is whitelisted.
+   rpc GetWhitelistStatus(GetWhitelistStatusRequest)
+      returns (GetWhitelistStatusResponse) {}
+   // Set the gpu delegate.
+   rpc SetGpuDelegate(SetGpuDelegateRequest)
+      returns (SetGpuDelegateResponse) {}
+   // Claim a gpu.
+   rpc ClaimGpu(ClaimGpuRequest)
+      returns (ClaimGpuResponse) {}
+   // Set the gpu variant.
+   rpc SetGpuVariant(SetGpuVariantRequest)
+      returns (SetGpuVariantResponse) {}
+   // Link a whitelisted twitter account.
+   rpc LinkWhitelistedTwitter(LinkWhitelistedTwitterRequest)
+      returns (LinkWhitelistedTwitterResponse) {}
+  // Retrieve the proving key for your account. Must have claimed a gpu and self-delegated to
+  // yourself.
+  rpc RetrieveProvingKey(RetrieveProvingKeyRequest)
+      returns (RetrieveProvingKeyResponse) {}
+   // Link a whitelisted github account.
+   rpc LinkWhitelistedGithub(LinkWhitelistedGithubRequest)
+      returns (LinkWhitelistedGithubResponse) {}
+   // Link a whitelisted discord account.
+   rpc LinkWhitelistedDiscord(LinkWhitelistedDiscordRequest)
+      returns (LinkWhitelistedDiscordResponse) {}
+  // Get prover leaderboard.
+  rpc GetProverLeaderboard(GetProverLeaderboardRequest)
+      returns (GetProverLeaderboardResponse) {}
+  // Get filtered gpus.
+  rpc GetFilteredGpus(GetFilteredGpusRequest)
+      returns (GetFilteredGpusResponse) {}
+   // Set the gpu coordinates.
+   rpc SetGpuCoordinates(SetGpuCoordinatesRequest)
+      returns (SetGpuCoordinatesResponse) {}
+  // Get points.
+  rpc GetPoints(GetPointsRequest)
+      returns (GetPointsResponse) {}
+  // Process clicks.
+  rpc ProcessClicks(ProcessClicksRequest)
+      returns (ProcessClicksResponse) {}
+  // Purchase upgrade.
+  rpc PurchaseUpgrade(PurchaseUpgradeRequest)
+      returns (PurchaseUpgradeResponse) {}
+  // Place a bet.
+  rpc Bet(BetRequest)
+      returns (BetResponse) {}
+  // Get the status of a proof contest.
+  rpc GetContestDetails(GetContestDetailsRequest)
+      returns (GetContestDetailsResponse) {}
+
+  /*
+   *
+   * TEE Methods
+   *
+   */
+   // Check if the user is whitelisted to use the TEE service.
+   rpc GetTEEWhitelistStatus(GetTEEWhitelistStatusRequest)
+      returns (GetTEEWhitelistStatusResponse) {}
+}
+
+// Format to help decode signature in backend.
+enum MessageFormat {
+  // Unspecified message format.
+  UNSPECIFIED_MESSAGE_FORMAT = 0;
+  // The message is in binary format.
+  BINARY = 1;
+  // The message is in JSON format.
+  JSON = 2;
+}
+
+/**************
+ *** Proofs ***
+ **************/
+
+message RequestProofRequest {
+  // The message format of the body.
+  MessageFormat format = 1;
+  // The signature of the sender.
+  bytes signature = 2;
+  // The body of the request.
+  RequestProofRequestBody body = 3;
+}
+
+message RequestProofRequestBody {
+  // The account nonce of the sender.
+  uint64 nonce = 1;
+  // The verification key hash of the program.
+  bytes vk_hash = 2;
+  // The version of the prover to use.
+  string version = 3;
+  // The mode for the request.
+  ProofMode mode = 4;
+  // The strategy for fulfiller assignment.
+  FulfillmentStrategy strategy = 5;
+  // The stdin resource identifier.
+  string stdin_uri = 6;
+  // The deadline for the request.
+  uint64 deadline = 7;
+  // The cycle limit for the request.
+  uint64 cycle_limit = 8;
+  // The gas limit for the request. If 0, the cycle_limit is used.
+  uint64 gas_limit = 9;
+}
+
+message RequestProofResponse {
+  // The transaction hash.
+  bytes tx_hash = 1;
+  // The body of the response.
+  RequestProofResponseBody body = 2;
+}
+
+message RequestProofResponseBody {
+  // The identifier for the request.
+  bytes request_id = 1;
+}
+
+message FulfillProofRequest {
+  // The message format of the body.
+  MessageFormat format = 1;
+  // The signature of the sender.
+  bytes signature = 2;
+  // The body of the request.
+  FulfillProofRequestBody body = 3;
+}
+
+message FulfillProofRequestBody {
+  // The account nonce of the sender.
+  uint64 nonce = 1;
+  // The identifier for the request.
+  bytes request_id = 2;
+  // The proof bytes.
+  bytes proof = 3;
+}
+
+message FulfillProofResponse {
+  // The transaction hash.
+  bytes tx_hash = 1;
+  // The body of the response.
+  FulfillProofResponseBody body = 2;
+}
+
+message FulfillProofResponseBody {}
+
+message ExecuteProofRequest {
+  // The message format of the body.
+  MessageFormat format = 1;
+  // The signature of the sender.
+  bytes signature = 2;
+  // The body of the request.
+  ExecuteProofRequestBody body = 3;
+}
+
+message ExecuteProofRequestBody {
+  // The account nonce of the sender.
+  uint64 nonce = 1;
+  // The identifier for the request.
+  bytes request_id = 2;
+  // The execution status of the request.
+  ExecutionStatus execution_status = 3;
+  // The optional public values hash of the request execution, only included if
+  // the request is valid.
+  optional bytes public_values_hash = 4;
+  // The optional cycles used when executing the request, only included if the
+  // request is valid.
+  optional uint64 cycles = 5;
+  // The optional amount of gas used when executing the request, only included if
+  // the request is valid.
+  optional uint64 gas_used = 6;
+}
+
+message ExecuteProofResponse {
+  // The transaction hash.
+  bytes tx_hash = 1;
+  // The body of the response.
+  ExecuteProofResponseBody body = 2;
+}
+
+message ExecuteProofResponseBody {}
+
+message FailFulfillmentRequest {
+  // The message format of the body.
+  MessageFormat format = 1;
+  // The signature of the sender.
+  bytes signature = 2;
+  // The body of the request.
+  FailFulfillmentRequestBody body = 3;
+}
+
+message FailFulfillmentRequestBody {
+  // The account nonce of the sender.
+  uint64 nonce = 1;
+  // The identifier for the request.
+  bytes request_id = 2;
+}
+
+message FailFulfillmentResponse {
+  // The transaction hash.
+  bytes tx_hash = 1;
+  // The body of the response.
+  FailFulfillmentResponseBody body = 2;
+}
+
+message FailFulfillmentResponseBody {}
+
+message FailExecutionRequest {
+  // The message format of the body.
+  MessageFormat format = 1;
+  // The signature of the sender.
+  bytes signature = 2;
+  // The body of the request.
+  FailExecutionRequestBody body = 3;
+}
+
+message FailExecutionRequestBody {
+  // The account nonce of the sender.
+  uint64 nonce = 1;
+  // The identifier for the request.
+  bytes request_id = 2;
+  // The cause of execution failure.
+  ExecuteFailureCause execute_fail_cause = 3;
+}
+
+message FailExecutionResponse {
+  // The transaction hash.
+  bytes tx_hash = 1;
+  // The body of the response.
+  FailExecutionResponseBody body = 2;
+}
+
+message FailExecutionResponseBody {}
+
+message ProofRequest {
+  // The request identifier.
+  bytes request_id = 1;
+  // The verification key hash of the program.
+  bytes vk_hash = 2;
+  // The version of the prover to use.
+  string version = 3;
+  // The mode for the proof.
+  ProofMode mode = 4;
+  // The strategy for fulfiller assignment.
+  FulfillmentStrategy strategy = 5;
+  // The program resource identifier.
+  string program_uri = 6;
+  // The stdin resource identifier.
+  string stdin_uri = 7;
+  // The deadline for the request.
+  uint64 deadline = 8;
+  // The cycle limit for the request.
+  uint64 cycle_limit = 9;
+  // The gas price for the request.
+  optional uint64 gas_price = 10;
+  // The fulfillment status of the request.
+  FulfillmentStatus fulfillment_status = 11;
+  // The execution status of the request.
+  ExecutionStatus execution_status = 12;
+  // The requester address that signed the request.
+  bytes requester = 13;
+  // The fulfiller address that fulfilled the request.
+  optional bytes fulfiller = 14;
+  // The optional name to refer to an alias of the program id.
+  optional string program_name = 15;
+  // The optional name to refer to an alias of the requester address.
+  optional string requester_name = 16;
+  // The optional name to refer to an alias of the fulfiller address.
+  optional string fulfiller_name = 17;
+  // The unix timestamp of when the request was created.
+  uint64 created_at = 18;
+  // The unix timestamp of when the request was updated.
+  uint64 updated_at = 19;
+  // The unix timestamp of when the request was fulfilled. Only included if
+  // the request has a fulfillment status of FULFILLED.
+  optional uint64 fulfilled_at = 20;
+  // The transaction hash of the request.
+  bytes tx_hash = 21;
+  // The cycle used during the execution of the request. Only included if the
+  // request has an execution status of EXECUTED.
+  optional uint64 cycles = 22;
+  // The public values hash from the execution of the request. Only included if
+  // the request has an execution status of EXECUTED.
+  optional bytes public_values_hash = 23;
+  // The amount deducted from the fulfiller's balance. Only included if the
+  // request has a fulfillment status of ASSIGNED.
+  optional string deduction_amount = 24;
+  // The amount refunded to the fulfiller's balance. Only included if the
+  // request has a fulfillment status of EXECUTED.
+  optional string refund_amount = 25;
+  // The gas limit for the request.
+  uint64 gas_limit = 26;
+  // The amount of gas used for the request.
+  optional uint64 gas_used = 27;
+  // The cause of execution failure, if any.
+  ExecuteFailureCause execute_fail_cause = 28;
+}
+
+message GetProofRequestStatusRequest {
+  // The identifier for the request.
+  bytes request_id = 1;
+}
+
+message GetProofRequestStatusResponse {
+  // The fulfillment status of the request.
+  FulfillmentStatus fulfillment_status = 1;
+  // The execution status of the request.
+  ExecutionStatus execution_status = 2;
+  // The transaction hash of the request.
+  bytes request_tx_hash = 3;
+  // The deadline of the request. A request should be ignored if it is past
+  // its deadline.
+  uint64 deadline = 4;
+  // The optional transaction hash of the proof fulfill. Only included if the
+  // request has a fulfillment status of FULFILLED.
+  optional bytes fulfill_tx_hash = 5;
+  // The optional proof URI, where you can download the result of the request.
+  // Only included if the request has a fulfillment status of FULFILLED.
+  optional string proof_uri = 6;
+  // The optional public values hash from the execution of the request. Only
+  // included if the request has an execution status of EXECUTED.
+  optional bytes public_values_hash = 7;
+}
+
+message GetProofRequestDetailsRequest {
+  // The identifier for the request.
+  bytes request_id = 1;
+}
+
+message GetProofRequestDetailsResponse {
+  // The detailed request.
+  ProofRequest request = 1;
+}
+
+message GetFilteredProofRequestsRequest {
+  // The optional version of the requests to filter for.
+  optional string version = 1;
+  // The optional fulfillment status of the requests to filter for.
+  optional FulfillmentStatus fulfillment_status = 2;
+  // The optional execution status of the requests to filter for.
+  optional ExecutionStatus execution_status = 3;
+  // The optional minimum unix timestamp deadline of the requests to filter for.
+  // Only returns requests with deadlines after this timestamp.
+  optional uint64 minimum_deadline = 4;
+  // The optional verification key hash of the program to filter for.
+  optional bytes vk_hash = 5;
+  // The optional requester address to filter for.
+  optional bytes requester = 6;
+  // The optional fulfiller address to filter for.
+  optional bytes fulfiller = 7;
+  // The optional minimum creation unix timestamp of the requests to filter for.
+  optional uint64 from = 8;
+  // The optional maximum creation unix timestamp of the requests to filter for.
+  optional uint64 to = 9;
+  // The optional maximum number of requests to return (default is 10,
+  // maximum is 100).
+  optional uint32 limit = 10;
+  // The optional page number to return (default is 1).
+  optional uint32 page = 11;
+  // The optional mode of the requests to filter for.
+  optional ProofMode mode = 12;
+  // The optional bidder address to filter out. Only returns requests that
+  // have not been bid by this address.
+  optional bytes not_bid_by = 13;
+  // The optional cause of execution failure.
+  optional ExecuteFailureCause execute_fail_cause = 14;
+}
+
+message GetFilteredProofRequestsResponse {
+  // The requests that matched the filter criteria.
+  repeated ProofRequest requests = 1;
+}
+
+message GetSearchResultsRequest {
+  // The search query string.
+  string query = 1;
+}
+
+message SearchResult {
+  bytes id = 1;
+  optional string name = 2;
+}
+
+message GetSearchResultsResponse {
+  // List of matching request IDs with optional names.
+  repeated SearchResult requests = 1;
+  // List of matching program IDs with optional names.
+  repeated SearchResult programs = 2;
+  // List of matching requester IDs with optional names.
+  repeated SearchResult requesters = 3;
+}
+
+message GetProofRequestMetricsRequest {
+  // The optional address to filter for.
+  optional bytes address = 1;
+  // The optional interval in days for volume calculation.
+  optional uint64 volume_interval_days = 2;
+}
+
+message GetProofRequestMetricsResponse {
+  // The total number of proofs.
+  uint64 total_proofs = 1;
+  // The total number of cycles.
+  uint64 total_cycles = 2;
+  // The volume in the specified interval.
+  uint64 volume = 3;
+}
+
+message GetProofRequestGraphRequest {
+  // The optional address to filter for.
+  optional bytes address = 1;
+  // The optional interval in days for the graph range.
+  optional uint64 range_interval_days = 2;
+}
+
+message GraphData {
+  // The timestamp of the data point.
+  string timestamp = 1;
+  // The value at this timestamp.
+  uint64 value = 2;
+}
+
+message GetProofRequestGraphResponse {
+  // The time series data points.
+  repeated GraphData data = 1;
+}
+
+message GetAnalyticsGraphsRequest {
+  // The optional address to filter for.
+  optional bytes address = 1;
+  // The optional interval in days for the graph range.
+  optional uint64 range_interval_days = 2;
+}
+
+message GetAnalyticsGraphsResponse {
+  // The time series data points for proof count.
+  repeated GraphData proofs = 1;
+  // The time series data points for program count.
+  repeated GraphData programs = 2;
+  // The time series data points for cycle count.
+  repeated GraphData cycles = 3;
+}
+
+/****************
+ *** Accounts ***
+ ****************/
+
+message GetNonceRequest {
+  // The address of the account.
+  bytes address = 1;
+}
+
+message GetNonceResponse {
+  // The nonce of the account.
+  uint64 nonce = 1;
+}
+
+message Delegation {
+  // The address of the owner.
+  bytes owner = 1;
+  // The address of the delegate (the account with granted permissions).
+  bytes delegate = 2;
+  // Whether the delegation has been accepted.
+  bool accepted = 3;
+  // The unix timestamp of when the delegation was created.
+  uint64 created_at = 4;
+}
+
+message GetFilteredDelegationsRequest {
+  // The optional owner address to filter for.
+  optional bytes owner = 1;
+  // The optional maximum number of requests to return (default is 10,
+  // maximum is 100).
+  optional uint32 limit = 2;
+  // The optional page number to return (default is 1).
+  optional uint32 page = 3;
+}
+
+message GetFilteredDelegationsResponse {
+  // The delegations that matched the filter criteria.
+  repeated Delegation delegations = 1;
+}
+
+message AddDelegationRequest {
+  // The message format of the body.
+  MessageFormat format = 1;
+  // The signature of the sender.
+  bytes signature = 2;
+  // The body of the request.
+  AddDelegationRequestBody body = 3;
+}
+
+message AddDelegationRequestBody {
+  // The account nonce of the sender.
+  uint64 nonce = 1;
+  // The delegate address to add.
+  bytes delegate = 2;
+}
+
+message AddDelegationResponse {
+  // The transaction hash.
+  bytes tx_hash = 1;
+  // The body of the response.
+  AddDelegationResponseBody body = 2;
+}
+
+message AddDelegationResponseBody {}
+
+message RemoveDelegationRequest {
+  // The message format of the body.
+  MessageFormat format = 1;
+  // The signature of the sender.
+  bytes signature = 2;
+  // The body of the request.
+  RemoveDelegationRequestBody body = 3;
+}
+
+message RemoveDelegationRequestBody {
+  // The account nonce of the sender.
+  uint64 nonce = 1;
+  // The delegate address to remove.
+  bytes delegate = 2;
+}
+
+message RemoveDelegationResponse {
+  // The transaction hash.
+  bytes tx_hash = 1;
+  // The body of the response.
+  RemoveDelegationResponseBody body = 2;
+}
+
+message RemoveDelegationResponseBody {}
+
+message TerminateDelegationRequest {
+  // The message format of the body.
+  MessageFormat format = 1;
+  // The signature of the sender.
+  bytes signature = 2;
+  // The body of the request.
+  TerminateDelegationRequestBody body = 3;
+}
+
+message TerminateDelegationRequestBody {
+  // The account nonce of the sender.
+  uint64 nonce = 1;
+  // The address of the owner whose delegation to terminate.
+  bytes owner = 2;
+}
+
+message TerminateDelegationResponse {
+  // The transaction hash.
+  bytes tx_hash = 1;
+  // The body of the response.
+  TerminateDelegationResponseBody body = 2;
+}
+
+message TerminateDelegationResponseBody {}
+
+message AcceptDelegationRequest {
+  // The message format of the body.
+  MessageFormat format = 1;
+  // The signature of the sender.
+  bytes signature = 2;
+  // The body of the request.
+  AcceptDelegationRequestBody body = 3;
+}
+
+message AcceptDelegationRequestBody {
+  // The account nonce of the sender.
+  uint64 nonce = 1;
+  // The address of the owner who requested the delegation
+  bytes owner = 2;
+}
+
+message AcceptDelegationResponse {
+  // The transaction hash.
+  bytes tx_hash = 1;
+  // The body of the response.
+  AcceptDelegationResponseBody body = 2;
+}
+
+message AcceptDelegationResponseBody {}
+
+message SetAccountNameRequest {
+  // The message format of the body.
+  MessageFormat format = 1;
+  // The signature of the sender.
+  bytes signature = 2;
+  // The body of the request.
+  SetAccountNameRequestBody body = 3;
+}
+
+message SetAccountNameRequestBody {
+  // The account nonce of the sender.
+  uint64 nonce = 1;
+  // The address of the account to update the name of. Only the sender can
+  // update the name unless authorized.
+  bytes address = 2;
+  // The name of the account. Must be unique.
+  string name = 3;
+}
+
+message SetAccountNameResponse {
+  // The transaction hash.
+  bytes tx_hash = 1;
+  // The body of the response.
+  SetAccountNameResponseBody body = 2;
+}
+
+message SetAccountNameResponseBody {}
+
+message GetAccountNameRequest {
+  // The address of the account.
+  bytes address = 1;
+}
+
+message GetAccountNameResponse {
+  // The name of the account.
+  optional string name = 1;
+}
+
+message GetOwnerRequest {
+  // The address of the account.
+  bytes address = 1;
+}
+
+message GetOwnerResponse {
+  // The owner of the account.
+  bytes owner = 1;
+}
+
+message GetTermsSignatureRequest {
+  // The address of the account.
+  bytes address = 1;
+}
+
+message GetTermsSignatureResponse {
+  // Whether the account has signed the terms.
+  bool is_signed = 1;
+}
+
+message SetTermsSignatureRequest {
+  // The message format of the body.
+  MessageFormat format = 1;
+  // The signature of the sender.
+  bytes signature = 2;
+  // The body of the request.
+  SetTermsSignatureRequestBody body = 3;
+}
+
+message SetTermsSignatureRequestBody {
+  // The account nonce of the sender.
+  uint64 nonce = 1;
+  // The message accepting the terms of service.
+  string message = 3;
+}
+
+message SetTermsSignatureResponse {
+  // The transaction hash.
+  bytes tx_hash = 1;
+  // The body of the response.
+  SetTermsSignatureResponseBody body = 2;
+}
+
+message SetTermsSignatureResponseBody {}
+
+message Account {
+  // The address of the account.
+  bytes address = 1;
+  // The custom name of the account (optional).
+  optional string name = 2;
+  // The twitter handle of the account (optional).
+  optional string twitter_id = 3;
+  // The twitter name of the account (optional).
+  optional string twitter_name = 4;
+  // The twitter username of the account (optional).
+  optional string twitter_handle = 5;
+  // The twitter image of the account (optional).
+  optional string twitter_image = 6;
+  // Whether the account wants to use their twitter handle to set their name.
+  bool use_twitter_handle = 7;
+  // Whether the account wants to use their twitter image to set their image.
+  bool use_twitter_image = 8;
+  // The code of the account (optional).
+  optional string code = 9;
+  // Whether the account has completed onboarding.
+  bool is_onboarded = 10;
+  // The version of the captcha game the account has completed.
+  optional int32 last_captcha_version = 11;
+  // The turbo high score of the account.
+  optional int32 turbo_high_score = 12;
+  // The version of the quiz game the account has completed.
+  optional int32 last_quiz_version = 13;
+  // The whitelist id of the account (optional).
+  optional int64 whitelist_id = 14;
+  // The social platform type from the whitelist (optional).
+  optional SocialPlatform whitelist_social_platform = 15;
+  // The social handle from the whitelist (optional).
+  optional string whitelist_social_handle = 16;
+  // The social id from the whitelist (optional).
+  optional string whitelist_social_id = 17;
+  // The social image from the whitelist (optional).
+  optional string whitelist_social_image = 18;
+  // Whether the user completed whitelist social auth.
+  optional bool whitelist_has_social_auth = 19; 
+  // The gpu ID of the account (optional).
+  optional int64 gpu_id = 20;
+  // The gpu delegate address (optional).
+  optional bytes gpu_delegate = 21;
+  // The gpu variant type (optional).
+  optional GpuVariant gpu_variant = 22;
+  // The proving address of the account (optional). Only included if not delegating to Succinct's
+  // auction fulfiller.
+  optional bytes proving_address = 23;
+  // The 2048 high score of the account.
+  optional int32 high_score_2048 = 24;
+  // The crab volleyball high score of the account.
+  optional int32 high_score_volleyball = 25;
+  // The coin craze high score of the account.
+  optional int32 high_score_coin_craze = 26;
+  // The turbo time trial high score of the account.
+  optional int32 high_score_turbo_trials = 27;
+  // The turbo time trial best rate of the account.
+  optional float best_rate_turbo_trials = 28;
+  // The gpu coordinates (optional).
+  optional string gpu_coordinates = 29;
+  // The unix timestamp of when the gpu was created (optional).
+  optional uint64 gpu_created_at = 30;
+  // The lean high score of the account.
+  optional int32 high_score_lean = 31;
+}
+
+message GetAccountRequest {
+  // The address of the account.
+  bytes address = 1;
+}
+
+message GetAccountResponse {
+  // The account details.
+  Account account = 1;
+}
+
+message GetTEEWhitelistStatusRequest {
+  // The address of the account.
+  bytes address = 1;
+}
+
+message GetTEEWhitelistStatusResponse {
+  // The whitelist status.
+  bool is_whitelisted = 1;
+}
+
+/****************
+ *** Programs ***
+ ***************/
+
+ message Program {
+  // The verification key hash.
+  bytes vk_hash = 1;
+  // The verification key.
+  bytes vk = 2;
+  // The program resource identifier.
+  string program_uri = 3;
+  // The optional name of the program.
+  optional string name = 4;
+  // The owner of the program.
+  bytes owner = 5;
+  // The unix timestamp of when the program was created.
+  uint64 created_at = 6;
+}
+
+message GetProgramRequest {
+  // The verification key hash of the program.
+  bytes vk_hash = 1;
+}
+
+message GetProgramResponse {
+  // The program details.
+  Program program = 1;
+}
+
+message CreateProgramRequest {
+  // The message format of the body.
+  MessageFormat format = 1;
+  // The signature of the sender.
+  bytes signature = 2;
+  // The body of the request.
+  CreateProgramRequestBody body = 3;
+}
+
+message CreateProgramRequestBody {
+  // The account nonce of the sender.
+  uint64 nonce = 1;
+  // The verification key hash.
+  bytes vk_hash = 2;
+  // The verification key.
+  bytes vk = 3;
+  // The program resource identifier.
+  string program_uri = 4;
+}
+
+message CreateProgramResponse {
+  // The transaction hash.
+  bytes tx_hash = 1;
+  // The body of the response.
+  CreateProgramResponseBody body = 2;
+}
+
+message CreateProgramResponseBody {}
+
+message SetProgramNameRequest {
+  // The message format of the body.
+  MessageFormat format = 1;
+  // The signature of the sender.
+  bytes signature = 2;
+  // The body of the request.
+  SetProgramNameRequestBody body = 3;
+}
+
+message SetProgramNameRequestBody {
+  // The account nonce of the sender.
+  uint64 nonce = 1;
+  // The identifier of the program to update the name of. Only the original
+  // program creator can update the name unless authorized.
+  bytes vk_hash = 2;
+  // The name of the program. Must be unique.
+  string name = 3;
+}
+
+message SetProgramNameResponse {
+  // The transaction hash.
+  bytes tx_hash = 1;
+  // The body of the response.
+  SetProgramNameResponseBody body = 2;
+}
+
+message SetProgramNameResponseBody {}
+
+/****************
+ *** Payments ***
+ ***************/
+
+message GetBalanceRequest {
+  // The address of the account.
+  bytes address = 1;
+}
+
+message GetBalanceResponse {
+  // The amount of credits owned by the account.
+  string amount = 1;
+}
+
+message BalanceLog {
+  // The address of the account.
+  bytes address = 1;
+  // The type of balance change operation.
+  BalanceOperation operation = 2;
+  // The amount of the change (can be positive or negative).
+  string amount = 3;
+  // The transaction hash that caused this change.
+  bytes tx_hash = 4;
+  // The unix timestamp of when this change occurred.
+  uint64 created_at = 5;
+}
+
+message GetFilteredBalanceLogsRequest {
+  // The optional address to filter for.
+  optional bytes address = 1;
+  // The optional type of operations to filter for.
+  optional BalanceOperation operation = 2;
+  // The optional minimum unix timestamp to filter logs from. Only returns
+  // logs after this timestamp.
+  optional uint64 minimum_timestamp = 3;
+  // The optional maximum unix timestamp to filter logs to. Only returns
+  // logs before this timestamp.
+  optional uint64 maximum_timestamp = 4;
+  // The optional maximum number of logs to return (default is 10, maximum is 100).
+  optional uint32 limit = 5;
+  // The optional page number to return (default is 1).
+  optional uint32 page = 6;
+}
+
+message GetFilteredBalanceLogsResponse {
+  // The balance logs that matched the filter criteria.
+  repeated BalanceLog logs = 1;
+}
+  
+message AddCreditRequest {
+  // The message format of the body.
+  MessageFormat format = 1;
+  // The signature of the sender.
+  bytes signature = 2;
+  // The body of the request.
+  AddCreditRequestBody body = 3;
+}
+
+message AddCreditRequestBody {
+  // The account nonce of the sender.
+  uint64 nonce = 1;
+  // The address of the account to add credits to.
+  bytes address = 2;
+  // The amount of credits to add.
+  string amount = 3;
+}
+
+message AddCreditResponse {
+  // The transaction hash.
+  bytes tx_hash = 1;
+  // The body of the response.
+  AddCreditResponseBody body = 2;
+}
+
+message AddCreditResponseBody {}
+
+message GetLatestBridgeBlockRequest {
+  // The chain ID of the bridge.
+  uint32 chain_id = 1;
+}
+
+message GetLatestBridgeBlockResponse {
+  // The latest processed block in the bridge.
+  uint64 block_number = 1;
+}
+
+message GetGasPriceEstimateRequest {
+  FulfillmentStrategy strategy = 1;
+}
+
+message GetGasPriceEstimateResponse {
+  uint64 gas_price = 1;
+}
+
+message GetTransactionDetailsRequest {
+  // The transaction hash.
+  bytes tx_hash = 1;
+}
+
+message TransactionDetails {
+  bytes tx_hash = 1;
+  bytes sender = 2;
+  bytes signature = 3;
+  uint64 nonce = 4;
+  uint64 created_at = 5;
+  optional string name = 6;
+  optional bytes request_id = 7;
+}
+
+message GetTransactionDetailsResponse {
+  TransactionDetails transaction = 1;
+}
+
+/********************
+ *** Reservations ***
+ ********************/
+
+message Reservation {
+  // The address of the requester.
+  bytes requester = 1;
+  // The address of the fulfiller.
+  bytes fulfiller = 2;
+  // The optional name to refer to an alias of the requester address.
+  optional string requester_name = 3;
+  // The optional name to refer to an alias of the fulfiller address.
+  optional string fulfiller_name = 4;
+  // The unix timestamp of when the reservation was created.
+  uint64 created_at = 5;
+}
+
+message GetFilteredReservationsRequest {
+  // Requester address to filter for.
+  optional bytes requester = 1;
+  // The optional maximum number of reservations to return (default is 10,
+  // maximum is 100).
+  optional uint32 limit = 2;
+  // The optional page number to return (default is 1).
+  optional uint32 page = 3;
+}
+
+message GetFilteredReservationsResponse {
+  // The reservations that matched the filter criteria.
+  repeated Reservation reservations = 1;
+}
+
+message AddReservationRequest {
+  // The message format of the body.
+  MessageFormat format = 1;
+  // The signature of the sender.
+  bytes signature = 2;
+  // The body of the request.
+  AddReservationRequestBody body = 3;
+}
+
+message AddReservationRequestBody {
+  // The account nonce of the sender.
+  uint64 nonce = 1;
+  // The address of the requester to add reservation for.
+  bytes requester = 2;
+  // The address of the fulfiller to reserve.
+  bytes fulfiller = 3;
+}
+
+message AddReservationResponse {
+  // The transaction hash.
+  bytes tx_hash = 1;
+  // The body of the response.
+  AddReservationResponseBody body = 2;
+}
+
+message AddReservationResponseBody {}
+
+message RemoveReservationRequest {
+  // The message format of the body.
+  MessageFormat format = 1;
+  // The signature of the sender.
+  bytes signature = 2;
+  // The body of the request.
+  RemoveReservationRequestBody body = 3;
+}
+
+message RemoveReservationRequestBody {
+  // The account nonce of the sender.
+  uint64 nonce = 1;
+  // The address of the requester to remove reservation for.
+  bytes requester = 2;
+}
+
+message RemoveReservationResponse {
+  // The transaction hash.
+  bytes tx_hash = 1;
+  // The body of the response.
+  RemoveReservationResponseBody body = 2;
+}
+
+message RemoveReservationResponseBody {}
+
+
+/*****************
+ *** Auctions ***
+ *****************/
+
+message BidRequest {
+  // The message format of the body.
+  MessageFormat format = 1;
+  // The signature of the sender.
+  bytes signature = 2;
+  // The body of the request.
+  BidRequestBody body = 3;
+}
+
+message BidRequestBody {
+  // The account nonce of the sender.
+  uint64 nonce = 1;
+  // The request ID to bid on.
+  bytes request_id = 2;
+}
+
+message BidResponse {
+  // The transaction hash.
+  bytes tx_hash = 1;
+  // The body of the response.
+  BidResponseBody body = 2;
+}
+
+message BidResponseBody {}
+
+message SettleRequest {
+  // The message format of the body.
+  MessageFormat format = 1;
+  // The signature of the sender.
+  bytes signature = 2;
+  // The body of the request.
+  SettleRequestBody body = 3;
+}
+
+message SettleRequestBody {
+  // The account nonce of the sender.
+  uint64 nonce = 1;
+  // The request ID to settle bids for.
+  bytes request_id = 2;
+}
+
+message SettleResponse {
+  // The transaction hash.
+  bytes tx_hash = 1;
+  // The body of the response.
+  SettleResponseBody body = 2;
+}
+
+message SettleResponseBody {}
+
+/*******************
+ *** Leaderboard ***
+ *******************/
+
+message Claims {
+  // The subject of the JWT.
+  bytes sub = 1;
+  // The expiration time of the JWT.
+  uint64 exp = 2;
+}
+
+message SignInRequest {
+  // The signature of the sender.
+  bytes signature = 1;
+  // The SIWE message.
+  string message = 2;
+}
+
+message SignInResponse {
+  // The JSON Web Token (JWT) to use for authentication.
+  string jwt = 1;
+}
+
+message GetOnboardedAccountsCountRequest {}
+
+message GetOnboardedAccountsCountResponse {
+  // The number of accounts that have been onboarded.
+  uint64 count = 1;
+}
+
+message OnboardedAccount {
+  // The address of the account.
+  bytes address = 1;
+  // The unix timestamp of when the account was onboarded.
+  uint64 created_at = 2;
+  // The optional name of the account.
+  optional string name = 3;
+  // The optional twitter handle of the account.
+  optional string image = 4;
+  // The optional invite code referrer of the account.
+  optional string referrer = 5;
+}
+
+message GetFilteredOnboardedAccountsRequest {
+  // The optional maximum number of entries to return (default is 10, maximum is 100).
+  optional uint32 limit = 1;
+  // The optional page number to return (default is 1).
+  optional uint32 page = 2;
+}
+
+message GetFilteredOnboardedAccountsResponse {
+  // The accounts that matched the filter criteria.
+  repeated OnboardedAccount accounts = 1;
+}
+
+message LeaderboardRow {
+  // The address of the account.
+  bytes address = 1;
+  // The rank of the account.
+  uint64 rank = 2;
+  // The optional name of the account.
+  optional string name = 3;
+  // The optional twitter handle of the account.
+  optional string image = 4;
+  // The optional invite code referrer of the account.
+  optional string referrer = 5;
+  // The number of requests.
+  uint64 requests = 6;
+  // The number of cycles.
+  uint64 cycles = 7;
+  // The number of redeemed stars.
+  uint64 redeemed_stars = 8;
+}
+
+message LeaderboardRowWithExtraStars {
+  // The address of the account.
+  bytes address = 1;
+  // The rank of the account.
+  uint64 rank = 2;
+  // The optional name of the account.
+  optional string name = 3;
+  // The optional twitter handle of the account.
+  optional string image = 4;
+  // The optional invite code referrer of the account.
+  optional string referrer = 5;
+  // The number of requests.
+  uint64 requests = 6;
+  // The number of cycles.
+  uint64 cycles = 7;
+  // The number of redeemed stars.
+  uint64 redeemed_stars = 8;
+  // The number of pending stars (total - redeemed).
+  uint64 pending_stars = 9;
+  // The number of referral stars (already counted in pending stars / redeemed stars).
+  uint64 referral_stars = 10;
+}
+
+message GetLeaderboardRequest {
+  // The optional maximum number of entries to return (default is 10, maximum is 100).
+  optional uint32 limit = 1;
+  // The optional page number to return (default is 1).
+  optional uint32 page = 2;
+}
+
+message GetLeaderboardResponse {
+  // The leaderboard entries.
+  repeated LeaderboardRow leaderboard = 1;
+}
+
+message GetLeaderboardStatsRequest {
+  // The address of the account.
+  bytes address = 1;
+}
+
+message GetLeaderboardStatsResponse {
+  // The leaderboard stats for the account.
+  LeaderboardRowWithExtraStars stats = 1;
+}
+
+message ReferralCode {
+  // The code.
+  string code = 1;
+  // The optional account's address that redeemed the code.
+  optional bytes referred_account = 2;
+  // The optional account's name that redeemed the code.
+  optional string referred_name = 3;
+  // The optional account's image that redeemed the code.
+  optional string referred_image = 4;
+  // The unix timestamp of when the code was created.
+  uint64 created_at = 5;
+}
+
+message GetCodesRequest {
+  // The account to get the codes for.
+  bytes account = 1;
+}
+
+message GetCodesResponse {
+  // The codes that the account has.
+  repeated ReferralCode codes = 1;
+}
+
+message RedeemCodeRequest {
+  // The message format of the body.
+  MessageFormat format = 1;
+  // The signature of the sender.
+  bytes signature = 2;
+  // The body of the request.
+  RedeemCodeRequestBody body = 3;
+}
+
+message RedeemCodeRequestBody {
+  // The account nonce of the sender.
+  uint64 nonce = 1;
+  // The code to redeem.
+  string code = 2;
+}
+
+message RedeemCodeResponse {
+  // The transaction hash.
+  bytes tx_hash = 1;
+  // The body of the response.
+  RedeemCodeResponseBody body = 2;
+}
+
+message RedeemCodeResponseBody {}
+
+message ConnectTwitterRequest {
+  // The message format of the body.
+  MessageFormat format = 1;
+  // The signature of the sender.
+  bytes signature = 2;
+  // The body of the request.
+  ConnectTwitterRequestBody body = 3;
+}
+
+message ConnectTwitterRequestBody {
+  // The account nonce of the sender.
+  uint64 nonce = 1;
+  // The callback URI redirected to.
+  string callback_uri = 2;
+  // The code from Twitter.
+  string code = 3;
+  // The code verifier used in the initial Twitter request.
+  string code_verifier = 4;
+}
+
+message ConnectTwitterResponse {
+  // The transaction hash.
+  bytes tx_hash = 1;
+  // The body of the response.
+  ConnectTwitterResponseBody body = 2;
+}
+
+message ConnectTwitterResponseBody {}
+
+message CompleteOnboardingRequest {
+  // The message format of the body.
+  MessageFormat format = 1;
+  // The signature of the sender.
+  bytes signature = 2;
+  // The body of the request.
+  CompleteOnboardingRequestBody body = 3;
+}
+
+message CompleteOnboardingRequestBody {
+  // The account nonce of the sender.
+  uint64 nonce = 1;
+}
+
+message CompleteOnboardingResponse {
+  // The transaction hash.
+  bytes tx_hash = 1;
+  // The body of the response.
+  CompleteOnboardingResponseBody body = 2;
+}
+
+message CompleteOnboardingResponseBody {}
+
+message SetUseTwitterHandleRequest {
+  // The message format of the body.
+  MessageFormat format = 1;
+  // The signature of the sender.
+  bytes signature = 2;
+  // The body of the request.
+  SetUseTwitterHandleRequestBody body = 3;
+}
+
+message SetUseTwitterHandleRequestBody {
+  // The account nonce of the sender.
+  uint64 nonce = 1;
+  // Whether to display the Twitter handle.
+  bool should_display = 2;
+}
+
+message SetUseTwitterHandleResponse {
+  // The transaction hash.
+  bytes tx_hash = 1;
+  // The body of the response.
+  SetUseTwitterHandleResponseBody body = 2;
+} 
+
+message SetUseTwitterHandleResponseBody {}
+
+message SetUseTwitterImageRequest {
+  // The message format of the body.
+  MessageFormat format = 1;
+  // The signature of the sender.
+  bytes signature = 2;
+  // The body of the request.
+  SetUseTwitterImageRequestBody body = 3;
+} 
+
+message SetUseTwitterImageRequestBody {
+  // The account nonce of the sender.
+  uint64 nonce = 1;
+  // Whether to display the Twitter profile picture.
+  bool should_display = 2;
+}
+
+message SetUseTwitterImageResponse {
+  // The transaction hash.
+  bytes tx_hash = 1;
+  // The body of the response.
+  SetUseTwitterImageResponseBody body = 2;
+}
+
+message SetUseTwitterImageResponseBody {}
+
+message RequestRandomProofRequest {
+  // The message format of the body.
+  MessageFormat format = 1;
+  // The signature of the sender.
+  bytes signature = 2;
+  // The body of the request.
+  RequestRandomProofRequestBody body = 3;
+}
+
+message RequestRandomProofRequestBody {
+  // The account nonce of the sender.
+  uint64 nonce = 1;
+}
+
+message RequestRandomProofResponse {
+  // The transaction hash.
+  bytes tx_hash = 1;
+  // The body of the response.
+  RequestRandomProofResponseBody body = 2;
+}
+
+message RequestRandomProofResponseBody {
+  // The identifier for the request.
+  bytes request_id = 1;
+  // The name of the randomly selected program.
+  string program_name = 2;
+  // The number of bonus stars earned.
+  uint64 stars = 3;
+}
+
+message SubmitCaptchaGameRequest {
+  // The message format of the body.
+  MessageFormat format = 1;
+  // The signature of the sender.
+  bytes signature = 2;
+  // The body of the request.
+  SubmitCaptchaGameRequestBody body = 3;
+}
+
+message SubmitCaptchaGameRequestBody {
+  // The account nonce of the sender.
+  uint64 nonce = 1;
+  // The list of integer answers for the captcha game.
+  repeated int32 fake_images = 2;
+}
+
+message SubmitCaptchaGameResponse {
+  // The transaction hash.
+  bytes tx_hash = 1;
+  // The body of the response.
+  SubmitCaptchaGameResponseBody body = 2;
+}
+
+message SubmitCaptchaGameResponseBody {
+  // The number of correct answers submitted.
+  uint32 correct_count = 1;
+}
+
+
+message RedeemStarsRequest {
+  // The message format of the body.
+  MessageFormat format = 1;
+  // The signature of the sender.
+  bytes signature = 2;
+  // The body of the request.
+  RedeemStarsRequestBody body = 3;
+}
+
+message RedeemStarsRequestBody {
+  // The account nonce of the sender.
+  uint64 nonce = 1;
+}
+
+message RedeemStarsResponse {
+  // The transaction hash.
+  bytes tx_hash = 1;
+  // The body of the response.
+  RedeemStarsResponseBody body = 2;
+}
+
+message RedeemStarsResponseBody {
+  // The base number of stars that were redeemed.
+  uint64 base_stars = 1;
+  // The multiplier that was applied.
+  string multiplier = 2;
+  // The final number of stars after applying the multiplier.
+  uint64 final_stars = 3;
+}
+
+message GetFlappyLeaderboardRequest {
+  // The optional maximum number of requests to return (default is 10,
+  // maximum is 100).
+  optional uint32 limit = 1;
+  // The optional page number to return (default is 1).
+  optional uint32 page = 2;
+}
+
+message FlappyBirdEntry {
+  // The unique ID of the proof request.
+  bytes request_id = 1;
+  // The account that submitted the proof request.
+  bytes sender = 2;
+  // The number of cycles used.
+  uint64 cycles = 3;
+  // The player's score.
+  uint64 score = 4;
+  // The twitter username of the account.
+  optional string twitter_handle = 5;
+  // The twitter image of the account.
+  optional string twitter_image = 6;
+  // Whether the account wants to use their twitter handle to set their name.
+  bool use_twitter_handle = 7;
+  // Whether the account wants to use their twitter image to set their image.
+  bool use_twitter_image = 8;
+}
+
+message GetFlappyLeaderboardResponse {
+  // List of flappy bird leaderboard entries.
+  repeated FlappyBirdEntry entries = 1;
+}
+
+message SetTurboHighScoreRequest {
+  // The message format of the body.
+  MessageFormat format = 1;
+  // The signature of the sender.
+  bytes signature = 2;
+  // The body of the request.
+  SetTurboHighScoreRequestBody body = 3;
+}
+
+message SetTurboHighScoreRequestBody {
+  // The account nonce of the sender.
+  uint64 nonce = 1;
+  // The high score to set.
+  uint64 high_score = 2;
+}
+
+message SetTurboHighScoreResponse {
+  // The transaction hash.
+  bytes tx_hash = 1;
+  // The body of the response.
+  SetTurboHighScoreResponseBody body = 2;
+}
+
+message SetTurboHighScoreResponseBody {}  
+
+message SubmitQuizGameRequest {
+  // The message format of the body.
+  MessageFormat format = 1;
+  // The signature of the sender.
+  bytes signature = 2;
+  // The body of the request.
+  SubmitQuizGameRequestBody body = 3;
+}
+
+message SubmitQuizGameRequestBody {
+  // The account nonce of the sender.
+  uint64 nonce = 1;
+  // The list of integer answers for the quiz game.
+  repeated int32 answers = 2;
+}
+
+message SubmitQuizGameResponse {
+  // The transaction hash.
+  bytes tx_hash = 1;
+  // The body of the response.
+  SubmitQuizGameResponseBody body = 2;
+}
+
+message SubmitQuizGameResponseBody {
+  // The number of correct answers submitted.
+  uint32 correct_count = 1;
+}
+
+message GetTurboLeaderboardRequest {
+  // The optional maximum number of requests to return (default is 10,
+  // maximum is 100).
+  optional uint32 limit = 1;
+  // The optional page number to return (default is 1).
+  optional uint32 page = 2;
+}
+
+message TurboLeaderboardEntry {
+  // The account that submitted the proof request.
+  bytes sender = 1;
+  // The player's score.
+  uint64 score = 2;
+  // The twitter username of the account.
+  optional string twitter_handle = 3;
+  // The twitter image of the account.
+  optional string twitter_image = 4;
+  // Whether the account wants to use their twitter handle to set their name.
+  bool use_twitter_handle = 5;
+  // Whether the account wants to use their twitter image to set their image.
+  bool use_twitter_image = 6;
+}
+
+message GetTurboLeaderboardResponse {
+  // List of turbo leaderboard entries.
+  repeated TurboLeaderboardEntry entries = 1;
+}
+
+message SubmitEthBlockMetadataRequest {
+  // The message format of the body.
+  MessageFormat format = 1;
+  // The signature of the sender.
+  bytes signature = 2;
+  // The body of the request.
+  SubmitEthBlockMetadataBody body = 3;
+}
+
+message SubmitEthBlockMetadataBody {
+  // The account nonce of the sender.
+  uint64 nonce = 1;
+  // The request identifer for which this metadata is for.
+  bytes request_id = 2;
+  // The chain identifier.
+  uint32 chain_id = 3;
+  // The block hash.
+  bytes hash = 4;
+  // The block number.
+  uint64 number = 5;
+  // The block timestamp.
+  uint64 timestamp = 6;
+  // The block transaction count.
+  uint64 tx_count = 7;
+}
+
+message SubmitEthBlockMetadataResponse {
+  // The transaction hash.
+  bytes tx_hash = 1;
+  // The body of the response.
+  SubmitEthBlockMetadataResponseBody body = 2;
+}
+
+message SubmitEthBlockMetadataResponseBody {}
+
+message Bid {
+  // The address of the bidder.
+  bytes bidder = 1;
+  // The amount of the bid.
+  string amount = 2;
+}
+
+message Bet {
+  // The address of the bettor.
+  bytes bettor = 1;
+  // The amount of the bet.
+  string amount = 2;
+}
+
+
+message EthBlockRequest {
+  // The request identifier.
+  bytes request_id = 1;
+  // The verification key hash of the program.
+  bytes vk_hash = 2;
+  // The version of the prover to use.
+  string version = 3;
+  // The mode for the proof.
+  ProofMode mode = 4;
+  // The strategy for fulfiller assignment.
+  FulfillmentStrategy strategy = 5;
+  // The program resource identifier.
+  string program_uri = 6;
+  // The stdin resource identifier.
+  string stdin_uri = 7;
+  // The deadline for the request.
+  uint64 deadline = 8;
+  // The cycle limit for the request.
+  uint64 cycle_limit = 9;
+  // The gas price for the request.
+  optional uint64 gas_price = 10;
+  // The fulfillment status of the request.
+  FulfillmentStatus fulfillment_status = 11;
+  // The execution status of the request.
+  ExecutionStatus execution_status = 12;
+  // The requester address that signed the request.
+  bytes requester = 13;
+  // The fulfiller address that fulfilled the request.
+  optional bytes fulfiller = 14;
+  // The optional name to refer to an alias of the program id.
+  optional string program_name = 15;
+  // The optional name to refer to an alias of the requester address.
+  optional string requester_name = 16;
+  // The optional name to refer to an alias of the fulfiller address.
+  optional string fulfiller_name = 17;
+  // The unix timestamp of when the request was created.
+  uint64 created_at = 18;
+  // The unix timestamp of when the request was updated.
+  uint64 updated_at = 19;
+  // The unix timestamp of when the request was fulfilled. Only included if
+  // the request has a fulfillment status of FULFILLED.
+  optional uint64 fulfilled_at = 20;
+  // The transaction hash of the request.
+  bytes tx_hash = 21;
+  // The cycle used during the execution of the request. Only included if the
+  // request has an execution status of EXECUTED.
+  optional uint64 cycles = 22;
+  // The public values hash from the execution of the request. Only included if
+  // the request has an execution status of EXECUTED.
+  optional bytes public_values_hash = 23;
+  // The amount deducted from the fulfiller's balance. Only included if the
+  // request has a fulfillment status of ASSIGNED.
+  optional string deduction_amount = 24;
+  // The amount refunded to the fulfiller's balance. Only included if the
+  // request has a fulfillment status of EXECUTED.
+  optional string refund_amount = 25;
+  // The chain id of the request.
+  uint32 chain_id = 26;
+  // The block hash of the request.
+  bytes block_hash = 27;
+  // The block number of the request.
+  uint64 block_number = 28;
+  // The block timestamp of the request.
+  uint64 block_timestamp = 29;
+  // The block transaction count of the request.
+  uint64 block_tx_count = 30;
+  // The bids for the request.
+  repeated Bid bids = 31;
+  // When the auction was settled.
+  optional uint64 settled_at = 32;
+  // The fulfiller social platform.
+  optional SocialPlatform fulfiller_social_platform = 33;
+  // The fulfiller social id.
+  optional string fulfiller_social_id = 34;
+  // The fulfiller social handle.
+  optional string fulfiller_social_handle = 35;
+  // The fulfiller social image.
+  optional string fulfiller_social_image = 36;
+  // The bets for the request.
+  repeated BettorDetails bets = 37;
+}
+
+message GetFilteredEthBlockRequestsRequest {
+  // The optional version of the requests to filter for.
+  optional string version = 1;
+  // The optional fulfillment status of the requests to filter for.
+  optional FulfillmentStatus fulfillment_status = 2;
+  // The optional execution status of the requests to filter for.
+  optional ExecutionStatus execution_status = 3;
+  // The optional minimum unix timestamp deadline of the requests to filter for.
+  // Only returns requests with deadlines after this timestamp.
+  optional uint64 minimum_deadline = 4;
+  // The optional verification key hash of the program to filter for.
+  optional bytes vk_hash = 5;
+  // The optional requester address to filter for.
+  optional bytes requester = 6;
+  // The optional fulfiller address to filter for.
+  optional bytes fulfiller = 7;
+  // The optional minimum creation unix timestamp of the requests to filter for.
+  optional uint64 from = 8;
+  // The optional maximum creation unix timestamp of the requests to filter for.
+  optional uint64 to = 9;
+  // The optional maximum number of requests to return (default is 10,
+  // maximum is 100).
+  optional uint32 limit = 10;
+  // The optional page number to return (default is 1).
+  optional uint32 page = 11;
+  // The optional mode of the requests to filter for.
+  optional ProofMode mode = 12;
+  // The optional bidder address to filter out. Only returns requests that
+  // have not been bid by this address.
+  optional bytes not_bid_by = 13;
+}
+
+message GetFilteredEthBlockRequestsResponse {
+  // The list of filtered requests.
+  repeated EthBlockRequest requests = 1;
+}
+
+message Set2048HighScoreRequest {
+  // The message format of the body.
+  MessageFormat format = 1;
+  // The signature of the sender.
+  bytes signature = 2;
+  // The body of the request.
+  Set2048HighScoreRequestBody body = 3;
+}
+
+message Set2048HighScoreRequestBody {
+  // The account nonce of the sender.
+  uint64 nonce = 1;
+  // The high score to set.
+  uint64 high_score = 2;
+}
+
+message Set2048HighScoreResponse {
+  // The transaction hash.
+  bytes tx_hash = 1;
+  // The body of the response.
+  Set2048HighScoreResponseBody body = 2;
+}
+
+message Set2048HighScoreResponseBody {}
+
+enum VolleyballDifficulty {
+  EASY = 0;
+  MEDIUM = 1;
+  HARD = 2;
+  TROLL = 3;
+}
+
+message SetVolleyballHighScoreRequest {
+  // The message format of the body.
+  MessageFormat format = 1;
+  // The signature of the sender.
+  bytes signature = 2;
+  // The body of the request.
+  SetVolleyballHighScoreRequestBody body = 3;
+}
+
+message SetVolleyballHighScoreRequestBody {
+  // The account nonce of the sender.
+  uint64 nonce = 1;
+  // The high score to set.
+  uint64 high_score = 2;
+  // The difficulty of the game.
+  VolleyballDifficulty difficulty = 3;
+}
+
+message SetVolleyballHighScoreResponse {
+  // The transaction hash.
+  bytes tx_hash = 1;
+  // The body of the response.
+  SetVolleyballHighScoreResponseBody body = 2;
+}
+
+message SetVolleyballHighScoreResponseBody {}
+
+message SetTurboTimeTrialHighScoreRequest {
+  // The message format of the body.
+  MessageFormat format = 1;
+  // The signature of the sender.
+  bytes signature = 2;
+  // The body of the request.
+  SetTurboTimeTrialHighScoreRequestBody body = 3;
+}   
+
+message SetTurboTimeTrialHighScoreRequestBody {
+  // The account nonce of the sender.
+  uint64 nonce = 1;
+  // The high score to set.
+  uint64 high_score = 2;
+  // The best rate to set.
+  float best_rate = 3;
+} 
+
+message SetTurboTimeTrialHighScoreResponse {
+  // The transaction hash.
+  bytes tx_hash = 1;
+  // The body of the response.
+  SetTurboTimeTrialHighScoreResponseBody body = 2;
+}   
+
+message SetTurboTimeTrialHighScoreResponseBody {}
+
+message SetCoinCrazeHighScoreRequest {
+  // The message format of the body.
+  MessageFormat format = 1;
+  // The signature of the sender.
+  bytes signature = 2;
+  // The body of the request.
+  SetCoinCrazeHighScoreRequestBody body = 3;  
+}
+
+message SetCoinCrazeHighScoreRequestBody {
+  // The account nonce of the sender.
+  uint64 nonce = 1;
+  // The high score to set.
+  uint64 high_score = 2;
+}
+
+message SetCoinCrazeHighScoreResponse {
+  // The transaction hash.
+  bytes tx_hash = 1;
+  // The body of the response.
+  SetCoinCrazeHighScoreResponseBody body = 2;
+}
+
+message SetCoinCrazeHighScoreResponseBody {}
+
+message SetLeanHighScoreRequest {
+  // The message format of the body.
+  MessageFormat format = 1;
+  // The signature of the sender.
+  bytes signature = 2;
+  // The body of the request.
+  SetLeanHighScoreRequestBody body = 3;
+} 
+
+message SetLeanHighScoreRequestBody {
+  // The account nonce of the sender.
+  uint64 nonce = 1;
+  // The high score to set.
+  uint64 high_score = 2;
+}    
+
+message SetLeanHighScoreResponse {
+  // The transaction hash.
+  bytes tx_hash = 1;
+  // The body of the response.
+  SetLeanHighScoreResponseBody body = 2;
+} 
+
+message SetLeanHighScoreResponseBody {} 
+
+message SetFlowHighScoreRequest {
+  // The message format of the body.
+  MessageFormat format = 1;
+  // The signature of the sender.
+  bytes signature = 2;
+  // The body of the request.
+  SetFlowHighScoreRequestBody body = 3;
+}
+
+message SetFlowHighScoreRequestBody {
+  // The account nonce of the sender.
+  uint64 nonce = 1; 
+  // The high score to set.
+  uint64 high_score = 2;
+}
+
+message SetFlowHighScoreResponse {
+  // The transaction hash.
+  bytes tx_hash = 1;
+  // The body of the response.
+  SetFlowHighScoreResponseBody body = 2;
+}
+
+message SetFlowHighScoreResponseBody {} 
+
+
+/***********
+ *** Gpu ***
+ ***********/
+
+message SocialIdentity {
+  // The social platform.
+  SocialPlatform platform = 1;
+  // The social handle to check.
+  string handle = 2;
+}
+
+message GetWhitelistStatusRequest {
+  oneof identifier {
+    // The ethereum address to check.
+    bytes address = 1;
+    // The social identity to check.
+    SocialIdentity social_identity = 2;
+  }
+}
+
+message GetWhitelistStatusResponse {
+  // Whether the user is whitelisted.
+  bool is_whitelisted = 1;
+}
+
+message SetGpuDelegateRequest {
+  // The message format of the body.
+  MessageFormat format = 1;
+  // The signature of the sender.
+  bytes signature = 2;
+  // The body of the request.
+  SetGpuDelegateRequestBody body = 3;
+}
+
+message SetGpuDelegateRequestBody {
+  // The account nonce of the sender.
+  uint64 nonce = 1;
+  // The ethereum address to delegate to.
+  bytes delegate = 2;
+}
+
+message SetGpuDelegateResponse {
+  // The transaction hash.
+  bytes tx_hash = 1;
+  // The body of the response.
+  SetGpuDelegateResponseBody body = 2;
+}
+
+message SetGpuDelegateResponseBody {}
+
+message ClaimGpuRequest {
+  // The message format of the body.
+  MessageFormat format = 1;
+  // The signature of the sender.
+  bytes signature = 2;
+  // The body of the request.
+  ClaimGpuRequestBody body = 3;
+}
+
+message ClaimGpuRequestBody {
+  // The account nonce of the sender.
+  uint64 nonce = 1;
+  // The ethereum address to delegate to.
+  bytes delegate = 2;
+  // The gpu variant.
+  GpuVariant variant = 3;
+}
+
+message ClaimGpuResponse {
+  // The transaction hash.
+  bytes tx_hash = 1;
+  // The body of the response.
+  ClaimGpuResponseBody body = 2;
+}
+
+message ClaimGpuResponseBody {}
+
+message SetGpuVariantRequest {
+  // The message format of the body.
+  MessageFormat format = 1;
+  // The signature of the sender.
+  bytes signature = 2;
+  // The body of the request.
+  SetGpuVariantRequestBody body = 3;
+}
+
+message SetGpuVariantRequestBody {
+  // The account nonce of the sender.
+  uint64 nonce = 1;
+  // The gpu variant.
+  GpuVariant variant = 2;
+}
+
+message SetGpuVariantResponse {
+  // The transaction hash.
+  bytes tx_hash = 1;
+  // The body of the response.
+  SetGpuVariantResponseBody body = 2;
+}
+
+message SetGpuVariantResponseBody {}
+
+message LinkWhitelistedTwitterRequest {
+  // The message format of the body.
+  MessageFormat format = 1;
+  // The signature of the sender.
+  bytes signature = 2;
+  // The body of the request.
+  LinkWhitelistedTwitterRequestBody body = 3;
+}
+
+message LinkWhitelistedTwitterRequestBody {
+  // The account nonce of the sender.
+  uint64 nonce = 1;
+  // The callback URI redirected to.
+  string callback_uri = 2;
+  // The code from Twitter.
+  string code = 3;
+  // The code verifier used in the initial Twitter request.
+  string code_verifier = 4;
+}
+
+message LinkWhitelistedTwitterResponse {
+  // The transaction hash.
+  bytes tx_hash = 1;
+  // The body of the response.
+  LinkWhitelistedTwitterResponseBody body = 2;
+}
+
+message LinkWhitelistedTwitterResponseBody {}
+
+message RetrieveProvingKeyRequest {
+  // The message format of the body.
+  MessageFormat format = 1;
+  // The signature of the sender.
+  bytes signature = 2;
+  // The body of the request.
+  RetrieveProvingKeyRequestBody body = 3;
+}
+
+message RetrieveProvingKeyRequestBody {
+  // The account nonce of the sender.
+  uint64 nonce = 1;
+}
+
+message RetrieveProvingKeyResponse {
+  // The transaction hash.
+  bytes tx_hash = 1;
+  // The body of the response.
+  RetrieveProvingKeyResponseBody body = 2;
+}
+
+message RetrieveProvingKeyResponseBody {
+  // The proving key.
+  bytes proving_key = 1;
+}
+
+message LinkWhitelistedGithubRequest {
+  // The message format of the body.
+  MessageFormat format = 1;
+  // The signature of the sender.
+  bytes signature = 2;
+  // The body of the request.
+  LinkWhitelistedGithubRequestBody body = 3;
+}
+
+message LinkWhitelistedGithubRequestBody {
+  // The account nonce of the sender.
+  uint64 nonce = 1;
+  // The callback URI redirected to.
+  string callback_uri = 2;
+  // The code from GitHub.
+  string code = 3;
+}
+
+message LinkWhitelistedGithubResponse {
+  // The transaction hash.
+  bytes tx_hash = 1;
+  // The body of the response.
+  LinkWhitelistedGithubResponseBody body = 2;
+}
+
+message LinkWhitelistedGithubResponseBody {}
+
+message LinkWhitelistedDiscordRequest {
+  // The message format of the body.
+  MessageFormat format = 1;
+  // The signature of the sender.
+  bytes signature = 2;
+  // The body of the request.
+  LinkWhitelistedDiscordRequestBody body = 3;
+}
+
+message LinkWhitelistedDiscordRequestBody {
+  // The account nonce of the sender.
+  uint64 nonce = 1;
+  // The callback URI redirected to.
+  string callback_uri = 2;
+  // The code from Discord.
+  string code = 3;
+}
+
+message LinkWhitelistedDiscordResponse {
+  // The transaction hash.
+  bytes tx_hash = 1;
+  // The body of the response.
+  LinkWhitelistedDiscordResponseBody body = 2;
+}
+
+message LinkWhitelistedDiscordResponseBody {}
+
+message ProverEntry {
+  // The social platform.
+  optional SocialPlatform social_platform = 1;
+  // The social handle.
+  optional string social_handle = 2;
+  // The social id.
+  optional string social_id = 3;
+  // The social image.
+  optional string social_image = 4;
+  // The gpu variant.
+  GpuVariant gpu_variant = 5;
+  // The ethereum address of the gpu owner;
+  bytes owner = 6;
+  // The ethereum address of the gpu delegate;
+  bytes delegate = 7;
+  // The total number of proofs.
+  uint64 total_proofs = 8;
+  // The total number of cycles.
+  uint64 total_cycles = 9;
+  // The optional gpu coordinates.
+  optional string gpu_coordinates = 10;
+  // The total number of points;
+  uint64 total_points = 11;
+}
+
+message GetEthBlockRequestMetricsRequest {
+  // The optional version of the requests to filter for.
+  optional string version = 1;
+  // The optional verification key hash of the program to filter for.
+  optional bytes vk_hash = 2;
+  // The optional execution status of the requests to filter for.
+  optional ExecutionStatus execution_status = 3;
+  // The optional fulfillment status of the requests to filter for.
+  optional FulfillmentStatus fulfillment_status = 4;
+  // The optional requester address to filter for.
+  optional bytes requester = 5;
+  // The optional fulfiller address to filter for.
+  optional bytes fulfiller = 6;
+  // The optional mode of the requests to filter for.
+  optional ProofMode mode = 7;
+  // The optional minimum creation unix timestamp of the requests to filter for.
+  optional uint64 from = 8;
+  // The optional maximum creation unix timestamp of the requests to filter for.
+  optional uint64 to = 9;
+  // The optional bidder address to filter out. Only returns requests that
+  // have not been bid by this address.
+  optional bytes not_bid_by = 10;
+}
+
+message GetEthBlockRequestMetricsResponse {
+  // The total number of requests.
+  uint64 total_requests = 1;
+  // The total number of cycles.
+  uint64 total_cycles = 2;
+  // The total number of bids.
+  uint64 total_bids = 3;
+  // The total number of bets.
+  uint64 total_bets = 4;
+}
+
+message GetProverLeaderboardRequest {
+  // The optional maximum number of requests to return (default is 10,
+  // maximum is 100).
+  optional uint32 limit = 1;
+  // The optional page number to return (default is 1).
+  optional uint32 page = 2;
+}
+
+message GetProverLeaderboardResponse {
+  // List of prover leaderboard entries.
+  repeated ProverEntry entries = 1;
+}
+
+message Gpu {
+  // The address of the gpu owner.
+  bytes owner = 1;
+  // The address of the gpu delegate.
+  bytes delegate = 2;
+  // The gpu variant.
+  GpuVariant gpu_variant = 3;
+  // The unix timestamp of when the gpu was created.
+  uint64 created_at = 4;
+  // The optional social platform of the gpu owner.
+  optional SocialPlatform social_platform = 5;
+  // The optional social handle of the gpu owner.
+  optional string social_handle = 6;
+  // The optional social id of the gpu owner.
+  optional string social_id = 7;
+  // The social image of the gpu owner.
+  optional string social_image = 8;
+}
+
+message GetFilteredGpusRequest {
+  // The optional maximum number of entries to return (default is 10, maximum is 100).
+  optional uint32 limit = 1;
+  // The optional page number to return (default is 1).
+  optional uint32 page = 2;
+}
+
+message GetFilteredGpusResponse {
+  // The gpus that matched the filter criteria.
+  repeated Gpu gpus = 1;
+}
+
+message SetGpuCoordinatesRequest {
+  // The message format of the body.
+  MessageFormat format = 1;
+  // The signature of the sender.
+  bytes signature = 2;
+  // The body of the request.
+  SetGpuCoordinatesRequestBody body = 3;
+}
+
+message SetGpuCoordinatesRequestBody {
+  // The account nonce of the sender.
+  uint64 nonce = 1;
+  // The gpu longitude coordinate.
+  string longitude = 2;
+  // The gpu latitude coordinate.
+  string latitude = 3;
+}
+
+message SetGpuCoordinatesResponse {
+  // The transaction hash.
+  bytes tx_hash = 1;
+  // The body of the response.
+  SetGpuCoordinatesResponseBody body = 2;
+}
+
+message SetGpuCoordinatesResponseBody {}
+
+message UpgradeDetails {
+  // The type of upgrade.
+  Upgrade upgrade = 1;
+  // The amount of times the upgrade has been purchased.
+  uint32 count = 2;
+  // The base cost of the upgrade.
+  string base_cost = 3;
+  // The cost to purchase the next upgrade level.
+  string next_level_cost = 4;
+  // The upgrade amount;
+  string amount = 5;
+  // The max level allowed for the upgrade.
+  uint32 max_level = 6;
+}
+
+message GetPointsRequest {
+  // The address of the account to get points for.
+  bytes owner = 1;
+}
+
+message GetPointsResponse {
+  // Deprecated.
+  reserved 1;
+  // The amount of points owned by the account.
+  string points_from_rate = 2;
+  // The amount of points owned by the account.
+  string total_points = 3;
+  // The owner's current earn rate.
+  string earn_rate = 4;
+  // The owner's current click value.
+  string click_value = 5;
+  // The owner's maximum clicks allowed per period.
+  uint32 max_clicks_per_period = 6;
+  // The owner's amount of clicks in the current period.
+  uint32 clicks_current_period = 7;
+  // The unix timestamp of when click period resets.
+  uint64 clicks_reset_date = 8;
+  // The unix timestamp of the last time clicks were processed.
+  uint64 last_click_date = 9;
+  // Whether the owner is in overclocked state for the current period.
+  bool overclocked = 10;
+  // Detailed information about each upgrade.
+  repeated UpgradeDetails upgrades = 11;
+}
+
+message ProcessClicksRequest {
+  // The message format of the body.
+  MessageFormat format = 1;
+  // The signature of the sender.
+  bytes signature = 2;
+  // The body of the request.
+  ProcessClicksRequestBody body = 3;
+}
+
+message ProcessClicksRequestBody {
+  // The account nonce of the sender.
+  uint64 nonce = 1;
+  // The number of clicks to process.
+  uint32 clicks = 2;
+}
+
+message ProcessClicksResponse {
+  // The transaction hash.
+  bytes tx_hash = 1;
+  // The body of the response.
+  ProcessClicksResponseBody body = 2;
+}
+
+message ProcessClicksResponseBody {}
+
+message PurchaseUpgradeRequest {
+  // The message format of the body.
+  MessageFormat format = 1;
+  // The signature of the sender.
+  bytes signature = 2;
+  // The body of the request.
+  PurchaseUpgradeRequestBody body = 3;
+}
+
+message PurchaseUpgradeRequestBody {
+  // The account nonce of the sender.
+  uint64 nonce = 1;
+  // The upgrade to purchase.
+  Upgrade upgrade = 2;
+}
+
+message PurchaseUpgradeResponse {
+  // The transaction hash.
+  bytes tx_hash = 1;
+  // The body of the response.
+  PurchaseUpgradeResponseBody body = 2;
+}
+
+message PurchaseUpgradeResponseBody {}
+
+message BetRequest {
+  // The message format of the body.
+  MessageFormat format = 1;
+  // The signature of the sender.
+  bytes signature = 2;
+  // The body of the request.
+  BetRequestBody body = 3;
+}
+
+message BetRequestBody {
+  // The account nonce of the sender.
+  uint64 nonce = 1;
+  // The amount to bet.
+  string amount = 2;
+  // The identifier for the request.
+  bytes request_id = 3;
+}
+
+message BetResponse {
+  // The transaction hash.
+  bytes tx_hash = 1;
+  // The body of the response.
+  BetResponseBody body = 2;
+}
+
+message BetResponseBody {
+  // Deprecated.
+  reserved 1;
+  // Deprecated.
+  reserved 2;
+}
+
+message BettorDetails {
+  // The address of the bettor.
+  bytes bettor = 1;
+  // The amount of the bet.
+  string amount = 2;
+  // The probability of the bettor winning.
+  string probability = 3;
+  // The optional social platform of the bettor.
+  optional SocialPlatform social_platform = 4;
+  // The optional social handle of the bettor.
+  optional string social_handle = 5;
+  // The optional social id of the bettor.
+  optional string social_id = 6;
+  // The social image of the bettor.
+  optional string social_image = 7;
+}
+
+message GetContestDetailsRequest {
+  // The identifier for the request.
+  bytes request_id = 1;
+}
+
+message GetContestDetailsResponse {
+  // The block number of the request.
+  uint64 block_number = 1;
+  // The execution status of the request.
+  ExecutionStatus execution_status = 2;
+  // The fulfillment status of the request.
+  FulfillmentStatus fulfillment_status = 3;
+  // The credits reward amount.
+  string credits_reward = 4;
+  // The points reward amount.
+  string points_reward = 5;
+  // Detailed information about the winner.
+  BettorDetails winner = 6;
+  // Detailed information about each loser.
+  repeated BettorDetails losers = 11;
+  // The stars reward amount.
+  string stars_reward = 12;
+}
+
+/*************
+ *** Enums ***
+ *************/
+
+enum ProofMode {
+  UNSPECIFIED_PROOF_MODE = 0;
+  // The core proof mode.
+  CORE = 1;
+  // The compressed proof mode.
+  COMPRESSED = 2;
+  // The plonk proof mode.
+  PLONK = 3;
+  // The groth16 proof mode.
+  GROTH16 = 4;
+}
+
+// The different strategies that can be used for fulfilling requests.
+enum FulfillmentStrategy {
+  UNSPECIFIED_FULFILLMENT_STRATEGY = 0;
+  // The hosted fulfillment strategy. Uses Succinct's on-demand prover to fulfill requests.
+  HOSTED = 1;
+  // The reserved fulfillment strategy. Uses an already existing agreement with a
+  // fulfiller to fulfill requests.
+  RESERVED = 2;
+  // The auction fulfillment strategy. Uses a decentralized proof contest to
+  // fulfill requests.
+  AUCTION = 3;
+}
+
+// The different fulfillment statuses that a request can be in.
+enum FulfillmentStatus {
+  UNSPECIFIED_FULFILLMENT_STATUS = 0;
+  // The request has been requested.
+  REQUESTED = 1;
+  // The request has been assigned to a fulfiller.
+  ASSIGNED = 2;
+  // The request has been fulfilled.
+  FULFILLED = 3;
+  // The request cannot be fulfilled.
+  UNFULFILLABLE = 4;
+}
+
+// The different execution statuses that a request can be in.
+enum ExecutionStatus {
+  UNSPECIFIED_EXECUTION_STATUS = 0;
+  // The request has not been executed.
+  UNEXECUTED = 1;
+  // The request has been executed.
+  EXECUTED = 2;
+  // The request cannot be executed.
+  UNEXECUTABLE = 3;
+}
+
+// The different types of balance changes that can occur.
+enum BalanceOperation {
+  UNSPECIFIED_BALANCE_CHANGE_OPERATION = 0;
+  // A deposit operation (positive).
+  DEPOSIT = 1;
+  // A withdrawal operation (negative).
+  WITHDRAWAL = 2;
+  // A credit operation (positive).
+  CREDIT = 3;
+  // A deduction operation (negative).
+  DEDUCTION = 4;
+  // A refund operation (positive).
+  REFUND = 5;
+  // A bid operation (negative).
+  BID = 6;
+  // A reward operation (positive).
+  REWARD = 7;
+}
+
+// The different social platforms.
+enum SocialPlatform {
+  UNSPECIFIED_PLATFORM = 0;
+  // The twitter platform.
+  TWITTER = 1;
+  // The github platform.
+  GITHUB = 2;
+  // The discord platform.
+  DISCORD = 3;
+}
+
+// The different gpu variants.
+enum GpuVariant {
+  UNSPECIFIED_VARIANT = 0;
+  // The blueberry variant.
+  BLUEBERRY = 1;
+  // The strawberry variant.
+  STRAWBERRY = 2;
+  // The lime variant.
+  LIME = 3;
+  // The tangerine variant.
+  TANGERINE = 4;
+  // The grape variant.
+  GRAPE = 5;
+}
+
+// The different upgrades that can be purchased with points.
+enum Upgrade {
+  UNSPECIFIED_UPGRADE = 0;
+  // The earn rate boost upgrade.
+  EARN_RATE_BOOST = 1;
+  // The click worth boost upgrade.
+  CLICK_VALUE_BOOST = 2;
+  // The clicks per period boost upgrade.
+  CLICKS_PER_PERIOD_BOOST = 3;
+}
+
+// The different causes for execution failure.
+enum ExecuteFailureCause {
+  UNSPECIFIED_EXECUTION_FAILURE_CAUSE = 0;
+  // The execution failed with a non-zero exit code.
+  HALT_WITH_NON_ZERO_EXIT_CODE = 1;
+  // The execution failed with an invalid memory access.
+  INVALID_MEMORY_ACCESS = 2;
+  // The execution failed with an unimplemented syscall.
+  UNSUPPORTED_SYSCALL = 3;
+  // The execution failed with a breakpoint.
+  BREAKPOINT = 4;
+  // The execution failed with an exceeded cycle limit.
+  EXCEEDED_CYCLE_LIMIT = 5;
+  // The execution failed because the syscall was called in unconstrained mode.
+  INVALID_SYSCALL_USAGE = 6;
+  // The execution failed with an unimplemented feature.
+  UNIMPLEMENTED = 7;
+  // The program ended in unconstrained mode.
+  END_IN_UNCONSTRAINED = 8;
+}
