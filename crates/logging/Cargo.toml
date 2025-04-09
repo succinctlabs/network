@@ -1,13 +1,13 @@
 [package]
 name = "spn-logging"
-description = ""
+description = "Logging utilities for SPN."
 readme = "README.md"
 version = { workspace = true }
 edition = { workspace = true }
-license = { workspace = true }
-repository = { workspace = true }
 keywords = { workspace = true }
 categories = { workspace = true }
+license = { workspace = true }
+repository = { workspace = true }
 
 [dependencies]
 tracing-subscriber = { workspace = true }

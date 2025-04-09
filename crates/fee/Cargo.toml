@@ -1,13 +1,13 @@
 [package]
 name = "spn-fee"
-description = "Library for handling fee calculations."
+description = "Library for handling fee calculations in SPN."
 readme = "README.md"
 version = { workspace = true }
 edition = { workspace = true }
-license = { workspace = true }
-repository = { workspace = true }
 keywords = { workspace = true }
 categories = { workspace = true }
+license = { workspace = true }
+repository = { workspace = true }
 
 [dependencies]
 spn-network-types = { path = "../types/network" }

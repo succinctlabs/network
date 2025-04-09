@@ -1,0 +1,20 @@
+[package]
+name = "spn-cli"
+version.workspace = true
+edition.workspace = true
+description = "CLI for the SPN prover"
+
+[[bin]]
+name = "cli"
+path = "cli.rs"
+
+[dependencies]
+prover-core = { path = "../crates/prover-core" }
+clap = { workspace = true, features = ["derive"] }
+anyhow = {workspace = true}
+rustls = { workspace = true, features = ["ring"] }
+tonic = { workspace = true , features = ["tls", "tls-roots", "gzip"] }
+alloy-signer-local = {workspace = true}
+spn-logging = { path = "../crates/logging" }
+spn-network-types = { path = "../crates/types/network" }
+tokio = { workspace = true, features = ["full"] }
