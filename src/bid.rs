@@ -10,6 +10,7 @@ use tracing::{debug, error, info};
 use spn_network_types::{
     BidRequest, BidRequestBody, FulfillmentStatus, GetFilteredProofRequestsRequest,
     GetNonceRequest, MessageFormat, Signable,
+    GetProofRequestDetailsRequest,
 };
 use spn_utils::time_now;
 
@@ -77,6 +78,35 @@ async fn process_request(prover: &Prover, request_id: &str, bid_amount: f64) -> 
                 let req = Request::new(GetNonceRequest { address: address.clone() });
                 let nonce = prover.network.clone().get_nonce(req).await?.into_inner().nonce;
 
+                // Get request details to access the deadline
+                let request_details = prover.network.clone()
+                    .get_proof_request_details(Request::new(GetProofRequestDetailsRequest {
+                        request_id: hex::decode(request_id).context("failed to decode request_id")?,
+                    }))
+                    .await?
+                    .into_inner()
+                    .request
+                    .ok_or_else(|| anyhow::anyhow!("Request details not found"))?;
+
+                let request_deadline = request_details.deadline;
+                let cycle_limit = request_details.cycle_limit;
+                let current_time = time_now();
+                let worst_case_throughput = get_worst_case_throughput();
+
+                info!(
+                    "📊 Request {}/0x{} - Bid amount: {}, Worst case throughput: {} cycles/sec",
+                    EXPLORER_URL_REQUEST,
+                    request_id,
+                    bid_amount,
+                    worst_case_throughput
+                );
+
+                // Determine if the bidder should bid on the request
+                if !should_bid_on_request(worst_case_throughput, request_deadline, cycle_limit, current_time) {
+                    info!("Skipping bid for request {}/0x{} due to insufficient time", EXPLORER_URL_REQUEST, request_id);
+                    return Ok(());
+                }
+
                 // Log the bid amount
                 info!("Submitting bid with amount: {} for request {}/0x{}", bid_amount, EXPLORER_URL_REQUEST, request_id);
 
@@ -105,14 +135,14 @@ async fn process_request(prover: &Prover, request_id: &str, bid_amount: f64) -> 
 fn should_bid_on_request(
     worst_case_throughput: f64,
     request_deadline: u64,
-    request_time: u64,
+    cycle_limit: u64,
     current_time: u64,
 ) -> bool {
     // Calculate the available time to complete the request
     let available_time = request_deadline.saturating_sub(current_time);
 
     // Calculate the required time to complete the request based on worst-case throughput
-    let required_time = (request_time as f64) / worst_case_throughput;
+    let required_time = (cycle_limit as f64) / worst_case_throughput;
 
     // Determine if the bidder can meet the deadline
     required_time <= available_time as f64
@@ -123,4 +153,11 @@ pub fn get_bid_amount() -> f64 {
         .unwrap_or_else(|_| "0.001".to_string()) // Default to 0.001 if not set
         .parse()
         .expect("BID_AMOUNT must be a number")
+}
+
+pub fn get_worst_case_throughput() -> f64 {
+    env::var("WORST_CASE_THROUGHPUT")
+        .unwrap_or_else(|_| "1000.0".to_string()) // Default to 1000 cycles per second if not set
+        .parse()
+        .expect("WORST_CASE_THROUGHPUT must be a number")
 }
