@@ -104,3 +104,11 @@ tracing-subscriber = { workspace = true }
 eyre = { workspace = true }
 sqlx = { workspace = true }
 rustls = { workspace = true }
+
+[dependencies.clap]
+version = "4.4"
+features = ["derive"]
+
+[[bin]]
+name = "cli"
+path = "src/bin/cli.rs"
