@@ -1,6 +1,7 @@
 use std::time::Duration;
 use tonic::transport::{Endpoint, Error};
 
+/// Configure an endpoint with appropriate timeouts and keep-alive settings.
 pub fn configure_endpoint(addr: String) -> Result<Endpoint, Error> {
     Ok(Endpoint::new(addr)?
         .timeout(Duration::from_secs(15))

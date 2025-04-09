@@ -8,6 +8,10 @@ repository = { workspace = true }
 keywords = { workspace = true }
 categories = { workspace = true }
 
+[lib]
+name = "spn_prover"
+path = "src/lib.rs"
+
 [workspace]
 members = [
     "crates/artifacts",
@@ -104,3 +108,11 @@ tracing-subscriber = { workspace = true }
 eyre = { workspace = true }
 sqlx = { workspace = true }
 rustls = { workspace = true }
+
+[dependencies.clap]
+version = "4.4"
+features = ["derive"]
+
+[[bin]]
+name = "cli"
+path = "bin/cli.rs"

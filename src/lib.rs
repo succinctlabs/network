@@ -1,13 +1,17 @@
-use std::{process::Command, sync::Arc, time::Duration};
+use std::{process::Command, sync::Arc, time::Duration, str::FromStr};
 
 use alloy_signer_local::PrivateKeySigner;
+use alloy_primitives::hex::FromHex;
+use anyhow::Result;
 use tokio::time::sleep;
-use tonic::transport::Channel;
+use tonic::transport::{Channel, Endpoint};
 use tracing::{debug, error, info};
+use rustls::crypto::ring;
 
 use sp1_prover::components::CpuProverComponents;
 use sp1_sdk::{Prover as SP1Prover, ProverClient, SP1_CIRCUIT_VERSION};
 use spn_network_types::prover_network_client::ProverNetworkClient;
+use spn_logging::LogFormat;
 
 mod balance;
 mod bid;
@@ -40,6 +44,8 @@ pub struct Prover {
     sp1: Arc<Box<dyn SP1Prover<CpuProverComponents>>>,
     s3_bucket: String,
     s3_region: String,
+    worst_case_throughput: f64,
+    bid_amount: u64,
 }
 
 impl Prover {
@@ -49,12 +55,14 @@ impl Prover {
         signer: PrivateKeySigner,
         s3_bucket: &str,
         s3_region: &str,
+        worst_case_throughput: f64,
+        bid_amount: u64,
     ) -> Self {
         let sp1: Box<dyn SP1Prover<CpuProverComponents>> = if Self::has_cuda_support() {
-            info!("🚀 CUDA support detected, using GPU prover");
+            info!("🚀 CUDA support detected, using GPU prover.");
             Box::new(ProverClient::builder().cuda().build())
         } else {
-            info!("💻 no CUDA support detected, using CPU prover");
+            info!("💻 no CUDA support detected, using CPU prover.");
             Box::new(ProverClient::builder().cpu().build())
         };
 
@@ -64,6 +72,8 @@ impl Prover {
             sp1: Arc::new(sp1),
             s3_bucket: s3_bucket.to_string(),
             s3_region: s3_region.to_string(),
+            worst_case_throughput,
+            bid_amount,
         }
     }
 
@@ -76,46 +86,72 @@ impl Prover {
             match Command::new(path).output() {
                 Ok(output) => {
                     if output.status.success() {
-                        debug!("found working nvidia-smi at: {}", path);
+                        debug!("found working nvidia-smi at: {}.", path);
                         return true;
                     } else {
-                        debug!("nvidia-smi at {} exists but returned error status", path);
+                        debug!("nvidia-smi at {} exists but returned error status.", path);
                     }
                 }
                 Err(e) => {
-                    debug!("failed to execute nvidia-smi at {}: {}", path, e);
+                    debug!("failed to execute nvidia-smi at {}: {}.", path, e);
                 }
             }
         }
 
-        debug!("no working nvidia-smi found in any standard location");
+        debug!("no working nvidia-smi found in any standard location.");
         false
     }
 
     /// Run the main loop which periodically checks for requests that can be bid on, and proves
     /// requests that we have won the auction for.
     pub async fn run(self) {
-        info!("🔑 using account {}", self.signer.address());
+        info!("🔑 using account {}.", self.signer.address());
 
         let this = Arc::new(self);
 
         // Check the balance to see if it can prove.
         if !balance::has_enough(Arc::clone(&this)).await.expect("failed to check balance") {
-            error!("❌ not enough balance to prove, please fund your account");
+            error!("❌ not enough balance to prove, please fund your account.");
             return;
         }
         // Get the owner (returns the signer address if this address is not delegated).
         let owner = balance::owner(Arc::clone(&this)).await.expect("failed to get owner");
 
-        info!("🟢 ready to prove for 0x{}", hex::encode(&owner));
+        info!("🟢 ready to prove for 0x{}.", hex::encode(&owner));
 
         loop {
-            let bid_amount = bid::get_bid_amount(); // Retrieve the bid amount
-            let bid_future = bid::process_requests(Arc::clone(&this), &owner, bid_amount);
+            let bid_future = bid::process_requests(Arc::clone(&this), &owner, this.worst_case_throughput);
             let prove_future = prove::process_requests(Arc::clone(&this), &owner);
             let _ = tokio::join!(bid_future, prove_future);
 
             sleep(Duration::from_secs(REFRESH_INTERVAL_SEC)).await;
         }
     }
+}
+
+/// The main entry point for running the prover.
+pub async fn prove(worst_case_throughput: f64, bid_amount: u64) -> Result<()> {
+    // Install the default CryptoProvider.
+    ring::default_provider().install_default().expect("Failed to install rustls crypto provider.");
+
+    let settings = config::Settings::new()?;
+    
+    // Initialize logging.
+    spn_logging::init(settings.log_format);
+
+    let endpoint = grpc::configure_endpoint(settings.rpc_url)?;
+    let network = ProverNetworkClient::connect(endpoint).await?;
+    let signer = PrivateKeySigner::from_str(&settings.private_key)?;
+    
+    let prover = Prover::new(
+        network,
+        signer,
+        &settings.s3_bucket,
+        &settings.s3_region,
+        worst_case_throughput,
+        bid_amount,
+    );
+    
+    prover.run().await;
+    Ok(())
 }

@@ -1,5 +1,4 @@
 use std::sync::Arc;
-use std::env;
 
 use anyhow::{Context, Result};
 use futures::future::join_all;
@@ -17,7 +16,7 @@ use spn_utils::time_now;
 use crate::{retry::RetryableRpc, Prover, EXPLORER_URL_REQUEST, REQUEST_LIMIT, VERSION};
 
 /// Queries the network for new requests (status: Requested) and bids on each.
-pub(crate) async fn process_requests(prover: Arc<Prover>, owner: &[u8], bid_amount: f64) -> Result<()> {
+pub(crate) async fn process_requests(prover: Arc<Prover>, owner: &[u8], worst_case_throughput: f64) -> Result<()> {
     let req = GetFilteredProofRequestsRequest {
         version: Some(VERSION.to_string()),
         fulfillment_status: Some(FulfillmentStatus::Requested.into()),
@@ -52,7 +51,7 @@ pub(crate) async fn process_requests(prover: Arc<Prover>, owner: &[u8], bid_amou
         let id = hex::encode(&req.request_id);
 
         spawn(async move {
-            match process_request(&prover, &id, bid_amount).await {
+            match process_request(&prover, &id, worst_case_throughput).await {
                 Ok(_) => info!("🏷️  bid on request {}/0x{}", EXPLORER_URL_REQUEST, id),
                 Err(e) => {
                     error!("❌ failed to bid on request {}/0x{}: {:?}", EXPLORER_URL_REQUEST, id, e)
@@ -67,7 +66,7 @@ pub(crate) async fn process_requests(prover: Arc<Prover>, owner: &[u8], bid_amou
 }
 
 /// Sends a bid for a single request.
-async fn process_request(prover: &Prover, request_id: &str, bid_amount: f64) -> Result<()> {
+async fn process_request(prover: &Prover, request_id: &str, worst_case_throughput: f64) -> Result<()> {
     let address = prover.signer.address().to_vec();
     prover
         .network
@@ -78,7 +77,7 @@ async fn process_request(prover: &Prover, request_id: &str, bid_amount: f64) -> 
                 let req = Request::new(GetNonceRequest { address: address.clone() });
                 let nonce = prover.network.clone().get_nonce(req).await?.into_inner().nonce;
 
-                // Get request details to access the deadline
+                // Get request details to access the deadline.
                 let request_details = prover.network.clone()
                     .get_proof_request_details(Request::new(GetProofRequestDetailsRequest {
                         request_id: hex::decode(request_id).context("failed to decode request_id")?,
@@ -91,30 +90,29 @@ async fn process_request(prover: &Prover, request_id: &str, bid_amount: f64) -> 
                 let request_deadline = request_details.deadline;
                 let cycle_limit = request_details.cycle_limit;
                 let current_time = time_now();
-                let worst_case_throughput = get_worst_case_throughput();
 
                 info!(
                     "📊 Request {}/0x{} - Bid amount: {}, Worst case throughput: {} cycles/sec",
                     EXPLORER_URL_REQUEST,
                     request_id,
-                    bid_amount,
+                    prover.bid_amount,
                     worst_case_throughput
                 );
 
-                // Determine if the bidder should bid on the request
+                // Determine if the bidder should bid on the request.
                 if !should_bid_on_request(worst_case_throughput, request_deadline, cycle_limit, current_time) {
-                    info!("Skipping bid for request {}/0x{} due to insufficient time", EXPLORER_URL_REQUEST, request_id);
+                    info!("Skipping bid for request {}/0x{} due to insufficient time.", EXPLORER_URL_REQUEST, request_id);
                     return Ok(());
                 }
 
-                // Log the bid amount
-                info!("Submitting bid with amount: {} for request {}/0x{}", bid_amount, EXPLORER_URL_REQUEST, request_id);
+                // Log the bid amount.
+                info!("Submitting bid with amount: {} for request {}/0x{}", prover.bid_amount, EXPLORER_URL_REQUEST, request_id);
 
                 // Create and submit the bid request.
                 let body = BidRequestBody {
                     nonce,
                     request_id: hex::decode(request_id).context("failed to decode request_id")?,
-                    bid_amount: bid_amount as u64,
+                    bid_amount: prover.bid_amount,
                 };
                 let bid_request = BidRequest {
                     format: MessageFormat::Binary.into(),
@@ -138,26 +136,12 @@ fn should_bid_on_request(
     cycle_limit: u64,
     current_time: u64,
 ) -> bool {
-    // Calculate the available time to complete the request
+    // Calculate the available time to complete the request.
     let available_time = request_deadline.saturating_sub(current_time);
 
-    // Calculate the required time to complete the request based on worst-case throughput
+    // Calculate the required time to complete the request based on worst-case throughput.
     let required_time = (cycle_limit as f64) / worst_case_throughput;
 
-    // Determine if the bidder can meet the deadline
+    // Determine if the bidder can meet the deadline.
     required_time <= available_time as f64
-}
-
-pub fn get_bid_amount() -> f64 {
-    env::var("BID_AMOUNT")
-        .unwrap_or_else(|_| "0.001".to_string()) // Default to 0.001 if not set
-        .parse()
-        .expect("BID_AMOUNT must be a number")
-}
-
-pub fn get_worst_case_throughput() -> f64 {
-    env::var("WORST_CASE_THROUGHPUT")
-        .unwrap_or_else(|_| "1000.0".to_string()) // Default to 1000 cycles per second if not set
-        .parse()
-        .expect("WORST_CASE_THROUGHPUT must be a number")
 }
