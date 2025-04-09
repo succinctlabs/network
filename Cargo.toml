@@ -8,6 +8,10 @@ repository = { workspace = true }
 keywords = { workspace = true }
 categories = { workspace = true }
 
+[lib]
+name = "spn_prover"
+path = "src/lib.rs"
+
 [workspace]
 members = [
     "crates/artifacts",
@@ -111,4 +115,4 @@ features = ["derive"]
 
 [[bin]]
 name = "cli"
-path = "src/bin/cli.rs"
+path = "bin/cli.rs"

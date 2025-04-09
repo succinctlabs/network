@@ -1,7 +1,7 @@
 use clap::Parser;
 use anyhow::Result;
-use std::process::Command;
-use std::env;
+use dotenv::dotenv;
+use spn_prover::prove;
 
 /// The main CLI structure that defines the available commands.
 #[derive(Parser)]
@@ -29,27 +29,22 @@ enum Commands {
 /// The main entry point for the CLI.
 #[tokio::main]
 async fn main() -> Result<()> {
+    // Load environment variables.
+    dotenv().ok();
+
     let cli = Cli::parse();
 
     match &cli.command {
         Commands::Prove { worst_case_throughput, bid_amount } => {
             if let Some(throughput) = worst_case_throughput {
-                env::set_var("WORST_CASE_THROUGHPUT", throughput.to_string());
+                std::env::set_var("WORST_CASE_THROUGHPUT", throughput.to_string());
             }
             if let Some(amount) = bid_amount {
-                env::set_var("BID_AMOUNT", amount.to_string());
+                std::env::set_var("BID_AMOUNT", amount.to_string());
             }
 
-            let status = Command::new("cargo")
-                .arg("run")
-                .arg("--release")
-                .arg("--bin")
-                .arg("spn-prover")
-                .status()?;
-
-            if !status.success() {
-                return Err(anyhow::anyhow!("Failed to run prover."));
-            }
+            // Call the prover's main function directly.
+            prove().await?;
         }
     }
 

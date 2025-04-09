@@ -1,13 +1,17 @@
-use std::{process::Command, sync::Arc, time::Duration};
+use std::{process::Command, sync::Arc, time::Duration, str::FromStr};
 
 use alloy_signer_local::PrivateKeySigner;
+use alloy_primitives::hex::FromHex;
+use anyhow::Result;
 use tokio::time::sleep;
-use tonic::transport::Channel;
+use tonic::transport::{Channel, Endpoint};
 use tracing::{debug, error, info};
+use rustls::crypto::ring;
 
 use sp1_prover::components::CpuProverComponents;
 use sp1_sdk::{Prover as SP1Prover, ProverClient, SP1_CIRCUIT_VERSION};
 use spn_network_types::prover_network_client::ProverNetworkClient;
+use spn_logging::LogFormat;
 
 mod balance;
 mod bid;
@@ -118,4 +122,29 @@ impl Prover {
             sleep(Duration::from_secs(REFRESH_INTERVAL_SEC)).await;
         }
     }
+}
+
+/// The main entry point for running the prover.
+pub async fn prove() -> Result<()> {
+    // Install the default CryptoProvider.
+    ring::default_provider().install_default().expect("Failed to install rustls crypto provider.");
+
+    let settings = config::Settings::new()?;
+    
+    // Initialize logging.
+    spn_logging::init(settings.log_format);
+
+    let endpoint = grpc::configure_endpoint(settings.rpc_url)?;
+    let network = ProverNetworkClient::connect(endpoint).await?;
+    let signer = PrivateKeySigner::from_str(&settings.private_key)?;
+    
+    let prover = Prover::new(
+        network,
+        signer,
+        &settings.s3_bucket,
+        &settings.s3_region,
+    );
+    
+    prover.run().await;
+    Ok(())
 }
