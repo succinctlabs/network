@@ -15,7 +15,7 @@ members = [
     "crates/types/artifact",
     "crates/logging",
     "crates/utils",
-    "crates/fee",
+    "crates/fee", "benchmark",
 ]
 
 [workspace.package]

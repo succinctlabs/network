@@ -110,7 +110,8 @@ impl Prover {
         info!("🟢 ready to prove for 0x{}", hex::encode(&owner));
 
         loop {
-            let bid_future = bid::process_requests(Arc::clone(&this), &owner);
+            let bid_amount = bid::get_bid_amount(); // Retrieve the bid amount
+            let bid_future = bid::process_requests(Arc::clone(&this), &owner, bid_amount);
             let prove_future = prove::process_requests(Arc::clone(&this), &owner);
             let _ = tokio::join!(bid_future, prove_future);
 
