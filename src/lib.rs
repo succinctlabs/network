@@ -51,10 +51,10 @@ impl Prover {
         s3_region: &str,
     ) -> Self {
         let sp1: Box<dyn SP1Prover<CpuProverComponents>> = if Self::has_cuda_support() {
-            info!("🚀 CUDA support detected, using GPU prover");
+            info!("🚀 CUDA support detected, using GPU prover.");
             Box::new(ProverClient::builder().cuda().build())
         } else {
-            info!("💻 no CUDA support detected, using CPU prover");
+            info!("💻 no CUDA support detected, using CPU prover.");
             Box::new(ProverClient::builder().cpu().build())
         };
 
@@ -76,41 +76,41 @@ impl Prover {
             match Command::new(path).output() {
                 Ok(output) => {
                     if output.status.success() {
-                        debug!("found working nvidia-smi at: {}", path);
+                        debug!("found working nvidia-smi at: {}.", path);
                         return true;
                     } else {
-                        debug!("nvidia-smi at {} exists but returned error status", path);
+                        debug!("nvidia-smi at {} exists but returned error status.", path);
                     }
                 }
                 Err(e) => {
-                    debug!("failed to execute nvidia-smi at {}: {}", path, e);
+                    debug!("failed to execute nvidia-smi at {}: {}.", path, e);
                 }
             }
         }
 
-        debug!("no working nvidia-smi found in any standard location");
+        debug!("no working nvidia-smi found in any standard location.");
         false
     }
 
     /// Run the main loop which periodically checks for requests that can be bid on, and proves
     /// requests that we have won the auction for.
     pub async fn run(self) {
-        info!("🔑 using account {}", self.signer.address());
+        info!("🔑 using account {}.", self.signer.address());
 
         let this = Arc::new(self);
 
         // Check the balance to see if it can prove.
         if !balance::has_enough(Arc::clone(&this)).await.expect("failed to check balance") {
-            error!("❌ not enough balance to prove, please fund your account");
+            error!("❌ not enough balance to prove, please fund your account.");
             return;
         }
         // Get the owner (returns the signer address if this address is not delegated).
         let owner = balance::owner(Arc::clone(&this)).await.expect("failed to get owner");
 
-        info!("🟢 ready to prove for 0x{}", hex::encode(&owner));
+        info!("🟢 ready to prove for 0x{}.", hex::encode(&owner));
 
         loop {
-            let bid_amount = bid::get_bid_amount(); // Retrieve the bid amount
+            let bid_amount = bid::get_bid_amount(); // Retrieve the bid amount.
             let bid_future = bid::process_requests(Arc::clone(&this), &owner, bid_amount);
             let prove_future = prove::process_requests(Arc::clone(&this), &owner);
             let _ = tokio::join!(bid_future, prove_future);
