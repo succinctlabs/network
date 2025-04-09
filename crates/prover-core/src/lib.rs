@@ -6,7 +6,8 @@ use anyhow::Result;
 use tokio::time::sleep;
 use tonic::transport::{Channel, Endpoint};
 use tracing::{debug, error, info};
-use rustls::crypto::ring;
+use hex;
+use const_str;
 
 use sp1_prover::components::CpuProverComponents;
 use sp1_sdk::{Prover as SP1Prover, ProverClient, SP1_CIRCUIT_VERSION};
@@ -127,31 +128,4 @@ impl Prover {
             sleep(Duration::from_secs(REFRESH_INTERVAL_SEC)).await;
         }
     }
-}
-
-/// The main entry point for running the prover.
-pub async fn prove(worst_case_throughput: f64, bid_amount: u64) -> Result<()> {
-    // Install the default CryptoProvider.
-    ring::default_provider().install_default().expect("Failed to install rustls crypto provider.");
-
-    let settings = config::Settings::new()?;
-    
-    // Initialize logging.
-    spn_logging::init(settings.log_format);
-
-    let endpoint = grpc::configure_endpoint(settings.rpc_url)?;
-    let network = ProverNetworkClient::connect(endpoint).await?;
-    let signer = PrivateKeySigner::from_str(&settings.private_key)?;
-    
-    let prover = Prover::new(
-        network,
-        signer,
-        &settings.s3_bucket,
-        &settings.s3_region,
-        worst_case_throughput,
-        bid_amount,
-    );
-    
-    prover.run().await;
-    Ok(())
 }

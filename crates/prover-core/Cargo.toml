@@ -1,0 +1,39 @@
+[package]
+name = "prover-core"
+description = "Prover implementation for SPN."
+version = { workspace = true }
+edition = { workspace = true }
+publish = false
+keywords = { workspace = true }
+categories = { workspace = true }
+license = { workspace = true }
+
+[dependencies]
+alloy = { workspace = true }
+alloy-signer-local = { workspace = true }
+alloy-primitives = { workspace = true }
+anyhow = { workspace = true }
+tokio = { workspace = true }
+tonic = { workspace = true }
+tracing = { workspace = true }
+rustls = { workspace = true, features = ["ring"] }
+ring = "0.17"
+sp1-prover = { workspace = true }
+sp1-sdk = { workspace = true }
+spn-network-types = { path = "../../crates/types/network" }
+spn-logging = { path = "../../crates/logging" }
+spn-utils = { path = "../../crates/utils" }
+spn-artifacts = { path = "../../crates/artifacts" }
+clap = { workspace = true }
+bincode = { workspace = true }
+hex = { workspace = true }
+const-str = { workspace = true }
+futures = { workspace = true }
+config = { workspace = true }
+serde = { workspace = true }
+backoff = { workspace = true }
+async-trait = { workspace = true }
+
+[[bin]]
+name = "cli"
+path = "src/bin/main.rs" 

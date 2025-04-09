@@ -1,6 +1,6 @@
 [package]
 name = "spn-utils"
-description = "Utilities for SPN."
+description = "Common utilities and helper functions for SPN."
 version = { workspace = true }
 edition = { workspace = true }
 license = { workspace = true }

@@ -1,8 +1,10 @@
 [package]
 name = "spn-artifacts"
-description = "Artifacts for SPN."
+description = "Artifact management and storage for SPN."
 version = { workspace = true }
 edition = { workspace = true }
+keywords = { workspace = true }
+categories = { workspace = true }
 license = { workspace = true }
 repository = { workspace = true }
 
