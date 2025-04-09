@@ -44,6 +44,8 @@ pub struct Prover {
     sp1: Arc<Box<dyn SP1Prover<CpuProverComponents>>>,
     s3_bucket: String,
     s3_region: String,
+    worst_case_throughput: f64,
+    bid_amount: u64,
 }
 
 impl Prover {
@@ -53,6 +55,8 @@ impl Prover {
         signer: PrivateKeySigner,
         s3_bucket: &str,
         s3_region: &str,
+        worst_case_throughput: f64,
+        bid_amount: u64,
     ) -> Self {
         let sp1: Box<dyn SP1Prover<CpuProverComponents>> = if Self::has_cuda_support() {
             info!("🚀 CUDA support detected, using GPU prover.");
@@ -68,6 +72,8 @@ impl Prover {
             sp1: Arc::new(sp1),
             s3_bucket: s3_bucket.to_string(),
             s3_region: s3_region.to_string(),
+            worst_case_throughput,
+            bid_amount,
         }
     }
 
@@ -114,8 +120,7 @@ impl Prover {
         info!("🟢 ready to prove for 0x{}.", hex::encode(&owner));
 
         loop {
-            let bid_amount = bid::get_bid_amount(); // Retrieve the bid amount.
-            let bid_future = bid::process_requests(Arc::clone(&this), &owner, bid_amount);
+            let bid_future = bid::process_requests(Arc::clone(&this), &owner, this.worst_case_throughput);
             let prove_future = prove::process_requests(Arc::clone(&this), &owner);
             let _ = tokio::join!(bid_future, prove_future);
 
@@ -125,7 +130,7 @@ impl Prover {
 }
 
 /// The main entry point for running the prover.
-pub async fn prove() -> Result<()> {
+pub async fn prove(worst_case_throughput: f64, bid_amount: u64) -> Result<()> {
     // Install the default CryptoProvider.
     ring::default_provider().install_default().expect("Failed to install rustls crypto provider.");
 
@@ -143,6 +148,8 @@ pub async fn prove() -> Result<()> {
         signer,
         &settings.s3_bucket,
         &settings.s3_region,
+        worst_case_throughput,
+        bid_amount,
     );
     
     prover.run().await;
