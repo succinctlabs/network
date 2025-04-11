@@ -1379,9 +1379,9 @@ pub struct BidRequestBody {
     /// The request ID to bid on.
     #[prost(bytes = "vec", tag = "2")]
     pub request_id: ::prost::alloc::vec::Vec<u8>,
-    /// The amount of the bid.
-    #[prost(uint64, tag = "3")]
-    pub bid_amount: u64,
+    /// The amount to bid.
+    #[prost(string, tag = "3")]
+    pub amount: ::prost::alloc::string::String,
 }
 #[derive(serde::Serialize, serde::Deserialize)]
 #[derive(Clone, PartialEq, ::prost::Message)]
