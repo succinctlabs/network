@@ -4,8 +4,9 @@ description = "Prover for SPN."
 version = { workspace = true }
 edition = { workspace = true }
 
-[lib]
-path = "src/lib.rs"
+[[bin]]
+name = "spn"
+path = "bin/cli.rs"
 
 [workspace]
 members = [
@@ -15,8 +16,8 @@ members = [
     "crates/prover-core",
     "crates/fee",
     "crates/artifacts",
+    "crates/benchmark",
     "bin",
-    "benchmark",
     "program"
 ]
 
@@ -75,6 +76,7 @@ async-trait = "0.1.68"
 backoff = "0.4"
 config = "0.14.0"
 futures = "0.3.30"
+dotenv = "0.15.0"
 
 [dependencies]
 spn-artifacts = { path = "crates/artifacts" }
@@ -85,7 +87,6 @@ spn-fee = { path = "crates/fee" }
 prover-core = { path = "crates/prover-core" }
 sp1-sdk = { version = "4.1.0", features = ["native-gnark"] }
 sp1-prover = { version = "4.1.0" }
-dotenv = "0.15.0"
 const-str = "0.5.7"
 tokio = { version = "1.0", features = ["full"] }
 anyhow = "1.0.71"

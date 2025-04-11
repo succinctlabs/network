@@ -12,9 +12,8 @@ tracing = "0.1"
 tracing-subscriber = { version = "0.3.18", features = ["json", "std", "env-filter"] }
 anyhow = "1.0.71"
 
-[[bin]]
-name = "benchmark"
-path = "src/main.rs"
+[lib]
+path = "src/lib.rs"
 
 [build-dependencies]
 sp1-build = "4.1.0"

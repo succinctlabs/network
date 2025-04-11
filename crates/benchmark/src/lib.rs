@@ -5,7 +5,7 @@ use sp1_sdk::{ProverClient, SP1Stdin, include_elf};
 use tracing::{debug, info};
 
 // The ELF (executable and linkable format) for the program to run.
-pub const ELF: &[u8] = include_elf!("fibonacci-program");
+const ELF: &[u8] = include_elf!("fibonacci-program");
 
 /// Check if CUDA is available by testing if nvidia-smi is installed and CUDA GPUs are present.
 pub fn has_cuda_support() -> bool {
@@ -33,7 +33,7 @@ pub fn has_cuda_support() -> bool {
 }
 
 /// Run the Fibonacci program for a given value of n.
-pub async fn run_fibonacci(n: u32) -> Result<(u64, f64)> {
+async fn run_fibonacci(n: u32) -> Result<(u64, f64)> {
     // Create input stream.
     let mut stdin = SP1Stdin::new();
     stdin.write(&n);
@@ -63,4 +63,16 @@ pub async fn run_fibonacci(n: u32) -> Result<(u64, f64)> {
     println!("n = {}: e2e time = {:.2?}, throughput = {:.2} gas/sec", n, duration, throughput);
 
     Ok((prover_gas, throughput))
+}
+
+/// Run benchmarks for different values of n and return the worst-case throughput.
+pub async fn run_benchmarks() -> Result<(f64, u64)> {
+    // Just run one Fibonacci calculation for now
+    let (_, throughput) = run_fibonacci(2000000).await?;
+    
+    // Return only benchmark-related values
+    Ok((
+        throughput,  // WORST_CASE_THROUGHPUT
+        1,          // BID_AMOUNT
+    ))
 }

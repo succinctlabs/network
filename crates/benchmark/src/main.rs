@@ -1,5 +1,5 @@
 use anyhow::Result;
-use benchmark::{has_cuda_support, run_fibonacci};
+use crate::{has_cuda_support, run_fibonacci};
 use sp1_sdk::utils;
 
 #[tokio::main]

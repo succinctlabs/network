@@ -5,7 +5,7 @@ edition.workspace = true
 description = "CLI for the SPN prover"
 
 [[bin]]
-name = "cli"
+name = "spn"
 path = "cli.rs"
 
 [dependencies]
@@ -18,3 +18,8 @@ alloy-signer-local = {workspace = true}
 spn-logging = { path = "../crates/logging" }
 spn-network-types = { path = "../crates/types/network" }
 tokio = { workspace = true, features = ["full"] }
+fibonacci-program = { path = "../program" }
+sp1-sdk = { version = "4.1.0", features = ["native-gnark"] }
+benchmark = { path = "../crates/benchmark" }
+dotenv = {workspace = true}
+
