@@ -1,7 +1,7 @@
 use std::process::Command;
 
 use anyhow::Result;
-use sp1_sdk::{utils, ProverClient, SP1Stdin, include_elf};
+use sp1_sdk::{ProverClient, SP1Stdin, include_elf};
 use tracing::{debug, info};
 
 // The ELF (executable and linkable format) for the program to run.
@@ -34,15 +34,12 @@ pub fn has_cuda_support() -> bool {
 
 /// Run the Fibonacci program for a given value of n.
 pub async fn run_fibonacci(n: u32) -> Result<(u64, f64)> {
-
-    utils::setup_logger();
-
-    // Initialize the prover.
-    let client = ProverClient::from_env();
-
     // Create input stream.
     let mut stdin = SP1Stdin::new();
     stdin.write(&n);
+
+    // Initialize the prover client from environment
+    let client = ProverClient::from_env();
 
     // Execute to get the report.
     let (_, report) = client.execute(ELF, &stdin).run().unwrap();
@@ -51,13 +48,13 @@ pub async fn run_fibonacci(n: u32) -> Result<(u64, f64)> {
     info!("executed program with {} cycles", report.total_instruction_count());
 
     // Setup the proving key and verification key.
-    let (pk, vk) = client.setup(ELF);
+    let (pk, _vk) = client.setup(ELF);
 
     // Start timing.
     let start = std::time::Instant::now();
 
     // Generate the proof.
-    client.prove(&pk, &stdin).compressed().run().unwrap();
+    let _proof = client.prove(&pk, &stdin).compressed().run().unwrap();
     info!("generated proof for n = {}", n);
 
     // Calculate duration and throughput.
@@ -67,4 +64,3 @@ pub async fn run_fibonacci(n: u32) -> Result<(u64, f64)> {
 
     Ok((prover_gas, throughput))
 }
-

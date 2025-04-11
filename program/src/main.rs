@@ -20,5 +20,4 @@ fn fibonacci(n: u32) -> u32 {
 pub fn main() {
     let n: u32 = read();
     let result = black_box(fibonacci(black_box(n)));
-    println!("result: {}", result);
 }

@@ -1,18 +1,20 @@
 use anyhow::Result;
 use benchmark::{has_cuda_support, run_fibonacci};
+use sp1_sdk::utils;
 
 #[tokio::main]
 async fn main() -> Result<()> {
+    utils::setup_logger();
+
     if has_cuda_support() {
         println!("CUDA support detected, using GPU prover.");
     } else {
         println!("No CUDA support detected, using CPU prover.");
     }
 
-    for n in [20000, 200000, 2000000] {
-        println!("Running Fibonacci for n = {}...", n);
-        run_fibonacci(n).await?;
-    }
+    let n = 2000000;
+    println!("Running Fibonacci for n = {}...", n);
+    run_fibonacci(n).await?;
 
     Ok(())
 }
