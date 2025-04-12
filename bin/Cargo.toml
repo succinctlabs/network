@@ -12,6 +12,7 @@ path = "cli.rs"
 prover-core = { path = "../crates/prover-core" }
 clap = { workspace = true, features = ["derive"] }
 anyhow = {workspace = true}
+dotenv = {workspace = true}
 rustls = { workspace = true, features = ["ring"] }
 tonic = { workspace = true , features = ["tls", "tls-roots", "gzip"] }
 alloy-signer-local = {workspace = true}
@@ -21,5 +22,6 @@ tokio = { workspace = true, features = ["full"] }
 fibonacci-program = { path = "../program" }
 sp1-sdk = { version = "4.1.0", features = ["native-gnark"] }
 benchmark = { path = "../crates/benchmark" }
-dotenv = {workspace = true}
+
+
 

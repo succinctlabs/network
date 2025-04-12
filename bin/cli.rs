@@ -23,13 +23,14 @@ struct Cli {
 /// The available commands that can be executed by the CLI.
 #[derive(clap::Subcommand)]
 enum Commands {
-    /// Initialize the prover with a private key and run benchmarks
+
+    /// Initialize the prover with a private key and run benchmarking.
     Init {
-        /// The private key for the prover
+        /// The private key for the prover.
         #[arg(long)]
         private_key: String,
     },
-    /// Run the prover with previously benchmarked parameters
+    /// Run the prover with previously benchmarked parameters.  
     Prove,
 }
 
@@ -79,7 +80,7 @@ S3_BUCKET=spn-prover"#,
             let endpoint = prover_core::grpc::configure_endpoint(settings.rpc_url)?;
             let network = ProverNetworkClient::connect(endpoint).await?;
             
-            // Read environment variables
+            // Read environment variables.
             let worst_case_throughput: f64 = env::var("WORST_CASE_THROUGHPUT")
                 .expect("WORST_CASE_THROUGHPUT not set. Run 'spn init' first.")
                 .parse()?;

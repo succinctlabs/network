@@ -67,12 +67,12 @@ async fn run_fibonacci(n: u32) -> Result<(u64, f64)> {
 
 /// Run benchmarks for different values of n and return the worst-case throughput.
 pub async fn run_benchmarks() -> Result<(f64, u64)> {
-    // Just run one Fibonacci calculation for now
+    // Just run one Fibonacci calculation for now.
     let (_, throughput) = run_fibonacci(2000000).await?;
     
-    // Return only benchmark-related values
+    // Return only benchmark-related values.
     Ok((
-        throughput,  // WORST_CASE_THROUGHPUT
+        throughput,  // WORST_CASE_THROUGHPUT.
         1,          // BID_AMOUNT
     ))
 }
