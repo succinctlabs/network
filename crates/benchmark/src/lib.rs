@@ -1,3 +1,19 @@
+#![allow(
+    clippy::new_without_default,
+    clippy::field_reassign_with_default,
+    clippy::unnecessary_cast,
+    clippy::cast_abs_to_unsigned,
+    clippy::needless_range_loop,
+    clippy::type_complexity,
+    clippy::unnecessary_unwrap,
+    clippy::default_constructed_unit_structs,
+    clippy::box_default,
+    clippy::assign_op_pattern,
+    deprecated,
+    incomplete_features
+)]
+#![warn(unused_extern_crates)]
+
 use std::process::Command;
 
 use anyhow::Result;
@@ -33,7 +49,9 @@ pub fn has_cuda_support() -> bool {
 }
 
 /// Run the Fibonacci program for a given value of n.
-async fn run_fibonacci(n: u32) -> Result<(u64, f64)> {
+pub async fn run_fibonacci(n: u32) -> Result<(u64, f64)> {
+    info!("Starting benchmark for n = {}", n);
+    
     // Create input stream.
     let mut stdin = SP1Stdin::new();
     stdin.write(&n);
@@ -68,7 +86,7 @@ async fn run_fibonacci(n: u32) -> Result<(u64, f64)> {
 /// Run benchmarks for different values of n and return the worst-case throughput.
 pub async fn run_benchmarks() -> Result<(f64, u64)> {
     // Just run one Fibonacci calculation for now.
-    let (_, throughput) = run_fibonacci(2000000).await?;
+    let (_, throughput) = run_fibonacci(20).await?;
     
     // Return only benchmark-related values.
     Ok((

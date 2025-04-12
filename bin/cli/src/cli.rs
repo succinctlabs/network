@@ -1,3 +1,19 @@
+#![allow(
+    clippy::new_without_default,
+    clippy::field_reassign_with_default,
+    clippy::unnecessary_cast,
+    clippy::cast_abs_to_unsigned,
+    clippy::needless_range_loop,
+    clippy::type_complexity,
+    clippy::unnecessary_unwrap,
+    clippy::default_constructed_unit_structs,
+    clippy::box_default,
+    clippy::assign_op_pattern,
+    deprecated,
+    incomplete_features
+)]
+#![warn(unused_extern_crates)]
+
 use clap::Parser;
 use anyhow::Result;
 use prover_core::{Prover, config};
@@ -54,7 +70,7 @@ async fn main() -> Result<()> {
             let env_content = format!(
                 r#"WORST_CASE_THROUGHPUT={}
 BID_AMOUNT={}
-PRIVATE_KEY={}
+NETWORK_PRIVATE_KEY={}
 NETWORK_RPC_URL=https://rpc.testnet-private.succinct.xyz
 NETWORK_LOG_FORMAT=Pretty
 AWS_ACCESS_KEY_ID=AKIAWEFFNPGX7HNADYHT
@@ -87,8 +103,7 @@ S3_BUCKET=spn-prover"#,
             let bid_amount: u64 = env::var("BID_AMOUNT")
                 .expect("BID_AMOUNT not set. Run 'spn init' first.")
                 .parse()?;
-            let private_key = env::var("PRIVATE_KEY")
-                .expect("PRIVATE_KEY not set. Run 'spn init' first.");
+            let private_key = settings.private_key;
             
             let signer = PrivateKeySigner::from_str(&private_key)?;
             

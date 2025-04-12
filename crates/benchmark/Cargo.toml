@@ -4,13 +4,13 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-sp1-sdk = { version = "4.1.0", features = ["native-gnark"] }
-sp1-prover = "4.1.0"
+sp1-sdk = { workspace = true }
+sp1-prover = { workspace = true }
 sp1-zkvm = "4.1.0"
-tokio = { version = "1.0", features = ["full"] }
-tracing = "0.1"
-tracing-subscriber = { version = "0.3.18", features = ["json", "std", "env-filter"] }
-anyhow = "1.0.71"
+tokio = { workspace = true }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
+anyhow = { workspace = true }
 
 [lib]
 path = "src/lib.rs"
