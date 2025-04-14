@@ -109,10 +109,12 @@ async fn process_request(prover: &Prover, request_id: &str, worst_case_throughpu
                 info!("Submitting bid with amount: {} for request {}/0x{}", prover.bid_amount, EXPLORER_URL_REQUEST, request_id);
 
                 // Create and submit the bid request.
+                let bid_amount = prover.bid_amount.to_string();
+                debug!("Sending bid amount in request body: {}", bid_amount);
                 let body = BidRequestBody {
                     nonce,
                     request_id: hex::decode(request_id).context("failed to decode request_id")?,
-                    bid_amount: prover.bid_amount,
+                    amount: bid_amount,
                 };
                 let bid_request = BidRequest {
                     format: MessageFormat::Binary.into(),

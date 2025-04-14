@@ -1,0 +1,11 @@
+[package]
+name = "fibonacci-program"
+version = "0.1.0"
+edition = "2021"
+
+[[bin]]
+name = "fibonacci-program"
+path = "src/main.rs"
+
+[dependencies]
+sp1-zkvm = "4.1.0" 

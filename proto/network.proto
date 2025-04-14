@@ -1267,8 +1267,8 @@ message BidRequestBody {
   uint64 nonce = 1;
   // The request ID to bid on.
   bytes request_id = 2;
-  // The amount of the bid.
-  uint64 bid_amount = 3; 
+  // The amount to bid.
+  string amount = 3;
 }
 
 message BidResponse {

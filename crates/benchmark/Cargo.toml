@@ -1,0 +1,19 @@
+[package]
+name = "benchmark"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+sp1-sdk = { workspace = true }
+sp1-prover = { workspace = true }
+sp1-zkvm = "4.1.0"
+tokio = { workspace = true }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
+anyhow = { workspace = true }
+
+[lib]
+path = "src/lib.rs"
+
+[build-dependencies]
+sp1-build = "4.1.0"

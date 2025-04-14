@@ -22,7 +22,7 @@ impl Settings {
     pub fn new() -> Result<Self, ConfigError> {
         let config = Config::builder()
             .set_default("rpc_url", "https://rpc.production.succinct.xyz")?
-            .set_default("s3_bucket", "spn-artifacts-production3")?
+            .set_default("s3_bucket", "spn-artifacts-testnet-private")?
             .set_default("s3_region", "us-east-2")?
             .set_default("log_format", "Minimal")?
             .add_source(Environment::with_prefix("NETWORK"))

@@ -1,9 +1,3 @@
-[package]
-name = "spn-prover"
-description = "Prover for SPN."
-version = { workspace = true }
-edition = { workspace = true }
-
 [workspace]
 members = [
     "crates/types/network",
@@ -12,7 +6,9 @@ members = [
     "crates/prover-core",
     "crates/fee",
     "crates/artifacts",
-    "bin"
+    "crates/benchmark",
+    "bin/cli",
+    "program"
 ]
 
 [workspace.package]
@@ -70,28 +66,30 @@ async-trait = "0.1.68"
 backoff = "0.4"
 config = "0.14.0"
 futures = "0.3.30"
+benchmark = { path = "crates/benchmark" }
 
-[dependencies]
-spn-artifacts = { path = "crates/artifacts" }
-spn-network-types = { path = "crates/types/network" }
-spn-logging = { path = "crates/logging" }
-spn-utils = { path = "crates/utils" }
-spn-fee = { path = "crates/fee" }
-prover-core = { path = "crates/prover-core" }
-sp1-sdk = { version = "4.1.0", features = ["native-gnark"] }
-sp1-prover = { version = "4.1.0" }
-dotenv = "0.15.0"
-const-str = "0.5.7"
-tokio = { version = "1.0", features = ["full"] }
-anyhow = "1.0.71"
-rustls = { version = "0.23.0", features = ["ring"] }
-tonic = { version = "0.12", features = ["tls", "tls-roots", "gzip"] }
-alloy-signer-local = "0.11.1"
+[workspace.lints.rust]
+unsafe_code = "forbid"
+missing_docs = "warn"
+unused_extern_crates = "warn"
+missing_debug_implementations = "warn"
+unreachable_pub = "warn"
+unused_must_use = "deny"
+rust_2018_idioms = { level = "deny", priority = -1 }
 
-[dependencies.clap]
-version = "4.4"
-features = ["derive"]
+[workspace.lints.rustdoc]
+all = { level = "warn" }
 
-[[bin]]
-name = "cli"
-path = "bin/cli.rs"
+[workspace.lints.clippy]
+new_without_default = "allow"
+field_reassign_with_default = "allow"
+unnecessary_cast = "allow"
+cast_abs_to_unsigned = "allow"
+needless_range_loop = "allow"
+type_complexity = "allow"
+unnecessary_unwrap = "allow"
+default_constructed_unit_structs = "allow"
+box_default = "allow"
+assign_op_pattern = "allow"
+deprecated = "allow"
+incomplete_features = "allow"
