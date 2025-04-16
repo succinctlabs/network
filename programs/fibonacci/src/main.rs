@@ -1,8 +1,6 @@
 #![no_main]
 
 use std::hint::black_box;
-use sp1_zkvm::io::write;
-use sp1_zkvm::io::read;
 
 sp1_zkvm::entrypoint!(main);
 
@@ -18,6 +16,6 @@ fn fibonacci(n: u32) -> u32 {
 }
 
 pub fn main() {
-    let n: u32 = read();
-    let result = black_box(fibonacci(black_box(n)));
+    let n: u32 = sp1_zkvm::io::read();
+    black_box(fibonacci(black_box(n)));
 }

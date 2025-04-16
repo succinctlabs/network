@@ -1,0 +1,19 @@
+[package]
+name = "spn-calibrator"
+description = "Prover implementation for SPN."
+version = { workspace = true }
+edition = { workspace = true }
+publish = false
+keywords = { workspace = true }
+categories = { workspace = true }
+license = { workspace = true }
+
+[build-dependencies]
+sp1-build = { workspace = true }
+
+[dependencies]
+# sp1
+sp1-sdk = { workspace = true }
+
+# misc
+tracing = { workspace = true }

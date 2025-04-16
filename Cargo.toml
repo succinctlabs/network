@@ -1,45 +1,89 @@
-[workspace]
-members = [
-    "crates/types/network",
-    "crates/logging",
-    "crates/utils",
-    "crates/prover-core",
-    "crates/fee",
-    "crates/artifacts",
-    "crates/benchmark",
-    "bin/cli",
-    "program"
-]
-
 [workspace.package]
 version = "0.1.0"
 edition = "2021"
-publish = false
-license = "MIT"
-keywords = ["blockchain", "zkp", "prover", "succinct", "sp1"]
-categories = ["cryptography", "blockchain", "algorithms"]
-repository = "https://github.com/succinctlabs/prover"
+license = "MIT OR Apache-2.0"
+rust-version = "1.79"
+repository = "https://github.com/succinctlabs/sp1"
+keywords = ["sp1", "succinct", "zero-knowledge", "zkvm"]
+categories = ["cryptography"]
+
+[workspace]
+members = [
+    "bin/cli",
+    "crates/types/artifact",
+    "crates/types/network",
+    "crates/utils",
+    "crates/node",
+    "crates/artifacts",
+    "crates/calibrator",
+    "crates/rpc",
+    "programs/fibonacci",
+]
+resolver = "2"
 
 [workspace.dependencies]
+# spn
+spn-artifacts = { path = "crates/artifacts" }
+spn-artifact-types = { path = "crates/types/artifact" }
+spn-calibrator = { path = "crates/calibrator" }
+spn-network-types = { path = "crates/types/network" }
+spn-node = { path = "crates/node" }
+spn-utils = { path = "crates/utils" }
+spn-rpc = { path = "crates/rpc" }
+
+# sp1
+sp1-sdk = { version = "4.1.0", features = ["native-gnark"] }
+sp1-prover = "4.1.0"
+sp1-zkvm = "4.1.0"
+sp1-build = "4.1.0"
+
+# aws
+aws-config = "1.5.3"
+aws-sdk-s3 = "1.38.0"
+aws-smithy-async = { version = "1.2.1", features = ["rt-tokio"] }
+
+# alloy
 alloy = { version = "0.7.0", features = ["full"] }
 alloy-signer = "0.11.1"
 alloy-primitives = "0.8.18"
 alloy-signer-local = "0.11.1"
-anyhow = "1.0.71"
-tokio = { version = "1.0", features = ["full"] }
-tonic = { version = "0.12", features = ["tls", "tls-roots", "gzip"] }
-tonic-build = "0.12.0"
+
+# tracing
+tracing = "0.1"
+tracing-subscriber = { version = "0.3.18", features = [
+    "json",
+    "std",
+    "env-filter",
+] }
+
+# prost
 prost-types = "0.13.0"
 prost-build = "0.13.0"
-tracing = "0.1"
-rustls = { version = "0.23.0", features = ["ring"] }
-sp1-prover = "4.1.0"
-sp1-sdk = { version = "4.1.0", features = ["native-gnark"] }
-clap = { version = "4.0", features = ["derive"] }
 prost = "0.13.0"
+
+# serde
+bincode = "1.3.3"
 serde = { version = "1.0.210", features = ["derive"] }
 serde_json = "1.0.104"
-thiserror = "1.0.63"
+
+# tonic
+tonic = { version = "0.12", features = ["tls", "tls-roots", "gzip"] }
+tonic-build = "0.12.0"
+
+# misc
+anyhow = "1.0.71"
+async-trait = "0.1.68"
+backoff = { version = "0.4", features = ["futures", "tokio"] }
+bytes = "1.6.0"
+config = "0.14.0"
+const-str = "0.5.7"
+clap = { version = "4.0", features = ["derive"] }
+eyre = "0.6.12"
+futures = "0.3.30"
+hex = "0.4.3"
+lazy_static = "1.5.0"
+ring = "0.17"
+rustls = { version = "0.23.0", features = ["ring"] }
 sqlx = { version = "0.8", features = [
     "runtime-tokio",
     "tls-native-tls",
@@ -47,49 +91,5 @@ sqlx = { version = "0.8", features = [
     "bigdecimal",
     "time",
 ] }
-lazy_static = "1.5.0"
-eyre = "0.6.12"
-aws-config = "1.5.3"
-aws-sdk-s3 = "1.38.0"
-aws-smithy-async = { version = "1.2.1", features = ["rt-tokio"] }
-bytes = "1.6.0"
-twirp = { package = "twirp-rs", version = "0.13.0-succinct" }
-tracing-subscriber = { version = "0.3.18", features = [
-    "json",
-    "std",
-    "env-filter",
-] }
-bincode = "1.3.3"
-const-str = "0.5.7"
-hex = "0.4.3"
-async-trait = "0.1.68"
-backoff = "0.4"
-config = "0.14.0"
-futures = "0.3.30"
-benchmark = { path = "crates/benchmark" }
-
-[workspace.lints.rust]
-unsafe_code = "forbid"
-missing_docs = "warn"
-unused_extern_crates = "warn"
-missing_debug_implementations = "warn"
-unreachable_pub = "warn"
-unused_must_use = "deny"
-rust_2018_idioms = { level = "deny", priority = -1 }
-
-[workspace.lints.rustdoc]
-all = { level = "warn" }
-
-[workspace.lints.clippy]
-new_without_default = "allow"
-field_reassign_with_default = "allow"
-unnecessary_cast = "allow"
-cast_abs_to_unsigned = "allow"
-needless_range_loop = "allow"
-type_complexity = "allow"
-unnecessary_unwrap = "allow"
-default_constructed_unit_structs = "allow"
-box_default = "allow"
-assign_op_pattern = "allow"
-deprecated = "allow"
-incomplete_features = "allow"
+thiserror = "1.0.63"
+tokio = { version = "1.0", features = ["full"] }

@@ -1,0 +1,41 @@
+[package]
+name = "spn-node"
+description = "Prover implementation for SPN."
+version = { workspace = true }
+edition = { workspace = true }
+publish = false
+keywords = { workspace = true }
+categories = { workspace = true }
+license = { workspace = true }
+
+[dependencies]
+# spn
+spn-network-types = { workspace = true }
+spn-utils = { workspace = true }
+spn-artifacts = { workspace = true }
+spn-rpc = { workspace = true }
+
+# sp1
+sp1-prover = { workspace = true }
+sp1-sdk = { workspace = true }
+
+# alloy
+alloy = { workspace = true }
+alloy-signer-local = { workspace = true }
+alloy-primitives = { workspace = true }
+
+# misc
+anyhow = { workspace = true }
+async-trait = { workspace = true }
+backoff = { workspace = true }
+bincode = { workspace = true }
+clap = { workspace = true }
+const-str = { workspace = true }
+futures = { workspace = true }
+hex = { workspace = true }
+ring = { workspace = true }
+rustls = { workspace = true, features = ["ring"] }
+serde = { workspace = true }
+tokio = { workspace = true }
+tonic = { workspace = true }
+tracing = { workspace = true }

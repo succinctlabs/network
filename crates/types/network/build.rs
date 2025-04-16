@@ -9,6 +9,6 @@ fn main() {
         .out_dir("src")
         .type_attribute(".", "#[derive(serde::Serialize,serde::Deserialize)]")
         .type_attribute(".network.ProofStatus", "#[derive(sqlx::Type)]")
-        .compile(&["../../../proto/network.proto"], &["../../../proto"])
+        .compile_protos(&["../../../proto/network.proto"], &["../../../proto"])
         .unwrap();
 }

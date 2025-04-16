@@ -1,5 +1,5 @@
 use serde::Deserialize;
-use tracing_subscriber::{fmt, prelude::*, EnvFilter};
+use tracing_subscriber::{EnvFilter, fmt, prelude::*};
 
 #[derive(Debug, Deserialize, Clone, Copy)]
 pub enum LogFormat {
@@ -11,7 +11,7 @@ pub enum LogFormat {
 /// Initializes the logging system.
 ///
 /// Filters out crate dependencies to reduce noise.
-pub fn init(log_format: LogFormat) {
+pub fn init_logger(log_format: LogFormat) {
     // Set default log level to info if RUST_LOG is not set.
     if std::env::var("RUST_LOG").is_err() {
         std::env::set_var("RUST_LOG", "info");
@@ -46,11 +46,11 @@ pub fn init(log_format: LogFormat) {
         LogFormat::Minimal => base
             .with(
                 fmt::layer()
-                    .with_target(false)
-                    .with_line_number(false)
-                    .with_file(false)
-                    .with_thread_ids(false)
-                    .with_thread_names(false)
+                    // .with_target(false)
+                    // .with_line_number(false)
+                    // .with_file(false)
+                    // .with_thread_ids(false)
+                    // .with_thread_names(false)
                     .with_level(true)
                     .compact(),
             )
