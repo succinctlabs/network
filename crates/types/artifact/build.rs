@@ -8,6 +8,6 @@ fn main() {
         .protoc_arg("--experimental_allow_proto3_optional")
         .out_dir("src")
         .type_attribute(".", "#[derive(serde::Serialize,serde::Deserialize)]")
-        .compile(&["../../../proto/artifact.proto"], &["../../../proto"])
+        .compile_protos(&["../../../proto/artifact.proto"], &["../../../proto"])
         .unwrap();
 }

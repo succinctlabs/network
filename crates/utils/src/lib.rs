@@ -1,6 +1,7 @@
-use std::time::{SystemTime, UNIX_EPOCH};
+pub mod error;
+pub mod logger;
+pub mod time;
 
-/// Returns the current Unix timestamp.
-pub fn time_now() -> u64 {
-    SystemTime::now().duration_since(UNIX_EPOCH).expect("time went backwards").as_secs()
-}
+pub use error::*;
+pub use logger::*;
+pub use time::*;

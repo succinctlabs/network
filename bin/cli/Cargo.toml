@@ -1,26 +1,36 @@
 [package]
 name = "spn-cli"
-version.workspace = true
-edition.workspace = true
-description = "CLI for the SPN prover"
+version = { workspace = true }
+edition = { workspace = true }
+publish = false
 
 [[bin]]
 name = "spn"
-path = "src/cli.rs"
+path = "src/main.rs"
+
+[build-dependencies]
+sp1-build = { workspace = true }
 
 [dependencies]
-prover-core = { path = "../../crates/prover-core" }
-clap = { workspace = true, features = ["derive"] }
-anyhow = {workspace = true}
-dotenv = "0.15.0"
+# sp1
+sp1-sdk = { workspace = true }
+
+# spn
+spn-calibrator = { workspace = true }
+spn-node = { workspace = true }
+spn-network-types = { workspace = true }
+spn-utils = { workspace = true }
+spn-rpc = { workspace = true }
+
+# alloy
+alloy-primitives = { workspace = true }
+alloy-signer-local = { workspace = true }
+
+# misc
+anyhow = { workspace = true}
+clap = { version = "4.0", features = ["derive"] }
 rustls = { workspace = true, features = ["ring"] }
-tonic = { workspace = true , features = ["tls", "tls-roots", "gzip"] }
-alloy-signer-local = {workspace = true}
-spn-logging = { path = "../../crates/logging" }
-spn-network-types = { path = "../../crates/types/network" }
+tabled = "0.15"
 tokio = { workspace = true, features = ["full"] }
-fibonacci-program = { path = "../../program" }
-sp1-sdk = { version = "4.1.0", features = ["native-gnark"] }
-benchmark = { path = "../../crates/benchmark" }
-
-
+tonic = { workspace = true , features = ["tls", "tls-roots", "gzip"] }
+tracing = { workspace = true }
