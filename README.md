@@ -1,4 +1,5 @@
 # SPN Node
+
 This repository provides a prover node implementation that can be deployed on a single GPU machine 
 or across a cluster of GPU machines to provide proving capacity on the [Succinct Prover Network](https://docs.succinct.xyz/docs/network/introduction). It 
 also includes a collection of crates that serve as building blocks for creating your own custom 
