@@ -59,6 +59,11 @@ async fn main() -> Result<()> {
     // Print the header.
     println!("{}", include_str!("header.txt"));
 
+    // Set the environment variables.
+    std::env::set_var("DISABLE_SP1_CUDA_LOG", "1");
+    std::env::set_var("RUST_LOG", "debug");
+    std::env::set_var("SP1_PROVER", "cuda");
+
     // Parse the arguments.
     let cli = Args::parse();
 
