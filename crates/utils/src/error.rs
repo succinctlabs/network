@@ -57,6 +57,12 @@ impl ErrorCapture {
     }
 }
 
+impl Default for ErrorCapture {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl Drop for ErrorCapture {
     fn drop(&mut self) {
         // Remove the current hook and set a basic default one

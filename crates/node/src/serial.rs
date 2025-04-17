@@ -1,7 +1,7 @@
 use std::{
     panic::{self, AssertUnwindSafe},
     sync::Arc,
-    time::Instant,
+    time::{Duration, Instant, SystemTime},
 };
 
 use alloy_primitives::U256;
@@ -9,7 +9,6 @@ use alloy_signer_local::PrivateKeySigner;
 use anyhow::Context;
 use chrono::{self, DateTime};
 use nvml_wrapper::Nvml;
-use nvml_wrapper::error::NvmlError;
 use sp1_sdk::{EnvProver, ProverClient, SP1ProofMode, SP1Stdin};
 use spn_artifacts::{Artifact, parse_artifact_id_from_s3_url};
 use spn_network_types::{
@@ -19,27 +18,39 @@ use spn_network_types::{
 };
 use spn_rpc::{RetryableRpc, fetch_owner};
 use spn_utils::{ErrorCapture, time_now};
-use sysinfo::{CpuExt, DiskExt, ProcessExt, System, SystemExt};
+use sysinfo::{CpuExt, System, SystemExt};
+use tokio::sync::Mutex;
 use tonic::{async_trait, transport::Channel};
 use tracing::{error, info};
 
-use crate::{NodeBidder, NodeContext, NodeMonitor, NodeProver, SP1_NETWORK_VERSION};
+use crate::{NodeBidder, NodeContext, NodeMetrics, NodeMonitor, NodeProver, SP1_NETWORK_VERSION};
 
 /// A context that implements [`NodeContext`] for a serial node.
 ///
 /// This context is compatible with both [`SerialBidder`] and [`SerialProver`].
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct SerialContext {
     /// The network client for the node.
     pub network: ProverNetworkClient<Channel>,
     /// The signer for the node.
     pub signer: PrivateKeySigner,
+    /// The metrics for the node.
+    pub metrics: NodeMetrics,
 }
 
 impl SerialContext {
     /// Create a new [`SerialContext`].
     pub fn new(network: ProverNetworkClient<Channel>, signer: PrivateKeySigner) -> Self {
-        Self { network, signer }
+        Self {
+            network,
+            signer,
+            metrics: NodeMetrics {
+                fulfilled: Mutex::new(0),
+                online_since: SystemTime::now(),
+                total_cycles: Mutex::new(0),
+                total_proving_time: Mutex::new(Duration::from_secs(0)),
+            },
+        }
     }
 }
 
@@ -50,6 +61,10 @@ impl NodeContext for SerialContext {
 
     fn signer(&self) -> &PrivateKeySigner {
         &self.signer
+    }
+
+    fn metrics(&self) -> &NodeMetrics {
+        &self.metrics
     }
 }
 
@@ -319,13 +334,15 @@ impl<C: NodeContext> NodeProver<C> for SerialProver {
                     let start = Instant::now();
                     info!("{SERIAL_PROVER_TAG} Executing program...");
                     let (_, report) = prover.execute(&pk.elf, &stdin).run().unwrap();
-                    info!(duration = %start.elapsed().as_secs_f64(), cycles = %report.total_instruction_count(), "{SERIAL_PROVER_TAG} Executed program.");
+                    let cycles = report.total_instruction_count();
+                    info!(duration = %start.elapsed().as_secs_f64(), cycles = %cycles, "{SERIAL_PROVER_TAG} Executed program.");
 
                     let start = Instant::now();
                     info!("{SERIAL_PROVER_TAG} Generating proof...");
                     let proof = prover.prove(&pk, &stdin).mode(mode).run();
-                    info!(duration = %start.elapsed().as_secs_f64(), cycles = %report.total_instruction_count(), "{SERIAL_PROVER_TAG} Proof generation complete.");
-                    proof
+                    let proving_time = start.elapsed();
+                    info!(duration = %proving_time.as_secs_f64(), cycles = %cycles, "{SERIAL_PROVER_TAG} Proof generation complete.");
+                    (proof, cycles, proving_time)
                 }))
             })
             .await
@@ -335,9 +352,18 @@ impl<C: NodeContext> NodeProver<C> for SerialProver {
             let error_capture = ErrorCapture::new();
 
             match result {
-                Ok(Ok(proof)) => {
+                Ok((Ok(proof), cycles, proving_time)) => {
+                    // Update the metrics.
+                    let metrics = ctx.metrics();
+                    *metrics.total_cycles.lock().await += cycles;
+                    *metrics.total_proving_time.lock().await += proving_time;
+                    *metrics.fulfilled.lock().await += 1;
+
+                    // Serialize the proof.
                     let proof_bytes =
                         bincode::serialize(&proof).context("failed to serialize proof")?;
+
+                    // Fulfill the proof.
                     let address = ctx.signer().address().to_vec();
                     ctx.network()
                         .clone()
@@ -372,7 +398,7 @@ impl<C: NodeContext> NodeProver<C> for SerialProver {
                         )
                         .await?;
                 }
-                Ok(Err(e)) => {
+                Ok((Err(e), _, _)) => {
                     let error_msg = error_capture.format_error(e);
                     error!("{SERIAL_PROVER_TAG} {error_msg}");
                 }
@@ -394,8 +420,27 @@ pub struct SerialMonitor;
 
 #[async_trait]
 impl NodeMonitor<SerialContext> for SerialMonitor {
-    async fn record(&self, _: &SerialContext) -> anyhow::Result<()> {
+    async fn record(&self, ctx: &SerialContext) -> anyhow::Result<()> {
         const SERIAL_MONITOR_TAG: &str = "\x1b[35m[SerialMonitor]\x1b[0m";
+
+        // Log the node metrics.
+        let metrics = ctx.metrics();
+        let total_cycles = *metrics.total_cycles.lock().await;
+        let total_proving_time = *metrics.total_proving_time.lock().await;
+        let throughput = total_cycles as f64 / total_proving_time.as_secs() as f64;
+        let throughput = if throughput.is_nan() {
+            "0 MHz".to_string()
+        } else {
+            format!("{:.2} MHz", throughput / 1_000_000.0)
+        };
+        let total_cycles = format!("{:.2}M", total_cycles as f64 / 1_000_000.0);
+        let total_proving_time = humantime::format_duration(total_proving_time).to_string();
+        info!(
+            total_cycles = %total_cycles,
+            total_proving_time = %total_proving_time,
+            throughput = %throughput,
+            "{SERIAL_MONITOR_TAG} Checking node metrics..."
+        );
 
         // Get system metrics.
         let mut system = System::new_all();
@@ -429,7 +474,7 @@ impl NodeMonitor<SerialContext> for SerialMonitor {
             ram_used = %used_memory,
             ram_total = %total_memory,
             disk_used_percent = %(used_disk_space as f64 / total_disk_space as f64) * 100.0,
-            "{SERIAL_MONITOR_TAG} System health metrics logged."
+            "{SERIAL_MONITOR_TAG} Checking node health..."
         );
 
         Ok(())

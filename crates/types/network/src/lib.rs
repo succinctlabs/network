@@ -3,17 +3,17 @@ mod network;
 pub mod json;
 pub mod signed_message;
 
-use alloy::primitives::{Address, PrimitiveSignature, TxHash, U256};
+use alloy::primitives::{Address, Signature, TxHash, U256};
 use alloy_signer::SignerSync;
 pub use network::*;
 use prost::Message;
 pub use serde::{Deserialize, Serialize};
 pub trait Signable: Message {
-    fn sign<S: SignerSync>(&self, signer: &S) -> PrimitiveSignature;
+    fn sign<S: SignerSync>(&self, signer: &S) -> Signature;
 }
 
 impl<T: Message> Signable for T {
-    fn sign<S: SignerSync>(&self, signer: &S) -> PrimitiveSignature {
+    fn sign<S: SignerSync>(&self, signer: &S) -> Signature {
         signer.sign_message_sync(&self.encode_to_vec()).unwrap()
     }
 }

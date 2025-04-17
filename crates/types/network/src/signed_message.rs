@@ -1,4 +1,4 @@
-use alloy_primitives::{Address, PrimitiveSignature};
+use alloy::primitives::{Address, Signature};
 #[allow(unused_imports)]
 use prost::Message;
 use thiserror::Error;
@@ -20,7 +20,7 @@ use crate::{
     TerminateDelegationRequest,
 };
 
-use crate::json::{format_json_message, JsonFormatError};
+use crate::json::{JsonFormatError, format_json_message};
 
 pub trait SignedMessage {
     fn signature(&self) -> Vec<u8>;
@@ -143,7 +143,7 @@ impl_signed_message!(BetRequest);
 impl_signed_message!(SetFlowHighScoreRequest);
 
 pub fn recover_sender_raw(signature: &[u8], message: &[u8]) -> Result<Address, RecoverSenderError> {
-    let signature = PrimitiveSignature::try_from(signature)
+    let signature = Signature::try_from(signature)
         .map_err(|e| RecoverSenderError::SignatureDeserializationError(e.to_string()))?;
 
     signature

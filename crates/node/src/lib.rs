@@ -9,13 +9,16 @@
 
 mod serial;
 
-use std::{sync::Arc, time::Duration};
+use std::{
+    sync::Arc,
+    time::{Duration, SystemTime},
+};
 
 use alloy_signer_local::PrivateKeySigner;
 pub use serial::*;
 use sp1_sdk::SP1_CIRCUIT_VERSION;
 use spn_network_types::prover_network_client::ProverNetworkClient;
-use tokio::time::sleep;
+use tokio::{sync::Mutex, time::sleep};
 use tonic::{async_trait, transport::Channel};
 
 /// The version identifier for SP1 used on the network.
@@ -28,7 +31,7 @@ pub const EXPLORER_REQUEST_BASE_URL: &str = "https://testnet.succinct.xyz/explor
 ///
 /// It consists of a context, a bidder, and a prover. It periodically bids and proves requests based
 /// on the provided configuration.
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct Node<C, B, P, M> {
     /// The context for the node.
     pub ctx: Arc<C>,
@@ -36,7 +39,7 @@ pub struct Node<C, B, P, M> {
     pub bidder: Arc<B>,
     /// The prover for the node.
     pub prover: Arc<P>,
-    /// The metrics for the node.
+    /// The monitor for the node.
     pub monitor: Arc<M>,
 }
 
@@ -61,6 +64,8 @@ pub trait NodeContext: Send + Sync + 'static {
     fn network(&self) -> &ProverNetworkClient<Channel>;
     /// The signer for the node.
     fn signer(&self) -> &PrivateKeySigner;
+    /// The metrics for the node.
+    fn metrics(&self) -> &NodeMetrics;
 }
 
 /// The bidder for a node.
@@ -92,6 +97,21 @@ pub trait NodeMonitor<C>: Send + Sync + 'static {
     async fn record(&self, ctx: &C) -> anyhow::Result<()>;
 }
 
+/// The metrics for a node.
+///
+/// This is used to collect metrics from the node.
+#[derive(Debug)]
+pub struct NodeMetrics {
+    /// The number of requests fulfilled.
+    pub fulfilled: Mutex<u64>,
+    /// The time the node was started.
+    pub online_since: SystemTime,
+    /// The total number of cycles the node has proven.
+    pub total_cycles: Mutex<u64>,
+    /// The total time the node has spent proving.
+    pub total_proving_time: Mutex<Duration>,
+}
+
 impl<C: NodeContext, B: NodeBidder<C>, P: NodeProver<C>, M: NodeMonitor<C>> Node<C, B, P, M> {
     /// Run the node.
     pub async fn run(self) -> anyhow::Result<()> {
@@ -118,7 +138,7 @@ impl<C: NodeContext, B: NodeBidder<C>, P: NodeProver<C>, M: NodeMonitor<C>> Node
             let result: anyhow::Result<()> = async {
                 loop {
                     monitor.record(&ctx).await?;
-                    sleep(Duration::from_secs(60)).await;
+                    sleep(Duration::from_secs(30)).await;
                 }
             }
             .await;
