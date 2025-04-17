@@ -1,11 +1,13 @@
 use std::{
     panic::{self, AssertUnwindSafe},
     sync::Arc,
+    time::Instant,
 };
 
 use alloy_primitives::U256;
 use alloy_signer_local::PrivateKeySigner;
 use anyhow::Context;
+use chrono::{self, DateTime};
 use sp1_sdk::{EnvProver, ProverClient, SP1ProofMode, SP1Stdin};
 use spn_artifacts::{Artifact, parse_artifact_id_from_s3_url};
 use spn_network_types::{
@@ -16,7 +18,7 @@ use spn_network_types::{
 use spn_rpc::{RetryableRpc, fetch_owner};
 use spn_utils::{ErrorCapture, time_now};
 use tonic::{async_trait, transport::Channel};
-use tracing::{debug, error, info};
+use tracing::{Instrument, debug, error, info};
 
 use crate::{EXPLORER_REQUEST_BASE_URL, NodeBidder, NodeContext, NodeProver, SP1_NETWORK_VERSION};
 
@@ -91,9 +93,13 @@ impl SerialProver {
 
 #[async_trait]
 impl<C: NodeContext> NodeBidder<C> for SerialBidder {
+    #[allow(clippy::too_many_lines)]
     async fn bid(&self, ctx: &C) -> anyhow::Result<()> {
+        const SERIAL_BIDDER_TAG: &str = "\x1b[34m[SerialBidder]\x1b[0m";
+
         // Fetch the owner.
         let owner = fetch_owner(ctx.network(), ctx.signer().address().as_ref()).await?;
+        info!(owner = %hex::encode(&owner), "{SERIAL_BIDDER_TAG} Fetched owner.");
 
         // Fetch for open requests.
         let requests = ctx
@@ -110,32 +116,43 @@ impl<C: NodeContext> NodeBidder<C> for SerialBidder {
             .await?
             .into_inner()
             .requests;
+        info!(count = %requests.len(), "{SERIAL_BIDDER_TAG} Fetched unassigned proof requests.");
 
         // If there are no open requests, return.
         if requests.is_empty() {
-            error!("found no auctions to bid in");
+            info!("{SERIAL_BIDDER_TAG} Found no unassigned requests to bid on.");
             return Ok(());
         }
 
         // There should only be at most one request.
         if requests.len() > 1 {
-            error!("expected 1 request, got {}", requests.len());
+            info!(
+                "{SERIAL_BIDDER_TAG} Found more than one unassigned request to bid on. Skipping..."
+            );
             return Ok(());
         }
 
         let request = requests.first().unwrap();
         let request_id = hex::encode(&request.request_id);
         let address = ctx.signer().address().to_vec();
+
+        info!("{SERIAL_BIDDER_TAG} Found one unassigned request to bid on.");
         ctx.network()
             .clone()
             .with_retry(
                 || async {
                     // Get the nonce.
-                    let req = GetNonceRequest { address: address.clone() };
-                    let nonce = ctx.network().clone().get_nonce(req).await?.into_inner().nonce;
+                    let nonce = ctx
+                        .network()
+                        .clone()
+                        .get_nonce(GetNonceRequest { address: address.clone() })
+                        .await?
+                        .into_inner()
+                        .nonce;
+                    info!(nonce = %nonce, "{SERIAL_BIDDER_TAG} Fetched account nonce.");
 
                     // Get request details to access the deadline.
-                    let request_details = ctx
+                    let request = ctx
                         .network()
                         .clone()
                         .get_proof_request_details(GetProofRequestDetailsRequest {
@@ -145,49 +162,47 @@ impl<C: NodeContext> NodeBidder<C> for SerialBidder {
                         .into_inner()
                         .request
                         .ok_or_else(|| anyhow::anyhow!("request details not found"))?;
-                    let request_deadline = request_details.deadline;
-                    let cycle_limit = request_details.cycle_limit;
+
+                    // Log the request details in a structured format.
                     let current_time = time_now();
+                    let remaining_time = request.deadline.saturating_sub(current_time);
+                    let required_time = ((request.cycle_limit as f64) / self.throughput) as u64;
 
                     info!(
-                        "📊 Request {}/0x{} - Bid amount: {}, Worst case throughput: {} cycles/sec",
-                        EXPLORER_REQUEST_BASE_URL,
-                        request_id.clone(),
-                        self.bid,
-                        self.throughput
+                        request_id = %request_id,
+                        vk_hash = %hex::encode(request.vk_hash),
+                        version = %request.version,
+                        mode = %request.mode,
+                        strategy = %request.strategy,
+                        requester = %hex::encode(request.requester),
+                        tx_hash = %hex::encode(request.tx_hash),
+                        program_uri = %request.program_uri,
+                        stdin_uri = %request.stdin_uri,
+                        cycle_limit = %request.cycle_limit,
+                        created_at = %request.created_at,
+                        created_at_utc = %DateTime::from_timestamp(i64::try_from(request.created_at).unwrap_or_default(), 0).unwrap_or_default(),
+                        deadline = %request.deadline,
+                        deadline_utc = %DateTime::from_timestamp(i64::try_from(request.deadline).unwrap_or_default(), 0).unwrap_or_default(),
+                        remaining_time = %remaining_time,
+                        remaining_time_minutes = %remaining_time / 60,
+                        remaining_time_seconds = %remaining_time % 60,
+                        required_time = %required_time,
+                        required_time_minutes = %required_time / 60,
+                        required_time_seconds = %required_time % 60,
+                        "{SERIAL_BIDDER_TAG} Fetched request details."
                     );
 
-                    // Determine if the bidder should bid on the request.
-                    if !should_bid_on_request(
-                        self.throughput,
-                        request_deadline,
-                        cycle_limit,
-                        current_time,
-                    ) {
-                        info!(
-                            "Skipping bid for request {}/0x{} due to insufficient time.",
-                            EXPLORER_REQUEST_BASE_URL,
-                            request_id.clone()
-                        );
+                    if remaining_time < required_time {
                         return Ok(());
                     }
 
-                    // Log the bid amount.
-                    info!(
-                        "Submitting bid with amount: {} for request {}/0x{}",
-                        self.bid,
-                        EXPLORER_REQUEST_BASE_URL,
-                        request_id.clone()
-                    );
-
-                    // Create and submit the bid request.
-                    let bid_amount = self.bid.to_string();
-                    debug!("Sending bid amount in request body: {}", bid_amount);
+                    // Bid on the request.
+                    info!(request_id = %request_id, bid_amount = %self.bid, "{SERIAL_BIDDER_TAG} Submitting a bid for request");
                     let body = BidRequestBody {
                         nonce,
                         request_id: hex::decode(request_id.clone())
                             .context("failed to decode request_id")?,
-                        amount: bid_amount,
+                        amount: self.bid.to_string(),
                     };
                     let bid_request = BidRequest {
                         format: MessageFormat::Binary.into(),
@@ -195,9 +210,10 @@ impl<C: NodeContext> NodeBidder<C> for SerialBidder {
                         body: Some(body),
                     };
                     ctx.network().clone().bid(bid_request).await?;
+
                     Ok(())
                 },
-                "bid on request",
+                "Bid",
             )
             .await?;
 
@@ -209,8 +225,11 @@ impl<C: NodeContext> NodeBidder<C> for SerialBidder {
 impl<C: NodeContext> NodeProver<C> for SerialProver {
     #[allow(clippy::too_many_lines)]
     async fn prove(&self, ctx: &C) -> anyhow::Result<()> {
+        const SERIAL_PROVER_TAG: &str = "\x1b[33m[SerialProver]\x1b[0m";
+
         // Fetch the owner.
         let owner = fetch_owner(ctx.network(), ctx.signer().address().as_ref()).await?;
+        info!(owner = %hex::encode(&owner), "{SERIAL_PROVER_TAG} Fetched owner.");
 
         // Fetch for assigned requests.
         let requests = ctx
@@ -227,153 +246,132 @@ impl<C: NodeContext> NodeProver<C> for SerialProver {
             .await?
             .into_inner()
             .requests;
+        info!(count = %requests.len(), "{SERIAL_PROVER_TAG} Fetched assigned proof requests.");
 
         // If there are no assigned requests, return.
         if requests.is_empty() {
-            debug!("found no assigned requests to prove");
-            return Ok(());
-        }
-        info!(
-            "🏆 won {} {}",
-            if requests.len() == 1 { "the".to_string() } else { requests.len().to_string() },
-            if requests.len() == 1 { "auction" } else { "auctions" }
-        );
-
-        // There should only be at most one request.
-        if requests.len() > 1 {
-            error!("expected 1 request, got {}", requests.len());
+            info!("{SERIAL_PROVER_TAG} Found no assigned requests to prove.");
             return Ok(());
         }
 
-        let request = requests.first().unwrap();
+        for request in requests {
+            // Log the request details.
+            info!(
+                request_id = %hex::encode(&request.request_id),
+                vk_hash = %hex::encode(request.vk_hash),
+                version = %request.version,
+                mode = %request.mode,
+                strategy = %request.strategy,
+                requester = %hex::encode(request.requester),
+                tx_hash = %hex::encode(request.tx_hash),
+                program_uri = %request.program_uri,
+                stdin_uri = %request.stdin_uri,
+                cycle_limit = %request.cycle_limit,
+                created_at = %request.created_at,
+                created_at_utc = %DateTime::from_timestamp(i64::try_from(request.created_at).unwrap_or_default(), 0).unwrap_or_default(),
+                deadline = %request.deadline,
+                deadline_utc = %DateTime::from_timestamp(i64::try_from(request.deadline).unwrap_or_default(), 0).unwrap_or_default(),
+                "{SERIAL_PROVER_TAG} Proving request..."
+            );
 
-        request.program_name.as_ref().map_or_else(
-            || {
-                info!(
-                    "proving request {}/0x{}",
-                    EXPLORER_REQUEST_BASE_URL,
-                    hex::encode(&request.request_id)
-                );
-            },
-            |name| {
-                info!(
-                    "✨ proving program {} for request {}/0x{}",
-                    name,
-                    EXPLORER_REQUEST_BASE_URL,
-                    hex::encode(&request.request_id)
-                );
-            },
-        );
+            // Download the program.
+            let program_artifact_id = parse_artifact_id_from_s3_url(&request.program_uri)?;
+            let program_artifact = Artifact {
+                id: program_artifact_id.clone(),
+                label: "program".to_string(),
+                expiry: None,
+            };
+            let program: Vec<u8> =
+                program_artifact.download_program(&self.s3_bucket, &self.s3_region).await?;
+            info!(program_size = %program.len(), artifact_id = %hex::encode(program_artifact_id), "{SERIAL_PROVER_TAG} Downloaded program.");
 
-        // Download the program.
-        let program_artifact = Artifact {
-            id: parse_artifact_id_from_s3_url(&request.program_uri)?,
-            label: "program".to_string(),
-            expiry: None,
-        };
+            // Download the stdin.
+            let stdin_artifact_id = parse_artifact_id_from_s3_url(&request.stdin_uri)?;
+            let stdin_artifact = Artifact {
+                id: stdin_artifact_id.clone(),
+                label: "stdin".to_string(),
+                expiry: None,
+            };
+            let stdin: SP1Stdin =
+                stdin_artifact.download_stdin(&self.s3_bucket, &self.s3_region).await?;
+            info!(stdin_size = %stdin.buffer.iter().map(std::vec::Vec::len).sum::<usize>(), artifact_id = %hex::encode(stdin_artifact_id), "{SERIAL_PROVER_TAG} Downloaded stdin.");
 
-        let elf: Vec<u8> =
-            program_artifact.download_program(&self.s3_bucket, &self.s3_region).await?;
+            // Generate the proving keys and the proof in a separate thread to catch panics.
+            let prover = self.prover.clone();
+            let mode = ProofMode::try_from(request.mode).unwrap_or(ProofMode::Core);
+            let mode = match mode {
+                ProofMode::Core => SP1ProofMode::Core,
+                ProofMode::Compressed => SP1ProofMode::Compressed,
+                ProofMode::Plonk => SP1ProofMode::Plonk,
+                ProofMode::Groth16 => SP1ProofMode::Groth16,
+                ProofMode::UnspecifiedProofMode => unreachable!(),
+            };
+            let result = tokio::task::spawn_blocking(move || {
+                panic::catch_unwind(AssertUnwindSafe(move || {
+                    let start = Instant::now();
+                    let (pk, _) = prover.setup(&program);
+                    info!(duration = %start.elapsed().as_secs_f64(), "{SERIAL_PROVER_TAG} Setup complete.");
+                    let proof = prover.prove(&pk, &stdin).mode(mode).run();
+                    info!(duration = %start.elapsed().as_secs_f64(), "{SERIAL_PROVER_TAG} Proof generation complete.");
+                    proof
+                }))
+            })
+            .await
+            .context("proving task failed")?;
 
-        // Download the stdin.
-        let stdin_artifact = Artifact {
-            id: parse_artifact_id_from_s3_url(&request.stdin_uri)?,
-            label: "stdin".to_string(),
-            expiry: None,
-        };
-        let stdin: SP1Stdin =
-            stdin_artifact.download_stdin(&self.s3_bucket, &self.s3_region).await?;
+            // Set up error capture
+            let error_capture = ErrorCapture::new();
 
-        let mode = ProofMode::try_from(request.mode).unwrap_or(ProofMode::Core);
-        let mode = match mode {
-            ProofMode::Core => SP1ProofMode::Core,
-            ProofMode::Compressed => SP1ProofMode::Compressed,
-            ProofMode::Plonk => SP1ProofMode::Plonk,
-            ProofMode::Groth16 => SP1ProofMode::Groth16,
-            ProofMode::UnspecifiedProofMode => unreachable!(),
-        };
+            match result {
+                Ok(Ok(proof)) => {
+                    let proof_bytes =
+                        bincode::serialize(&proof).context("failed to serialize proof")?;
+                    let address = ctx.signer().address().to_vec();
+                    ctx.network()
+                        .clone()
+                        .with_retry(
+                            || async {
+                                // Get the nonce.
+                                let nonce = ctx
+                                    .network()
+                                    .clone()
+                                    .get_nonce(GetNonceRequest { address: address.clone() })
+                                    .await?
+                                    .into_inner()
+                                    .nonce;
+                                info!(nonce = %nonce, "{SERIAL_PROVER_TAG} Fetched account nonce.");
 
-        // Generate the proving keys and the proof in a separate thread to catch panics.
-        let prover = self.prover.clone();
-        let result = tokio::task::spawn_blocking(move || {
-            panic::catch_unwind(AssertUnwindSafe(move || {
-                let (pk, _) = prover.setup(&elf);
-                let proof = prover.prove(&pk, &stdin).mode(mode).run();
-                proof
-            }))
-        })
-        .await
-        .context("proving task failed")?;
-
-        // Set up error capture
-        let error_capture = ErrorCapture::new();
-
-        match result {
-            Ok(Ok(proof)) => {
-                let proof_bytes =
-                    bincode::serialize(&proof).context("failed to serialize proof")?;
-                let address = ctx.signer().address().to_vec();
-                ctx.network()
-                    .clone()
-                    .with_retry(
-                        || async {
-                            // Get the nonce.
-                            let nonce = ctx
-                                .network()
-                                .clone()
-                                .get_nonce(GetNonceRequest { address: address.clone() })
-                                .await?
-                                .into_inner()
-                                .nonce;
-
-                            // Create and submit the fulfill request.
-                            let body = FulfillProofRequestBody {
-                                nonce,
-                                request_id: request.request_id.clone(),
-                                proof: proof_bytes.clone(),
-                            };
-                            let fulfill_request = FulfillProofRequest {
-                                format: MessageFormat::Binary.into(),
-                                signature: body.sign(&ctx.signer()).into(),
-                                body: Some(body),
-                            };
-                            ctx.network().clone().fulfill_proof(fulfill_request).await?;
-                            Ok(())
-                        },
-                        "fulfill proof",
-                    )
-                    .await?;
-
-                Ok(())
-            }
-            Ok(Err(e)) => {
-                let error_msg = error_capture.format_error(e);
-                error!("❌ error while proving: {}", error_msg);
-                Err(anyhow::anyhow!(error_msg))
-            }
-            Err(panic_err) => {
-                let panic_msg = ErrorCapture::extract_panic_message(panic_err);
-                let error_msg = error_capture.format_error(panic_msg);
-                error!("❌ proving failed: {}", error_msg);
-                Err(anyhow::anyhow!(error_msg))
+                                // Create and submit the fulfill request.
+                                let body = FulfillProofRequestBody {
+                                    nonce,
+                                    request_id: request.request_id.clone(),
+                                    proof: proof_bytes.clone(),
+                                };
+                                let fulfill_request = FulfillProofRequest {
+                                    format: MessageFormat::Binary.into(),
+                                    signature: body.sign(&ctx.signer()).into(),
+                                    body: Some(body),
+                                };
+                                ctx.network().clone().fulfill_proof(fulfill_request).await?;
+                                info!(request_id = %hex::encode(&request.request_id), proof_size = %proof_bytes.len(), "{SERIAL_PROVER_TAG} Proof fulfillment submitted.");
+                                Ok(())
+                            },
+                            "Fulfill",
+                        )
+                        .await?;
+                }
+                Ok(Err(e)) => {
+                    let error_msg = error_capture.format_error(e);
+                    error!("{SERIAL_PROVER_TAG} {error_msg}");
+                }
+                Err(panic_err) => {
+                    let panic_msg = ErrorCapture::extract_panic_message(panic_err);
+                    let error_msg = error_capture.format_error(panic_msg);
+                    error!("{SERIAL_PROVER_TAG} {error_msg}");
+                }
             }
         }
+
+        Ok(())
     }
-}
-
-/// Determines if the bidder should bid on a request based on their worst-case throughput.
-fn should_bid_on_request(
-    worst_case_throughput: f64,
-    request_deadline: u64,
-    cycle_limit: u64,
-    current_time: u64,
-) -> bool {
-    // Calculate the available time to complete the request.
-    let available_time = request_deadline.saturating_sub(current_time);
-
-    // Calculate the required time to complete the request based on worst-case throughput.
-    let required_time = (cycle_limit as f64) / worst_case_throughput;
-
-    // Determine if the bidder can meet the deadline.
-    required_time <= available_time as f64
 }

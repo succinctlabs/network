@@ -33,3 +33,4 @@ rustls = { workspace = true, features = ["ring"] }
 tabled = "0.15"
 tokio = { workspace = true, features = ["full"] }
 tonic = { workspace = true , features = ["tls", "tls-roots", "gzip"] }
+tracing = { workspace = true }

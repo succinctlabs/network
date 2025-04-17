@@ -32,10 +32,10 @@ spn-utils = { path = "crates/utils" }
 spn-rpc = { path = "crates/rpc" }
 
 # sp1
-sp1-sdk = { version = "4.1.0", features = ["native-gnark"] }
-sp1-prover = "4.1.0"
-sp1-zkvm = "4.1.0"
-sp1-build = "4.1.0"
+sp1-sdk = { git = "https://github.com/succinctlabs/sp1.git", branch = "j/disable-sp1-cuda-log", features = ["native-gnark"] }
+sp1-prover = { git = "https://github.com/succinctlabs/sp1.git", branch = "j/disable-sp1-cuda-log" }
+sp1-zkvm = { git = "https://github.com/succinctlabs/sp1.git", branch = "j/disable-sp1-cuda-log" }
+sp1-build = { git = "https://github.com/succinctlabs/sp1.git", branch = "j/disable-sp1-cuda-log" }
 
 # aws
 aws-config = "1.5.3"
@@ -43,10 +43,10 @@ aws-sdk-s3 = "1.38.0"
 aws-smithy-async = { version = "1.2.1", features = ["rt-tokio"] }
 
 # alloy
-alloy = { version = "0.7.0", features = ["full"] }
-alloy-signer = "0.11.1"
-alloy-primitives = "0.8.18"
-alloy-signer-local = "0.11.1"
+alloy = { version = "0.14.0", features = ["full"] }
+alloy-signer = "0.14.0"
+alloy-primitives = "1.0"
+alloy-signer-local = "0.14.0"
 
 # tracing
 tracing = "0.1"

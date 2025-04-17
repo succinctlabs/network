@@ -1,0 +1,14 @@
+
+
+███████╗██╗   ██╗ ██████╗ ██████╗██╗███╗   ██╗ ██████╗████████╗
+██╔════╝██║   ██║██╔════╝██╔════╝██║████╗  ██║██╔════╝╚══██╔══╝
+███████╗██║   ██║██║     ██║     ██║██╔██╗ ██║██║        ██║   
+╚════██║██║   ██║██║     ██║     ██║██║╚██╗██║██║        ██║   
+███████║╚██████╔╝╚██████╗╚██████╗██║██║ ╚████║╚██████╗   ██║   
+╚══════╝ ╚═════╝  ╚═════╝ ╚═════╝╚═╝╚═╝  ╚═══╝ ╚═════╝   ╚═╝   
+
+Welcome to the Succinct Prover Node CLI! You're about to start your proving journey.
+
+Fire up your machine and join a global network of provers where your compute helps prove the world's software. 
+
+Learn more: https://docs.succinct.xyz

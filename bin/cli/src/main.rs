@@ -13,8 +13,9 @@ use rustls::crypto::ring;
 use sp1_sdk::{SP1Stdin, include_elf};
 use spn_calibrator::{Calibrator, SinglePassCalibrator};
 use spn_network_types::prover_network_client::ProverNetworkClient;
-use spn_node::{Node, SerialBidder, SerialContext, SerialProver};
+use spn_node::{Node, NodeContext, SerialBidder, SerialContext, SerialProver};
 use tabled::{Table, Tabled, settings::Style};
+use tracing::info;
 
 /// The CLI application that defines all available commands.
 #[derive(Parser)]
@@ -54,6 +55,9 @@ struct ProveArgs {
 async fn main() -> Result<()> {
     // Setup ring.
     ring::default_provider().install_default().expect("failed to install rustls crypto provider.");
+
+    // Print the header.
+    println!("{}", include_str!("header.txt"));
 
     // Parse the arguments.
     let cli = Args::parse();
@@ -113,7 +117,7 @@ async fn main() -> Result<()> {
             spn_utils::init_logger(spn_utils::LogFormat::Pretty);
 
             // Setup the connection to the network.
-            let endpoint = spn_rpc::configure_endpoint(args.rpc_url)?;
+            let endpoint = spn_rpc::configure_endpoint(&args.rpc_url)?;
             let network = ProverNetworkClient::connect(endpoint).await?;
 
             // Setup the signer.
@@ -126,9 +130,18 @@ async fn main() -> Result<()> {
             let bidder = SerialBidder::new(U256::from(args.bid_amount), args.throughput);
 
             // Setup the prover
-            let prover = SerialProver::new(args.s3_bucket, args.s3_region);
+            let prover = SerialProver::new(args.s3_bucket.clone(), args.s3_region.clone());
 
             // Setup the node.
+            info!(
+                wallet = %ctx.signer().address(),
+                rpc = %args.rpc_url,
+                throughput = %args.throughput,
+                bid_amount = %args.bid_amount,
+                s3_bucket = %args.s3_bucket,
+                s3_region = %args.s3_region,
+                "Starting Node on Succinct Network..."
+            );
             let node = Node::new(ctx, bidder, prover);
 
             // Run the node.

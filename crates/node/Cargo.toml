@@ -39,3 +39,4 @@ serde = { workspace = true }
 tokio = { workspace = true }
 tonic = { workspace = true }
 tracing = { workspace = true }
+chrono = "0.4.40"

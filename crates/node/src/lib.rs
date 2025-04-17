@@ -4,6 +4,8 @@
 #![allow(clippy::items_after_statements)]
 #![allow(clippy::missing_errors_doc)]
 #![allow(clippy::cast_precision_loss)]
+#![allow(clippy::cast_sign_loss)]
+#![allow(clippy::cast_possible_truncation)]
 
 mod serial;
 
@@ -78,8 +80,6 @@ pub trait NodeProver<C> {
 impl<C: NodeContext, B: NodeBidder<C>, P: NodeProver<C>> Node<C, B, P> {
     /// Run the node.
     pub async fn run(self) -> anyhow::Result<()> {
-        info!("🔑 using account {}.", self.ctx.signer().address());
-
         loop {
             self.bidder.bid(&self.ctx).await?;
             self.prover.prove(&self.ctx).await?;

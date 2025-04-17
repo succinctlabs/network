@@ -1,5 +1,9 @@
 use serde::Deserialize;
-use tracing_subscriber::{EnvFilter, fmt, prelude::*};
+use tracing_subscriber::{
+    EnvFilter,
+    fmt::{self, format::FmtSpan},
+    prelude::*,
+};
 
 #[derive(Debug, Deserialize, Clone, Copy)]
 pub enum LogFormat {
@@ -23,6 +27,7 @@ pub fn init_logger(log_format: LogFormat) {
         .add_directive("aws_sdk_sts=warn".parse().unwrap())
         .add_directive("aws_config=warn".parse().unwrap())
         .add_directive("aws_smithy_runtime=warn".parse().unwrap())
+        .add_directive("aws_smithy_http_client=warn".parse().unwrap())
         .add_directive("hyper=warn".parse().unwrap())
         .add_directive("hyper_util=warn".parse().unwrap())
         .add_directive("tower=warn".parse().unwrap())
@@ -37,11 +42,31 @@ pub fn init_logger(log_format: LogFormat) {
         .add_directive("sp1_prover=warn".parse().unwrap())
         .add_directive("sp1_core_machine=warn".parse().unwrap())
         .add_directive("sp1_core_executor=warn".parse().unwrap())
-        .add_directive("sp1_cuda=warn".parse().unwrap());
+        .add_directive("sp1_stark=warn".parse().unwrap())
+        .add_directive("sp1_cuda=warn".parse().unwrap())
+        .add_directive("p3_fri=warn".parse().unwrap())
+        .add_directive("sp1_recursion_circuit=warn".parse().unwrap())
+        .add_directive("sp1_recursion_compiler=warn".parse().unwrap())
+        .add_directive("p3_merkle_tree=warn".parse().unwrap())
+        .add_directive("p3_dft=warn".parse().unwrap())
+        .add_directive("p3_uni_stark=warn".parse().unwrap())
+        .add_directive("p3_keccak_air=warn".parse().unwrap())
+        .add_directive("spn_artifacts=warn".parse().unwrap())
+        .add_directive("sp1_circuit_compiler=warn".parse().unwrap());
     let base = tracing_subscriber::registry().with(filter);
 
     match log_format {
-        LogFormat::Pretty => base.with(fmt::layer().pretty()).init(),
+        LogFormat::Pretty => base
+            .with(
+                fmt::layer()
+                    .pretty()
+                    .with_file(false)
+                    .with_target(false)
+                    .with_line_number(false)
+                    .with_thread_ids(false)
+                    .with_thread_names(false),
+            )
+            .init(),
         LogFormat::Json => base.with(fmt::layer().json()).init(),
         LogFormat::Minimal => base
             .with(
