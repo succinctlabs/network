@@ -13,7 +13,7 @@ use rustls::crypto::ring;
 use sp1_sdk::{SP1Stdin, include_elf};
 use spn_calibrator::{Calibrator, SinglePassCalibrator};
 use spn_network_types::prover_network_client::ProverNetworkClient;
-use spn_node::{Node, NodeContext, SerialBidder, SerialContext, SerialProver};
+use spn_node::{Node, NodeContext, SerialBidder, SerialContext, SerialMonitor, SerialProver};
 use tabled::{Table, Tabled, settings::Style};
 use tracing::info;
 
@@ -137,6 +137,9 @@ async fn main() -> Result<()> {
             // Setup the prover
             let prover = SerialProver::new(args.s3_bucket.clone(), args.s3_region.clone());
 
+            // Setup the monitor.
+            let monitor = SerialMonitor;
+
             // Setup the node.
             info!(
                 wallet = %ctx.signer().address(),
@@ -147,7 +150,7 @@ async fn main() -> Result<()> {
                 s3_region = %args.s3_region,
                 "Starting Node on Succinct Network..."
             );
-            let node = Node::new(ctx, bidder, prover);
+            let node = Node::new(ctx, bidder, prover, monitor);
 
             // Run the node.
             node.run().await?;

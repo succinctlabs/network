@@ -8,6 +8,8 @@ use alloy_primitives::U256;
 use alloy_signer_local::PrivateKeySigner;
 use anyhow::Context;
 use chrono::{self, DateTime};
+use nvml_wrapper::Nvml;
+use nvml_wrapper::error::NvmlError;
 use sp1_sdk::{EnvProver, ProverClient, SP1ProofMode, SP1Stdin};
 use spn_artifacts::{Artifact, parse_artifact_id_from_s3_url};
 use spn_network_types::{
@@ -17,10 +19,11 @@ use spn_network_types::{
 };
 use spn_rpc::{RetryableRpc, fetch_owner};
 use spn_utils::{ErrorCapture, time_now};
+use sysinfo::{CpuExt, DiskExt, ProcessExt, System, SystemExt};
 use tonic::{async_trait, transport::Channel};
-use tracing::{Instrument, debug, error, info};
+use tracing::{error, info};
 
-use crate::{EXPLORER_REQUEST_BASE_URL, NodeBidder, NodeContext, NodeProver, SP1_NETWORK_VERSION};
+use crate::{NodeBidder, NodeContext, NodeMonitor, NodeProver, SP1_NETWORK_VERSION};
 
 /// A context that implements [`NodeContext`] for a serial node.
 ///
@@ -68,26 +71,6 @@ impl SerialBidder {
     #[must_use]
     pub fn new(bid: U256, throughput: f64) -> Self {
         Self { bid, throughput }
-    }
-}
-
-/// A serial prover.
-///
-/// This prover will generate proofs for requests sequentially using an [`EnvProver`].
-pub struct SerialProver {
-    /// The underlying prover for the node that will be used to generate proofs.
-    prover: Arc<EnvProver>,
-    /// The S3 bucket used to fetch artifacts.
-    s3_bucket: String,
-    /// The S3 region used to fetch artifacts.
-    s3_region: String,
-}
-
-impl SerialProver {
-    /// Create a new [`SerialProver`].
-    #[must_use]
-    pub fn new(s3_bucket: String, s3_region: String) -> Self {
-        Self { prover: Arc::new(ProverClient::from_env()), s3_bucket, s3_region }
     }
 }
 
@@ -221,6 +204,26 @@ impl<C: NodeContext> NodeBidder<C> for SerialBidder {
     }
 }
 
+/// A serial prover.
+///
+/// This prover will generate proofs for requests sequentially using an [`EnvProver`].
+pub struct SerialProver {
+    /// The underlying prover for the node that will be used to generate proofs.
+    prover: Arc<EnvProver>,
+    /// The S3 bucket used to fetch artifacts.
+    s3_bucket: String,
+    /// The S3 region used to fetch artifacts.
+    s3_region: String,
+}
+
+impl SerialProver {
+    /// Create a new [`SerialProver`].
+    #[must_use]
+    pub fn new(s3_bucket: String, s3_region: String) -> Self {
+        Self { prover: Arc::new(ProverClient::from_env()), s3_bucket, s3_region }
+    }
+}
+
 #[async_trait]
 impl<C: NodeContext> NodeProver<C> for SerialProver {
     #[allow(clippy::too_many_lines)]
@@ -309,10 +312,19 @@ impl<C: NodeContext> NodeProver<C> for SerialProver {
             let result = tokio::task::spawn_blocking(move || {
                 panic::catch_unwind(AssertUnwindSafe(move || {
                     let start = Instant::now();
+                    info!("{SERIAL_PROVER_TAG} Setting up proving key...");
                     let (pk, _) = prover.setup(&program);
-                    info!(duration = %start.elapsed().as_secs_f64(), "{SERIAL_PROVER_TAG} Setup complete.");
+                    info!(duration = %start.elapsed().as_secs_f64(), "{SERIAL_PROVER_TAG} Set up proving key.");
+
+                    let start = Instant::now();
+                    info!("{SERIAL_PROVER_TAG} Executing program...");
+                    let (_, report) = prover.execute(&pk.elf, &stdin).run().unwrap();
+                    info!(duration = %start.elapsed().as_secs_f64(), cycles = %report.total_instruction_count(), "{SERIAL_PROVER_TAG} Executed program.");
+
+                    let start = Instant::now();
+                    info!("{SERIAL_PROVER_TAG} Generating proof...");
                     let proof = prover.prove(&pk, &stdin).mode(mode).run();
-                    info!(duration = %start.elapsed().as_secs_f64(), "{SERIAL_PROVER_TAG} Proof generation complete.");
+                    info!(duration = %start.elapsed().as_secs_f64(), cycles = %report.total_instruction_count(), "{SERIAL_PROVER_TAG} Proof generation complete.");
                     proof
                 }))
             })
@@ -371,6 +383,54 @@ impl<C: NodeContext> NodeProver<C> for SerialProver {
                 }
             }
         }
+
+        Ok(())
+    }
+}
+
+/// The metrics for a serial node.
+#[derive(Debug, Clone)]
+pub struct SerialMonitor;
+
+#[async_trait]
+impl NodeMonitor<SerialContext> for SerialMonitor {
+    async fn record(&self, _: &SerialContext) -> anyhow::Result<()> {
+        const SERIAL_MONITOR_TAG: &str = "\x1b[35m[SerialMonitor]\x1b[0m";
+
+        // Get system metrics.
+        let mut system = System::new_all();
+        system.refresh_all();
+
+        // Get CPU usage.
+        let cpu_usage = system.global_cpu_info().cpu_usage();
+
+        // Get RAM usage
+        let total_memory = system.total_memory();
+        let used_memory = system.used_memory();
+
+        // Get disk usage.
+        let total_disk_space =
+            system.disks().iter().map(sysinfo::DiskExt::total_space).sum::<u64>();
+        let used_disk_space =
+            system.disks().iter().map(sysinfo::DiskExt::available_space).sum::<u64>();
+
+        // Get device metrics.
+        let nvml = Nvml::init()?;
+        let device = nvml.device_by_index(0)?;
+        let utilization = device.utilization_rates()?;
+        let memory = device.memory_info()?;
+
+        // Log the system health metrics including GPU and VRAM usage.
+        info!(
+            cpu_usage = %cpu_usage,
+            gpu_usage = %utilization.gpu,
+            vram_used = %memory.used,
+            vram_total = %memory.total,
+            ram_used = %used_memory,
+            ram_total = %total_memory,
+            disk_used_percent = %(used_disk_space as f64 / total_disk_space as f64) * 100.0,
+            "{SERIAL_MONITOR_TAG} System health metrics logged."
+        );
 
         Ok(())
     }

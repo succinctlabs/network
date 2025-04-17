@@ -40,3 +40,5 @@ tokio = { workspace = true }
 tonic = { workspace = true }
 tracing = { workspace = true }
 chrono = "0.4.40"
+sysinfo = "0.24"
+nvml-wrapper = "0.9"
