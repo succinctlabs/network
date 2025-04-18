@@ -99,8 +99,32 @@ impl<C: NodeContext> NodeBidder<C> for SerialBidder {
         let owner = fetch_owner(ctx.network(), ctx.signer().address().as_ref()).await?;
         info!(owner = %hex::encode(&owner), "{SERIAL_BIDDER_TAG} Fetched owner.");
 
-        // Fetch for open requests.
-        let requests = ctx
+        // Fetch for assigned requests.
+        let assigned_requests = ctx
+            .network()
+            .clone()
+            .get_filtered_proof_requests(GetFilteredProofRequestsRequest {
+                version: Some(SP1_NETWORK_VERSION.to_string()),
+                fulfillment_status: Some(FulfillmentStatus::Assigned.into()),
+                minimum_deadline: Some(time_now()),
+                fulfiller: Some(owner.clone()),
+                limit: Some(1),
+                ..Default::default()
+            })
+            .await?
+            .into_inner()
+            .requests;
+        info!(count = %assigned_requests.len(), "{SERIAL_BIDDER_TAG} Fetched assigned proof requests.");
+
+        if !assigned_requests.is_empty() {
+            info!(
+                "{SERIAL_BIDDER_TAG} At least one assigned proof request found. Skipping the bidding process for now."
+            );
+            return Ok(());
+        }
+
+        // Fetch for unassigned requests.
+        let unassigned_requests = ctx
             .network()
             .clone()
             .get_filtered_proof_requests(GetFilteredProofRequestsRequest {
@@ -114,23 +138,23 @@ impl<C: NodeContext> NodeBidder<C> for SerialBidder {
             .await?
             .into_inner()
             .requests;
-        info!(count = %requests.len(), "{SERIAL_BIDDER_TAG} Fetched unassigned proof requests.");
+        info!(count = %unassigned_requests.len(), "{SERIAL_BIDDER_TAG} Fetched unassigned proof requests.");
 
         // If there are no open requests, return.
-        if requests.is_empty() {
+        if unassigned_requests.is_empty() {
             info!("{SERIAL_BIDDER_TAG} Found no unassigned requests to bid on.");
             return Ok(());
         }
 
         // There should only be at most one request.
-        if requests.len() > 1 {
+        if unassigned_requests.len() > 1 {
             info!(
                 "{SERIAL_BIDDER_TAG} Found more than one unassigned request to bid on. Skipping..."
             );
             return Ok(());
         }
 
-        let request = requests.first().unwrap();
+        let request = unassigned_requests.first().unwrap();
         let request_id = hex::encode(&request.request_id);
         let address = ctx.signer().address().to_vec();
 
@@ -164,7 +188,7 @@ impl<C: NodeContext> NodeBidder<C> for SerialBidder {
                     // Log the request details in a structured format.
                     let current_time = time_now();
                     let remaining_time = request.deadline.saturating_sub(current_time);
-                    let required_time = ((request.cycle_limit as f64) / self.throughput) as u64;
+                    let required_time = ((request.gas_limit as f64) / self.throughput) as u64;
 
                     info!(
                         request_id = %request_id,
@@ -176,6 +200,7 @@ impl<C: NodeContext> NodeBidder<C> for SerialBidder {
                         tx_hash = %hex::encode(request.tx_hash),
                         program_uri = %request.program_uri,
                         stdin_uri = %request.stdin_uri,
+                        gas_limit = %request.gas_limit,
                         cycle_limit = %request.cycle_limit,
                         created_at = %request.created_at,
                         created_at_utc = %DateTime::from_timestamp(i64::try_from(request.created_at).unwrap_or_default(), 0).unwrap_or_default(),
@@ -425,6 +450,7 @@ impl NodeMonitor<SerialContext> for SerialMonitor {
 
         // Log the node metrics.
         let metrics = ctx.metrics();
+        let fulfilled = *metrics.fulfilled.lock().await;
         let total_cycles = *metrics.total_cycles.lock().await;
         let total_proving_time = *metrics.total_proving_time.lock().await;
         let throughput = total_cycles as f64 / total_proving_time.as_secs() as f64;
@@ -436,6 +462,7 @@ impl NodeMonitor<SerialContext> for SerialMonitor {
         let total_cycles = format!("{:.2}M", total_cycles as f64 / 1_000_000.0);
         let total_proving_time = humantime::format_duration(total_proving_time).to_string();
         info!(
+            fulfilled = %fulfilled,
             total_cycles = %total_cycles,
             total_proving_time = %total_proving_time,
             throughput = %throughput,
