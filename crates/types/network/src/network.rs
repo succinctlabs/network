@@ -317,6 +317,9 @@ pub struct ProofRequest {
     /// The cause of execution failure, if any.
     #[prost(enumeration = "ExecuteFailureCause", tag = "28")]
     pub execute_fail_cause: i32,
+    /// The settlement status of the request.
+    #[prost(enumeration = "SettlementStatus", tag = "29")]
+    pub settlement_status: i32,
 }
 #[derive(serde::Serialize, serde::Deserialize)]
 #[derive(Clone, PartialEq, ::prost::Message)]
@@ -416,6 +419,9 @@ pub struct GetFilteredProofRequestsRequest {
     /// The optional cause of execution failure.
     #[prost(enumeration = "ExecuteFailureCause", optional, tag = "14")]
     pub execute_fail_cause: ::core::option::Option<i32>,
+    /// The optional settlement status of the requests to filter for.
+    #[prost(enumeration = "SettlementStatus", optional, tag = "15")]
+    pub settlement_status: ::core::option::Option<i32>,
 }
 #[derive(serde::Serialize, serde::Deserialize)]
 #[derive(Clone, PartialEq, ::prost::Message)]
@@ -2570,6 +2576,45 @@ pub struct SetFlowHighScoreResponse {
 pub struct SetFlowHighScoreResponseBody {}
 #[derive(serde::Serialize, serde::Deserialize)]
 #[derive(Clone, PartialEq, ::prost::Message)]
+pub struct SetRollupHighScoreRequest {
+    /// The message format of the body.
+    #[prost(enumeration = "MessageFormat", tag = "1")]
+    pub format: i32,
+    /// The signature of the sender.
+    #[prost(bytes = "vec", tag = "2")]
+    pub signature: ::prost::alloc::vec::Vec<u8>,
+    /// The body of the request.
+    #[prost(message, optional, tag = "3")]
+    pub body: ::core::option::Option<SetRollupHighScoreRequestBody>,
+}
+#[derive(serde::Serialize, serde::Deserialize)]
+#[derive(Clone, Copy, PartialEq, ::prost::Message)]
+pub struct SetRollupHighScoreRequestBody {
+    /// The account nonce of the sender.
+    #[prost(uint64, tag = "1")]
+    pub nonce: u64,
+    /// The high score to set.
+    #[prost(uint64, tag = "2")]
+    pub high_score: u64,
+    /// The victory status for the game.
+    #[prost(bool, tag = "3")]
+    pub is_victory: bool,
+}
+#[derive(serde::Serialize, serde::Deserialize)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct SetRollupHighScoreResponse {
+    /// The transaction hash.
+    #[prost(bytes = "vec", tag = "1")]
+    pub tx_hash: ::prost::alloc::vec::Vec<u8>,
+    /// The body of the response.
+    #[prost(message, optional, tag = "2")]
+    pub body: ::core::option::Option<SetRollupHighScoreResponseBody>,
+}
+#[derive(serde::Serialize, serde::Deserialize)]
+#[derive(Clone, Copy, PartialEq, ::prost::Message)]
+pub struct SetRollupHighScoreResponseBody {}
+#[derive(serde::Serialize, serde::Deserialize)]
+#[derive(Clone, PartialEq, ::prost::Message)]
 pub struct SocialIdentity {
     /// The social platform.
     #[prost(enumeration = "SocialPlatform", tag = "1")]
@@ -3295,6 +3340,483 @@ pub struct GetContestDetailsResponse {
     /// The stars reward amount.
     #[prost(string, tag = "12")]
     pub stars_reward: ::prost::alloc::string::String,
+    /// The base stars amount.
+    #[prost(string, tag = "13")]
+    pub base_stars: ::prost::alloc::string::String,
+    /// The multiplier amount.
+    #[prost(string, tag = "14")]
+    pub multiplier: ::prost::alloc::string::String,
+}
+#[derive(serde::Serialize, serde::Deserialize)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct ContestRequestDetails {
+    /// The latest contest id.
+    #[prost(bytes = "vec", optional, tag = "1")]
+    pub request_id: ::core::option::Option<::prost::alloc::vec::Vec<u8>>,
+    /// The latest contest creation time.
+    #[prost(uint64, optional, tag = "2")]
+    pub created_at: ::core::option::Option<u64>,
+}
+#[derive(serde::Serialize, serde::Deserialize)]
+#[derive(Clone, Copy, PartialEq, ::prost::Message)]
+pub struct GetLatestContestRequest {}
+#[derive(serde::Serialize, serde::Deserialize)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct GetLatestContestResponse {
+    /// The latest contest id.
+    #[prost(message, optional, tag = "1")]
+    pub new_contest: ::core::option::Option<ContestRequestDetails>,
+    /// The current contest id.
+    #[prost(message, optional, tag = "2")]
+    pub current_contest: ::core::option::Option<ContestRequestDetails>,
+}
+#[derive(serde::Serialize, serde::Deserialize)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct GetContestBettorsRequest {
+    /// The identifier for the request.
+    #[prost(bytes = "vec", tag = "1")]
+    pub request_id: ::prost::alloc::vec::Vec<u8>,
+}
+#[derive(serde::Serialize, serde::Deserialize)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct GetContestBettorsResponse {
+    /// The bettors.
+    #[prost(message, repeated, tag = "1")]
+    pub bettors: ::prost::alloc::vec::Vec<BettorDetails>,
+    /// The total pool of the contest.
+    #[prost(string, tag = "2")]
+    pub total_pool: ::prost::alloc::string::String,
+}
+#[derive(serde::Serialize, serde::Deserialize)]
+#[derive(Clone, Copy, PartialEq, ::prost::Message)]
+pub struct GetGpuMetricsRequest {}
+#[derive(serde::Serialize, serde::Deserialize)]
+#[derive(Clone, Copy, PartialEq, ::prost::Message)]
+pub struct GetGpuMetricsResponse {
+    /// The total number of gpus.
+    #[prost(uint32, tag = "1")]
+    pub total_gpus: u32,
+    /// The total number of proofs by gpus.
+    #[prost(uint32, tag = "2")]
+    pub total_proofs: u32,
+}
+#[derive(serde::Serialize, serde::Deserialize)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct ProverActivity {
+    /// The request id.
+    #[prost(bytes = "vec", tag = "1")]
+    pub request_id: ::prost::alloc::vec::Vec<u8>,
+    /// The fulfillment status of the request.
+    #[prost(enumeration = "FulfillmentStatus", tag = "2")]
+    pub fulfillment_status: i32,
+    /// The fulfiller address.
+    #[prost(bytes = "vec", tag = "3")]
+    pub fulfiller: ::prost::alloc::vec::Vec<u8>,
+    /// The optional social platform of the fulfiller.
+    #[prost(enumeration = "SocialPlatform", optional, tag = "4")]
+    pub fulfiller_social_platform: ::core::option::Option<i32>,
+    /// The optional social handle of the fulfiller.
+    #[prost(string, optional, tag = "5")]
+    pub fulfiller_social_handle: ::core::option::Option<::prost::alloc::string::String>,
+    /// The optional social id of the fulfiller.
+    #[prost(string, optional, tag = "6")]
+    pub fulfiller_social_id: ::core::option::Option<::prost::alloc::string::String>,
+    /// The social image of the fulfiller.
+    #[prost(string, optional, tag = "7")]
+    pub fulfiller_social_image: ::core::option::Option<::prost::alloc::string::String>,
+    /// The creation time of the request.
+    #[prost(uint64, optional, tag = "8")]
+    pub created_at: ::core::option::Option<u64>,
+}
+#[derive(serde::Serialize, serde::Deserialize)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct GetFilteredProverActivityRequest {
+    /// The limit for the number of results.
+    #[prost(uint32, optional, tag = "1")]
+    pub limit: ::core::option::Option<u32>,
+    /// The page for the results.
+    #[prost(uint32, optional, tag = "2")]
+    pub page: ::core::option::Option<u32>,
+    /// The optional address to filter by.
+    #[prost(bytes = "vec", optional, tag = "3")]
+    pub address: ::core::option::Option<::prost::alloc::vec::Vec<u8>>,
+}
+#[derive(serde::Serialize, serde::Deserialize)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct GetFilteredProverActivityResponse {
+    /// The prover activity.
+    #[prost(message, repeated, tag = "1")]
+    pub prover_activity: ::prost::alloc::vec::Vec<ProverActivity>,
+}
+#[derive(serde::Serialize, serde::Deserialize)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct GetProverMetricsRequest {
+    /// The address to filter by.
+    #[prost(bytes = "vec", tag = "1")]
+    pub address: ::prost::alloc::vec::Vec<u8>,
+}
+#[derive(serde::Serialize, serde::Deserialize)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct GetProverMetricsResponse {
+    /// The total number of proofs.
+    #[prost(uint32, tag = "1")]
+    pub total_proofs: u32,
+    /// Number of contests participated in.
+    #[prost(uint32, tag = "2")]
+    pub total_contests: u32,
+    /// Stars earned.
+    #[prost(string, tag = "3")]
+    pub stars_earned: ::prost::alloc::string::String,
+    /// Average multiplier.
+    #[prost(string, tag = "4")]
+    pub average_multiplier: ::prost::alloc::string::String,
+}
+#[derive(serde::Serialize, serde::Deserialize)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct BetHistory {
+    /// The request id.
+    #[prost(bytes = "vec", tag = "1")]
+    pub request_id: ::prost::alloc::vec::Vec<u8>,
+    /// Points bet.
+    #[prost(string, tag = "2")]
+    pub points_bet: ::prost::alloc::string::String,
+    /// Stars pool.
+    #[prost(string, tag = "3")]
+    pub star_pool: ::prost::alloc::string::String,
+    /// Multiplier.
+    #[prost(string, tag = "4")]
+    pub multiplier: ::prost::alloc::string::String,
+    /// Probability.
+    #[prost(string, tag = "5")]
+    pub probability: ::prost::alloc::string::String,
+    /// Stars reward.
+    #[prost(string, tag = "6")]
+    pub star_reward: ::prost::alloc::string::String,
+    /// The winner.
+    #[prost(message, optional, tag = "7")]
+    pub winner: ::core::option::Option<BettorDetails>,
+    /// The creation time of the bet.
+    #[prost(uint64, tag = "8")]
+    pub created_at: u64,
+    /// The total number of bettors.
+    #[prost(uint32, tag = "9")]
+    pub total_bettors: u32,
+}
+#[derive(serde::Serialize, serde::Deserialize)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct GetFilteredBetHistoryRequest {
+    /// The address to filter by.
+    #[prost(bytes = "vec", tag = "1")]
+    pub address: ::prost::alloc::vec::Vec<u8>,
+    /// The limit for the number of results.
+    #[prost(uint32, optional, tag = "2")]
+    pub limit: ::core::option::Option<u32>,
+    /// The page for the results.
+    #[prost(uint32, optional, tag = "3")]
+    pub page: ::core::option::Option<u32>,
+    /// Filter by victory.
+    #[prost(bool, optional, tag = "4")]
+    pub is_victory: ::core::option::Option<bool>,
+}
+#[derive(serde::Serialize, serde::Deserialize)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct GetFilteredBetHistoryResponse {
+    /// The bet history.
+    #[prost(message, repeated, tag = "1")]
+    pub bets: ::prost::alloc::vec::Vec<BetHistory>,
+}
+#[derive(serde::Serialize, serde::Deserialize)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct GpuTeamStats {
+    /// The gpu variant.
+    #[prost(enumeration = "GpuVariant", tag = "1")]
+    pub gpu_variant: i32,
+    /// The total number of gpus.
+    #[prost(uint32, tag = "2")]
+    pub total_gpus: u32,
+    /// The total number of proofs.
+    #[prost(uint32, tag = "3")]
+    pub total_proofs: u32,
+    /// The total number of contests.
+    #[prost(uint32, tag = "4")]
+    pub total_contests: u32,
+    /// The total number of stars won by the gpu team.
+    #[prost(string, tag = "5")]
+    pub total_stars_won: ::prost::alloc::string::String,
+}
+#[derive(serde::Serialize, serde::Deserialize)]
+#[derive(Clone, Copy, PartialEq, ::prost::Message)]
+pub struct GetGpuTeamStatsRequest {}
+#[derive(serde::Serialize, serde::Deserialize)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct GetGpuTeamStatsResponse {
+    /// List of gpu team stats.
+    #[prost(message, repeated, tag = "1")]
+    pub gpu_team_stats: ::prost::alloc::vec::Vec<GpuTeamStats>,
+}
+#[derive(serde::Serialize, serde::Deserialize)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct GetProverStatsRequest {
+    #[prost(bytes = "vec", optional, tag = "1")]
+    pub address: ::core::option::Option<::prost::alloc::vec::Vec<u8>>,
+}
+#[derive(serde::Serialize, serde::Deserialize)]
+#[derive(Clone, Copy, PartialEq, ::prost::Message)]
+pub struct GetProverStatsResponse {
+    #[prost(uint64, tag = "1")]
+    pub total_earnings: u64,
+    #[prost(uint64, tag = "2")]
+    pub total_cycles: u64,
+    #[prost(uint64, tag = "3")]
+    pub total_gas_proved: u64,
+    #[prost(uint64, tag = "4")]
+    pub active_provers: u64,
+}
+#[derive(serde::Serialize, serde::Deserialize)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct ProverStats {
+    #[prost(bytes = "vec", tag = "1")]
+    pub address: ::prost::alloc::vec::Vec<u8>,
+    #[prost(string, optional, tag = "2")]
+    pub name: ::core::option::Option<::prost::alloc::string::String>,
+    #[prost(string, optional, tag = "3")]
+    pub twitter: ::core::option::Option<::prost::alloc::string::String>,
+    #[prost(bool, tag = "4")]
+    pub use_twitter_handle: bool,
+    #[prost(uint64, tag = "5")]
+    pub total_auction_requests: u64,
+    #[prost(uint64, tag = "6")]
+    pub successful_requests: u64,
+    #[prost(uint64, tag = "7")]
+    pub total_gas_proved: u64,
+    #[prost(uint64, tag = "8")]
+    pub last_active_at: u64,
+    #[prost(uint64, tag = "9")]
+    pub created_at: u64,
+    #[prost(uint64, tag = "10")]
+    pub total_earnings: u64,
+}
+#[derive(serde::Serialize, serde::Deserialize)]
+#[derive(Clone, Copy, PartialEq, ::prost::Message)]
+pub struct GetFilteredProverStatsRequest {
+    /// The optional maximum number of requests to return (default is 10,
+    /// maximum is 100).
+    #[prost(uint32, optional, tag = "1")]
+    pub limit: ::core::option::Option<u32>,
+    /// The optional page number to return (default is 1).
+    #[prost(uint32, optional, tag = "2")]
+    pub page: ::core::option::Option<u32>,
+}
+#[derive(serde::Serialize, serde::Deserialize)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct GetFilteredProverStatsResponse {
+    #[prost(message, repeated, tag = "1")]
+    pub stats: ::prost::alloc::vec::Vec<ProverStats>,
+}
+#[derive(serde::Serialize, serde::Deserialize)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct GetProverSearchResultsRequest {
+    /// The query to search for.
+    #[prost(string, tag = "1")]
+    pub query: ::prost::alloc::string::String,
+}
+#[derive(serde::Serialize, serde::Deserialize)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct GetProverSearchResultsResponse {
+    #[prost(message, repeated, tag = "1")]
+    pub provers: ::prost::alloc::vec::Vec<SearchResult>,
+}
+#[derive(serde::Serialize, serde::Deserialize)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct BidHistory {
+    /// The bidder.
+    #[prost(bytes = "vec", tag = "1")]
+    pub bidder: ::prost::alloc::vec::Vec<u8>,
+    /// The amount bid.
+    #[prost(string, tag = "2")]
+    pub amount: ::prost::alloc::string::String,
+    /// The creation time of the bid.
+    #[prost(uint64, tag = "3")]
+    pub created_at: u64,
+    /// The bidder name.
+    #[prost(string, optional, tag = "4")]
+    pub bidder_name: ::core::option::Option<::prost::alloc::string::String>,
+}
+#[derive(serde::Serialize, serde::Deserialize)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct GetFilteredBidHistoryRequest {
+    /// The request id to filter by.
+    #[prost(bytes = "vec", tag = "1")]
+    pub request_id: ::prost::alloc::vec::Vec<u8>,
+    /// The limit for the number of results.
+    #[prost(uint32, optional, tag = "2")]
+    pub limit: ::core::option::Option<u32>,
+    /// The page for the results.
+    #[prost(uint32, optional, tag = "3")]
+    pub page: ::core::option::Option<u32>,
+}
+#[derive(serde::Serialize, serde::Deserialize)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct GetFilteredBidHistoryResponse {
+    #[prost(message, repeated, tag = "1")]
+    pub bids: ::prost::alloc::vec::Vec<BidHistory>,
+}
+#[derive(serde::Serialize, serde::Deserialize)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct SignedMessage {
+    /// The message.
+    #[prost(string, tag = "1")]
+    pub message: ::prost::alloc::string::String,
+    /// The signature.
+    #[prost(string, tag = "2")]
+    pub signature: ::prost::alloc::string::String,
+}
+#[derive(serde::Serialize, serde::Deserialize)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct SettlementRequest {
+    /// The RequestProofRequest signed message.
+    #[prost(message, optional, tag = "1")]
+    pub request: ::core::option::Option<SignedMessage>,
+    /// The BidRequest signed message.
+    #[prost(message, optional, tag = "2")]
+    pub bid: ::core::option::Option<SignedMessage>,
+    /// The SettleRequest signed message.
+    #[prost(message, optional, tag = "3")]
+    pub settle: ::core::option::Option<SignedMessage>,
+    /// The ExecuteProofRequest signed message.
+    #[prost(message, optional, tag = "4")]
+    pub execute: ::core::option::Option<SignedMessage>,
+    /// The FulfillProofRequest signed message.
+    #[prost(message, optional, tag = "5")]
+    pub fulfill: ::core::option::Option<SignedMessage>,
+}
+#[derive(serde::Serialize, serde::Deserialize)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct GetSettlementRequestRequest {
+    /// The request ID to get signed messages for.
+    #[prost(bytes = "vec", tag = "1")]
+    pub request_id: ::prost::alloc::vec::Vec<u8>,
+}
+#[derive(serde::Serialize, serde::Deserialize)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct GetSettlementRequestResponse {
+    /// The settlement request.
+    #[prost(message, optional, tag = "1")]
+    pub request: ::core::option::Option<SettlementRequest>,
+}
+#[derive(serde::Serialize, serde::Deserialize)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct GetFilteredSettlementRequestsRequest {
+    /// The list of request IDs to get signed messages for.
+    #[prost(bytes = "vec", repeated, tag = "1")]
+    pub request_ids: ::prost::alloc::vec::Vec<::prost::alloc::vec::Vec<u8>>,
+}
+#[derive(serde::Serialize, serde::Deserialize)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct GetFilteredSettlementRequestsResponse {
+    /// The list of signed messages.
+    #[prost(message, repeated, tag = "1")]
+    pub requests: ::prost::alloc::vec::Vec<SettlementRequest>,
+}
+#[derive(serde::Serialize, serde::Deserialize)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct Prover {
+    /// The address of the prover.
+    #[prost(bytes = "vec", tag = "1")]
+    pub address: ::prost::alloc::vec::Vec<u8>,
+    /// The owner of the prover.
+    #[prost(bytes = "vec", tag = "2")]
+    pub owner: ::prost::alloc::vec::Vec<u8>,
+    /// The name of the prover.
+    #[prost(string, optional, tag = "3")]
+    pub name: ::core::option::Option<::prost::alloc::string::String>,
+    /// The block number of the prover was created in.
+    #[prost(uint64, tag = "4")]
+    pub block_number: u64,
+    /// The transaction hash of the prover was created in.
+    #[prost(bytes = "vec", tag = "5")]
+    pub tx_hash: ::prost::alloc::vec::Vec<u8>,
+}
+#[derive(serde::Serialize, serde::Deserialize)]
+#[derive(Clone, Copy, PartialEq, ::prost::Message)]
+pub struct GetFilteredProversRequest {
+    /// The optional maximum number of provers to return (default is 10,
+    /// maximum is 100).
+    #[prost(uint32, optional, tag = "1")]
+    pub limit: ::core::option::Option<u32>,
+    /// The optional page number to return (default is 1).
+    #[prost(uint32, optional, tag = "2")]
+    pub page: ::core::option::Option<u32>,
+}
+#[derive(serde::Serialize, serde::Deserialize)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct GetFilteredProversResponse {
+    #[prost(message, repeated, tag = "1")]
+    pub provers: ::prost::alloc::vec::Vec<Prover>,
+}
+#[derive(serde::Serialize, serde::Deserialize)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct GetStakeBalanceRequest {
+    /// The account to get the stake balance for. This can be a prover or the owner of the prover.
+    #[prost(bytes = "vec", tag = "1")]
+    pub address: ::prost::alloc::vec::Vec<u8>,
+}
+#[derive(serde::Serialize, serde::Deserialize)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct GetStakeBalanceResponse {
+    /// The stake balance.
+    #[prost(string, tag = "1")]
+    pub balance: ::prost::alloc::string::String,
+}
+#[derive(serde::Serialize, serde::Deserialize)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct StakeBalanceLog {
+    /// The address of the account.
+    #[prost(bytes = "vec", tag = "1")]
+    pub address: ::prost::alloc::vec::Vec<u8>,
+    /// The type of balance change operation.
+    #[prost(enumeration = "StakeBalanceOperation", tag = "2")]
+    pub operation: i32,
+    /// The amount of the change (can be positive or negative).
+    #[prost(string, tag = "3")]
+    pub amount: ::prost::alloc::string::String,
+    /// The transaction hash that caused this change.
+    #[prost(bytes = "vec", tag = "4")]
+    pub tx_hash: ::prost::alloc::vec::Vec<u8>,
+    /// The unix timestamp of when this change occurred.
+    #[prost(uint64, tag = "5")]
+    pub created_at: u64,
+}
+#[derive(serde::Serialize, serde::Deserialize)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct GetFilteredStakeBalanceLogsRequest {
+    /// The optional address to filter for.
+    #[prost(bytes = "vec", optional, tag = "1")]
+    pub address: ::core::option::Option<::prost::alloc::vec::Vec<u8>>,
+    /// The optional type of operations to filter for.
+    #[prost(enumeration = "StakeBalanceOperation", optional, tag = "2")]
+    pub operation: ::core::option::Option<i32>,
+    /// The optional minimum unix timestamp to filter logs from. Only returns
+    /// logs after this timestamp.
+    #[prost(uint64, optional, tag = "3")]
+    pub minimum_timestamp: ::core::option::Option<u64>,
+    /// The optional maximum unix timestamp to filter logs to. Only returns
+    /// logs before this timestamp.
+    #[prost(uint64, optional, tag = "4")]
+    pub maximum_timestamp: ::core::option::Option<u64>,
+    /// The optional maximum number of logs to return (default is 10, maximum is 100).
+    #[prost(uint32, optional, tag = "5")]
+    pub limit: ::core::option::Option<u32>,
+    /// The optional page number to return (default is 1).
+    #[prost(uint32, optional, tag = "6")]
+    pub page: ::core::option::Option<u32>,
+}
+#[derive(serde::Serialize, serde::Deserialize)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct GetFilteredStakeBalanceLogsResponse {
+    /// The stake balance logs.
+    #[prost(message, repeated, tag = "1")]
+    pub logs: ::prost::alloc::vec::Vec<StakeBalanceLog>,
 }
 /// Format to help decode signature in backend.
 #[derive(serde::Serialize, serde::Deserialize)]
@@ -3522,6 +4044,39 @@ impl ExecutionStatus {
         }
     }
 }
+/// The different settlement statuses that a request can be in.
+#[derive(serde::Serialize, serde::Deserialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
+#[repr(i32)]
+pub enum SettlementStatus {
+    UnspecifiedSettlementStatus = 0,
+    /// The request has not been settled.
+    Unsettled = 1,
+    /// The request has been settled.
+    Settled = 2,
+}
+impl SettlementStatus {
+    /// String value of the enum field names used in the ProtoBuf definition.
+    ///
+    /// The values are not transformed in any way and thus are considered stable
+    /// (if the ProtoBuf definition does not change) and safe for programmatic use.
+    pub fn as_str_name(&self) -> &'static str {
+        match self {
+            Self::UnspecifiedSettlementStatus => "UNSPECIFIED_SETTLEMENT_STATUS",
+            Self::Unsettled => "UNSETTLED",
+            Self::Settled => "SETTLED",
+        }
+    }
+    /// Creates an enum from field names used in the ProtoBuf definition.
+    pub fn from_str_name(value: &str) -> ::core::option::Option<Self> {
+        match value {
+            "UNSPECIFIED_SETTLEMENT_STATUS" => Some(Self::UnspecifiedSettlementStatus),
+            "UNSETTLED" => Some(Self::Unsettled),
+            "SETTLED" => Some(Self::Settled),
+            _ => None,
+        }
+    }
+}
 /// The different types of balance changes that can occur.
 #[derive(serde::Serialize, serde::Deserialize)]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
@@ -3575,6 +4130,47 @@ impl BalanceOperation {
             "REFUND" => Some(Self::Refund),
             "BID" => Some(Self::Bid),
             "REWARD" => Some(Self::Reward),
+            _ => None,
+        }
+    }
+}
+/// The different types of stake balance changes that can occur.
+#[derive(serde::Serialize, serde::Deserialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
+#[repr(i32)]
+pub enum StakeBalanceOperation {
+    UnspecifiedStakeBalanceOperation = 0,
+    /// A stake operation (positive).
+    Stake = 1,
+    /// An unstake operation (negative).
+    Unstake = 2,
+    /// A slash operation (negative).
+    Slash = 3,
+}
+impl StakeBalanceOperation {
+    /// String value of the enum field names used in the ProtoBuf definition.
+    ///
+    /// The values are not transformed in any way and thus are considered stable
+    /// (if the ProtoBuf definition does not change) and safe for programmatic use.
+    pub fn as_str_name(&self) -> &'static str {
+        match self {
+            Self::UnspecifiedStakeBalanceOperation => {
+                "UNSPECIFIED_STAKE_BALANCE_OPERATION"
+            }
+            Self::Stake => "STAKE",
+            Self::Unstake => "UNSTAKE",
+            Self::Slash => "SLASH",
+        }
+    }
+    /// Creates an enum from field names used in the ProtoBuf definition.
+    pub fn from_str_name(value: &str) -> ::core::option::Option<Self> {
+        match value {
+            "UNSPECIFIED_STAKE_BALANCE_OPERATION" => {
+                Some(Self::UnspecifiedStakeBalanceOperation)
+            }
+            "STAKE" => Some(Self::Stake),
+            "UNSTAKE" => Some(Self::Unstake),
+            "SLASH" => Some(Self::Slash),
             _ => None,
         }
     }
@@ -5514,6 +6110,31 @@ pub mod prover_network_client {
                 .insert(GrpcMethod::new("network.ProverNetwork", "SetFlowHighScore"));
             self.inner.unary(req, path, codec).await
         }
+        /// Set the rollup high score.
+        pub async fn set_rollup_high_score(
+            &mut self,
+            request: impl tonic::IntoRequest<super::SetRollupHighScoreRequest>,
+        ) -> std::result::Result<
+            tonic::Response<super::SetRollupHighScoreResponse>,
+            tonic::Status,
+        > {
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::unknown(
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
+            let codec = tonic::codec::ProstCodec::default();
+            let path = http::uri::PathAndQuery::from_static(
+                "/network.ProverNetwork/SetRollupHighScore",
+            );
+            let mut req = request.into_request();
+            req.extensions_mut()
+                .insert(GrpcMethod::new("network.ProverNetwork", "SetRollupHighScore"));
+            self.inner.unary(req, path, codec).await
+        }
         /// Check if address or social identity is whitelisted.
         pub async fn get_whitelist_status(
             &mut self,
@@ -5919,6 +6540,291 @@ pub mod prover_network_client {
                 .insert(GrpcMethod::new("network.ProverNetwork", "GetContestDetails"));
             self.inner.unary(req, path, codec).await
         }
+        /// Get latest contest id.
+        pub async fn get_latest_contest(
+            &mut self,
+            request: impl tonic::IntoRequest<super::GetLatestContestRequest>,
+        ) -> std::result::Result<
+            tonic::Response<super::GetLatestContestResponse>,
+            tonic::Status,
+        > {
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::unknown(
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
+            let codec = tonic::codec::ProstCodec::default();
+            let path = http::uri::PathAndQuery::from_static(
+                "/network.ProverNetwork/GetLatestContest",
+            );
+            let mut req = request.into_request();
+            req.extensions_mut()
+                .insert(GrpcMethod::new("network.ProverNetwork", "GetLatestContest"));
+            self.inner.unary(req, path, codec).await
+        }
+        /// Get contest bettors.
+        pub async fn get_contest_bettors(
+            &mut self,
+            request: impl tonic::IntoRequest<super::GetContestBettorsRequest>,
+        ) -> std::result::Result<
+            tonic::Response<super::GetContestBettorsResponse>,
+            tonic::Status,
+        > {
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::unknown(
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
+            let codec = tonic::codec::ProstCodec::default();
+            let path = http::uri::PathAndQuery::from_static(
+                "/network.ProverNetwork/GetContestBettors",
+            );
+            let mut req = request.into_request();
+            req.extensions_mut()
+                .insert(GrpcMethod::new("network.ProverNetwork", "GetContestBettors"));
+            self.inner.unary(req, path, codec).await
+        }
+        /// Get gpu metrics.
+        pub async fn get_gpu_metrics(
+            &mut self,
+            request: impl tonic::IntoRequest<super::GetGpuMetricsRequest>,
+        ) -> std::result::Result<
+            tonic::Response<super::GetGpuMetricsResponse>,
+            tonic::Status,
+        > {
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::unknown(
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
+            let codec = tonic::codec::ProstCodec::default();
+            let path = http::uri::PathAndQuery::from_static(
+                "/network.ProverNetwork/GetGpuMetrics",
+            );
+            let mut req = request.into_request();
+            req.extensions_mut()
+                .insert(GrpcMethod::new("network.ProverNetwork", "GetGpuMetrics"));
+            self.inner.unary(req, path, codec).await
+        }
+        /// Get filtered prover activity.
+        pub async fn get_filtered_prover_activity(
+            &mut self,
+            request: impl tonic::IntoRequest<super::GetFilteredProverActivityRequest>,
+        ) -> std::result::Result<
+            tonic::Response<super::GetFilteredProverActivityResponse>,
+            tonic::Status,
+        > {
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::unknown(
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
+            let codec = tonic::codec::ProstCodec::default();
+            let path = http::uri::PathAndQuery::from_static(
+                "/network.ProverNetwork/GetFilteredProverActivity",
+            );
+            let mut req = request.into_request();
+            req.extensions_mut()
+                .insert(
+                    GrpcMethod::new("network.ProverNetwork", "GetFilteredProverActivity"),
+                );
+            self.inner.unary(req, path, codec).await
+        }
+        /// Get prover metrics.
+        pub async fn get_prover_metrics(
+            &mut self,
+            request: impl tonic::IntoRequest<super::GetProverMetricsRequest>,
+        ) -> std::result::Result<
+            tonic::Response<super::GetProverMetricsResponse>,
+            tonic::Status,
+        > {
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::unknown(
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
+            let codec = tonic::codec::ProstCodec::default();
+            let path = http::uri::PathAndQuery::from_static(
+                "/network.ProverNetwork/GetProverMetrics",
+            );
+            let mut req = request.into_request();
+            req.extensions_mut()
+                .insert(GrpcMethod::new("network.ProverNetwork", "GetProverMetrics"));
+            self.inner.unary(req, path, codec).await
+        }
+        /// Get filtered bet history.
+        pub async fn get_filtered_bet_history(
+            &mut self,
+            request: impl tonic::IntoRequest<super::GetFilteredBetHistoryRequest>,
+        ) -> std::result::Result<
+            tonic::Response<super::GetFilteredBetHistoryResponse>,
+            tonic::Status,
+        > {
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::unknown(
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
+            let codec = tonic::codec::ProstCodec::default();
+            let path = http::uri::PathAndQuery::from_static(
+                "/network.ProverNetwork/GetFilteredBetHistory",
+            );
+            let mut req = request.into_request();
+            req.extensions_mut()
+                .insert(
+                    GrpcMethod::new("network.ProverNetwork", "GetFilteredBetHistory"),
+                );
+            self.inner.unary(req, path, codec).await
+        }
+        /// Get gpu team stats.
+        pub async fn get_gpu_team_stats(
+            &mut self,
+            request: impl tonic::IntoRequest<super::GetGpuTeamStatsRequest>,
+        ) -> std::result::Result<
+            tonic::Response<super::GetGpuTeamStatsResponse>,
+            tonic::Status,
+        > {
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::unknown(
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
+            let codec = tonic::codec::ProstCodec::default();
+            let path = http::uri::PathAndQuery::from_static(
+                "/network.ProverNetwork/GetGpuTeamStats",
+            );
+            let mut req = request.into_request();
+            req.extensions_mut()
+                .insert(GrpcMethod::new("network.ProverNetwork", "GetGpuTeamStats"));
+            self.inner.unary(req, path, codec).await
+        }
+        /// Get metrics for a specific prover
+        pub async fn get_prover_stats(
+            &mut self,
+            request: impl tonic::IntoRequest<super::GetProverStatsRequest>,
+        ) -> std::result::Result<
+            tonic::Response<super::GetProverStatsResponse>,
+            tonic::Status,
+        > {
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::unknown(
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
+            let codec = tonic::codec::ProstCodec::default();
+            let path = http::uri::PathAndQuery::from_static(
+                "/network.ProverNetwork/GetProverStats",
+            );
+            let mut req = request.into_request();
+            req.extensions_mut()
+                .insert(GrpcMethod::new("network.ProverNetwork", "GetProverStats"));
+            self.inner.unary(req, path, codec).await
+        }
+        /// Get statistics for all provers with pagination
+        pub async fn get_filtered_prover_stats(
+            &mut self,
+            request: impl tonic::IntoRequest<super::GetFilteredProverStatsRequest>,
+        ) -> std::result::Result<
+            tonic::Response<super::GetFilteredProverStatsResponse>,
+            tonic::Status,
+        > {
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::unknown(
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
+            let codec = tonic::codec::ProstCodec::default();
+            let path = http::uri::PathAndQuery::from_static(
+                "/network.ProverNetwork/GetFilteredProverStats",
+            );
+            let mut req = request.into_request();
+            req.extensions_mut()
+                .insert(
+                    GrpcMethod::new("network.ProverNetwork", "GetFilteredProverStats"),
+                );
+            self.inner.unary(req, path, codec).await
+        }
+        /// Get search results for provers
+        pub async fn get_prover_search_results(
+            &mut self,
+            request: impl tonic::IntoRequest<super::GetProverSearchResultsRequest>,
+        ) -> std::result::Result<
+            tonic::Response<super::GetProverSearchResultsResponse>,
+            tonic::Status,
+        > {
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::unknown(
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
+            let codec = tonic::codec::ProstCodec::default();
+            let path = http::uri::PathAndQuery::from_static(
+                "/network.ProverNetwork/GetProverSearchResults",
+            );
+            let mut req = request.into_request();
+            req.extensions_mut()
+                .insert(
+                    GrpcMethod::new("network.ProverNetwork", "GetProverSearchResults"),
+                );
+            self.inner.unary(req, path, codec).await
+        }
+        /// Get paginated auction history
+        pub async fn get_filtered_bid_history(
+            &mut self,
+            request: impl tonic::IntoRequest<super::GetFilteredBidHistoryRequest>,
+        ) -> std::result::Result<
+            tonic::Response<super::GetFilteredBidHistoryResponse>,
+            tonic::Status,
+        > {
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::unknown(
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
+            let codec = tonic::codec::ProstCodec::default();
+            let path = http::uri::PathAndQuery::from_static(
+                "/network.ProverNetwork/GetFilteredBidHistory",
+            );
+            let mut req = request.into_request();
+            req.extensions_mut()
+                .insert(
+                    GrpcMethod::new("network.ProverNetwork", "GetFilteredBidHistory"),
+                );
+            self.inner.unary(req, path, codec).await
+        }
         /// Check if the user is whitelisted to use the TEE service.
         pub async fn get_tee_whitelist_status(
             &mut self,
@@ -5943,6 +6849,145 @@ pub mod prover_network_client {
             req.extensions_mut()
                 .insert(
                     GrpcMethod::new("network.ProverNetwork", "GetTEEWhitelistStatus"),
+                );
+            self.inner.unary(req, path, codec).await
+        }
+        ///
+        /// Settlement
+        ///
+        /// These methods are for settling orders to L1.
+        pub async fn get_settlement_request(
+            &mut self,
+            request: impl tonic::IntoRequest<super::GetSettlementRequestRequest>,
+        ) -> std::result::Result<
+            tonic::Response<super::GetSettlementRequestResponse>,
+            tonic::Status,
+        > {
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::unknown(
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
+            let codec = tonic::codec::ProstCodec::default();
+            let path = http::uri::PathAndQuery::from_static(
+                "/network.ProverNetwork/GetSettlementRequest",
+            );
+            let mut req = request.into_request();
+            req.extensions_mut()
+                .insert(
+                    GrpcMethod::new("network.ProverNetwork", "GetSettlementRequest"),
+                );
+            self.inner.unary(req, path, codec).await
+        }
+        pub async fn get_filtered_settlement_requests(
+            &mut self,
+            request: impl tonic::IntoRequest<super::GetFilteredSettlementRequestsRequest>,
+        ) -> std::result::Result<
+            tonic::Response<super::GetFilteredSettlementRequestsResponse>,
+            tonic::Status,
+        > {
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::unknown(
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
+            let codec = tonic::codec::ProstCodec::default();
+            let path = http::uri::PathAndQuery::from_static(
+                "/network.ProverNetwork/GetFilteredSettlementRequests",
+            );
+            let mut req = request.into_request();
+            req.extensions_mut()
+                .insert(
+                    GrpcMethod::new(
+                        "network.ProverNetwork",
+                        "GetFilteredSettlementRequests",
+                    ),
+                );
+            self.inner.unary(req, path, codec).await
+        }
+        /// Get the provers that meet the filter criteria.
+        pub async fn get_filtered_provers(
+            &mut self,
+            request: impl tonic::IntoRequest<super::GetFilteredProversRequest>,
+        ) -> std::result::Result<
+            tonic::Response<super::GetFilteredProversResponse>,
+            tonic::Status,
+        > {
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::unknown(
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
+            let codec = tonic::codec::ProstCodec::default();
+            let path = http::uri::PathAndQuery::from_static(
+                "/network.ProverNetwork/GetFilteredProvers",
+            );
+            let mut req = request.into_request();
+            req.extensions_mut()
+                .insert(GrpcMethod::new("network.ProverNetwork", "GetFilteredProvers"));
+            self.inner.unary(req, path, codec).await
+        }
+        /// Get the available balance of an account.
+        pub async fn get_stake_balance(
+            &mut self,
+            request: impl tonic::IntoRequest<super::GetStakeBalanceRequest>,
+        ) -> std::result::Result<
+            tonic::Response<super::GetStakeBalanceResponse>,
+            tonic::Status,
+        > {
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::unknown(
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
+            let codec = tonic::codec::ProstCodec::default();
+            let path = http::uri::PathAndQuery::from_static(
+                "/network.ProverNetwork/GetStakeBalance",
+            );
+            let mut req = request.into_request();
+            req.extensions_mut()
+                .insert(GrpcMethod::new("network.ProverNetwork", "GetStakeBalance"));
+            self.inner.unary(req, path, codec).await
+        }
+        /// Get the balance logs that meet the filter criteria.
+        pub async fn get_filtered_stake_balance_logs(
+            &mut self,
+            request: impl tonic::IntoRequest<super::GetFilteredStakeBalanceLogsRequest>,
+        ) -> std::result::Result<
+            tonic::Response<super::GetFilteredStakeBalanceLogsResponse>,
+            tonic::Status,
+        > {
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::unknown(
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
+            let codec = tonic::codec::ProstCodec::default();
+            let path = http::uri::PathAndQuery::from_static(
+                "/network.ProverNetwork/GetFilteredStakeBalanceLogs",
+            );
+            let mut req = request.into_request();
+            req.extensions_mut()
+                .insert(
+                    GrpcMethod::new(
+                        "network.ProverNetwork",
+                        "GetFilteredStakeBalanceLogs",
+                    ),
                 );
             self.inner.unary(req, path, codec).await
         }
@@ -6474,6 +7519,14 @@ pub mod prover_network_server {
             tonic::Response<super::SetFlowHighScoreResponse>,
             tonic::Status,
         >;
+        /// Set the rollup high score.
+        async fn set_rollup_high_score(
+            &self,
+            request: tonic::Request<super::SetRollupHighScoreRequest>,
+        ) -> std::result::Result<
+            tonic::Response<super::SetRollupHighScoreResponse>,
+            tonic::Status,
+        >;
         /// Check if address or social identity is whitelisted.
         async fn get_whitelist_status(
             &self,
@@ -6600,12 +7653,142 @@ pub mod prover_network_server {
             tonic::Response<super::GetContestDetailsResponse>,
             tonic::Status,
         >;
+        /// Get latest contest id.
+        async fn get_latest_contest(
+            &self,
+            request: tonic::Request<super::GetLatestContestRequest>,
+        ) -> std::result::Result<
+            tonic::Response<super::GetLatestContestResponse>,
+            tonic::Status,
+        >;
+        /// Get contest bettors.
+        async fn get_contest_bettors(
+            &self,
+            request: tonic::Request<super::GetContestBettorsRequest>,
+        ) -> std::result::Result<
+            tonic::Response<super::GetContestBettorsResponse>,
+            tonic::Status,
+        >;
+        /// Get gpu metrics.
+        async fn get_gpu_metrics(
+            &self,
+            request: tonic::Request<super::GetGpuMetricsRequest>,
+        ) -> std::result::Result<
+            tonic::Response<super::GetGpuMetricsResponse>,
+            tonic::Status,
+        >;
+        /// Get filtered prover activity.
+        async fn get_filtered_prover_activity(
+            &self,
+            request: tonic::Request<super::GetFilteredProverActivityRequest>,
+        ) -> std::result::Result<
+            tonic::Response<super::GetFilteredProverActivityResponse>,
+            tonic::Status,
+        >;
+        /// Get prover metrics.
+        async fn get_prover_metrics(
+            &self,
+            request: tonic::Request<super::GetProverMetricsRequest>,
+        ) -> std::result::Result<
+            tonic::Response<super::GetProverMetricsResponse>,
+            tonic::Status,
+        >;
+        /// Get filtered bet history.
+        async fn get_filtered_bet_history(
+            &self,
+            request: tonic::Request<super::GetFilteredBetHistoryRequest>,
+        ) -> std::result::Result<
+            tonic::Response<super::GetFilteredBetHistoryResponse>,
+            tonic::Status,
+        >;
+        /// Get gpu team stats.
+        async fn get_gpu_team_stats(
+            &self,
+            request: tonic::Request<super::GetGpuTeamStatsRequest>,
+        ) -> std::result::Result<
+            tonic::Response<super::GetGpuTeamStatsResponse>,
+            tonic::Status,
+        >;
+        /// Get metrics for a specific prover
+        async fn get_prover_stats(
+            &self,
+            request: tonic::Request<super::GetProverStatsRequest>,
+        ) -> std::result::Result<
+            tonic::Response<super::GetProverStatsResponse>,
+            tonic::Status,
+        >;
+        /// Get statistics for all provers with pagination
+        async fn get_filtered_prover_stats(
+            &self,
+            request: tonic::Request<super::GetFilteredProverStatsRequest>,
+        ) -> std::result::Result<
+            tonic::Response<super::GetFilteredProverStatsResponse>,
+            tonic::Status,
+        >;
+        /// Get search results for provers
+        async fn get_prover_search_results(
+            &self,
+            request: tonic::Request<super::GetProverSearchResultsRequest>,
+        ) -> std::result::Result<
+            tonic::Response<super::GetProverSearchResultsResponse>,
+            tonic::Status,
+        >;
+        /// Get paginated auction history
+        async fn get_filtered_bid_history(
+            &self,
+            request: tonic::Request<super::GetFilteredBidHistoryRequest>,
+        ) -> std::result::Result<
+            tonic::Response<super::GetFilteredBidHistoryResponse>,
+            tonic::Status,
+        >;
         /// Check if the user is whitelisted to use the TEE service.
         async fn get_tee_whitelist_status(
             &self,
             request: tonic::Request<super::GetTeeWhitelistStatusRequest>,
         ) -> std::result::Result<
             tonic::Response<super::GetTeeWhitelistStatusResponse>,
+            tonic::Status,
+        >;
+        ///
+        /// Settlement
+        ///
+        /// These methods are for settling orders to L1.
+        async fn get_settlement_request(
+            &self,
+            request: tonic::Request<super::GetSettlementRequestRequest>,
+        ) -> std::result::Result<
+            tonic::Response<super::GetSettlementRequestResponse>,
+            tonic::Status,
+        >;
+        async fn get_filtered_settlement_requests(
+            &self,
+            request: tonic::Request<super::GetFilteredSettlementRequestsRequest>,
+        ) -> std::result::Result<
+            tonic::Response<super::GetFilteredSettlementRequestsResponse>,
+            tonic::Status,
+        >;
+        /// Get the provers that meet the filter criteria.
+        async fn get_filtered_provers(
+            &self,
+            request: tonic::Request<super::GetFilteredProversRequest>,
+        ) -> std::result::Result<
+            tonic::Response<super::GetFilteredProversResponse>,
+            tonic::Status,
+        >;
+        /// Get the available balance of an account.
+        async fn get_stake_balance(
+            &self,
+            request: tonic::Request<super::GetStakeBalanceRequest>,
+        ) -> std::result::Result<
+            tonic::Response<super::GetStakeBalanceResponse>,
+            tonic::Status,
+        >;
+        /// Get the balance logs that meet the filter criteria.
+        async fn get_filtered_stake_balance_logs(
+            &self,
+            request: tonic::Request<super::GetFilteredStakeBalanceLogsRequest>,
+        ) -> std::result::Result<
+            tonic::Response<super::GetFilteredStakeBalanceLogsResponse>,
             tonic::Status,
         >;
     }
@@ -9734,6 +10917,52 @@ pub mod prover_network_server {
                     };
                     Box::pin(fut)
                 }
+                "/network.ProverNetwork/SetRollupHighScore" => {
+                    #[allow(non_camel_case_types)]
+                    struct SetRollupHighScoreSvc<T: ProverNetwork>(pub Arc<T>);
+                    impl<
+                        T: ProverNetwork,
+                    > tonic::server::UnaryService<super::SetRollupHighScoreRequest>
+                    for SetRollupHighScoreSvc<T> {
+                        type Response = super::SetRollupHighScoreResponse;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::SetRollupHighScoreRequest>,
+                        ) -> Self::Future {
+                            let inner = Arc::clone(&self.0);
+                            let fut = async move {
+                                <T as ProverNetwork>::set_rollup_high_score(&inner, request)
+                                    .await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let method = SetRollupHighScoreSvc(inner);
+                        let codec = tonic::codec::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
                 "/network.ProverNetwork/GetWhitelistStatus" => {
                     #[allow(non_camel_case_types)]
                     struct GetWhitelistStatusSvc<T: ProverNetwork>(pub Arc<T>);
@@ -10475,6 +11704,529 @@ pub mod prover_network_server {
                     };
                     Box::pin(fut)
                 }
+                "/network.ProverNetwork/GetLatestContest" => {
+                    #[allow(non_camel_case_types)]
+                    struct GetLatestContestSvc<T: ProverNetwork>(pub Arc<T>);
+                    impl<
+                        T: ProverNetwork,
+                    > tonic::server::UnaryService<super::GetLatestContestRequest>
+                    for GetLatestContestSvc<T> {
+                        type Response = super::GetLatestContestResponse;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::GetLatestContestRequest>,
+                        ) -> Self::Future {
+                            let inner = Arc::clone(&self.0);
+                            let fut = async move {
+                                <T as ProverNetwork>::get_latest_contest(&inner, request)
+                                    .await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let method = GetLatestContestSvc(inner);
+                        let codec = tonic::codec::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                "/network.ProverNetwork/GetContestBettors" => {
+                    #[allow(non_camel_case_types)]
+                    struct GetContestBettorsSvc<T: ProverNetwork>(pub Arc<T>);
+                    impl<
+                        T: ProverNetwork,
+                    > tonic::server::UnaryService<super::GetContestBettorsRequest>
+                    for GetContestBettorsSvc<T> {
+                        type Response = super::GetContestBettorsResponse;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::GetContestBettorsRequest>,
+                        ) -> Self::Future {
+                            let inner = Arc::clone(&self.0);
+                            let fut = async move {
+                                <T as ProverNetwork>::get_contest_bettors(&inner, request)
+                                    .await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let method = GetContestBettorsSvc(inner);
+                        let codec = tonic::codec::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                "/network.ProverNetwork/GetGpuMetrics" => {
+                    #[allow(non_camel_case_types)]
+                    struct GetGpuMetricsSvc<T: ProverNetwork>(pub Arc<T>);
+                    impl<
+                        T: ProverNetwork,
+                    > tonic::server::UnaryService<super::GetGpuMetricsRequest>
+                    for GetGpuMetricsSvc<T> {
+                        type Response = super::GetGpuMetricsResponse;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::GetGpuMetricsRequest>,
+                        ) -> Self::Future {
+                            let inner = Arc::clone(&self.0);
+                            let fut = async move {
+                                <T as ProverNetwork>::get_gpu_metrics(&inner, request).await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let method = GetGpuMetricsSvc(inner);
+                        let codec = tonic::codec::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                "/network.ProverNetwork/GetFilteredProverActivity" => {
+                    #[allow(non_camel_case_types)]
+                    struct GetFilteredProverActivitySvc<T: ProverNetwork>(pub Arc<T>);
+                    impl<
+                        T: ProverNetwork,
+                    > tonic::server::UnaryService<
+                        super::GetFilteredProverActivityRequest,
+                    > for GetFilteredProverActivitySvc<T> {
+                        type Response = super::GetFilteredProverActivityResponse;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<
+                                super::GetFilteredProverActivityRequest,
+                            >,
+                        ) -> Self::Future {
+                            let inner = Arc::clone(&self.0);
+                            let fut = async move {
+                                <T as ProverNetwork>::get_filtered_prover_activity(
+                                        &inner,
+                                        request,
+                                    )
+                                    .await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let method = GetFilteredProverActivitySvc(inner);
+                        let codec = tonic::codec::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                "/network.ProverNetwork/GetProverMetrics" => {
+                    #[allow(non_camel_case_types)]
+                    struct GetProverMetricsSvc<T: ProverNetwork>(pub Arc<T>);
+                    impl<
+                        T: ProverNetwork,
+                    > tonic::server::UnaryService<super::GetProverMetricsRequest>
+                    for GetProverMetricsSvc<T> {
+                        type Response = super::GetProverMetricsResponse;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::GetProverMetricsRequest>,
+                        ) -> Self::Future {
+                            let inner = Arc::clone(&self.0);
+                            let fut = async move {
+                                <T as ProverNetwork>::get_prover_metrics(&inner, request)
+                                    .await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let method = GetProverMetricsSvc(inner);
+                        let codec = tonic::codec::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                "/network.ProverNetwork/GetFilteredBetHistory" => {
+                    #[allow(non_camel_case_types)]
+                    struct GetFilteredBetHistorySvc<T: ProverNetwork>(pub Arc<T>);
+                    impl<
+                        T: ProverNetwork,
+                    > tonic::server::UnaryService<super::GetFilteredBetHistoryRequest>
+                    for GetFilteredBetHistorySvc<T> {
+                        type Response = super::GetFilteredBetHistoryResponse;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::GetFilteredBetHistoryRequest>,
+                        ) -> Self::Future {
+                            let inner = Arc::clone(&self.0);
+                            let fut = async move {
+                                <T as ProverNetwork>::get_filtered_bet_history(
+                                        &inner,
+                                        request,
+                                    )
+                                    .await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let method = GetFilteredBetHistorySvc(inner);
+                        let codec = tonic::codec::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                "/network.ProverNetwork/GetGpuTeamStats" => {
+                    #[allow(non_camel_case_types)]
+                    struct GetGpuTeamStatsSvc<T: ProverNetwork>(pub Arc<T>);
+                    impl<
+                        T: ProverNetwork,
+                    > tonic::server::UnaryService<super::GetGpuTeamStatsRequest>
+                    for GetGpuTeamStatsSvc<T> {
+                        type Response = super::GetGpuTeamStatsResponse;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::GetGpuTeamStatsRequest>,
+                        ) -> Self::Future {
+                            let inner = Arc::clone(&self.0);
+                            let fut = async move {
+                                <T as ProverNetwork>::get_gpu_team_stats(&inner, request)
+                                    .await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let method = GetGpuTeamStatsSvc(inner);
+                        let codec = tonic::codec::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                "/network.ProverNetwork/GetProverStats" => {
+                    #[allow(non_camel_case_types)]
+                    struct GetProverStatsSvc<T: ProverNetwork>(pub Arc<T>);
+                    impl<
+                        T: ProverNetwork,
+                    > tonic::server::UnaryService<super::GetProverStatsRequest>
+                    for GetProverStatsSvc<T> {
+                        type Response = super::GetProverStatsResponse;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::GetProverStatsRequest>,
+                        ) -> Self::Future {
+                            let inner = Arc::clone(&self.0);
+                            let fut = async move {
+                                <T as ProverNetwork>::get_prover_stats(&inner, request)
+                                    .await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let method = GetProverStatsSvc(inner);
+                        let codec = tonic::codec::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                "/network.ProverNetwork/GetFilteredProverStats" => {
+                    #[allow(non_camel_case_types)]
+                    struct GetFilteredProverStatsSvc<T: ProverNetwork>(pub Arc<T>);
+                    impl<
+                        T: ProverNetwork,
+                    > tonic::server::UnaryService<super::GetFilteredProverStatsRequest>
+                    for GetFilteredProverStatsSvc<T> {
+                        type Response = super::GetFilteredProverStatsResponse;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::GetFilteredProverStatsRequest>,
+                        ) -> Self::Future {
+                            let inner = Arc::clone(&self.0);
+                            let fut = async move {
+                                <T as ProverNetwork>::get_filtered_prover_stats(
+                                        &inner,
+                                        request,
+                                    )
+                                    .await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let method = GetFilteredProverStatsSvc(inner);
+                        let codec = tonic::codec::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                "/network.ProverNetwork/GetProverSearchResults" => {
+                    #[allow(non_camel_case_types)]
+                    struct GetProverSearchResultsSvc<T: ProverNetwork>(pub Arc<T>);
+                    impl<
+                        T: ProverNetwork,
+                    > tonic::server::UnaryService<super::GetProverSearchResultsRequest>
+                    for GetProverSearchResultsSvc<T> {
+                        type Response = super::GetProverSearchResultsResponse;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::GetProverSearchResultsRequest>,
+                        ) -> Self::Future {
+                            let inner = Arc::clone(&self.0);
+                            let fut = async move {
+                                <T as ProverNetwork>::get_prover_search_results(
+                                        &inner,
+                                        request,
+                                    )
+                                    .await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let method = GetProverSearchResultsSvc(inner);
+                        let codec = tonic::codec::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                "/network.ProverNetwork/GetFilteredBidHistory" => {
+                    #[allow(non_camel_case_types)]
+                    struct GetFilteredBidHistorySvc<T: ProverNetwork>(pub Arc<T>);
+                    impl<
+                        T: ProverNetwork,
+                    > tonic::server::UnaryService<super::GetFilteredBidHistoryRequest>
+                    for GetFilteredBidHistorySvc<T> {
+                        type Response = super::GetFilteredBidHistoryResponse;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::GetFilteredBidHistoryRequest>,
+                        ) -> Self::Future {
+                            let inner = Arc::clone(&self.0);
+                            let fut = async move {
+                                <T as ProverNetwork>::get_filtered_bid_history(
+                                        &inner,
+                                        request,
+                                    )
+                                    .await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let method = GetFilteredBidHistorySvc(inner);
+                        let codec = tonic::codec::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
                 "/network.ProverNetwork/GetTEEWhitelistStatus" => {
                     #[allow(non_camel_case_types)]
                     struct GetTEEWhitelistStatusSvc<T: ProverNetwork>(pub Arc<T>);
@@ -10509,6 +12261,253 @@ pub mod prover_network_server {
                     let inner = self.inner.clone();
                     let fut = async move {
                         let method = GetTEEWhitelistStatusSvc(inner);
+                        let codec = tonic::codec::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                "/network.ProverNetwork/GetSettlementRequest" => {
+                    #[allow(non_camel_case_types)]
+                    struct GetSettlementRequestSvc<T: ProverNetwork>(pub Arc<T>);
+                    impl<
+                        T: ProverNetwork,
+                    > tonic::server::UnaryService<super::GetSettlementRequestRequest>
+                    for GetSettlementRequestSvc<T> {
+                        type Response = super::GetSettlementRequestResponse;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::GetSettlementRequestRequest>,
+                        ) -> Self::Future {
+                            let inner = Arc::clone(&self.0);
+                            let fut = async move {
+                                <T as ProverNetwork>::get_settlement_request(
+                                        &inner,
+                                        request,
+                                    )
+                                    .await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let method = GetSettlementRequestSvc(inner);
+                        let codec = tonic::codec::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                "/network.ProverNetwork/GetFilteredSettlementRequests" => {
+                    #[allow(non_camel_case_types)]
+                    struct GetFilteredSettlementRequestsSvc<T: ProverNetwork>(
+                        pub Arc<T>,
+                    );
+                    impl<
+                        T: ProverNetwork,
+                    > tonic::server::UnaryService<
+                        super::GetFilteredSettlementRequestsRequest,
+                    > for GetFilteredSettlementRequestsSvc<T> {
+                        type Response = super::GetFilteredSettlementRequestsResponse;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<
+                                super::GetFilteredSettlementRequestsRequest,
+                            >,
+                        ) -> Self::Future {
+                            let inner = Arc::clone(&self.0);
+                            let fut = async move {
+                                <T as ProverNetwork>::get_filtered_settlement_requests(
+                                        &inner,
+                                        request,
+                                    )
+                                    .await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let method = GetFilteredSettlementRequestsSvc(inner);
+                        let codec = tonic::codec::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                "/network.ProverNetwork/GetFilteredProvers" => {
+                    #[allow(non_camel_case_types)]
+                    struct GetFilteredProversSvc<T: ProverNetwork>(pub Arc<T>);
+                    impl<
+                        T: ProverNetwork,
+                    > tonic::server::UnaryService<super::GetFilteredProversRequest>
+                    for GetFilteredProversSvc<T> {
+                        type Response = super::GetFilteredProversResponse;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::GetFilteredProversRequest>,
+                        ) -> Self::Future {
+                            let inner = Arc::clone(&self.0);
+                            let fut = async move {
+                                <T as ProverNetwork>::get_filtered_provers(&inner, request)
+                                    .await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let method = GetFilteredProversSvc(inner);
+                        let codec = tonic::codec::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                "/network.ProverNetwork/GetStakeBalance" => {
+                    #[allow(non_camel_case_types)]
+                    struct GetStakeBalanceSvc<T: ProverNetwork>(pub Arc<T>);
+                    impl<
+                        T: ProverNetwork,
+                    > tonic::server::UnaryService<super::GetStakeBalanceRequest>
+                    for GetStakeBalanceSvc<T> {
+                        type Response = super::GetStakeBalanceResponse;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::GetStakeBalanceRequest>,
+                        ) -> Self::Future {
+                            let inner = Arc::clone(&self.0);
+                            let fut = async move {
+                                <T as ProverNetwork>::get_stake_balance(&inner, request)
+                                    .await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let method = GetStakeBalanceSvc(inner);
+                        let codec = tonic::codec::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                "/network.ProverNetwork/GetFilteredStakeBalanceLogs" => {
+                    #[allow(non_camel_case_types)]
+                    struct GetFilteredStakeBalanceLogsSvc<T: ProverNetwork>(pub Arc<T>);
+                    impl<
+                        T: ProverNetwork,
+                    > tonic::server::UnaryService<
+                        super::GetFilteredStakeBalanceLogsRequest,
+                    > for GetFilteredStakeBalanceLogsSvc<T> {
+                        type Response = super::GetFilteredStakeBalanceLogsResponse;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<
+                                super::GetFilteredStakeBalanceLogsRequest,
+                            >,
+                        ) -> Self::Future {
+                            let inner = Arc::clone(&self.0);
+                            let fut = async move {
+                                <T as ProverNetwork>::get_filtered_stake_balance_logs(
+                                        &inner,
+                                        request,
+                                    )
+                                    .await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let method = GetFilteredStakeBalanceLogsSvc(inner);
                         let codec = tonic::codec::ProstCodec::default();
                         let mut grpc = tonic::server::Grpc::new(codec)
                             .apply_compression_config(

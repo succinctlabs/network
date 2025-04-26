@@ -209,6 +209,9 @@ service ProverNetwork {
   // Set the flow high score.
   rpc SetFlowHighScore(SetFlowHighScoreRequest)
       returns (SetFlowHighScoreResponse) {}
+  // Set the rollup high score.
+  rpc SetRollupHighScore(SetRollupHighScoreRequest)
+      returns (SetRollupHighScoreResponse) {}
 
   /*
    * Gpu
@@ -265,6 +268,42 @@ service ProverNetwork {
   // Get the status of a proof contest.
   rpc GetContestDetails(GetContestDetailsRequest)
       returns (GetContestDetailsResponse) {}
+  // Get latest contest id.
+  rpc GetLatestContest(GetLatestContestRequest)
+      returns (GetLatestContestResponse) {}
+  // Get contest bettors.
+  rpc GetContestBettors(GetContestBettorsRequest)
+      returns (GetContestBettorsResponse) {}
+  // Get gpu metrics.
+  rpc GetGpuMetrics(GetGpuMetricsRequest)
+      returns (GetGpuMetricsResponse) {}
+  // Get filtered prover activity.
+  rpc GetFilteredProverActivity(GetFilteredProverActivityRequest)
+      returns (GetFilteredProverActivityResponse) {}
+  // Get prover metrics.
+  rpc GetProverMetrics(GetProverMetricsRequest)
+      returns (GetProverMetricsResponse) {}
+  // Get filtered bet history.
+  rpc GetFilteredBetHistory(GetFilteredBetHistoryRequest)
+      returns (GetFilteredBetHistoryResponse) {}
+  // Get gpu team stats.
+  rpc GetGpuTeamStats(GetGpuTeamStatsRequest)
+      returns (GetGpuTeamStatsResponse) {}
+
+  /*
+   * Provers
+   *
+   * These methods are for managing provers.
+   */
+
+  // Get metrics for a specific prover
+  rpc GetProverStats(GetProverStatsRequest) returns (GetProverStatsResponse) {}
+  // Get statistics for all provers with pagination
+  rpc GetFilteredProverStats(GetFilteredProverStatsRequest) returns (GetFilteredProverStatsResponse) {}
+  // Get search results for provers
+  rpc GetProverSearchResults(GetProverSearchResultsRequest) returns (GetProverSearchResultsResponse) {}
+  // Get paginated auction history
+  rpc GetFilteredBidHistory(GetFilteredBidHistoryRequest) returns (GetFilteredBidHistoryResponse) {}
 
   /*
    *
@@ -274,6 +313,32 @@ service ProverNetwork {
    // Check if the user is whitelisted to use the TEE service.
    rpc GetTEEWhitelistStatus(GetTEEWhitelistStatusRequest)
       returns (GetTEEWhitelistStatusResponse) {}
+
+  /*
+   * Settlement
+   *
+   * These methods are for settling orders to L1.
+   */
+   rpc GetSettlementRequest(GetSettlementRequestRequest)
+      returns (GetSettlementRequestResponse) {}
+   rpc GetFilteredSettlementRequests(GetFilteredSettlementRequestsRequest)
+      returns (GetFilteredSettlementRequestsResponse) {}
+
+
+  /*
+   * Staking
+   *
+   * These methods are for managing staking.
+   */
+   
+   // Get the provers that meet the filter criteria.
+   rpc GetFilteredProvers(GetFilteredProversRequest)
+      returns (GetFilteredProversResponse) {}
+   // Get the available balance of an account.
+   rpc GetStakeBalance(GetStakeBalanceRequest) returns (GetStakeBalanceResponse) {}
+   // Get the balance logs that meet the filter criteria.
+    rpc GetFilteredStakeBalanceLogs(GetFilteredStakeBalanceLogsRequest)
+      returns (GetFilteredStakeBalanceLogsResponse) {}
 }
 
 // Format to help decode signature in backend.
@@ -509,6 +574,8 @@ message ProofRequest {
   optional uint64 gas_used = 27;
   // The cause of execution failure, if any.
   ExecuteFailureCause execute_fail_cause = 28;
+  // The settlement status of the request.
+  SettlementStatus settlement_status = 29;
 }
 
 message GetProofRequestStatusRequest {
@@ -579,6 +646,8 @@ message GetFilteredProofRequestsRequest {
   optional bytes not_bid_by = 13;
   // The optional cause of execution failure.
   optional ExecuteFailureCause execute_fail_cause = 14;
+  // The optional settlement status of the requests to filter for.
+  optional SettlementStatus settlement_status = 15;
 }
 
 message GetFilteredProofRequestsResponse {
@@ -2104,8 +2173,34 @@ message SetFlowHighScoreResponse {
   SetFlowHighScoreResponseBody body = 2;
 }
 
-message SetFlowHighScoreResponseBody {} 
+message SetFlowHighScoreResponseBody {}
 
+message SetRollupHighScoreRequest {
+  // The message format of the body.
+  MessageFormat format = 1;
+  // The signature of the sender.
+  bytes signature = 2;
+  // The body of the request.
+  SetRollupHighScoreRequestBody body = 3;
+} 
+
+message SetRollupHighScoreRequestBody {
+  // The account nonce of the sender.
+  uint64 nonce = 1;
+  // The high score to set.
+  uint64 high_score = 2;
+  // The victory status for the game.
+  bool is_victory = 3;
+}
+
+message SetRollupHighScoreResponse {
+  // The transaction hash.
+  bytes tx_hash = 1;
+  // The body of the response.
+  SetRollupHighScoreResponseBody body = 2;
+} 
+
+message SetRollupHighScoreResponseBody {}
 
 /***********
  *** Gpu ***
@@ -2615,6 +2710,344 @@ message GetContestDetailsResponse {
   repeated BettorDetails losers = 11;
   // The stars reward amount.
   string stars_reward = 12;
+  // The base stars amount.
+  string base_stars = 13;
+  // The multiplier amount.
+  string multiplier = 14;
+}
+
+message ContestRequestDetails { 
+  // The latest contest id.
+  optional bytes request_id = 1;
+  // The latest contest creation time.
+  optional uint64 created_at = 2;
+}
+
+message GetLatestContestRequest {}
+
+message GetLatestContestResponse {
+  // The latest contest id.
+  ContestRequestDetails new_contest = 1;
+  // The current contest id.
+  ContestRequestDetails current_contest = 2;
+} 
+
+message GetContestBettorsRequest {
+  // The identifier for the request.
+  bytes request_id = 1;
+}
+
+message GetContestBettorsResponse { 
+  // The bettors.
+  repeated BettorDetails bettors = 1;
+  // The total pool of the contest.
+  string total_pool = 2;
+}
+
+message GetGpuMetricsRequest {}
+
+message GetGpuMetricsResponse {
+  // The total number of gpus.
+  uint32 total_gpus = 1;
+  // The total number of proofs by gpus.
+  uint32 total_proofs = 2;
+}
+
+message ProverActivity {
+  // The request id.
+  bytes request_id = 1;
+  // The fulfillment status of the request.
+  FulfillmentStatus fulfillment_status = 2;
+  // The fulfiller address.
+  bytes fulfiller = 3;
+  // The optional social platform of the fulfiller.
+  optional SocialPlatform fulfiller_social_platform = 4;
+  // The optional social handle of the fulfiller.
+  optional string fulfiller_social_handle = 5;
+  // The optional social id of the fulfiller.
+  optional string fulfiller_social_id = 6;
+  // The social image of the fulfiller.
+  optional string fulfiller_social_image = 7; 
+  // The creation time of the request.
+  optional uint64 created_at = 8;
+}
+
+message GetFilteredProverActivityRequest {
+  // The limit for the number of results.
+  optional uint32 limit = 1;
+  // The page for the results.
+  optional uint32 page = 2;
+  // The optional address to filter by.
+  optional bytes address = 3;
+}
+
+message GetFilteredProverActivityResponse {
+  // The prover activity.
+  repeated ProverActivity prover_activity = 1;
+}
+
+message GetProverMetricsRequest {
+  // The address to filter by.
+  bytes address = 1;
+}
+
+message GetProverMetricsResponse {
+  // The total number of proofs.
+  uint32 total_proofs = 1;
+  // Number of contests participated in.
+  uint32 total_contests = 2;
+  // Stars earned.
+  string stars_earned = 3;
+  // Average multiplier.
+  string average_multiplier = 4;
+}
+
+message BetHistory {
+  // The request id.
+  bytes request_id = 1; 
+  // Points bet.
+  string points_bet = 2;
+  // Stars pool.
+  string star_pool = 3;
+  // Multiplier.
+  string multiplier = 4;
+  // Probability.
+  string probability = 5;
+  // Stars reward.
+  string star_reward = 6;
+  // The winner.
+  BettorDetails winner = 7;
+  // The creation time of the bet.
+  uint64 created_at = 8;
+  // The total number of bettors.
+  uint32 total_bettors = 9;
+}
+
+message GetFilteredBetHistoryRequest {
+  // The address to filter by.
+  bytes address = 1;
+  // The limit for the number of results.
+  optional uint32 limit = 2;
+  // The page for the results.
+  optional uint32 page = 3;
+  // Filter by victory.
+  optional bool is_victory = 4;
+} 
+
+message GetFilteredBetHistoryResponse {
+  // The bet history.
+  repeated BetHistory bets = 1;
+}
+
+message GpuTeamStats {
+  // The gpu variant.
+  GpuVariant gpu_variant = 1;
+  // The total number of gpus.
+  uint32 total_gpus = 2;
+  // The total number of proofs.
+  uint32 total_proofs = 3;
+  // The total number of contests.
+  uint32 total_contests = 4;
+  // The total number of stars won by the gpu team.
+  string total_stars_won = 5;
+}
+
+message GetGpuTeamStatsRequest {}
+
+message GetGpuTeamStatsResponse {
+  // List of gpu team stats.
+  repeated GpuTeamStats gpu_team_stats = 1;
+}
+
+/***************
+ *** Provers ***
+ ***************/
+
+message GetProverStatsRequest {
+  optional bytes address = 1;
+}
+
+message GetProverStatsResponse {
+  uint64 total_earnings = 1;
+  uint64 total_cycles = 2;
+  uint64 total_gas_proved = 3;
+  uint64 active_provers = 4;
+}
+
+message ProverStats {
+  bytes address = 1;
+  optional string name = 2;
+  optional string twitter = 3;
+  bool use_twitter_handle = 4;
+  uint64 total_auction_requests = 5;
+  uint64 successful_requests = 6;
+  uint64 total_gas_proved = 7;
+  uint64 last_active_at = 8;
+  uint64 created_at = 9;  
+  uint64 total_earnings = 10;
+}
+
+message GetFilteredProverStatsRequest {
+  // The optional maximum number of requests to return (default is 10,
+  // maximum is 100).
+  optional uint32 limit = 1;
+  // The optional page number to return (default is 1).
+  optional uint32 page = 2;
+}
+
+message GetFilteredProverStatsResponse {
+  repeated ProverStats stats = 1;
+}
+
+message GetProverSearchResultsRequest {
+  // The query to search for.
+  string query = 1;
+} 
+
+message GetProverSearchResultsResponse {
+  repeated SearchResult provers = 1;
+}
+
+message BidHistory {
+  // The bidder.
+  bytes bidder = 1;
+  // The amount bid.
+  string amount = 2;
+  // The creation time of the bid.
+  uint64 created_at = 3;
+  // The bidder name.
+  optional string bidder_name = 4;
+}
+
+message GetFilteredBidHistoryRequest {
+  // The request id to filter by.
+  bytes request_id = 1;
+  // The limit for the number of results.
+  optional uint32 limit = 2;
+  // The page for the results.
+  optional uint32 page = 3;
+}
+
+message GetFilteredBidHistoryResponse {
+  repeated BidHistory bids = 1;
+}
+ 
+/******************
+ *** Settlement ***
+ ******************/
+
+message SignedMessage {
+  // The message.
+  string message = 1;
+  // The signature.
+  string signature = 2;
+}
+
+message SettlementRequest {
+  // The RequestProofRequest signed message.
+  optional SignedMessage request = 1;
+  // The BidRequest signed message.
+  optional SignedMessage bid = 2;
+  // The SettleRequest signed message.
+  optional SignedMessage settle = 3;
+  // The ExecuteProofRequest signed message.
+  optional SignedMessage execute = 4;
+  // The FulfillProofRequest signed message.
+  optional SignedMessage fulfill = 5;
+}
+
+message GetSettlementRequestRequest {
+  // The request ID to get signed messages for.
+  bytes request_id = 1;
+}
+
+message GetSettlementRequestResponse {
+  // The settlement request.
+  SettlementRequest request = 1;
+}
+
+message GetFilteredSettlementRequestsRequest {
+  // The list of request IDs to get signed messages for.
+  repeated bytes request_ids = 1;
+}
+
+message GetFilteredSettlementRequestsResponse {
+  // The list of signed messages.
+  repeated SettlementRequest requests = 1;
+}
+
+/***************
+ *** Staking ***
+ ***************/
+
+ message Prover {
+  // The address of the prover.
+  bytes address = 1;
+  // The owner of the prover.
+  bytes owner = 2;
+  // The name of the prover.
+  optional string name = 3;
+  // The block number of the prover was created in.
+  uint64 block_number = 4;
+  // The transaction hash of the prover was created in.
+  bytes tx_hash = 5;
+ }
+
+ message GetFilteredProversRequest {
+  // The optional maximum number of provers to return (default is 10,
+  // maximum is 100).
+  optional uint32 limit = 1;
+  // The optional page number to return (default is 1).
+  optional uint32 page = 2;
+}
+
+message GetFilteredProversResponse {
+  repeated Prover provers = 1;
+}
+
+message GetStakeBalanceRequest {
+  // The account to get the stake balance for. This can be a prover or the owner of the prover.
+  bytes address = 1;
+}
+
+message GetStakeBalanceResponse {
+  // The stake balance.
+  string balance = 1;
+}
+
+message StakeBalanceLog {
+  // The address of the account.
+  bytes address = 1;
+  // The type of balance change operation.
+  StakeBalanceOperation operation = 2;
+  // The amount of the change (can be positive or negative).
+  string amount = 3;
+  // The transaction hash that caused this change.
+  bytes tx_hash = 4;
+  // The unix timestamp of when this change occurred.
+  uint64 created_at = 5;
+}
+
+message GetFilteredStakeBalanceLogsRequest {
+  // The optional address to filter for.
+  optional bytes address = 1;
+  // The optional type of operations to filter for.
+  optional StakeBalanceOperation operation = 2;
+  // The optional minimum unix timestamp to filter logs from. Only returns
+  // logs after this timestamp.
+  optional uint64 minimum_timestamp = 3;
+  // The optional maximum unix timestamp to filter logs to. Only returns
+  // logs before this timestamp.
+  optional uint64 maximum_timestamp = 4;
+  // The optional maximum number of logs to return (default is 10, maximum is 100).
+  optional uint32 limit = 5;
+  // The optional page number to return (default is 1).
+  optional uint32 page = 6;
+}
+
+message GetFilteredStakeBalanceLogsResponse {
+  // The stake balance logs.
+  repeated StakeBalanceLog logs = 1;
 }
 
 /*************
@@ -2670,6 +3103,15 @@ enum ExecutionStatus {
   UNEXECUTABLE = 3;
 }
 
+// The different settlement statuses that a request can be in.
+enum SettlementStatus {
+  UNSPECIFIED_SETTLEMENT_STATUS = 0;
+  // The request has not been settled.
+  UNSETTLED = 1;
+  // The request has been settled.
+  SETTLED = 2;
+}
+
 // The different types of balance changes that can occur.
 enum BalanceOperation {
   UNSPECIFIED_BALANCE_CHANGE_OPERATION = 0;
@@ -2687,6 +3129,17 @@ enum BalanceOperation {
   BID = 6;
   // A reward operation (positive).
   REWARD = 7;
+}
+
+// The different types of stake balance changes that can occur.
+enum StakeBalanceOperation {
+  UNSPECIFIED_STAKE_BALANCE_OPERATION = 0;
+  // A stake operation (positive).
+  STAKE = 1;
+  // An unstake operation (negative).
+  UNSTAKE = 2;
+  // A slash operation (negative).
+  SLASH = 3;
 }
 
 // The different social platforms.
