@@ -3766,7 +3766,7 @@ pub struct GetStakeBalanceRequest {
 pub struct GetStakeBalanceResponse {
     /// The stake balance.
     #[prost(string, tag = "1")]
-    pub balance: ::prost::alloc::string::String,
+    pub amount: ::prost::alloc::string::String,
 }
 #[derive(serde::Serialize, serde::Deserialize)]
 #[derive(Clone, PartialEq, ::prost::Message)]

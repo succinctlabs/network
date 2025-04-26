@@ -3012,7 +3012,7 @@ message GetStakeBalanceRequest {
 
 message GetStakeBalanceResponse {
   // The stake balance.
-  string balance = 1;
+  string amount = 1;
 }
 
 message StakeBalanceLog {
