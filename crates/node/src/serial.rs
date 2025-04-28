@@ -10,14 +10,14 @@ use anyhow::Context;
 use chrono::{self, DateTime};
 use nvml_wrapper::Nvml;
 use sp1_sdk::{EnvProver, ProverClient, SP1ProofMode, SP1Stdin};
-use spn_artifacts::{Artifact, parse_artifact_id_from_s3_url};
+use spn_artifacts::{parse_artifact_id_from_s3_url, Artifact};
 use spn_network_types::{
-    BidRequest, BidRequestBody, FulfillProofRequest, FulfillProofRequestBody, FulfillmentStatus,
-    GetFilteredProofRequestsRequest, GetNonceRequest, GetProofRequestDetailsRequest, MessageFormat,
-    ProofMode, Signable, prover_network_client::ProverNetworkClient,
+    prover_network_client::ProverNetworkClient, BidRequest, BidRequestBody, FulfillProofRequest,
+    FulfillProofRequestBody, FulfillmentStatus, GetFilteredProofRequestsRequest, GetNonceRequest,
+    GetProofRequestDetailsRequest, MessageFormat, ProofMode, Signable,
 };
-use spn_rpc::{RetryableRpc, fetch_owner};
-use spn_utils::{ErrorCapture, time_now};
+use spn_rpc::{fetch_owner, RetryableRpc};
+use spn_utils::{time_now, ErrorCapture};
 use sysinfo::{CpuExt, System, SystemExt};
 use tokio::sync::Mutex;
 use tonic::{async_trait, transport::Channel};
@@ -216,6 +216,7 @@ impl<C: NodeContext> NodeBidder<C> for SerialBidder {
                     );
 
                     if remaining_time < required_time {
+                        info!(request_id = %request_id, remaining_time = %remaining_time, required_time = %required_time, "{SERIAL_BIDDER_TAG} Not enough time to bid on request. Skipping...");
                         return Ok(());
                     }
 
