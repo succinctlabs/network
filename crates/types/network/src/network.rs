@@ -3756,14 +3756,28 @@ pub struct GetFilteredProversResponse {
 }
 #[derive(serde::Serialize, serde::Deserialize)]
 #[derive(Clone, PartialEq, ::prost::Message)]
-pub struct GetStakeBalanceRequest {
+pub struct GetStakerStakeBalanceRequest {
     /// The account to get the stake balance for. This can be a prover or the owner of the prover.
     #[prost(bytes = "vec", tag = "1")]
     pub address: ::prost::alloc::vec::Vec<u8>,
 }
 #[derive(serde::Serialize, serde::Deserialize)]
 #[derive(Clone, PartialEq, ::prost::Message)]
-pub struct GetStakeBalanceResponse {
+pub struct GetStakerStakeBalanceResponse {
+    /// The stake balance.
+    #[prost(string, tag = "1")]
+    pub amount: ::prost::alloc::string::String,
+}
+#[derive(serde::Serialize, serde::Deserialize)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct GetProverStakeBalanceRequest {
+    /// The address of the prover.
+    #[prost(bytes = "vec", tag = "1")]
+    pub address: ::prost::alloc::vec::Vec<u8>,
+}
+#[derive(serde::Serialize, serde::Deserialize)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct GetProverStakeBalanceResponse {
     /// The stake balance.
     #[prost(string, tag = "1")]
     pub amount: ::prost::alloc::string::String,
@@ -3789,8 +3803,8 @@ pub struct StakeBalanceLog {
 }
 #[derive(serde::Serialize, serde::Deserialize)]
 #[derive(Clone, PartialEq, ::prost::Message)]
-pub struct GetFilteredStakeBalanceLogsRequest {
-    /// The optional address to filter for.
+pub struct GetFilteredStakerStakeBalanceLogsRequest {
+    /// The optional staker address to filter for.
     #[prost(bytes = "vec", optional, tag = "1")]
     pub address: ::core::option::Option<::prost::alloc::vec::Vec<u8>>,
     /// The optional type of operations to filter for.
@@ -3813,8 +3827,39 @@ pub struct GetFilteredStakeBalanceLogsRequest {
 }
 #[derive(serde::Serialize, serde::Deserialize)]
 #[derive(Clone, PartialEq, ::prost::Message)]
-pub struct GetFilteredStakeBalanceLogsResponse {
-    /// The stake balance logs.
+pub struct GetFilteredStakerStakeBalanceLogsResponse {
+    /// The staker balance logs.
+    #[prost(message, repeated, tag = "1")]
+    pub logs: ::prost::alloc::vec::Vec<StakeBalanceLog>,
+}
+#[derive(serde::Serialize, serde::Deserialize)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct GetFilteredProverStakeBalanceLogsRequest {
+    /// The optional prover address to filter for.
+    #[prost(bytes = "vec", optional, tag = "1")]
+    pub address: ::core::option::Option<::prost::alloc::vec::Vec<u8>>,
+    /// The optional type of operations to filter for.
+    #[prost(enumeration = "StakeBalanceOperation", optional, tag = "2")]
+    pub operation: ::core::option::Option<i32>,
+    /// The optional minimum unix timestamp to filter logs from. Only returns
+    /// logs after this timestamp.
+    #[prost(uint64, optional, tag = "3")]
+    pub minimum_timestamp: ::core::option::Option<u64>,
+    /// The optional maximum unix timestamp to filter logs to. Only returns
+    /// logs before this timestamp.
+    #[prost(uint64, optional, tag = "4")]
+    pub maximum_timestamp: ::core::option::Option<u64>,
+    /// The optional maximum number of logs to return (default is 10, maximum is 100).
+    #[prost(uint32, optional, tag = "5")]
+    pub limit: ::core::option::Option<u32>,
+    /// The optional page number to return (default is 1).
+    #[prost(uint32, optional, tag = "6")]
+    pub page: ::core::option::Option<u32>,
+}
+#[derive(serde::Serialize, serde::Deserialize)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct GetFilteredProverStakeBalanceLogsResponse {
+    /// The prover balance logs.
     #[prost(message, repeated, tag = "1")]
     pub logs: ::prost::alloc::vec::Vec<StakeBalanceLog>,
 }
@@ -4077,7 +4122,7 @@ impl SettlementStatus {
         }
     }
 }
-/// The different types of balance changes that can occur.
+/// The different types of balance changes that can occur for credits.
 #[derive(serde::Serialize, serde::Deserialize)]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
 #[repr(i32)]
@@ -4093,10 +4138,6 @@ pub enum BalanceOperation {
     Deduction = 4,
     /// A refund operation (positive).
     Refund = 5,
-    /// A bid operation (negative).
-    Bid = 6,
-    /// A reward operation (positive).
-    Reward = 7,
 }
 impl BalanceOperation {
     /// String value of the enum field names used in the ProtoBuf definition.
@@ -4113,8 +4154,6 @@ impl BalanceOperation {
             Self::Credit => "CREDIT",
             Self::Deduction => "DEDUCTION",
             Self::Refund => "REFUND",
-            Self::Bid => "BID",
-            Self::Reward => "REWARD",
         }
     }
     /// Creates an enum from field names used in the ProtoBuf definition.
@@ -4128,13 +4167,11 @@ impl BalanceOperation {
             "CREDIT" => Some(Self::Credit),
             "DEDUCTION" => Some(Self::Deduction),
             "REFUND" => Some(Self::Refund),
-            "BID" => Some(Self::Bid),
-            "REWARD" => Some(Self::Reward),
             _ => None,
         }
     }
 }
-/// The different types of stake balance changes that can occur.
+/// The different types of balance changes that can occur for stake.
 #[derive(serde::Serialize, serde::Deserialize)]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
 #[repr(i32)]
@@ -4146,6 +4183,10 @@ pub enum StakeBalanceOperation {
     Unstake = 2,
     /// A slash operation (negative).
     Slash = 3,
+    /// A bid operation (negative).
+    Bid = 4,
+    /// An unbid operation (positive).
+    Unbid = 5,
 }
 impl StakeBalanceOperation {
     /// String value of the enum field names used in the ProtoBuf definition.
@@ -4160,6 +4201,8 @@ impl StakeBalanceOperation {
             Self::Stake => "STAKE",
             Self::Unstake => "UNSTAKE",
             Self::Slash => "SLASH",
+            Self::Bid => "BID",
+            Self::Unbid => "UNBID",
         }
     }
     /// Creates an enum from field names used in the ProtoBuf definition.
@@ -4171,6 +4214,8 @@ impl StakeBalanceOperation {
             "STAKE" => Some(Self::Stake),
             "UNSTAKE" => Some(Self::Unstake),
             "SLASH" => Some(Self::Slash),
+            "BID" => Some(Self::Bid),
+            "UNBID" => Some(Self::Unbid),
             _ => None,
         }
     }
@@ -6936,12 +6981,12 @@ pub mod prover_network_client {
                 .insert(GrpcMethod::new("network.ProverNetwork", "GetFilteredProvers"));
             self.inner.unary(req, path, codec).await
         }
-        /// Get the available balance of an account.
-        pub async fn get_stake_balance(
+        /// Get the available balance of a staker.
+        pub async fn get_staker_stake_balance(
             &mut self,
-            request: impl tonic::IntoRequest<super::GetStakeBalanceRequest>,
+            request: impl tonic::IntoRequest<super::GetStakerStakeBalanceRequest>,
         ) -> std::result::Result<
-            tonic::Response<super::GetStakeBalanceResponse>,
+            tonic::Response<super::GetStakerStakeBalanceResponse>,
             tonic::Status,
         > {
             self.inner
@@ -6954,19 +6999,21 @@ pub mod prover_network_client {
                 })?;
             let codec = tonic::codec::ProstCodec::default();
             let path = http::uri::PathAndQuery::from_static(
-                "/network.ProverNetwork/GetStakeBalance",
+                "/network.ProverNetwork/GetStakerStakeBalance",
             );
             let mut req = request.into_request();
             req.extensions_mut()
-                .insert(GrpcMethod::new("network.ProverNetwork", "GetStakeBalance"));
+                .insert(
+                    GrpcMethod::new("network.ProverNetwork", "GetStakerStakeBalance"),
+                );
             self.inner.unary(req, path, codec).await
         }
-        /// Get the balance logs that meet the filter criteria.
-        pub async fn get_filtered_stake_balance_logs(
+        /// Get the available balance of a prover.
+        pub async fn get_prover_stake_balance(
             &mut self,
-            request: impl tonic::IntoRequest<super::GetFilteredStakeBalanceLogsRequest>,
+            request: impl tonic::IntoRequest<super::GetProverStakeBalanceRequest>,
         ) -> std::result::Result<
-            tonic::Response<super::GetFilteredStakeBalanceLogsResponse>,
+            tonic::Response<super::GetProverStakeBalanceResponse>,
             tonic::Status,
         > {
             self.inner
@@ -6979,14 +7026,75 @@ pub mod prover_network_client {
                 })?;
             let codec = tonic::codec::ProstCodec::default();
             let path = http::uri::PathAndQuery::from_static(
-                "/network.ProverNetwork/GetFilteredStakeBalanceLogs",
+                "/network.ProverNetwork/GetProverStakeBalance",
+            );
+            let mut req = request.into_request();
+            req.extensions_mut()
+                .insert(
+                    GrpcMethod::new("network.ProverNetwork", "GetProverStakeBalance"),
+                );
+            self.inner.unary(req, path, codec).await
+        }
+        /// Get the staker balance logs that meet the filter criteria.
+        pub async fn get_filtered_staker_stake_balance_logs(
+            &mut self,
+            request: impl tonic::IntoRequest<
+                super::GetFilteredStakerStakeBalanceLogsRequest,
+            >,
+        ) -> std::result::Result<
+            tonic::Response<super::GetFilteredStakerStakeBalanceLogsResponse>,
+            tonic::Status,
+        > {
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::unknown(
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
+            let codec = tonic::codec::ProstCodec::default();
+            let path = http::uri::PathAndQuery::from_static(
+                "/network.ProverNetwork/GetFilteredStakerStakeBalanceLogs",
             );
             let mut req = request.into_request();
             req.extensions_mut()
                 .insert(
                     GrpcMethod::new(
                         "network.ProverNetwork",
-                        "GetFilteredStakeBalanceLogs",
+                        "GetFilteredStakerStakeBalanceLogs",
+                    ),
+                );
+            self.inner.unary(req, path, codec).await
+        }
+        /// Get the prover balance logs that meet the filter criteria.
+        pub async fn get_filtered_prover_stake_balance_logs(
+            &mut self,
+            request: impl tonic::IntoRequest<
+                super::GetFilteredProverStakeBalanceLogsRequest,
+            >,
+        ) -> std::result::Result<
+            tonic::Response<super::GetFilteredProverStakeBalanceLogsResponse>,
+            tonic::Status,
+        > {
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::unknown(
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
+            let codec = tonic::codec::ProstCodec::default();
+            let path = http::uri::PathAndQuery::from_static(
+                "/network.ProverNetwork/GetFilteredProverStakeBalanceLogs",
+            );
+            let mut req = request.into_request();
+            req.extensions_mut()
+                .insert(
+                    GrpcMethod::new(
+                        "network.ProverNetwork",
+                        "GetFilteredProverStakeBalanceLogs",
                     ),
                 );
             self.inner.unary(req, path, codec).await
@@ -7775,20 +7883,36 @@ pub mod prover_network_server {
             tonic::Response<super::GetFilteredProversResponse>,
             tonic::Status,
         >;
-        /// Get the available balance of an account.
-        async fn get_stake_balance(
+        /// Get the available balance of a staker.
+        async fn get_staker_stake_balance(
             &self,
-            request: tonic::Request<super::GetStakeBalanceRequest>,
+            request: tonic::Request<super::GetStakerStakeBalanceRequest>,
         ) -> std::result::Result<
-            tonic::Response<super::GetStakeBalanceResponse>,
+            tonic::Response<super::GetStakerStakeBalanceResponse>,
             tonic::Status,
         >;
-        /// Get the balance logs that meet the filter criteria.
-        async fn get_filtered_stake_balance_logs(
+        /// Get the available balance of a prover.
+        async fn get_prover_stake_balance(
             &self,
-            request: tonic::Request<super::GetFilteredStakeBalanceLogsRequest>,
+            request: tonic::Request<super::GetProverStakeBalanceRequest>,
         ) -> std::result::Result<
-            tonic::Response<super::GetFilteredStakeBalanceLogsResponse>,
+            tonic::Response<super::GetProverStakeBalanceResponse>,
+            tonic::Status,
+        >;
+        /// Get the staker balance logs that meet the filter criteria.
+        async fn get_filtered_staker_stake_balance_logs(
+            &self,
+            request: tonic::Request<super::GetFilteredStakerStakeBalanceLogsRequest>,
+        ) -> std::result::Result<
+            tonic::Response<super::GetFilteredStakerStakeBalanceLogsResponse>,
+            tonic::Status,
+        >;
+        /// Get the prover balance logs that meet the filter criteria.
+        async fn get_filtered_prover_stake_balance_logs(
+            &self,
+            request: tonic::Request<super::GetFilteredProverStakeBalanceLogsRequest>,
+        ) -> std::result::Result<
+            tonic::Response<super::GetFilteredProverStakeBalanceLogsResponse>,
             tonic::Status,
         >;
     }
@@ -12425,25 +12549,28 @@ pub mod prover_network_server {
                     };
                     Box::pin(fut)
                 }
-                "/network.ProverNetwork/GetStakeBalance" => {
+                "/network.ProverNetwork/GetStakerStakeBalance" => {
                     #[allow(non_camel_case_types)]
-                    struct GetStakeBalanceSvc<T: ProverNetwork>(pub Arc<T>);
+                    struct GetStakerStakeBalanceSvc<T: ProverNetwork>(pub Arc<T>);
                     impl<
                         T: ProverNetwork,
-                    > tonic::server::UnaryService<super::GetStakeBalanceRequest>
-                    for GetStakeBalanceSvc<T> {
-                        type Response = super::GetStakeBalanceResponse;
+                    > tonic::server::UnaryService<super::GetStakerStakeBalanceRequest>
+                    for GetStakerStakeBalanceSvc<T> {
+                        type Response = super::GetStakerStakeBalanceResponse;
                         type Future = BoxFuture<
                             tonic::Response<Self::Response>,
                             tonic::Status,
                         >;
                         fn call(
                             &mut self,
-                            request: tonic::Request<super::GetStakeBalanceRequest>,
+                            request: tonic::Request<super::GetStakerStakeBalanceRequest>,
                         ) -> Self::Future {
                             let inner = Arc::clone(&self.0);
                             let fut = async move {
-                                <T as ProverNetwork>::get_stake_balance(&inner, request)
+                                <T as ProverNetwork>::get_staker_stake_balance(
+                                        &inner,
+                                        request,
+                                    )
                                     .await
                             };
                             Box::pin(fut)
@@ -12455,7 +12582,7 @@ pub mod prover_network_server {
                     let max_encoding_message_size = self.max_encoding_message_size;
                     let inner = self.inner.clone();
                     let fut = async move {
-                        let method = GetStakeBalanceSvc(inner);
+                        let method = GetStakerStakeBalanceSvc(inner);
                         let codec = tonic::codec::ProstCodec::default();
                         let mut grpc = tonic::server::Grpc::new(codec)
                             .apply_compression_config(
@@ -12471,28 +12598,25 @@ pub mod prover_network_server {
                     };
                     Box::pin(fut)
                 }
-                "/network.ProverNetwork/GetFilteredStakeBalanceLogs" => {
+                "/network.ProverNetwork/GetProverStakeBalance" => {
                     #[allow(non_camel_case_types)]
-                    struct GetFilteredStakeBalanceLogsSvc<T: ProverNetwork>(pub Arc<T>);
+                    struct GetProverStakeBalanceSvc<T: ProverNetwork>(pub Arc<T>);
                     impl<
                         T: ProverNetwork,
-                    > tonic::server::UnaryService<
-                        super::GetFilteredStakeBalanceLogsRequest,
-                    > for GetFilteredStakeBalanceLogsSvc<T> {
-                        type Response = super::GetFilteredStakeBalanceLogsResponse;
+                    > tonic::server::UnaryService<super::GetProverStakeBalanceRequest>
+                    for GetProverStakeBalanceSvc<T> {
+                        type Response = super::GetProverStakeBalanceResponse;
                         type Future = BoxFuture<
                             tonic::Response<Self::Response>,
                             tonic::Status,
                         >;
                         fn call(
                             &mut self,
-                            request: tonic::Request<
-                                super::GetFilteredStakeBalanceLogsRequest,
-                            >,
+                            request: tonic::Request<super::GetProverStakeBalanceRequest>,
                         ) -> Self::Future {
                             let inner = Arc::clone(&self.0);
                             let fut = async move {
-                                <T as ProverNetwork>::get_filtered_stake_balance_logs(
+                                <T as ProverNetwork>::get_prover_stake_balance(
                                         &inner,
                                         request,
                                     )
@@ -12507,7 +12631,115 @@ pub mod prover_network_server {
                     let max_encoding_message_size = self.max_encoding_message_size;
                     let inner = self.inner.clone();
                     let fut = async move {
-                        let method = GetFilteredStakeBalanceLogsSvc(inner);
+                        let method = GetProverStakeBalanceSvc(inner);
+                        let codec = tonic::codec::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                "/network.ProverNetwork/GetFilteredStakerStakeBalanceLogs" => {
+                    #[allow(non_camel_case_types)]
+                    struct GetFilteredStakerStakeBalanceLogsSvc<T: ProverNetwork>(
+                        pub Arc<T>,
+                    );
+                    impl<
+                        T: ProverNetwork,
+                    > tonic::server::UnaryService<
+                        super::GetFilteredStakerStakeBalanceLogsRequest,
+                    > for GetFilteredStakerStakeBalanceLogsSvc<T> {
+                        type Response = super::GetFilteredStakerStakeBalanceLogsResponse;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<
+                                super::GetFilteredStakerStakeBalanceLogsRequest,
+                            >,
+                        ) -> Self::Future {
+                            let inner = Arc::clone(&self.0);
+                            let fut = async move {
+                                <T as ProverNetwork>::get_filtered_staker_stake_balance_logs(
+                                        &inner,
+                                        request,
+                                    )
+                                    .await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let method = GetFilteredStakerStakeBalanceLogsSvc(inner);
+                        let codec = tonic::codec::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                "/network.ProverNetwork/GetFilteredProverStakeBalanceLogs" => {
+                    #[allow(non_camel_case_types)]
+                    struct GetFilteredProverStakeBalanceLogsSvc<T: ProverNetwork>(
+                        pub Arc<T>,
+                    );
+                    impl<
+                        T: ProverNetwork,
+                    > tonic::server::UnaryService<
+                        super::GetFilteredProverStakeBalanceLogsRequest,
+                    > for GetFilteredProverStakeBalanceLogsSvc<T> {
+                        type Response = super::GetFilteredProverStakeBalanceLogsResponse;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<
+                                super::GetFilteredProverStakeBalanceLogsRequest,
+                            >,
+                        ) -> Self::Future {
+                            let inner = Arc::clone(&self.0);
+                            let fut = async move {
+                                <T as ProverNetwork>::get_filtered_prover_stake_balance_logs(
+                                        &inner,
+                                        request,
+                                    )
+                                    .await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let method = GetFilteredProverStakeBalanceLogsSvc(inner);
                         let codec = tonic::codec::ProstCodec::default();
                         let mut grpc = tonic::server::Grpc::new(codec)
                             .apply_compression_config(

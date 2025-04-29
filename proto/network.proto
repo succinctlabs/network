@@ -334,11 +334,16 @@ service ProverNetwork {
    // Get the provers that meet the filter criteria.
    rpc GetFilteredProvers(GetFilteredProversRequest)
       returns (GetFilteredProversResponse) {}
-   // Get the available balance of an account.
-   rpc GetStakeBalance(GetStakeBalanceRequest) returns (GetStakeBalanceResponse) {}
-   // Get the balance logs that meet the filter criteria.
-    rpc GetFilteredStakeBalanceLogs(GetFilteredStakeBalanceLogsRequest)
-      returns (GetFilteredStakeBalanceLogsResponse) {}
+   // Get the available balance of a staker.
+   rpc GetStakerStakeBalance(GetStakerStakeBalanceRequest) returns (GetStakerStakeBalanceResponse) {}
+   // Get the available balance of a prover.
+   rpc GetProverStakeBalance(GetProverStakeBalanceRequest) returns (GetProverStakeBalanceResponse) {}
+   // Get the staker balance logs that meet the filter criteria.
+   rpc GetFilteredStakerStakeBalanceLogs(GetFilteredStakerStakeBalanceLogsRequest)
+      returns (GetFilteredStakerStakeBalanceLogsResponse) {}
+   // Get the prover balance logs that meet the filter criteria.
+   rpc GetFilteredProverStakeBalanceLogs(GetFilteredProverStakeBalanceLogsRequest)
+      returns (GetFilteredProverStakeBalanceLogsResponse) {}
 }
 
 // Format to help decode signature in backend.
@@ -3005,12 +3010,22 @@ message GetFilteredProversResponse {
   repeated Prover provers = 1;
 }
 
-message GetStakeBalanceRequest {
+message GetStakerStakeBalanceRequest {
   // The account to get the stake balance for. This can be a prover or the owner of the prover.
   bytes address = 1;
 }
 
-message GetStakeBalanceResponse {
+message GetStakerStakeBalanceResponse {
+  // The stake balance.
+  string amount = 1;
+}
+
+message GetProverStakeBalanceRequest {
+  // The address of the prover.
+  bytes address = 1;
+}
+
+message GetProverStakeBalanceResponse {
   // The stake balance.
   string amount = 1;
 }
@@ -3028,8 +3043,8 @@ message StakeBalanceLog {
   uint64 created_at = 5;
 }
 
-message GetFilteredStakeBalanceLogsRequest {
-  // The optional address to filter for.
+message GetFilteredStakerStakeBalanceLogsRequest {
+  // The optional staker address to filter for.
   optional bytes address = 1;
   // The optional type of operations to filter for.
   optional StakeBalanceOperation operation = 2;
@@ -3045,8 +3060,30 @@ message GetFilteredStakeBalanceLogsRequest {
   optional uint32 page = 6;
 }
 
-message GetFilteredStakeBalanceLogsResponse {
-  // The stake balance logs.
+message GetFilteredStakerStakeBalanceLogsResponse {
+  // The staker balance logs.
+  repeated StakeBalanceLog logs = 1;
+}
+
+message GetFilteredProverStakeBalanceLogsRequest {
+  // The optional prover address to filter for.
+  optional bytes address = 1;
+  // The optional type of operations to filter for.
+  optional StakeBalanceOperation operation = 2;
+  // The optional minimum unix timestamp to filter logs from. Only returns
+  // logs after this timestamp.
+  optional uint64 minimum_timestamp = 3;
+  // The optional maximum unix timestamp to filter logs to. Only returns
+  // logs before this timestamp.
+  optional uint64 maximum_timestamp = 4;
+  // The optional maximum number of logs to return (default is 10, maximum is 100).
+  optional uint32 limit = 5;
+  // The optional page number to return (default is 1).
+  optional uint32 page = 6;
+}
+
+message GetFilteredProverStakeBalanceLogsResponse {
+  // The prover balance logs.
   repeated StakeBalanceLog logs = 1;
 }
 
@@ -3112,7 +3149,7 @@ enum SettlementStatus {
   SETTLED = 2;
 }
 
-// The different types of balance changes that can occur.
+// The different types of balance changes that can occur for credits.
 enum BalanceOperation {
   UNSPECIFIED_BALANCE_CHANGE_OPERATION = 0;
   // A deposit operation (positive).
@@ -3125,13 +3162,9 @@ enum BalanceOperation {
   DEDUCTION = 4;
   // A refund operation (positive).
   REFUND = 5;
-  // A bid operation (negative).
-  BID = 6;
-  // A reward operation (positive).
-  REWARD = 7;
 }
 
-// The different types of stake balance changes that can occur.
+// The different types of balance changes that can occur for stake.
 enum StakeBalanceOperation {
   UNSPECIFIED_STAKE_BALANCE_OPERATION = 0;
   // A stake operation (positive).
@@ -3140,6 +3173,10 @@ enum StakeBalanceOperation {
   UNSTAKE = 2;
   // A slash operation (negative).
   SLASH = 3;
+  // A bid operation (negative).
+  BID = 4;
+  // An unbid operation (positive).
+  UNBID = 5;
 }
 
 // The different social platforms.
