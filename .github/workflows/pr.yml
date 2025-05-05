@@ -47,6 +47,7 @@ jobs:
                   args: --release
               env:
                   RUST_BACKTRACE: 1
+                  RUSTUP_TOOLCHAIN: 1.85.0
 
     cargo-lint:
         name: Cargo Lint
