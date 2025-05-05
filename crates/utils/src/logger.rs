@@ -69,16 +69,7 @@ pub fn init_logger(log_format: LogFormat) {
             .init(),
         LogFormat::Json => base.with(fmt::layer().json()).init(),
         LogFormat::Minimal => base
-            .with(
-                fmt::layer()
-                    // .with_target(false)
-                    // .with_line_number(false)
-                    // .with_file(false)
-                    // .with_thread_ids(false)
-                    // .with_thread_names(false)
-                    .with_level(true)
-                    .compact(),
-            )
+            .with(fmt::layer().with_level(true).compact())
             .init(),
     }
 }

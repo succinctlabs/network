@@ -14,7 +14,8 @@ use spn_artifacts::{parse_artifact_id_from_s3_url, Artifact};
 use spn_network_types::{
     prover_network_client::ProverNetworkClient, BidRequest, BidRequestBody, FulfillProofRequest,
     FulfillProofRequestBody, FulfillmentStatus, GetFilteredProofRequestsRequest, GetNonceRequest,
-    GetProofRequestDetailsRequest, MessageFormat, ProofMode, Signable,
+    GetProofRequestDetailsRequest, MessageFormat, ProofMode, Signable, FailFulfillmentRequest,
+    FailFulfillmentRequestBody,
 };
 use spn_rpc::{fetch_owner, RetryableRpc};
 use spn_utils::{time_now, ErrorCapture};
@@ -426,18 +427,60 @@ impl<C: NodeContext> NodeProver<C> for SerialProver {
                 }
                 Ok((Err(e), _, _)) => {
                     let error_msg = error_capture.format_error(e);
-                    error!("{SERIAL_PROVER_TAG} {error_msg}");
+                    error!("{SERIAL_PROVER_TAG} Proving failed: {error_msg}");
+                    // Attempt to mark the request as failed on the network.
+                    if let Err(fail_err) = fail_request(ctx, request.request_id.clone()).await {
+                        error!(request_id = %hex::encode(&request.request_id), "{SERIAL_PROVER_TAG} Failed to notify network about failure: {:?}", fail_err);
+                    }
                 }
                 Err(panic_err) => {
                     let panic_msg = ErrorCapture::extract_panic_message(panic_err);
                     let error_msg = error_capture.format_error(panic_msg);
-                    error!("{SERIAL_PROVER_TAG} {error_msg}");
+                    error!("{SERIAL_PROVER_TAG} Proving panicked: {error_msg}");
+                    // Attempt to mark the request as failed on the network.
+                     if let Err(fail_err) = fail_request(ctx, request.request_id.clone()).await {
+                        error!(request_id = %hex::encode(&request.request_id), "{SERIAL_PROVER_TAG} Failed to notify network about panic failure: {:?}", fail_err);
+                    }
                 }
             }
         }
 
         Ok(())
     }
+}
+
+/// Attempts to notify the network that proving a request failed.
+async fn fail_request<C: NodeContext>(ctx: &C, request_id: Vec<u8>) -> anyhow::Result<()> {
+    const SERIAL_PROVER_TAG: &str = "\x1b[33m[SerialProver]\x1b[0m";
+    let address = ctx.signer().address().to_vec();
+    ctx.network()
+        .clone()
+        .with_retry(
+            || async {
+                // Get the nonce.
+                let nonce = ctx
+                    .network()
+                    .clone()
+                    .get_nonce(GetNonceRequest { address: address.clone() })
+                    .await?
+                    .into_inner()
+                    .nonce;
+
+                // Create and submit the fail request.
+                let body = FailFulfillmentRequestBody { nonce, request_id: request_id.clone() };
+                let fail_request = FailFulfillmentRequest {
+                    format: MessageFormat::Binary.into(),
+                    signature: body.sign(&ctx.signer()).into(),
+                    body: Some(body),
+                };
+                ctx.network().clone().fail_fulfillment(fail_request).await?;
+                info!(request_id = %hex::encode(&request_id), "{SERIAL_PROVER_TAG} Notified network of failed fulfillment.");
+                Ok(())
+            },
+            "FailFulfillment",
+        )
+        .await?;
+    Ok(())
 }
 
 /// The metrics for a serial node.
