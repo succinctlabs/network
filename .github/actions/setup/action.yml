@@ -48,8 +48,3 @@ runs:
           run: |
               curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- --default-toolchain 1.85.0 -y
               rustup install nightly
-
-        - name: Install Foundry
-          uses: 'foundry-rs/foundry-toolchain@v1'
-          with:
-              version: stable
