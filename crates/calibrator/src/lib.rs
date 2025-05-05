@@ -6,11 +6,13 @@
 #![allow(clippy::cast_precision_loss)]
 
 use sp1_sdk::{ProverClient, SP1Stdin};
+use tracing::error;
+use anyhow::Result;
 
 /// Trait for calibrating the prover.
 pub trait Calibrator {
     /// Calibrate the prover.
-    fn calibrate(&self) -> CalibratorMetrics;
+    fn calibrate(&self) -> Result<CalibratorMetrics>;
 }
 
 /// Metrics for the calibration of the prover.
@@ -40,12 +42,15 @@ impl SinglePassCalibrator {
 }
 
 impl Calibrator for SinglePassCalibrator {
-    fn calibrate(&self) -> CalibratorMetrics {
+    fn calibrate(&self) -> Result<CalibratorMetrics> {
         // Initialize the prover client from environment
         let client = ProverClient::from_env();
 
         // Execute to get the prover gas.
-        let (_, report) = client.execute(&self.elf, &self.stdin).run().unwrap();
+        let (_, report) = client.execute(&self.elf, &self.stdin).run().map_err(|e| {
+            error!("Failed to execute the prover: {e}");
+            e
+        })?;
         let prover_gas = report.gas.unwrap_or(0);
 
         // Setup the proving key and verification key.
@@ -55,14 +60,17 @@ impl Calibrator for SinglePassCalibrator {
         let start = std::time::Instant::now();
 
         // Generate the proof.
-        let _ = client.prove(&pk, &self.stdin).compressed().run().unwrap();
+        let _ = client.prove(&pk, &self.stdin).compressed().run().map_err(|e| {
+            error!("Failed to generate the proof: {e}");
+            e
+        })?;
 
         // Calculate duration and throughput.
         let duration = start.elapsed();
         let throughput = prover_gas as f64 / duration.as_secs_f64();
 
         // Return the metrics.
-        CalibratorMetrics { throughput, bid_amount: 1 }
+        Ok(CalibratorMetrics { throughput, bid_amount: 1 })
     }
 }
 
@@ -89,7 +97,7 @@ mod tests {
         let calibrator = SinglePassCalibrator::new(elf, stdin);
 
         // Calibrate the prover.
-        let metrics = calibrator.calibrate();
+        let metrics = calibrator.calibrate().unwrap();
         println!("metrics: {metrics:?}");
     }
 }

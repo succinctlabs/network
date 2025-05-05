@@ -7,15 +7,16 @@ use std::str::FromStr;
 
 use alloy_primitives::U256;
 use alloy_signer_local::PrivateKeySigner;
-use anyhow::Result;
+use anyhow::{anyhow, Result};
 use clap::Parser;
 use rustls::crypto::ring;
+use tabled::{Table, Tabled, settings::Style};
+use tracing::info;
+
 use sp1_sdk::{SP1Stdin, include_elf};
 use spn_calibrator::{Calibrator, SinglePassCalibrator};
 use spn_network_types::prover_network_client::ProverNetworkClient;
 use spn_node::{Node, NodeContext, SerialBidder, SerialContext, SerialMonitor, SerialProver};
-use tabled::{Table, Tabled, settings::Style};
-use tracing::info;
 
 /// The CLI application that defines all available commands.
 #[derive(Parser)]
@@ -80,7 +81,7 @@ async fn main() -> Result<()> {
 
             // Run the calibrator to get the metrics.
             let calibrator = SinglePassCalibrator::new(SPN_FIBONACCI_ELF.to_vec(), stdin);
-            let metrics = calibrator.calibrate();
+            let metrics = calibrator.calibrate().map_err(|e| anyhow!("failed to calibrate: {}", e))?;
 
             // Create a table for the metrics.
             #[allow(clippy::items_after_statements)]
