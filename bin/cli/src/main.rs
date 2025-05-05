@@ -72,7 +72,7 @@ async fn main() -> Result<()> {
     match cli {
         Args::Calibrate => {
             // Create the ELF.
-            const SPN_FIBONACCI_ELF: &[u8] = include_elf!("spn-fibonacci-program");
+            const SPN_FIBONACCI_ELF: &[u8] = include_elf!("../../elfs/spn-fibonacci-program");
 
             // Create the input stream.
             let n: u32 = 20;

@@ -1,3 +1,4 @@
+#[allow(deprecated)]
 use alloy::primitives::{Address, Signature};
 #[allow(unused_imports)]
 use prost::Message;
@@ -143,6 +144,7 @@ impl_signed_message!(BetRequest);
 impl_signed_message!(SetFlowHighScoreRequest);
 
 pub fn recover_sender_raw(signature: &[u8], message: &[u8]) -> Result<Address, RecoverSenderError> {
+    #[allow(deprecated)]
     let signature = Signature::try_from(signature)
         .map_err(|e| RecoverSenderError::SignatureDeserializationError(e.to_string()))?;
 

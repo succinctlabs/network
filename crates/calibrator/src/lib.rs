@@ -81,7 +81,7 @@ mod tests {
 
     use super::*;
 
-    const SPN_FIBONACCI_ELF: &[u8] = include_elf!("spn-fibonacci-program");
+    const SPN_FIBONACCI_ELF: &[u8] = include_elf!("../../elfs/spn-fibonacci-program");
 
     #[test]
     fn test_calibrate() {
