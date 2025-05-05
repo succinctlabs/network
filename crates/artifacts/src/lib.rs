@@ -110,6 +110,7 @@ impl Artifact {
 /// Given an S3 URL in the format `s3://<bucket>/path/to/artifact_id`, this function parses and
 /// returns just the artifact ID component (the last path segment).
 pub fn parse_artifact_id_from_s3_url(s3_url: &str) -> Result<String> {
+    #[allow(clippy::double_ended_iterator_last)]
     s3_url.split('/').last().map(String::from).ok_or_else(|| anyhow!("Invalid S3 URL format"))
 }
 

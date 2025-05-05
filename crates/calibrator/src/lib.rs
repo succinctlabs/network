@@ -76,12 +76,9 @@ impl Calibrator for SinglePassCalibrator {
 
 #[cfg(test)]
 mod tests {
-
-    use sp1_sdk::include_elf;
-
     use super::*;
 
-    const SPN_FIBONACCI_ELF: &[u8] = include_elf!("spn-fibonacci-program");
+    const SPN_FIBONACCI_ELF: &[u8] = include_bytes!("../../../elfs/spn-fibonacci-program");
 
     #[test]
     fn test_calibrate() {

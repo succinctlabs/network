@@ -13,7 +13,7 @@ use rustls::crypto::ring;
 use tabled::{settings::Style, Table, Tabled};
 use tracing::info;
 
-use sp1_sdk::{include_elf, SP1Stdin};
+use sp1_sdk::SP1Stdin;
 use spn_calibrator::{Calibrator, SinglePassCalibrator};
 use spn_network_types::prover_network_client::ProverNetworkClient;
 use spn_node::{Node, NodeContext, SerialBidder, SerialContext, SerialMonitor, SerialProver};
@@ -72,7 +72,7 @@ async fn main() -> Result<()> {
     match cli {
         Args::Calibrate => {
             // Create the ELF.
-            const SPN_FIBONACCI_ELF: &[u8] = include_elf!("spn-fibonacci-program");
+            const SPN_FIBONACCI_ELF: &[u8] = include_bytes!("../../../elfs/spn-fibonacci-program");
 
             // Create the input stream.
             let n: u32 = 20;

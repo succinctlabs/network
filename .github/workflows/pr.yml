@@ -1,0 +1,81 @@
+name: PR
+
+on:
+    push:
+        branches: [main]
+    pull_request:
+        branches:
+            - '**'
+        paths:
+            - 'crates/**'
+            - 'bin/**'
+            - 'Cargo.toml'
+            - '.github/workflows/**'
+    merge_group:
+
+concurrency:
+    group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+    cancel-in-progress: true
+
+jobs:
+    cargo-test:
+        name: Cargo Test
+        runs-on:
+            [
+                runs-on,
+                runner=64cpu-linux-x64,
+                spot=false,
+                'run-id=${{ github.run_id }}',
+            ]
+        env:
+            CARGO_NET_GIT_FETCH_WITH_CLI: 'true'
+
+        steps:
+            - name: Checkout sources
+              uses: actions/checkout@v4
+              with:
+                  submodules: true
+
+            - name: Setup CI
+              uses: ./.github/actions/setup
+
+            - name: Run cargo test
+              uses: actions-rs/cargo@v1
+              with:
+                  command: test
+                  toolchain: 1.85.0
+                  args: --release
+              env:
+                  RUST_BACKTRACE: 1
+                  RUSTUP_TOOLCHAIN: 1.85.0
+
+    cargo-lint:
+        name: Cargo Lint
+        runs-on: [runs-on, runner=8cpu-linux-x64, 'run-id=${{ github.run_id }}']
+        env:
+            CARGO_NET_GIT_FETCH_WITH_CLI: 'true'
+        steps:
+            - name: Checkout sources
+              uses: actions/checkout@v4
+              with:
+                  submodules: true
+
+            - name: Setup CI
+              uses: ./.github/actions/setup
+
+            - name: Run cargo fmt
+              uses: actions-rs/cargo@v1
+              with:
+                  command: fmt
+                  toolchain: nightly
+                  args: --all -- --check
+              env:
+                  CARGO_INCREMENTAL: 1
+
+            - name: Run cargo clippy
+              uses: actions-rs/cargo@v1
+              with:
+                  command: clippy
+                  args: --all-features --all-targets -- -D warnings -A incomplete-features
+              env:
+                  CARGO_INCREMENTAL: 1
