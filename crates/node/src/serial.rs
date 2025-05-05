@@ -411,6 +411,7 @@ impl<C: NodeContext> NodeProver<C> for SerialProver {
                                     nonce,
                                     request_id: request.request_id.clone(),
                                     proof: proof_bytes.clone(),
+                                    reserved_metadata: None,
                                 };
                                 let fulfill_request = FulfillProofRequest {
                                     format: MessageFormat::Binary.into(),

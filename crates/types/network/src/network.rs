@@ -61,6 +61,13 @@ pub struct RequestProofResponseBody {
     pub request_id: ::prost::alloc::vec::Vec<u8>,
 }
 #[derive(serde::Serialize, serde::Deserialize)]
+#[derive(Clone, Copy, PartialEq, ::prost::Message)]
+pub struct ReservedMetadata {
+    /// The optional ratio of gpu time the proof used on-demand resources versus reserved.
+    #[prost(float, optional, tag = "1")]
+    pub on_demand_ratio: ::core::option::Option<f32>,
+}
+#[derive(serde::Serialize, serde::Deserialize)]
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct FulfillProofRequest {
     /// The message format of the body.
@@ -85,6 +92,9 @@ pub struct FulfillProofRequestBody {
     /// The proof bytes.
     #[prost(bytes = "vec", tag = "3")]
     pub proof: ::prost::alloc::vec::Vec<u8>,
+    /// The optional metadata for reserved proofs.
+    #[prost(message, optional, tag = "4")]
+    pub reserved_metadata: ::core::option::Option<ReservedMetadata>,
 }
 #[derive(serde::Serialize, serde::Deserialize)]
 #[derive(Clone, PartialEq, ::prost::Message)]
@@ -1247,6 +1257,343 @@ pub struct TransactionDetails {
 pub struct GetTransactionDetailsResponse {
     #[prost(message, optional, tag = "1")]
     pub transaction: ::core::option::Option<TransactionDetails>,
+}
+#[derive(serde::Serialize, serde::Deserialize)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct AddReservedChargeRequest {
+    /// The message format of the body.
+    #[prost(enumeration = "MessageFormat", tag = "1")]
+    pub format: i32,
+    /// The signature of the sender.
+    #[prost(bytes = "vec", tag = "2")]
+    pub signature: ::prost::alloc::vec::Vec<u8>,
+    /// The body of the request.
+    #[prost(message, optional, tag = "3")]
+    pub body: ::core::option::Option<AddReservedChargeRequestBody>,
+}
+#[derive(serde::Serialize, serde::Deserialize)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct AddReservedChargeRequestBody {
+    /// The account nonce of the sender.
+    #[prost(uint64, tag = "1")]
+    pub nonce: u64,
+    /// The type of charge.
+    #[prost(enumeration = "ChargeType", tag = "2")]
+    pub charge_type: i32,
+    /// The quantity of the charge.
+    #[prost(string, tag = "3")]
+    pub quantity: ::prost::alloc::string::String,
+    /// The unix timestamp of the charge start time.
+    #[prost(uint64, tag = "4")]
+    pub start_time: u64,
+    /// The unix timestamp of the charge end time.
+    #[prost(uint64, tag = "5")]
+    pub end_time: u64,
+    /// The address of the fulfiller.
+    #[prost(bytes = "vec", tag = "6")]
+    pub fulfiller: ::prost::alloc::vec::Vec<u8>,
+}
+#[derive(serde::Serialize, serde::Deserialize)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct AddReservedChargeResponse {
+    /// The transaction hash.
+    #[prost(bytes = "vec", tag = "1")]
+    pub tx_hash: ::prost::alloc::vec::Vec<u8>,
+    /// The body of the response.
+    #[prost(message, optional, tag = "2")]
+    pub body: ::core::option::Option<AddReservedChargeResponseBody>,
+}
+#[derive(serde::Serialize, serde::Deserialize)]
+#[derive(Clone, Copy, PartialEq, ::prost::Message)]
+pub struct AddReservedChargeResponseBody {}
+#[derive(serde::Serialize, serde::Deserialize)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct ChargeDetails {
+    /// The identifier for the charge.
+    #[prost(uint64, tag = "1")]
+    pub charge_id: u64,
+    /// The transaction hash of the charge.
+    #[prost(bytes = "vec", tag = "2")]
+    pub tx_hash: ::prost::alloc::vec::Vec<u8>,
+    /// The type of charge.
+    #[prost(enumeration = "ChargeType", tag = "3")]
+    pub charge_type: i32,
+    /// The quantity of the charge.
+    #[prost(string, tag = "4")]
+    pub quantity: ::prost::alloc::string::String,
+    /// The effective price of the charge in USDC.
+    #[prost(string, tag = "5")]
+    pub effective_price: ::prost::alloc::string::String,
+    /// Whether the charge is instant or not.
+    #[prost(bool, tag = "6")]
+    pub is_instant: bool,
+    /// The address of the fulfiller the charge is associated with.
+    #[prost(bytes = "vec", tag = "7")]
+    pub fulfiller: ::prost::alloc::vec::Vec<u8>,
+    /// The optional request ID associated with an instant charge.
+    #[prost(bytes = "vec", optional, tag = "8")]
+    pub request_id: ::core::option::Option<::prost::alloc::vec::Vec<u8>>,
+    /// The optional unix timestamp of a non-instant charge start time.
+    #[prost(uint64, optional, tag = "9")]
+    pub start_time: ::core::option::Option<u64>,
+    /// The optional unix timestamp of a non-instant charge end time.
+    #[prost(uint64, optional, tag = "10")]
+    pub end_time: ::core::option::Option<u64>,
+    /// The unix timestamp of when the charge was created.
+    #[prost(uint64, tag = "11")]
+    pub created_at: u64,
+}
+#[derive(serde::Serialize, serde::Deserialize)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct ChargeSummary {
+    /// The type of charge.
+    #[prost(enumeration = "ChargeType", tag = "1")]
+    pub charge_type: i32,
+    /// The total prorated amount.
+    #[prost(string, tag = "2")]
+    pub amount: ::prost::alloc::string::String,
+}
+#[derive(serde::Serialize, serde::Deserialize)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct ClusterBillingSummary {
+    /// The address of the fulfiller.
+    #[prost(bytes = "vec", tag = "1")]
+    pub fulfiller: ::prost::alloc::vec::Vec<u8>,
+    /// The optional name to refer to an alias of the fulfiller address.
+    #[prost(string, optional, tag = "2")]
+    pub fulfiller_name: ::core::option::Option<::prost::alloc::string::String>,
+    /// The details of each active reserved charge.
+    #[prost(message, repeated, tag = "3")]
+    pub reserved_charges_details: ::prost::alloc::vec::Vec<ChargeDetails>,
+    /// The summary of each reserved charge type associated with this fulfiller.
+    #[prost(message, repeated, tag = "4")]
+    pub reserved_charges: ::prost::alloc::vec::Vec<ChargeSummary>,
+    /// The summary of each instant charge type associated with this fulfiller.
+    #[prost(message, repeated, tag = "5")]
+    pub instant_charges: ::prost::alloc::vec::Vec<ChargeSummary>,
+}
+#[derive(serde::Serialize, serde::Deserialize)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct PayerBillingSummary {
+    /// The month, formatted as "mm/yyyy".
+    #[prost(string, tag = "1")]
+    pub month: ::prost::alloc::string::String,
+    /// The sum of all instant charges and prorated reserved charges for the month.
+    #[prost(string, tag = "2")]
+    pub total: ::prost::alloc::string::String,
+    /// The clusters with a billing summary for the month.
+    #[prost(message, repeated, tag = "3")]
+    pub clusters: ::prost::alloc::vec::Vec<ClusterBillingSummary>,
+}
+#[derive(serde::Serialize, serde::Deserialize)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct GetBillingSummaryRequest {
+    /// The optional starting month to filter from (inclusive), formatted as "mm/yyyy".
+    #[prost(string, optional, tag = "1")]
+    pub from_month: ::core::option::Option<::prost::alloc::string::String>,
+    /// The optional ending month to filter to (inclusive), formatted as "mm/yyyy".
+    #[prost(string, optional, tag = "2")]
+    pub to_month: ::core::option::Option<::prost::alloc::string::String>,
+    /// The optional maximum number of months to return per page (default is 3, max is 10).
+    #[prost(uint32, optional, tag = "3")]
+    pub limit: ::core::option::Option<u32>,
+    /// The optional page number to return (default is 1).
+    #[prost(uint32, optional, tag = "4")]
+    pub page: ::core::option::Option<u32>,
+    /// The payer to filter for.
+    #[prost(bytes = "vec", tag = "5")]
+    pub payer: ::prost::alloc::vec::Vec<u8>,
+}
+#[derive(serde::Serialize, serde::Deserialize)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct GetBillingSummaryResponse {
+    /// A list summarizing charges by month and clusters for the specifed payer.
+    #[prost(message, repeated, tag = "1")]
+    pub billing_summary: ::prost::alloc::vec::Vec<PayerBillingSummary>,
+}
+#[derive(serde::Serialize, serde::Deserialize)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct Price {
+    /// The address of the fulfiller the price is for.
+    #[prost(bytes = "vec", tag = "1")]
+    pub fulfiller: ::prost::alloc::vec::Vec<u8>,
+    /// The type of charge the price is for.
+    #[prost(enumeration = "ChargeType", tag = "2")]
+    pub charge_type: i32,
+    /// The price of the charge type in USDC.
+    #[prost(string, tag = "3")]
+    pub price: ::prost::alloc::string::String,
+    /// Whether the price is the default price.
+    #[prost(bool, tag = "4")]
+    pub is_default: bool,
+    /// The optional note associated with the price.
+    #[prost(string, optional, tag = "5")]
+    pub note: ::core::option::Option<::prost::alloc::string::String>,
+    /// The unix timestamp of when the price was created.
+    #[prost(uint64, tag = "6")]
+    pub created_at: u64,
+}
+#[derive(serde::Serialize, serde::Deserialize)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct Cluster {
+    /// The address of the fulfiller.
+    #[prost(bytes = "vec", tag = "1")]
+    pub fulfiller: ::prost::alloc::vec::Vec<u8>,
+    /// The address of the payer.
+    #[prost(bytes = "vec", tag = "2")]
+    pub payer: ::prost::alloc::vec::Vec<u8>,
+    /// The optional name to refer to an alias of the fulfiller address.
+    #[prost(string, optional, tag = "3")]
+    pub fulfiller_name: ::core::option::Option<::prost::alloc::string::String>,
+    /// The optional name to refer to an alias of the payer address.
+    #[prost(string, optional, tag = "4")]
+    pub payer_name: ::core::option::Option<::prost::alloc::string::String>,
+    /// The unix timestamp of when the fulfiller was created.
+    #[prost(uint64, tag = "5")]
+    pub created_at: u64,
+    /// The current prices for all charge types in this reservation.
+    #[prost(message, repeated, tag = "6")]
+    pub prices: ::prost::alloc::vec::Vec<Price>,
+}
+#[derive(serde::Serialize, serde::Deserialize)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct GetFilteredClustersRequest {
+    /// The optional fulfiller address to filter for.
+    #[prost(bytes = "vec", optional, tag = "1")]
+    pub fulfiller: ::core::option::Option<::prost::alloc::vec::Vec<u8>>,
+    /// The optional payer address to filter for.
+    #[prost(bytes = "vec", optional, tag = "2")]
+    pub payer: ::core::option::Option<::prost::alloc::vec::Vec<u8>>,
+    /// The optional maximum number of clusters to return (default is 10,
+    /// maximum is 100).
+    #[prost(uint32, optional, tag = "3")]
+    pub limit: ::core::option::Option<u32>,
+    /// The optional page number to return (default is 1).
+    #[prost(uint32, optional, tag = "4")]
+    pub page: ::core::option::Option<u32>,
+}
+#[derive(serde::Serialize, serde::Deserialize)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct GetFilteredClustersResponse {
+    /// The clusters that matched the filter criteria.
+    #[prost(message, repeated, tag = "1")]
+    pub clusters: ::prost::alloc::vec::Vec<Cluster>,
+}
+#[derive(serde::Serialize, serde::Deserialize)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct UpdatePriceRequest {
+    /// The message format of the body.
+    #[prost(enumeration = "MessageFormat", tag = "1")]
+    pub format: i32,
+    /// The signature of the sender.
+    #[prost(bytes = "vec", tag = "2")]
+    pub signature: ::prost::alloc::vec::Vec<u8>,
+    /// The body of the request.
+    #[prost(message, optional, tag = "3")]
+    pub body: ::core::option::Option<UpdatePriceRequestBody>,
+}
+#[derive(serde::Serialize, serde::Deserialize)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct UpdatePriceRequestBody {
+    /// The account nonce of the sender.
+    #[prost(uint64, tag = "1")]
+    pub nonce: u64,
+    /// The address of the fulfiller the price is for.
+    #[prost(bytes = "vec", tag = "2")]
+    pub fulfiller: ::prost::alloc::vec::Vec<u8>,
+    /// The type of charge to update the price for.
+    #[prost(enumeration = "ChargeType", tag = "3")]
+    pub charge_type: i32,
+    /// The price to update to.
+    #[prost(string, tag = "4")]
+    pub price: ::prost::alloc::string::String,
+    /// The optional note for the price.
+    #[prost(string, optional, tag = "5")]
+    pub note: ::core::option::Option<::prost::alloc::string::String>,
+}
+#[derive(serde::Serialize, serde::Deserialize)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct UpdatePriceResponse {
+    /// The transaction hash.
+    #[prost(bytes = "vec", tag = "1")]
+    pub tx_hash: ::prost::alloc::vec::Vec<u8>,
+    /// The body of the response.
+    #[prost(message, optional, tag = "2")]
+    pub body: ::core::option::Option<UpdatePriceResponseBody>,
+}
+#[derive(serde::Serialize, serde::Deserialize)]
+#[derive(Clone, Copy, PartialEq, ::prost::Message)]
+pub struct UpdatePriceResponseBody {}
+#[derive(serde::Serialize, serde::Deserialize)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct UsageSummary {
+    /// The total amount of gas (reserved + on-demand).
+    #[prost(string, tag = "1")]
+    pub total_gas: ::prost::alloc::string::String,
+    /// The total amount of reserved gas.
+    #[prost(string, tag = "2")]
+    pub reserved_gas: ::prost::alloc::string::String,
+    /// The total amount of on-demand gas.
+    #[prost(string, tag = "3")]
+    pub on_demand_gas: ::prost::alloc::string::String,
+}
+#[derive(serde::Serialize, serde::Deserialize)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct ClusterUsageSummary {
+    /// The address of the fulfiller.
+    #[prost(bytes = "vec", tag = "1")]
+    pub fulfiller: ::prost::alloc::vec::Vec<u8>,
+    /// The optional name to refer to an alias of the fulfiller address.
+    #[prost(string, optional, tag = "2")]
+    pub fulfiller_name: ::core::option::Option<::prost::alloc::string::String>,
+    /// The usage summary associated with this fulfiller.
+    #[prost(message, optional, tag = "3")]
+    pub usage_summary: ::core::option::Option<UsageSummary>,
+}
+#[derive(serde::Serialize, serde::Deserialize)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct PayerUsageSummary {
+    /// The month, formatted as "mm/yyyy".
+    #[prost(string, tag = "1")]
+    pub month: ::prost::alloc::string::String,
+    /// The sum of all reserved and on-demand gas for the month.
+    #[prost(string, tag = "2")]
+    pub total_gas: ::prost::alloc::string::String,
+    /// The sum of all reserved gas for the month.
+    #[prost(string, tag = "3")]
+    pub total_reserved_gas: ::prost::alloc::string::String,
+    /// The sum of all on-demand gas for the month.
+    #[prost(string, tag = "4")]
+    pub total_on_demand_gas: ::prost::alloc::string::String,
+    /// The clusters with a usage summary for the month.
+    #[prost(message, repeated, tag = "5")]
+    pub clusters: ::prost::alloc::vec::Vec<ClusterUsageSummary>,
+}
+#[derive(serde::Serialize, serde::Deserialize)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct GetUsageSummaryRequest {
+    /// The optional starting month to filter from (inclusive), formatted as "mm/yyyy".
+    #[prost(string, optional, tag = "1")]
+    pub from_month: ::core::option::Option<::prost::alloc::string::String>,
+    /// The optional ending month to filter to (inclusive), formatted as "mm/yyyy".
+    #[prost(string, optional, tag = "2")]
+    pub to_month: ::core::option::Option<::prost::alloc::string::String>,
+    /// The optional maximum number of months to return per page (default is 3, max is 12).
+    #[prost(uint32, optional, tag = "3")]
+    pub limit: ::core::option::Option<u32>,
+    /// The optional page number to return (default is 1).
+    #[prost(uint32, optional, tag = "4")]
+    pub page: ::core::option::Option<u32>,
+    /// The optional payer to filter for.
+    #[prost(bytes = "vec", optional, tag = "5")]
+    pub payer: ::core::option::Option<::prost::alloc::vec::Vec<u8>>,
+}
+#[derive(serde::Serialize, serde::Deserialize)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct GetUsageSummaryResponse {
+    /// A list summarizing usage by month and clusters for the specifed payer.
+    #[prost(message, repeated, tag = "1")]
+    pub usage_summary: ::prost::alloc::vec::Vec<PayerUsageSummary>,
 }
 #[derive(serde::Serialize, serde::Deserialize)]
 #[derive(Clone, PartialEq, ::prost::Message)]
@@ -4185,8 +4532,6 @@ pub enum StakeBalanceOperation {
     Slash = 3,
     /// A bid operation (negative).
     Bid = 4,
-    /// An unbid operation (positive).
-    Unbid = 5,
 }
 impl StakeBalanceOperation {
     /// String value of the enum field names used in the ProtoBuf definition.
@@ -4202,7 +4547,6 @@ impl StakeBalanceOperation {
             Self::Unstake => "UNSTAKE",
             Self::Slash => "SLASH",
             Self::Bid => "BID",
-            Self::Unbid => "UNBID",
         }
     }
     /// Creates an enum from field names used in the ProtoBuf definition.
@@ -4215,7 +4559,6 @@ impl StakeBalanceOperation {
             "UNSTAKE" => Some(Self::Unstake),
             "SLASH" => Some(Self::Slash),
             "BID" => Some(Self::Bid),
-            "UNBID" => Some(Self::Unbid),
             _ => None,
         }
     }
@@ -4396,6 +4739,51 @@ impl ExecuteFailureCause {
             "INVALID_SYSCALL_USAGE" => Some(Self::InvalidSyscallUsage),
             "UNIMPLEMENTED" => Some(Self::Unimplemented),
             "END_IN_UNCONSTRAINED" => Some(Self::EndInUnconstrained),
+            _ => None,
+        }
+    }
+}
+/// The different types of charges for reserved billing.
+#[derive(serde::Serialize, serde::Deserialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
+#[repr(i32)]
+pub enum ChargeType {
+    UnspecifiedChargeType = 0,
+    /// For base reserved cluster usage.
+    BaseCluster = 1,
+    /// For reserved GPU throughput.
+    ProvisionedMgasPerSec = 2,
+    /// For usage exceeding reserved.
+    ExcessGas = 3,
+    /// For groth16 proofs.
+    Groth16Proof = 4,
+    /// For plonk proofs.
+    PlonkProof = 5,
+}
+impl ChargeType {
+    /// String value of the enum field names used in the ProtoBuf definition.
+    ///
+    /// The values are not transformed in any way and thus are considered stable
+    /// (if the ProtoBuf definition does not change) and safe for programmatic use.
+    pub fn as_str_name(&self) -> &'static str {
+        match self {
+            Self::UnspecifiedChargeType => "UNSPECIFIED_CHARGE_TYPE",
+            Self::BaseCluster => "BASE_CLUSTER",
+            Self::ProvisionedMgasPerSec => "PROVISIONED_MGAS_PER_SEC",
+            Self::ExcessGas => "EXCESS_GAS",
+            Self::Groth16Proof => "GROTH16_PROOF",
+            Self::PlonkProof => "PLONK_PROOF",
+        }
+    }
+    /// Creates an enum from field names used in the ProtoBuf definition.
+    pub fn from_str_name(value: &str) -> ::core::option::Option<Self> {
+        match value {
+            "UNSPECIFIED_CHARGE_TYPE" => Some(Self::UnspecifiedChargeType),
+            "BASE_CLUSTER" => Some(Self::BaseCluster),
+            "PROVISIONED_MGAS_PER_SEC" => Some(Self::ProvisionedMgasPerSec),
+            "EXCESS_GAS" => Some(Self::ExcessGas),
+            "GROTH16_PROOF" => Some(Self::Groth16Proof),
+            "PLONK_PROOF" => Some(Self::PlonkProof),
             _ => None,
         }
     }
@@ -5332,6 +5720,131 @@ pub mod prover_network_client {
                 .insert(
                     GrpcMethod::new("network.ProverNetwork", "GetTransactionDetails"),
                 );
+            self.inner.unary(req, path, codec).await
+        }
+        /// Add a charge to an account.
+        pub async fn add_reserved_charge(
+            &mut self,
+            request: impl tonic::IntoRequest<super::AddReservedChargeRequest>,
+        ) -> std::result::Result<
+            tonic::Response<super::AddReservedChargeResponse>,
+            tonic::Status,
+        > {
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::unknown(
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
+            let codec = tonic::codec::ProstCodec::default();
+            let path = http::uri::PathAndQuery::from_static(
+                "/network.ProverNetwork/AddReservedCharge",
+            );
+            let mut req = request.into_request();
+            req.extensions_mut()
+                .insert(GrpcMethod::new("network.ProverNetwork", "AddReservedCharge"));
+            self.inner.unary(req, path, codec).await
+        }
+        /// Get prorated billing summary by month for a specified payer.
+        pub async fn get_billing_summary(
+            &mut self,
+            request: impl tonic::IntoRequest<super::GetBillingSummaryRequest>,
+        ) -> std::result::Result<
+            tonic::Response<super::GetBillingSummaryResponse>,
+            tonic::Status,
+        > {
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::unknown(
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
+            let codec = tonic::codec::ProstCodec::default();
+            let path = http::uri::PathAndQuery::from_static(
+                "/network.ProverNetwork/GetBillingSummary",
+            );
+            let mut req = request.into_request();
+            req.extensions_mut()
+                .insert(GrpcMethod::new("network.ProverNetwork", "GetBillingSummary"));
+            self.inner.unary(req, path, codec).await
+        }
+        /// Update the charge type price for a reservation.
+        pub async fn update_price(
+            &mut self,
+            request: impl tonic::IntoRequest<super::UpdatePriceRequest>,
+        ) -> std::result::Result<
+            tonic::Response<super::UpdatePriceResponse>,
+            tonic::Status,
+        > {
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::unknown(
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
+            let codec = tonic::codec::ProstCodec::default();
+            let path = http::uri::PathAndQuery::from_static(
+                "/network.ProverNetwork/UpdatePrice",
+            );
+            let mut req = request.into_request();
+            req.extensions_mut()
+                .insert(GrpcMethod::new("network.ProverNetwork", "UpdatePrice"));
+            self.inner.unary(req, path, codec).await
+        }
+        /// Get filtered and paginated clusters/fulfillers with prices.
+        pub async fn get_filtered_clusters(
+            &mut self,
+            request: impl tonic::IntoRequest<super::GetFilteredClustersRequest>,
+        ) -> std::result::Result<
+            tonic::Response<super::GetFilteredClustersResponse>,
+            tonic::Status,
+        > {
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::unknown(
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
+            let codec = tonic::codec::ProstCodec::default();
+            let path = http::uri::PathAndQuery::from_static(
+                "/network.ProverNetwork/GetFilteredClusters",
+            );
+            let mut req = request.into_request();
+            req.extensions_mut()
+                .insert(GrpcMethod::new("network.ProverNetwork", "GetFilteredClusters"));
+            self.inner.unary(req, path, codec).await
+        }
+        /// Get usage summary by month for a specified payer.
+        pub async fn get_usage_summary(
+            &mut self,
+            request: impl tonic::IntoRequest<super::GetUsageSummaryRequest>,
+        ) -> std::result::Result<
+            tonic::Response<super::GetUsageSummaryResponse>,
+            tonic::Status,
+        > {
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::unknown(
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
+            let codec = tonic::codec::ProstCodec::default();
+            let path = http::uri::PathAndQuery::from_static(
+                "/network.ProverNetwork/GetUsageSummary",
+            );
+            let mut req = request.into_request();
+            req.extensions_mut()
+                .insert(GrpcMethod::new("network.ProverNetwork", "GetUsageSummary"));
             self.inner.unary(req, path, codec).await
         }
         /// Get the reservations that meet the filter criteria.
@@ -7376,6 +7889,46 @@ pub mod prover_network_server {
             request: tonic::Request<super::GetTransactionDetailsRequest>,
         ) -> std::result::Result<
             tonic::Response<super::GetTransactionDetailsResponse>,
+            tonic::Status,
+        >;
+        /// Add a charge to an account.
+        async fn add_reserved_charge(
+            &self,
+            request: tonic::Request<super::AddReservedChargeRequest>,
+        ) -> std::result::Result<
+            tonic::Response<super::AddReservedChargeResponse>,
+            tonic::Status,
+        >;
+        /// Get prorated billing summary by month for a specified payer.
+        async fn get_billing_summary(
+            &self,
+            request: tonic::Request<super::GetBillingSummaryRequest>,
+        ) -> std::result::Result<
+            tonic::Response<super::GetBillingSummaryResponse>,
+            tonic::Status,
+        >;
+        /// Update the charge type price for a reservation.
+        async fn update_price(
+            &self,
+            request: tonic::Request<super::UpdatePriceRequest>,
+        ) -> std::result::Result<
+            tonic::Response<super::UpdatePriceResponse>,
+            tonic::Status,
+        >;
+        /// Get filtered and paginated clusters/fulfillers with prices.
+        async fn get_filtered_clusters(
+            &self,
+            request: tonic::Request<super::GetFilteredClustersRequest>,
+        ) -> std::result::Result<
+            tonic::Response<super::GetFilteredClustersResponse>,
+            tonic::Status,
+        >;
+        /// Get usage summary by month for a specified payer.
+        async fn get_usage_summary(
+            &self,
+            request: tonic::Request<super::GetUsageSummaryRequest>,
+        ) -> std::result::Result<
+            tonic::Response<super::GetUsageSummaryResponse>,
             tonic::Status,
         >;
         /// Get the reservations that meet the filter criteria.
@@ -9515,6 +10068,235 @@ pub mod prover_network_server {
                     let inner = self.inner.clone();
                     let fut = async move {
                         let method = GetTransactionDetailsSvc(inner);
+                        let codec = tonic::codec::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                "/network.ProverNetwork/AddReservedCharge" => {
+                    #[allow(non_camel_case_types)]
+                    struct AddReservedChargeSvc<T: ProverNetwork>(pub Arc<T>);
+                    impl<
+                        T: ProverNetwork,
+                    > tonic::server::UnaryService<super::AddReservedChargeRequest>
+                    for AddReservedChargeSvc<T> {
+                        type Response = super::AddReservedChargeResponse;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::AddReservedChargeRequest>,
+                        ) -> Self::Future {
+                            let inner = Arc::clone(&self.0);
+                            let fut = async move {
+                                <T as ProverNetwork>::add_reserved_charge(&inner, request)
+                                    .await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let method = AddReservedChargeSvc(inner);
+                        let codec = tonic::codec::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                "/network.ProverNetwork/GetBillingSummary" => {
+                    #[allow(non_camel_case_types)]
+                    struct GetBillingSummarySvc<T: ProverNetwork>(pub Arc<T>);
+                    impl<
+                        T: ProverNetwork,
+                    > tonic::server::UnaryService<super::GetBillingSummaryRequest>
+                    for GetBillingSummarySvc<T> {
+                        type Response = super::GetBillingSummaryResponse;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::GetBillingSummaryRequest>,
+                        ) -> Self::Future {
+                            let inner = Arc::clone(&self.0);
+                            let fut = async move {
+                                <T as ProverNetwork>::get_billing_summary(&inner, request)
+                                    .await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let method = GetBillingSummarySvc(inner);
+                        let codec = tonic::codec::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                "/network.ProverNetwork/UpdatePrice" => {
+                    #[allow(non_camel_case_types)]
+                    struct UpdatePriceSvc<T: ProverNetwork>(pub Arc<T>);
+                    impl<
+                        T: ProverNetwork,
+                    > tonic::server::UnaryService<super::UpdatePriceRequest>
+                    for UpdatePriceSvc<T> {
+                        type Response = super::UpdatePriceResponse;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::UpdatePriceRequest>,
+                        ) -> Self::Future {
+                            let inner = Arc::clone(&self.0);
+                            let fut = async move {
+                                <T as ProverNetwork>::update_price(&inner, request).await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let method = UpdatePriceSvc(inner);
+                        let codec = tonic::codec::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                "/network.ProverNetwork/GetFilteredClusters" => {
+                    #[allow(non_camel_case_types)]
+                    struct GetFilteredClustersSvc<T: ProverNetwork>(pub Arc<T>);
+                    impl<
+                        T: ProverNetwork,
+                    > tonic::server::UnaryService<super::GetFilteredClustersRequest>
+                    for GetFilteredClustersSvc<T> {
+                        type Response = super::GetFilteredClustersResponse;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::GetFilteredClustersRequest>,
+                        ) -> Self::Future {
+                            let inner = Arc::clone(&self.0);
+                            let fut = async move {
+                                <T as ProverNetwork>::get_filtered_clusters(&inner, request)
+                                    .await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let method = GetFilteredClustersSvc(inner);
+                        let codec = tonic::codec::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                "/network.ProverNetwork/GetUsageSummary" => {
+                    #[allow(non_camel_case_types)]
+                    struct GetUsageSummarySvc<T: ProverNetwork>(pub Arc<T>);
+                    impl<
+                        T: ProverNetwork,
+                    > tonic::server::UnaryService<super::GetUsageSummaryRequest>
+                    for GetUsageSummarySvc<T> {
+                        type Response = super::GetUsageSummaryResponse;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::GetUsageSummaryRequest>,
+                        ) -> Self::Future {
+                            let inner = Arc::clone(&self.0);
+                            let fut = async move {
+                                <T as ProverNetwork>::get_usage_summary(&inner, request)
+                                    .await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let method = GetUsageSummarySvc(inner);
                         let codec = tonic::codec::ProstCodec::default();
                         let mut grpc = tonic::server::Grpc::new(codec)
                             .apply_compression_config(

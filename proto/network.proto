@@ -108,7 +108,16 @@ service ProverNetwork {
   rpc GetGasPriceEstimate(GetGasPriceEstimateRequest) returns (GetGasPriceEstimateResponse) {}
   // Get the details of a transaction.
   rpc GetTransactionDetails(GetTransactionDetailsRequest) returns (GetTransactionDetailsResponse) {}
-
+  // Add a charge to an account.
+  rpc AddReservedCharge(AddReservedChargeRequest) returns (AddReservedChargeResponse) {}
+  // Get prorated billing summary by month for a specified payer.
+  rpc GetBillingSummary(GetBillingSummaryRequest) returns (GetBillingSummaryResponse) {}
+  // Update the charge type price for a reservation.
+  rpc UpdatePrice(UpdatePriceRequest) returns (UpdatePriceResponse) {}
+  // Get filtered and paginated clusters/fulfillers with prices.
+  rpc GetFilteredClusters(GetFilteredClustersRequest) returns (GetFilteredClustersResponse) {}
+  // Get usage summary by month for a specified payer.
+  rpc GetUsageSummary(GetUsageSummaryRequest) returns (GetUsageSummaryResponse) {}
 
   /*
    * Reservations
@@ -402,6 +411,11 @@ message RequestProofResponseBody {
   bytes request_id = 1;
 }
 
+message ReservedMetadata {
+  // The optional ratio of gpu time the proof used on-demand resources versus reserved.
+  optional float on_demand_ratio = 1;
+}
+
 message FulfillProofRequest {
   // The message format of the body.
   MessageFormat format = 1;
@@ -418,6 +432,8 @@ message FulfillProofRequestBody {
   bytes request_id = 2;
   // The proof bytes.
   bytes proof = 3;
+  // The optional metadata for reserved proofs.
+  optional ReservedMetadata reserved_metadata = 4;
 }
 
 message FulfillProofResponse {
@@ -1236,6 +1252,238 @@ message TransactionDetails {
 
 message GetTransactionDetailsResponse {
   TransactionDetails transaction = 1;
+}
+
+message AddReservedChargeRequest {
+  // The message format of the body.
+  MessageFormat format = 1;
+  // The signature of the sender.
+  bytes signature = 2;
+  // The body of the request.
+  AddReservedChargeRequestBody body = 3;
+}
+
+message AddReservedChargeRequestBody {
+  // The account nonce of the sender.
+  uint64 nonce = 1;
+  // The type of charge.
+  ChargeType charge_type = 2;
+  // The quantity of the charge.
+  string quantity = 3;
+  // The unix timestamp of the charge start time.
+  uint64 start_time = 4;
+  // The unix timestamp of the charge end time.
+  uint64 end_time = 5;
+  // The address of the fulfiller.
+  bytes fulfiller = 6;
+}
+
+message AddReservedChargeResponse {
+  // The transaction hash.
+  bytes tx_hash = 1;
+  // The body of the response.
+  AddReservedChargeResponseBody body = 2;
+}
+
+message AddReservedChargeResponseBody {}
+
+ message ChargeDetails {
+  // The identifier for the charge.
+  uint64 charge_id = 1;
+  // The transaction hash of the charge.
+  bytes tx_hash = 2;
+  // The type of charge.
+  ChargeType charge_type = 3;
+  // The quantity of the charge.
+  string quantity = 4;
+  // The effective price of the charge in USDC.
+  string effective_price = 5;
+  // Whether the charge is instant or not.
+  bool is_instant = 6;
+  // The address of the fulfiller the charge is associated with.
+  bytes fulfiller = 7;
+  // The optional request ID associated with an instant charge.
+  optional bytes request_id = 8;
+  // The optional unix timestamp of a non-instant charge start time.
+  optional uint64 start_time = 9;
+  // The optional unix timestamp of a non-instant charge end time.
+  optional uint64 end_time = 10;
+  // The unix timestamp of when the charge was created.
+  uint64 created_at = 11;
+}
+
+message ChargeSummary {
+  // The type of charge.
+  ChargeType charge_type = 1;
+  // The total prorated amount.
+  string amount = 2;
+}
+
+message ClusterBillingSummary {
+  // The address of the fulfiller.
+  bytes fulfiller = 1;
+  // The optional name to refer to an alias of the fulfiller address.
+  optional string fulfiller_name = 2;
+  // The details of each active reserved charge.
+  repeated ChargeDetails reserved_charges_details = 3;
+  // The summary of each reserved charge type associated with this fulfiller.
+  repeated ChargeSummary reserved_charges = 4;
+  // The summary of each instant charge type associated with this fulfiller.
+  repeated ChargeSummary instant_charges = 5;
+}
+
+message PayerBillingSummary {
+  // The month, formatted as "mm/yyyy".
+  string month = 1;
+  // The sum of all instant charges and prorated reserved charges for the month.
+  string total = 2;
+  // The clusters with a billing summary for the month.
+  repeated ClusterBillingSummary clusters = 3;
+}
+
+message GetBillingSummaryRequest {
+  // The optional starting month to filter from (inclusive), formatted as "mm/yyyy".
+  optional string from_month = 1;
+  // The optional ending month to filter to (inclusive), formatted as "mm/yyyy".
+  optional string to_month = 2;
+  // The optional maximum number of months to return per page (default is 3, max is 10).
+  optional uint32 limit = 3;
+  // The optional page number to return (default is 1).
+  optional uint32 page = 4;
+  // The payer to filter for.
+  bytes payer = 5;
+}
+
+message GetBillingSummaryResponse {
+  // A list summarizing charges by month and clusters for the specifed payer.
+  repeated PayerBillingSummary billing_summary = 1;
+}
+
+message Price {
+  // The address of the fulfiller the price is for.
+  bytes fulfiller = 1;
+  // The type of charge the price is for.
+  ChargeType charge_type = 2;
+  // The price of the charge type in USDC.
+  string price = 3;
+  // Whether the price is the default price.
+  bool is_default = 4;
+  // The optional note associated with the price.
+  optional string note = 5;
+  // The unix timestamp of when the price was created.
+  uint64 created_at = 6;
+}
+
+message Cluster {
+  // The address of the fulfiller.
+  bytes fulfiller = 1;
+  // The address of the payer.
+  bytes payer = 2;
+  // The optional name to refer to an alias of the fulfiller address.
+  optional string fulfiller_name = 3;
+  // The optional name to refer to an alias of the payer address.
+  optional string payer_name = 4;
+  // The unix timestamp of when the fulfiller was created.
+  uint64 created_at = 5;
+  // The current prices for all charge types in this reservation.
+  repeated Price prices = 6;
+}
+
+message GetFilteredClustersRequest {
+  // The optional fulfiller address to filter for.
+  optional bytes fulfiller = 1;
+  // The optional payer address to filter for.
+  optional bytes payer = 2;
+  // The optional maximum number of clusters to return (default is 10,
+  // maximum is 100).
+  optional uint32 limit = 3;
+  // The optional page number to return (default is 1).
+  optional uint32 page = 4;
+}
+
+message GetFilteredClustersResponse {
+  // The clusters that matched the filter criteria.
+  repeated Cluster clusters = 1;
+}
+
+message UpdatePriceRequest {
+  // The message format of the body.
+  MessageFormat format = 1;
+  // The signature of the sender.
+  bytes signature = 2;
+  // The body of the request.
+  UpdatePriceRequestBody body = 3;
+}
+
+message UpdatePriceRequestBody {
+  // The account nonce of the sender.
+  uint64 nonce = 1;
+  // The address of the fulfiller the price is for.
+  bytes fulfiller = 2;
+  // The type of charge to update the price for.
+  ChargeType charge_type = 3;
+  // The price to update to.
+  string price = 4;
+  // The optional note for the price.
+  optional string note = 5;
+}
+
+message UpdatePriceResponse {
+  // The transaction hash.
+  bytes tx_hash = 1;
+  // The body of the response.
+  UpdatePriceResponseBody body = 2;
+}
+
+message UpdatePriceResponseBody {}
+
+message UsageSummary {
+  // The total amount of gas (reserved + on-demand).
+  string total_gas = 1;
+  // The total amount of reserved gas.
+  string reserved_gas = 2;
+  // The total amount of on-demand gas.
+  string on_demand_gas = 3;
+}
+
+message ClusterUsageSummary {
+  // The address of the fulfiller.
+  bytes fulfiller = 1;
+  // The optional name to refer to an alias of the fulfiller address.
+  optional string fulfiller_name = 2;
+  // The usage summary associated with this fulfiller.
+  UsageSummary usage_summary = 3;
+}
+
+message PayerUsageSummary {
+  // The month, formatted as "mm/yyyy".
+  string month = 1;
+  // The sum of all reserved and on-demand gas for the month.
+  string total_gas = 2;
+  // The sum of all reserved gas for the month.
+  string total_reserved_gas = 3;
+  // The sum of all on-demand gas for the month.
+  string total_on_demand_gas = 4;
+  // The clusters with a usage summary for the month.
+  repeated ClusterUsageSummary clusters = 5;
+}
+
+message GetUsageSummaryRequest {
+  // The optional starting month to filter from (inclusive), formatted as "mm/yyyy".
+  optional string from_month = 1;
+  // The optional ending month to filter to (inclusive), formatted as "mm/yyyy".
+  optional string to_month = 2;
+  // The optional maximum number of months to return per page (default is 3, max is 12).
+  optional uint32 limit = 3;
+  // The optional page number to return (default is 1).
+  optional uint32 page = 4;
+  // The optional payer to filter for.
+  optional bytes payer = 5;
+}
+
+message GetUsageSummaryResponse {
+  // A list summarizing usage by month and clusters for the specifed payer.
+  repeated PayerUsageSummary usage_summary = 1;
 }
 
 /********************
@@ -3175,8 +3423,6 @@ enum StakeBalanceOperation {
   SLASH = 3;
   // A bid operation (negative).
   BID = 4;
-  // An unbid operation (positive).
-  UNBID = 5;
 }
 
 // The different social platforms.
@@ -3235,4 +3481,19 @@ enum ExecuteFailureCause {
   UNIMPLEMENTED = 7;
   // The program ended in unconstrained mode.
   END_IN_UNCONSTRAINED = 8;
+}
+
+// The different types of charges for reserved billing.
+enum ChargeType {
+  UNSPECIFIED_CHARGE_TYPE = 0;
+  // For base reserved cluster usage.
+  BASE_CLUSTER = 1;
+  // For reserved GPU throughput.
+  PROVISIONED_MGAS_PER_SEC = 2;
+  // For usage exceeding reserved.
+  EXCESS_GAS = 3;
+  // For groth16 proofs.
+  GROTH16_PROOF = 4;
+  // For plonk proofs.
+  PLONK_PROOF = 5;
 }
