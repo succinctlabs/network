@@ -1,8 +1,8 @@
 use serde::Deserialize;
 use tracing_subscriber::{
-    EnvFilter,
     fmt::{self},
     prelude::*,
+    EnvFilter,
 };
 
 #[derive(Debug, Deserialize, Clone, Copy)]
@@ -68,8 +68,6 @@ pub fn init_logger(log_format: LogFormat) {
             )
             .init(),
         LogFormat::Json => base.with(fmt::layer().json()).init(),
-        LogFormat::Minimal => base
-            .with(fmt::layer().with_level(true).compact())
-            .init(),
+        LogFormat::Minimal => base.with(fmt::layer().with_level(true).compact()).init(),
     }
 }

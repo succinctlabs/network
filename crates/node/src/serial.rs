@@ -12,10 +12,10 @@ use nvml_wrapper::Nvml;
 use sp1_sdk::{EnvProver, ProverClient, SP1ProofMode, SP1Stdin};
 use spn_artifacts::{parse_artifact_id_from_s3_url, Artifact};
 use spn_network_types::{
-    prover_network_client::ProverNetworkClient, BidRequest, BidRequestBody, FulfillProofRequest,
-    FulfillProofRequestBody, FulfillmentStatus, GetFilteredProofRequestsRequest, GetNonceRequest,
-    GetProofRequestDetailsRequest, MessageFormat, ProofMode, Signable, FailFulfillmentRequest,
-    FailFulfillmentRequestBody,
+    prover_network_client::ProverNetworkClient, BidRequest, BidRequestBody, FailFulfillmentRequest,
+    FailFulfillmentRequestBody, FulfillProofRequest, FulfillProofRequestBody, FulfillmentStatus,
+    GetFilteredProofRequestsRequest, GetNonceRequest, GetProofRequestDetailsRequest, MessageFormat,
+    ProofMode, Signable,
 };
 use spn_rpc::{fetch_owner, RetryableRpc};
 use spn_utils::{time_now, ErrorCapture};
@@ -438,7 +438,7 @@ impl<C: NodeContext> NodeProver<C> for SerialProver {
                     let error_msg = error_capture.format_error(panic_msg);
                     error!("{SERIAL_PROVER_TAG} Proving panicked: {error_msg}");
                     // Attempt to mark the request as failed on the network.
-                     if let Err(fail_err) = fail_request(ctx, request.request_id.clone()).await {
+                    if let Err(fail_err) = fail_request(ctx, request.request_id.clone()).await {
                         error!(request_id = %hex::encode(&request.request_id), "{SERIAL_PROVER_TAG} Failed to notify network about panic failure: {:?}", fail_err);
                     }
                 }

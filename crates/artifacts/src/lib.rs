@@ -6,17 +6,17 @@
 
 use std::time::Duration;
 
-use anyhow::{Context, Result, anyhow};
-use aws_config::{BehaviorVersion, Region, retry::RetryConfig};
+use anyhow::{anyhow, Context, Result};
+use aws_config::{retry::RetryConfig, BehaviorVersion, Region};
 use aws_sdk_s3::{
-    Client as S3Client,
     config::{IdentityCache, StalledStreamProtectionConfig},
     primitives::{ByteStream, SdkBody},
+    Client as S3Client,
 };
 use aws_smithy_async::rt::sleep::default_async_sleep;
 use bytes::Bytes;
 use lazy_static::lazy_static;
-use serde::{Serialize, de::DeserializeOwned};
+use serde::{de::DeserializeOwned, Serialize};
 use spn_artifact_types::ArtifactType;
 use tokio::sync::OnceCell;
 use tracing::instrument;

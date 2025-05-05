@@ -5,9 +5,9 @@
 #![allow(clippy::missing_errors_doc)]
 #![allow(clippy::cast_precision_loss)]
 
+use anyhow::Result;
 use sp1_sdk::{ProverClient, SP1Stdin};
 use tracing::error;
-use anyhow::Result;
 
 /// Trait for calibrating the prover.
 pub trait Calibrator {

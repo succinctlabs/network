@@ -3,9 +3,9 @@ use std::str::FromStr;
 use alloy_primitives::U256;
 use anyhow::Result;
 use spn_network_types::{
-    GetBalanceRequest, GetOwnerRequest, prover_network_client::ProverNetworkClient,
+    prover_network_client::ProverNetworkClient, GetBalanceRequest, GetOwnerRequest,
 };
-use tonic::{Request, transport::Channel};
+use tonic::{transport::Channel, Request};
 use tracing::debug;
 
 use crate::RetryableRpc;

@@ -20,7 +20,7 @@ use crate::{
     TerminateDelegationRequest,
 };
 
-use crate::json::{JsonFormatError, format_json_message};
+use crate::json::{format_json_message, JsonFormatError};
 
 pub trait SignedMessage {
     fn signature(&self) -> Vec<u8>;

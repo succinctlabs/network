@@ -10,10 +10,10 @@ use alloy_signer_local::PrivateKeySigner;
 use anyhow::{anyhow, Result};
 use clap::Parser;
 use rustls::crypto::ring;
-use tabled::{Table, Tabled, settings::Style};
+use tabled::{settings::Style, Table, Tabled};
 use tracing::info;
 
-use sp1_sdk::{SP1Stdin, include_elf};
+use sp1_sdk::{include_elf, SP1Stdin};
 use spn_calibrator::{Calibrator, SinglePassCalibrator};
 use spn_network_types::prover_network_client::ProverNetworkClient;
 use spn_node::{Node, NodeContext, SerialBidder, SerialContext, SerialMonitor, SerialProver};
@@ -81,7 +81,8 @@ async fn main() -> Result<()> {
 
             // Run the calibrator to get the metrics.
             let calibrator = SinglePassCalibrator::new(SPN_FIBONACCI_ELF.to_vec(), stdin);
-            let metrics = calibrator.calibrate().map_err(|e| anyhow!("failed to calibrate: {}", e))?;
+            let metrics =
+                calibrator.calibrate().map_err(|e| anyhow!("failed to calibrate: {}", e))?;
 
             // Create a table for the metrics.
             #[allow(clippy::items_after_statements)]
