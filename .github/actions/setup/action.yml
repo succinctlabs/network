@@ -48,3 +48,14 @@ runs:
           run: |
               curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- --default-toolchain 1.85.0 -y
               rustup install nightly
+
+        - name: "Install sp1up"
+          shell: bash
+          run: |
+              curl -L https://sp1.succinct.xyz | bash
+              echo "$HOME/.sp1/bin" >> $GITHUB_PATH
+
+        - name: "Install SP1 toolchain"
+          shell: bash
+          run: |
+              sp1up
