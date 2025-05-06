@@ -6,7 +6,7 @@ use std::{
 
 use alloy_primitives::U256;
 use alloy_signer_local::PrivateKeySigner;
-use anyhow::Context;
+use anyhow::{Context, Result};
 use chrono::{self, DateTime};
 use nvml_wrapper::Nvml;
 use sp1_sdk::{EnvProver, ProverClient, SP1ProofMode, SP1Stdin};
@@ -93,7 +93,7 @@ impl SerialBidder {
 #[async_trait]
 impl<C: NodeContext> NodeBidder<C> for SerialBidder {
     #[allow(clippy::too_many_lines)]
-    async fn bid(&self, ctx: &C) -> anyhow::Result<()> {
+    async fn bid(&self, ctx: &C) -> Result<()> {
         const SERIAL_BIDDER_TAG: &str = "\x1b[34m[SerialBidder]\x1b[0m";
 
         // Fetch the owner.
@@ -269,7 +269,7 @@ impl SerialProver {
 #[async_trait]
 impl<C: NodeContext> NodeProver<C> for SerialProver {
     #[allow(clippy::too_many_lines)]
-    async fn prove(&self, ctx: &C) -> anyhow::Result<()> {
+    async fn prove(&self, ctx: &C) -> Result<()> {
         const SERIAL_PROVER_TAG: &str = "\x1b[33m[SerialProver]\x1b[0m";
 
         // Fetch the owner.
@@ -451,7 +451,7 @@ impl<C: NodeContext> NodeProver<C> for SerialProver {
 }
 
 /// Attempts to notify the network that proving a request failed.
-async fn fail_request<C: NodeContext>(ctx: &C, request_id: Vec<u8>) -> anyhow::Result<()> {
+async fn fail_request<C: NodeContext>(ctx: &C, request_id: Vec<u8>) -> Result<()> {
     const SERIAL_PROVER_TAG: &str = "\x1b[33m[SerialProver]\x1b[0m";
     let address = ctx.signer().address().to_vec();
     ctx.network()
@@ -490,7 +490,7 @@ pub struct SerialMonitor;
 
 #[async_trait]
 impl NodeMonitor<SerialContext> for SerialMonitor {
-    async fn record(&self, ctx: &SerialContext) -> anyhow::Result<()> {
+    async fn record(&self, ctx: &SerialContext) -> Result<()> {
         const SERIAL_MONITOR_TAG: &str = "\x1b[35m[SerialMonitor]\x1b[0m";
 
         // Log the node metrics.

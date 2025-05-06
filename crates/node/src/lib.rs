@@ -15,6 +15,7 @@ use std::{
 };
 
 use alloy_signer_local::PrivateKeySigner;
+use anyhow::Result;
 pub use serial::*;
 use sp1_sdk::SP1_CIRCUIT_VERSION;
 use spn_network_types::prover_network_client::ProverNetworkClient;
@@ -75,7 +76,7 @@ pub trait NodeContext: Send + Sync + 'static {
 #[async_trait]
 pub trait NodeBidder<C>: Send + Sync + 'static {
     /// Bid on requests.
-    async fn bid(&self, ctx: &C) -> anyhow::Result<()>;
+    async fn bid(&self, ctx: &C) -> Result<()>;
 }
 
 /// The prover for a node.
@@ -85,7 +86,7 @@ pub trait NodeBidder<C>: Send + Sync + 'static {
 #[async_trait]
 pub trait NodeProver<C>: Send + Sync + 'static {
     /// Prove requests.
-    async fn prove(&self, ctx: &C) -> anyhow::Result<()>;
+    async fn prove(&self, ctx: &C) -> Result<()>;
 }
 
 /// The monitor for a node.
@@ -94,7 +95,7 @@ pub trait NodeProver<C>: Send + Sync + 'static {
 #[async_trait]
 pub trait NodeMonitor<C>: Send + Sync + 'static {
     /// Collect metrics.
-    async fn record(&self, ctx: &C) -> anyhow::Result<()>;
+    async fn record(&self, ctx: &C) -> Result<()>;
 }
 
 /// The metrics for a node.
@@ -114,16 +115,18 @@ pub struct NodeMetrics {
 
 impl<C: NodeContext, B: NodeBidder<C>, P: NodeProver<C>, M: NodeMonitor<C>> Node<C, B, P, M> {
     /// Run the node.
-    pub async fn run(self) -> anyhow::Result<()> {
+    pub async fn run(self) -> Result<()> {
         // Run the bid and prove task.
         let ctx = self.ctx.clone();
         let bidder = self.bidder.clone();
         let prover = self.prover.clone();
         let bid_and_prove_task = tokio::spawn(async move {
-            let result: anyhow::Result<()> = async {
+            let result: Result<()> = async {
                 loop {
-                    bidder.bid(&ctx).await?;
-                    prover.prove(&ctx).await?;
+                    let bid_future = bidder.bid(&ctx);
+                    let prove_future = prover.prove(&ctx);
+                    let _ = tokio::join!(bid_future, prove_future);
+
                     sleep(Duration::from_secs(3)).await;
                 }
             }
@@ -135,7 +138,7 @@ impl<C: NodeContext, B: NodeBidder<C>, P: NodeProver<C>, M: NodeMonitor<C>> Node
         let ctx = self.ctx.clone();
         let monitor = self.monitor.clone();
         let monitor_task = tokio::spawn(async move {
-            let result: anyhow::Result<()> = async {
+            let result: Result<()> = async {
                 loop {
                     monitor.record(&ctx).await?;
                     sleep(Duration::from_secs(30)).await;
