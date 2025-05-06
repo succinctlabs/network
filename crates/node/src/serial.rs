@@ -1,6 +1,7 @@
 use std::{
+    collections::HashSet,
     panic::{self, AssertUnwindSafe},
-    sync::Arc,
+    sync::{atomic, Arc},
     time::{Duration, Instant, SystemTime},
 };
 
@@ -12,17 +13,17 @@ use nvml_wrapper::Nvml;
 use sp1_sdk::{EnvProver, ProverClient, SP1ProofMode, SP1Stdin};
 use spn_artifacts::{parse_artifact_id_from_s3_url, Artifact};
 use spn_network_types::{
-    prover_network_client::ProverNetworkClient, BidRequest, BidRequestBody, FailFulfillmentRequest,
-    FailFulfillmentRequestBody, FulfillProofRequest, FulfillProofRequestBody, FulfillmentStatus,
-    GetFilteredProofRequestsRequest, GetNonceRequest, GetProofRequestDetailsRequest, MessageFormat,
-    ProofMode, Signable,
+    prover_network_client::ProverNetworkClient, BidRequest, BidRequestBody, ExecutionStatus,
+    FailFulfillmentRequest, FailFulfillmentRequestBody, FulfillProofRequest,
+    FulfillProofRequestBody, FulfillmentStatus, GetFilteredProofRequestsRequest, GetNonceRequest,
+    GetProofRequestDetailsRequest, MessageFormat, ProofMode, Signable,
 };
 use spn_rpc::{fetch_owner, RetryableRpc};
-use spn_utils::{time_now, ErrorCapture};
+use spn_utils::time_now;
 use sysinfo::{CpuExt, System, SystemExt};
 use tokio::sync::Mutex;
 use tonic::{async_trait, transport::Channel};
-use tracing::{error, info};
+use tracing::{error, info, warn};
 
 use crate::{NodeBidder, NodeContext, NodeMetrics, NodeMonitor, NodeProver, SP1_NETWORK_VERSION};
 
@@ -256,197 +257,97 @@ pub struct SerialProver {
     s3_bucket: String,
     /// The S3 region used to fetch artifacts.
     s3_region: String,
+    /// Registry of unexecutable request IDs that should be cancelled.
+    unexecutable_requests: Arc<Mutex<HashSet<Vec<u8>>>>,
 }
 
 impl SerialProver {
     /// Create a new [`SerialProver`].
     #[must_use]
     pub fn new(s3_bucket: String, s3_region: String) -> Self {
-        Self { prover: Arc::new(ProverClient::from_env()), s3_bucket, s3_region }
+        Self {
+            prover: Arc::new(ProverClient::from_env()),
+            s3_bucket,
+            s3_region,
+            unexecutable_requests: Arc::new(Mutex::new(HashSet::new())),
+        }
     }
-}
 
-#[async_trait]
-impl<C: NodeContext> NodeProver<C> for SerialProver {
-    #[allow(clippy::too_many_lines)]
-    async fn prove(&self, ctx: &C) -> Result<()> {
-        const SERIAL_PROVER_TAG: &str = "\x1b[33m[SerialProver]\x1b[0m";
+    /// Checks the network for unexecutable requests and maintains a registry.
+    fn ensure_unexecutable_check_task_running<C: NodeContext>(&self, ctx: &C) {
+        // Use a static AtomicBool to ensure we only start the task once across the entire
+        // application.
+        static TASK_STARTED: atomic::AtomicBool = atomic::AtomicBool::new(false);
 
-        // Fetch the owner.
-        let owner = fetch_owner(ctx.network(), ctx.signer().address().as_ref()).await?;
-        info!(owner = %hex::encode(&owner), "{SERIAL_PROVER_TAG} Fetched owner.");
-
-        // Fetch for assigned requests.
-        let requests = ctx
-            .network()
-            .clone()
-            .get_filtered_proof_requests(GetFilteredProofRequestsRequest {
-                version: Some(SP1_NETWORK_VERSION.to_string()),
-                fulfillment_status: Some(FulfillmentStatus::Assigned.into()),
-                minimum_deadline: Some(time_now()),
-                fulfiller: Some(owner.clone()),
-                limit: Some(1),
-                ..Default::default()
-            })
-            .await?
-            .into_inner()
-            .requests;
-        info!(count = %requests.len(), "{SERIAL_PROVER_TAG} Fetched assigned proof requests.");
-
-        // If there are no assigned requests, return.
-        if requests.is_empty() {
-            info!("{SERIAL_PROVER_TAG} Found no assigned requests to prove.");
-            return Ok(());
+        // If the task is already running, don't start another one.
+        if TASK_STARTED
+            .compare_exchange(false, true, atomic::Ordering::SeqCst, atomic::Ordering::SeqCst)
+            .is_err()
+        {
+            return;
         }
 
-        for request in requests {
-            // Log the request details.
-            info!(
-                request_id = %hex::encode(&request.request_id),
-                vk_hash = %hex::encode(request.vk_hash),
-                version = %request.version,
-                mode = %request.mode,
-                strategy = %request.strategy,
-                requester = %hex::encode(request.requester),
-                tx_hash = %hex::encode(request.tx_hash),
-                program_uri = %request.program_uri,
-                stdin_uri = %request.stdin_uri,
-                cycle_limit = %request.cycle_limit,
-                created_at = %request.created_at,
-                created_at_utc = %DateTime::from_timestamp(i64::try_from(request.created_at).unwrap_or_default(), 0).unwrap_or_default(),
-                deadline = %request.deadline,
-                deadline_utc = %DateTime::from_timestamp(i64::try_from(request.deadline).unwrap_or_default(), 0).unwrap_or_default(),
-                "{SERIAL_PROVER_TAG} Proving request..."
-            );
+        // Clone the references to use in the background task.
+        let unexecutable_requests = self.unexecutable_requests.clone();
+        let network = ctx.network().clone();
+        let signer_address = ctx.signer().address().to_vec();
 
-            // Download the program.
-            let program_artifact_id = parse_artifact_id_from_s3_url(&request.program_uri)?;
-            let program_artifact = Artifact {
-                id: program_artifact_id.clone(),
-                label: "program".to_string(),
-                expiry: None,
-            };
-            let program: Vec<u8> =
-                program_artifact.download_program(&self.s3_bucket, &self.s3_region).await?;
-            info!(program_size = %program.len(), artifact_id = %hex::encode(program_artifact_id), "{SERIAL_PROVER_TAG} Downloaded program.");
+        // Spawn a background task to check for unexecutable requests.
+        tokio::spawn(async move {
+            const SERIAL_PROVER_TAG: &str = "\x1b[33m[SerialProver]\x1b[0m";
 
-            // Download the stdin.
-            let stdin_artifact_id = parse_artifact_id_from_s3_url(&request.stdin_uri)?;
-            let stdin_artifact = Artifact {
-                id: stdin_artifact_id.clone(),
-                label: "stdin".to_string(),
-                expiry: None,
-            };
-            let stdin: SP1Stdin =
-                stdin_artifact.download_stdin(&self.s3_bucket, &self.s3_region).await?;
-            info!(stdin_size = %stdin.buffer.iter().map(std::vec::Vec::len).sum::<usize>(), artifact_id = %hex::encode(stdin_artifact_id), "{SERIAL_PROVER_TAG} Downloaded stdin.");
+            loop {
+                // Fetch the owner.
+                let owner = match fetch_owner(&network, &signer_address).await {
+                    Ok(owner) => owner,
+                    Err(e) => {
+                        tracing::warn!("{SERIAL_PROVER_TAG} Failed to fetch owner: {:?}", e);
+                        tokio::time::sleep(Duration::from_secs(5)).await;
+                        continue;
+                    }
+                };
 
-            // Generate the proving keys and the proof in a separate thread to catch panics.
-            let prover = self.prover.clone();
-            let mode = ProofMode::try_from(request.mode).unwrap_or(ProofMode::Core);
-            let mode = match mode {
-                ProofMode::Core => SP1ProofMode::Core,
-                ProofMode::Compressed => SP1ProofMode::Compressed,
-                ProofMode::Plonk => SP1ProofMode::Plonk,
-                ProofMode::Groth16 => SP1ProofMode::Groth16,
-                ProofMode::UnspecifiedProofMode => unreachable!(),
-            };
-            let result = tokio::task::spawn_blocking(move || {
-                panic::catch_unwind(AssertUnwindSafe(move || {
-                    let start = Instant::now();
-                    info!("{SERIAL_PROVER_TAG} Setting up proving key...");
-                    let (pk, _) = prover.setup(&program);
-                    info!(duration = %start.elapsed().as_secs_f64(), "{SERIAL_PROVER_TAG} Set up proving key.");
+                // Check for unexecutable requests.
+                let response = match network
+                    .clone()
+                    .get_filtered_proof_requests(GetFilteredProofRequestsRequest {
+                        version: Some(SP1_NETWORK_VERSION.to_string()),
+                        fulfillment_status: Some(FulfillmentStatus::Assigned.into()),
+                        execution_status: Some(ExecutionStatus::Unexecutable.into()),
+                        fulfiller: Some(owner),
+                        limit: Some(100),
+                        ..Default::default()
+                    })
+                    .await
+                {
+                    Ok(resp) => resp.into_inner(),
+                    Err(e) => {
+                        tracing::warn!(
+                            "{SERIAL_PROVER_TAG} Failed to check for unexecutable requests: {:?}",
+                            e
+                        );
+                        tokio::time::sleep(Duration::from_secs(5)).await;
+                        continue;
+                    }
+                };
 
-                    let start = Instant::now();
-                    info!("{SERIAL_PROVER_TAG} Executing program...");
-                    let (_, report) = prover.execute(&pk.elf, &stdin).run().unwrap();
-                    let cycles = report.total_instruction_count();
-                    info!(duration = %start.elapsed().as_secs_f64(), cycles = %cycles, "{SERIAL_PROVER_TAG} Executed program.");
-
-                    let start = Instant::now();
-                    info!("{SERIAL_PROVER_TAG} Generating proof...");
-                    let proof = prover.prove(&pk, &stdin).mode(mode).run();
-                    let proving_time = start.elapsed();
-                    info!(duration = %proving_time.as_secs_f64(), cycles = %cycles, "{SERIAL_PROVER_TAG} Proof generation complete.");
-                    (proof, cycles, proving_time)
-                }))
-            })
-            .await
-            .context("proving task failed")?;
-
-            // Set up error capture
-            let error_capture = ErrorCapture::new();
-
-            match result {
-                Ok((Ok(proof), cycles, proving_time)) => {
-                    // Update the metrics.
-                    let metrics = ctx.metrics();
-                    *metrics.total_cycles.lock().await += cycles;
-                    *metrics.total_proving_time.lock().await += proving_time;
-                    *metrics.fulfilled.lock().await += 1;
-
-                    // Serialize the proof.
-                    let proof_bytes =
-                        bincode::serialize(&proof).context("failed to serialize proof")?;
-
-                    // Fulfill the proof.
-                    let address = ctx.signer().address().to_vec();
-                    ctx.network()
-                        .clone()
-                        .with_retry(
-                            || async {
-                                // Get the nonce.
-                                let nonce = ctx
-                                    .network()
-                                    .clone()
-                                    .get_nonce(GetNonceRequest { address: address.clone() })
-                                    .await?
-                                    .into_inner()
-                                    .nonce;
-                                info!(nonce = %nonce, "{SERIAL_PROVER_TAG} Fetched account nonce.");
-
-                                // Create and submit the fulfill request.
-                                let body = FulfillProofRequestBody {
-                                    nonce,
-                                    request_id: request.request_id.clone(),
-                                    proof: proof_bytes.clone(),
-                                    reserved_metadata: None,
-                                };
-                                let fulfill_request = FulfillProofRequest {
-                                    format: MessageFormat::Binary.into(),
-                                    signature: body.sign(&ctx.signer()).into(),
-                                    body: Some(body),
-                                };
-                                ctx.network().clone().fulfill_proof(fulfill_request).await?;
-                                info!(request_id = %hex::encode(&request.request_id), proof_size = %proof_bytes.len(), "{SERIAL_PROVER_TAG} Proof fulfillment submitted.");
-                                Ok(())
-                            },
-                            "Fulfill",
-                        )
-                        .await?;
-                }
-                Ok((Err(e), _, _)) => {
-                    let error_msg = error_capture.format_error(e);
-                    error!("{SERIAL_PROVER_TAG} Proving failed: {error_msg}");
-                    // Attempt to mark the request as failed on the network.
-                    if let Err(fail_err) = fail_request(ctx, request.request_id.clone()).await {
-                        error!(request_id = %hex::encode(&request.request_id), "{SERIAL_PROVER_TAG} Failed to notify network about failure: {:?}", fail_err);
+                // Update the registry with unexecutable request IDs.
+                let mut registry = unexecutable_requests.lock().await;
+                for request in response.requests {
+                    let request_id_hex = hex::encode(&request.request_id);
+                    if registry.insert(request.request_id) {
+                        // Only log if this is a new insertion.
+                        tracing::info!(
+                            request_id = %request_id_hex,
+                            "{SERIAL_PROVER_TAG} Added request to unexecutable registry"
+                        );
                     }
                 }
-                Err(panic_err) => {
-                    let panic_msg = ErrorCapture::extract_panic_message(panic_err);
-                    let error_msg = error_capture.format_error(panic_msg);
-                    error!("{SERIAL_PROVER_TAG} Proving panicked: {error_msg}");
-                    // Attempt to mark the request as failed on the network.
-                    if let Err(fail_err) = fail_request(ctx, request.request_id.clone()).await {
-                        error!(request_id = %hex::encode(&request.request_id), "{SERIAL_PROVER_TAG} Failed to notify network about panic failure: {:?}", fail_err);
-                    }
-                }
+
+                // Sleep for a bit before checking again.
+                tokio::time::sleep(Duration::from_secs(5)).await;
             }
-        }
-
-        Ok(())
+        });
     }
 }
 
@@ -482,6 +383,32 @@ async fn fail_request<C: NodeContext>(ctx: &C, request_id: Vec<u8>) -> Result<()
         )
         .await?;
     Ok(())
+}
+
+/// Helper function to report a request status to the network and log the result.
+/// This handles both success and failure of the reporting itself.
+async fn report_request_status<C: NodeContext>(
+    ctx: &C,
+    request_id: Vec<u8>,
+    display_request_id: &[u8],
+    status_type: &str,
+) {
+    const SERIAL_PROVER_TAG: &str = "\x1b[33m[SerialProver]\x1b[0m";
+
+    if let Err(fail_err) = fail_request(ctx, request_id).await {
+        error!(
+            request_id = %hex::encode(display_request_id),
+            "{SERIAL_PROVER_TAG} Failed to notify network about {} status: {:?}",
+            status_type,
+            fail_err
+        );
+    } else {
+        info!(
+            request_id = %hex::encode(display_request_id),
+            "{SERIAL_PROVER_TAG} Successfully reported {} status to network",
+            status_type
+        );
+    }
 }
 
 /// The metrics for a serial node.
@@ -548,6 +475,302 @@ impl NodeMonitor<SerialContext> for SerialMonitor {
             disk_used_percent = %(used_disk_space as f64 / total_disk_space as f64) * 100.0,
             "{SERIAL_MONITOR_TAG} Checking node health..."
         );
+
+        Ok(())
+    }
+}
+
+#[async_trait]
+impl<C: NodeContext> NodeProver<C> for SerialProver {
+    #[allow(clippy::too_many_lines)]
+    async fn prove(&self, ctx: &C) -> Result<()> {
+        const SERIAL_PROVER_TAG: &str = "\x1b[33m[SerialProver]\x1b[0m";
+
+        // Ensure the background check task is running.
+        self.ensure_unexecutable_check_task_running(ctx);
+
+        // Fetch the owner.
+        let owner = fetch_owner(ctx.network(), ctx.signer().address().as_ref()).await?;
+        info!(owner = %hex::encode(&owner), "{SERIAL_PROVER_TAG} Fetched owner.");
+
+        // Fetch for assigned requests.
+        let requests = ctx
+            .network()
+            .clone()
+            .get_filtered_proof_requests(GetFilteredProofRequestsRequest {
+                version: Some(SP1_NETWORK_VERSION.to_string()),
+                fulfillment_status: Some(FulfillmentStatus::Assigned.into()),
+                minimum_deadline: Some(time_now()),
+                fulfiller: Some(owner.clone()),
+                limit: Some(1),
+                ..Default::default()
+            })
+            .await?
+            .into_inner()
+            .requests;
+        info!(count = %requests.len(), "{SERIAL_PROVER_TAG} Fetched assigned proof requests.");
+
+        // If there are no assigned requests, return.
+        if requests.is_empty() {
+            info!("{SERIAL_PROVER_TAG} Found no assigned requests to prove.");
+            return Ok(());
+        }
+
+        for request in requests {
+            // Check if this request is already known to be unexecutable.
+            let request_id = request.request_id.clone();
+            let unexecutable_registry = self.unexecutable_requests.lock().await;
+            if unexecutable_registry.contains(&request_id) {
+                info!(
+                    request_id = %hex::encode(&request_id),
+                    "{SERIAL_PROVER_TAG} Skipping request marked as UNEXECUTABLE"
+                );
+
+                // Release lock early.
+                drop(unexecutable_registry);
+
+                // Notify the network about the failure.
+                report_request_status(ctx, request_id.clone(), &request_id, "skipped UNEXECUTABLE")
+                    .await;
+
+                continue;
+            }
+
+            // No longer need the registry lock.
+            drop(unexecutable_registry);
+
+            // Log the request details.
+            let request_id_hex = hex::encode(&request.request_id);
+            info!(
+                request_id = %request_id_hex,
+                vk_hash = %hex::encode(request.vk_hash),
+                version = %request.version,
+                mode = %request.mode,
+                strategy = %request.strategy,
+                requester = %hex::encode(request.requester),
+                tx_hash = %hex::encode(request.tx_hash),
+                program_uri = %request.program_uri,
+                stdin_uri = %request.stdin_uri,
+                cycle_limit = %request.cycle_limit,
+                created_at = %request.created_at,
+                created_at_utc = %DateTime::from_timestamp(i64::try_from(request.created_at).unwrap_or_default(), 0).unwrap_or_default(),
+                deadline = %request.deadline,
+                deadline_utc = %DateTime::from_timestamp(i64::try_from(request.deadline).unwrap_or_default(), 0).unwrap_or_default(),
+                "{SERIAL_PROVER_TAG} Proving request..."
+            );
+
+            // Download the program.
+            let program_artifact_id = parse_artifact_id_from_s3_url(&request.program_uri)?;
+            let program_artifact = Artifact {
+                id: program_artifact_id.clone(),
+                label: "program".to_string(),
+                expiry: None,
+            };
+            let program: Vec<u8> =
+                program_artifact.download_program(&self.s3_bucket, &self.s3_region).await?;
+            info!(program_size = %program.len(), artifact_id = %hex::encode(program_artifact_id), "{SERIAL_PROVER_TAG} Downloaded program.");
+
+            // Download the stdin.
+            let stdin_artifact_id = parse_artifact_id_from_s3_url(&request.stdin_uri)?;
+            let stdin_artifact = Artifact {
+                id: stdin_artifact_id.clone(),
+                label: "stdin".to_string(),
+                expiry: None,
+            };
+            let stdin: SP1Stdin =
+                stdin_artifact.download_stdin(&self.s3_bucket, &self.s3_region).await?;
+            info!(stdin_size = %stdin.buffer.iter().map(std::vec::Vec::len).sum::<usize>(), artifact_id = %hex::encode(stdin_artifact_id), "{SERIAL_PROVER_TAG} Downloaded stdin.");
+
+            // Generate the proving keys and the proof in a separate thread to catch panics.
+            let prover = self.prover.clone();
+            let mode = ProofMode::try_from(request.mode).unwrap_or(ProofMode::Core);
+            let mode = match mode {
+                ProofMode::Core => SP1ProofMode::Core,
+                ProofMode::Compressed => SP1ProofMode::Compressed,
+                ProofMode::Plonk => SP1ProofMode::Plonk,
+                ProofMode::Groth16 => SP1ProofMode::Groth16,
+                ProofMode::UnspecifiedProofMode => unreachable!(),
+            };
+
+            // Store the join handle and extract its abort handle.
+            let proving_handle = tokio::task::spawn_blocking(move || {
+                panic::catch_unwind(AssertUnwindSafe(move || {
+                    let start = Instant::now();
+                    info!("{SERIAL_PROVER_TAG} Setting up proving key...");
+
+                    let (pk, _) = prover.setup(&program);
+                    info!(duration = %start.elapsed().as_secs_f64(), "{SERIAL_PROVER_TAG} Set up proving key.");
+
+                    let start = Instant::now();
+                    info!("{SERIAL_PROVER_TAG} Executing program...");
+                    let (_, report) = prover.execute(&pk.elf, &stdin).run().unwrap();
+                    let cycles = report.total_instruction_count();
+                    info!(duration = %start.elapsed().as_secs_f64(), cycles = %cycles, "{SERIAL_PROVER_TAG} Executed program.");
+
+                    let start = Instant::now();
+                    info!("{SERIAL_PROVER_TAG} Generating proof...");
+                    let proof = prover.prove(&pk, &stdin).mode(mode).run();
+                    let proving_time = start.elapsed();
+                    info!(duration = %proving_time.as_secs_f64(), cycles = %cycles, "{SERIAL_PROVER_TAG} Proof generation complete.");
+                    (proof, cycles, proving_time)
+                }))
+            });
+            let proving_abort_handle = proving_handle.abort_handle();
+
+            // Create a check task for this specific request.
+            let request_id = request.request_id.clone();
+            let unexecutable_registry = self.unexecutable_requests.clone();
+
+            // Spawn a task to periodically check if the request became UNEXECUTABLE.
+            let monitoring_task = tokio::spawn(async move {
+                // Check every 2 seconds if the request is now in our unexecutable registry.
+                let mut interval = tokio::time::interval(std::time::Duration::from_secs(2));
+                loop {
+                    interval.tick().await;
+
+                    // Check if we already know this request is unexecutable.
+                    let is_unexecutable = {
+                        let registry = unexecutable_registry.lock().await;
+                        registry.contains(&request_id)
+                    };
+
+                    if is_unexecutable {
+                        info!(
+                            request_id = %hex::encode(&request_id),
+                            "{SERIAL_PROVER_TAG} Request now marked as UNEXECUTABLE, aborting proof generation"
+                        );
+
+                        // Abort the proving task.
+                        proving_abort_handle.abort();
+                        break;
+                    }
+                }
+            });
+
+            // Wait for the proving task to complete or be aborted.
+            let result = proving_handle.await;
+
+            // Cancel the monitoring task since proving is done.
+            monitoring_task.abort();
+
+            match result {
+                Ok(panic_result) => match panic_result {
+                    Ok((proof_result, cycles, proving_time)) => {
+                        match proof_result {
+                            Ok(proof) => {
+                                // Update the metrics.
+                                let metrics = ctx.metrics();
+                                *metrics.total_cycles.lock().await += cycles;
+                                *metrics.total_proving_time.lock().await += proving_time;
+                                *metrics.fulfilled.lock().await += 1;
+
+                                // Now serialize the actual proof value
+                                let proof_bytes = bincode::serialize(&proof)
+                                    .context("failed to serialize proof")?;
+
+                                // Fulfill the proof.
+                                let address = ctx.signer().address().to_vec();
+                                if let Err(e) = ctx.network()
+                                    .clone()
+                                    .with_retry(
+                                        || async {
+                                            // Get the nonce.
+                                            let nonce = ctx
+                                                .network()
+                                                .clone()
+                                                .get_nonce(GetNonceRequest { address: address.clone() })
+                                                .await?
+                                                .into_inner()
+                                                .nonce;
+                                            info!(nonce = %nonce, "{SERIAL_PROVER_TAG} Fetched account nonce.");
+
+                                            // Create and submit the fulfill request.
+                                            let body = FulfillProofRequestBody {
+                                                nonce,
+                                                request_id: request.request_id.clone(),
+                                                proof: proof_bytes.clone(),
+                                                reserved_metadata: None,
+                                            };
+                                            let fulfill_request = FulfillProofRequest {
+                                                format: MessageFormat::Binary.into(),
+                                                signature: body.sign(&ctx.signer()).into(),
+                                                body: Some(body),
+                                            };
+                                            ctx.network().clone().fulfill_proof(fulfill_request).await?;
+                                            info!(
+                                                request_id = %hex::encode(&request.request_id),
+                                                proof_size = %proof_bytes.len(),
+                                                "{SERIAL_PROVER_TAG} Proof fulfillment submitted."
+                                            );
+                                            Ok(())
+                                        },
+                                        "Fulfill",
+                                    )
+                                    .await
+                                {
+                                    error!("{SERIAL_PROVER_TAG} Failed to fulfill proof: {:?}", e);
+                                }
+                            }
+                            Err(e) => {
+                                error!("{SERIAL_PROVER_TAG} Proof generation failed: {:?}", e);
+
+                                // Report failure to the network
+                                report_request_status(
+                                    ctx,
+                                    request.request_id.clone(),
+                                    &request.request_id,
+                                    "proof failure",
+                                )
+                                .await;
+                            }
+                        }
+                    }
+                    Err(e) => {
+                        let panic_msg = match e.downcast_ref::<&str>() {
+                            Some(s) => (*s).to_string(),
+                            None => match e.downcast_ref::<String>() {
+                                Some(s) => s.clone(),
+                                None => "Unknown panic".to_string(),
+                            },
+                        };
+
+                        error!("{SERIAL_PROVER_TAG} Proving panicked: {}", panic_msg);
+
+                        // Attempt to mark the request as failed on the network.
+                        report_request_status(
+                            ctx,
+                            request.request_id.clone(),
+                            &request.request_id,
+                            "panic failure",
+                        )
+                        .await;
+                    }
+                },
+                Err(e) => {
+                    // Check if this was a cancellation.
+                    let is_cancelled = e.is_cancelled();
+
+                    if is_cancelled {
+                        warn!(
+                            request_id = %hex::encode(&request.request_id),
+                            "{SERIAL_PROVER_TAG} Proving was aborted because request is UNEXECUTABLE"
+                        );
+                    } else {
+                        error!("{SERIAL_PROVER_TAG} Proving was aborted because: {:?}", e);
+                    }
+
+                    // Always notify network about task failure.
+                    let status_type = if is_cancelled { "cancellation" } else { "task failure" };
+                    report_request_status(
+                        ctx,
+                        request.request_id.clone(),
+                        &request.request_id,
+                        status_type,
+                    )
+                    .await;
+                }
+            }
+        }
 
         Ok(())
     }
