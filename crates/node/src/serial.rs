@@ -274,7 +274,7 @@ impl SerialProver {
     }
 
     /// Checks the network for unexecutable requests and maintains a registry.
-    fn ensure_unexecutable_check_task_running<C: NodeContext>(&self, ctx: &C) -> () {
+    fn ensure_unexecutable_check_task_running<C: NodeContext>(&self, ctx: &C) {
         // Use a static AtomicBool to ensure we only start the task once across the entire
         // application.
         static TASK_STARTED: atomic::AtomicBool = atomic::AtomicBool::new(false);
