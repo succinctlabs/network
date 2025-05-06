@@ -274,7 +274,7 @@ impl SerialProver {
     }
 
     /// Checks the network for unexecutable requests and maintains a registry.
-    fn ensure_unexecutable_check_task_running<C: NodeContext>(&self, ctx: &C) -> Result<()> {
+    fn ensure_unexecutable_check_task_running<C: NodeContext>(&self, ctx: &C) -> () {
         // Use a static AtomicBool to ensure we only start the task once across the entire
         // application.
         static TASK_STARTED: atomic::AtomicBool = atomic::AtomicBool::new(false);
@@ -284,7 +284,7 @@ impl SerialProver {
             .compare_exchange(false, true, atomic::Ordering::SeqCst, atomic::Ordering::SeqCst)
             .is_err()
         {
-            return Ok(());
+            return;
         }
 
         // Clone the references to use in the background task.
@@ -348,8 +348,6 @@ impl SerialProver {
                 tokio::time::sleep(Duration::from_secs(5)).await;
             }
         });
-
-        Ok(())
     }
 }
 
@@ -489,7 +487,7 @@ impl<C: NodeContext> NodeProver<C> for SerialProver {
         const SERIAL_PROVER_TAG: &str = "\x1b[33m[SerialProver]\x1b[0m";
 
         // Ensure the background check task is running.
-        self.ensure_unexecutable_check_task_running(ctx)?;
+        self.ensure_unexecutable_check_task_running(ctx);
 
         // Fetch the owner.
         let owner = fetch_owner(ctx.network(), ctx.signer().address().as_ref()).await?;
