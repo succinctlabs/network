@@ -9,6 +9,8 @@
 
 mod serial;
 
+pub use serial::*;
+
 use std::{
     sync::Arc,
     time::{Duration, SystemTime},
@@ -16,11 +18,11 @@ use std::{
 
 use alloy_signer_local::PrivateKeySigner;
 use anyhow::Result;
-pub use serial::*;
-use sp1_sdk::SP1_CIRCUIT_VERSION;
-use spn_network_types::prover_network_client::ProverNetworkClient;
 use tokio::{sync::Mutex, time::sleep};
 use tonic::{async_trait, transport::Channel};
+
+use sp1_sdk::SP1_CIRCUIT_VERSION;
+use spn_network_types::prover_network_client::ProverNetworkClient;
 
 /// The version identifier for SP1 used on the network.
 pub const SP1_NETWORK_VERSION: &str = const_str::concat!("sp1-", SP1_CIRCUIT_VERSION);
