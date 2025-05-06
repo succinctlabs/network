@@ -1,7 +1,7 @@
 use std::{
     collections::HashSet,
     panic::{self, AssertUnwindSafe},
-    sync::{Arc, atomic},
+    sync::{atomic, Arc},
     time::{Duration, Instant, SystemTime},
 };
 
@@ -14,9 +14,9 @@ use sp1_sdk::{EnvProver, ProverClient, SP1ProofMode, SP1Stdin};
 use spn_artifacts::{parse_artifact_id_from_s3_url, Artifact};
 use spn_network_types::{
     prover_network_client::ProverNetworkClient, BidRequest, BidRequestBody, ExecutionStatus,
-    FailFulfillmentRequest, FailFulfillmentRequestBody, FulfillProofRequest, FulfillProofRequestBody,
-    FulfillmentStatus, GetFilteredProofRequestsRequest, GetNonceRequest, GetProofRequestDetailsRequest,
-    MessageFormat, ProofMode, Signable,
+    FailFulfillmentRequest, FailFulfillmentRequestBody, FulfillProofRequest,
+    FulfillProofRequestBody, FulfillmentStatus, GetFilteredProofRequestsRequest, GetNonceRequest,
+    GetProofRequestDetailsRequest, MessageFormat, ProofMode, Signable,
 };
 use spn_rpc::{fetch_owner, RetryableRpc};
 use spn_utils::time_now;
@@ -265,26 +265,25 @@ impl SerialProver {
     /// Create a new [`SerialProver`].
     #[must_use]
     pub fn new(s3_bucket: String, s3_region: String) -> Self {
-        Self { 
+        Self {
             prover: Arc::new(ProverClient::from_env()),
             s3_bucket,
             s3_region,
             unexecutable_requests: Arc::new(Mutex::new(HashSet::new())),
         }
     }
-    
+
     /// Checks the network for unexecutable requests and maintains a registry.
     async fn ensure_unexecutable_check_task_running<C: NodeContext>(&self, ctx: &C) -> Result<()> {
-        // Use a static AtomicBool to ensure we only start the task once across the entire application.
+        // Use a static AtomicBool to ensure we only start the task once across the entire
+        // application.
         static TASK_STARTED: atomic::AtomicBool = atomic::AtomicBool::new(false);
 
         // If the task is already running, don't start another one.
-        if TASK_STARTED.compare_exchange(
-            false,
-            true,
-            atomic::Ordering::SeqCst,
-            atomic::Ordering::SeqCst,
-        ).is_err() {
+        if TASK_STARTED
+            .compare_exchange(false, true, atomic::Ordering::SeqCst, atomic::Ordering::SeqCst)
+            .is_err()
+        {
             return Ok(());
         }
 
@@ -292,11 +291,11 @@ impl SerialProver {
         let unexecutable_requests = self.unexecutable_requests.clone();
         let network = ctx.network().clone();
         let signer_address = ctx.signer().address().to_vec();
-        
+
         // Spawn a background task to check for unexecutable requests.
         tokio::spawn(async move {
             const SERIAL_PROVER_TAG: &str = "\x1b[33m[SerialProver]\x1b[0m";
-            
+
             loop {
                 // Fetch the owner.
                 let owner = match fetch_owner(&network, &signer_address).await {
@@ -307,7 +306,7 @@ impl SerialProver {
                         continue;
                     }
                 };
-                
+
                 // Check for unexecutable requests.
                 let response = match network
                     .clone()
@@ -323,12 +322,15 @@ impl SerialProver {
                 {
                     Ok(resp) => resp.into_inner(),
                     Err(e) => {
-                        tracing::warn!("{SERIAL_PROVER_TAG} Failed to check for unexecutable requests: {:?}", e);
+                        tracing::warn!(
+                            "{SERIAL_PROVER_TAG} Failed to check for unexecutable requests: {:?}",
+                            e
+                        );
                         tokio::time::sleep(Duration::from_secs(5)).await;
                         continue;
                     }
                 };
-                
+
                 // Update the registry with unexecutable request IDs.
                 let mut registry = unexecutable_requests.lock().await;
                 for request in response.requests {
@@ -341,12 +343,12 @@ impl SerialProver {
                         );
                     }
                 }
-                
+
                 // Sleep for a bit before checking again.
                 tokio::time::sleep(Duration::from_secs(5)).await;
             }
         });
-        
+
         Ok(())
     }
 }
@@ -388,17 +390,17 @@ async fn fail_request<C: NodeContext>(ctx: &C, request_id: Vec<u8>) -> Result<()
 /// Helper function to report a request status to the network and log the result.
 /// This handles both success and failure of the reporting itself.
 async fn report_request_status<C: NodeContext>(
-    ctx: &C, 
-    request_id: Vec<u8>, 
-    display_request_id: &[u8], 
+    ctx: &C,
+    request_id: Vec<u8>,
+    display_request_id: &[u8],
     status_type: &str,
 ) {
     const SERIAL_PROVER_TAG: &str = "\x1b[33m[SerialProver]\x1b[0m";
-    
+
     if let Err(fail_err) = fail_request(ctx, request_id).await {
         error!(
             request_id = %hex::encode(display_request_id),
-            "{SERIAL_PROVER_TAG} Failed to notify network about {} status: {:?}", 
+            "{SERIAL_PROVER_TAG} Failed to notify network about {} status: {:?}",
             status_type,
             fail_err
         );
@@ -525,19 +527,20 @@ impl<C: NodeContext> NodeProver<C> for SerialProver {
                     request_id = %hex::encode(&request_id),
                     "{SERIAL_PROVER_TAG} Skipping request marked as UNEXECUTABLE"
                 );
-                
+
                 // Release lock early.
                 drop(unexecutable_registry);
-                
+
                 // Notify the network about the failure.
-                report_request_status(ctx, request_id.clone(), &request_id, "skipped UNEXECUTABLE").await;
-                
+                report_request_status(ctx, request_id.clone(), &request_id, "skipped UNEXECUTABLE")
+                    .await;
+
                 continue;
             }
-            
+
             // No longer need the registry lock.
             drop(unexecutable_registry);
-            
+
             // Log the request details.
             let request_id_hex = hex::encode(&request.request_id);
             info!(
@@ -590,22 +593,22 @@ impl<C: NodeContext> NodeProver<C> for SerialProver {
                 ProofMode::Groth16 => SP1ProofMode::Groth16,
                 ProofMode::UnspecifiedProofMode => unreachable!(),
             };
-            
+
             // Store the join handle and extract its abort handle.
             let proving_handle = tokio::task::spawn_blocking(move || {
                 panic::catch_unwind(AssertUnwindSafe(move || {
                     let start = Instant::now();
                     info!("{SERIAL_PROVER_TAG} Setting up proving key...");
-                    
+
                     let (pk, _) = prover.setup(&program);
                     info!(duration = %start.elapsed().as_secs_f64(), "{SERIAL_PROVER_TAG} Set up proving key.");
-                    
+
                     let start = Instant::now();
                     info!("{SERIAL_PROVER_TAG} Executing program...");
                     let (_, report) = prover.execute(&pk.elf, &stdin).run().unwrap();
                     let cycles = report.total_instruction_count();
                     info!(duration = %start.elapsed().as_secs_f64(), cycles = %cycles, "{SERIAL_PROVER_TAG} Executed program.");
-                    
+
                     let start = Instant::now();
                     info!("{SERIAL_PROVER_TAG} Generating proof...");
                     let proof = prover.prove(&pk, &stdin).mode(mode).run();
@@ -615,30 +618,30 @@ impl<C: NodeContext> NodeProver<C> for SerialProver {
                 }))
             });
             let proving_abort_handle = proving_handle.abort_handle();
-            
+
             // Create a check task for this specific request.
             let request_id = request.request_id.clone();
             let unexecutable_registry = self.unexecutable_requests.clone();
-            
+
             // Spawn a task to periodically check if the request became UNEXECUTABLE.
             let monitoring_task = tokio::spawn(async move {
                 // Check every 2 seconds if the request is now in our unexecutable registry.
                 let mut interval = tokio::time::interval(std::time::Duration::from_secs(2));
                 loop {
                     interval.tick().await;
-                    
+
                     // Check if we already know this request is unexecutable.
                     let is_unexecutable = {
                         let registry = unexecutable_registry.lock().await;
                         registry.contains(&request_id)
                     };
-                    
+
                     if is_unexecutable {
                         info!(
                             request_id = %hex::encode(&request_id),
                             "{SERIAL_PROVER_TAG} Request now marked as UNEXECUTABLE, aborting proof generation"
                         );
-                        
+
                         // Abort the proving task.
                         proving_abort_handle.abort();
                         break;
@@ -648,7 +651,7 @@ impl<C: NodeContext> NodeProver<C> for SerialProver {
 
             // Wait for the proving task to complete or be aborted.
             let result = proving_handle.await;
-            
+
             // Cancel the monitoring task since proving is done.
             monitoring_task.abort();
 
@@ -709,15 +712,21 @@ impl<C: NodeContext> NodeProver<C> for SerialProver {
                                 {
                                     error!("{SERIAL_PROVER_TAG} Failed to fulfill proof: {:?}", e);
                                 }
-                            },
+                            }
                             Err(e) => {
                                 error!("{SERIAL_PROVER_TAG} Proof generation failed: {:?}", e);
-                                
+
                                 // Report failure to the network
-                                report_request_status(ctx, request.request_id.clone(), &request.request_id, "proof failure").await;
+                                report_request_status(
+                                    ctx,
+                                    request.request_id.clone(),
+                                    &request.request_id,
+                                    "proof failure",
+                                )
+                                .await;
                             }
                         }
-                    },
+                    }
                     Err(e) => {
                         let panic_msg = match e.downcast_ref::<&str>() {
                             Some(s) => (*s).to_string(),
@@ -726,17 +735,23 @@ impl<C: NodeContext> NodeProver<C> for SerialProver {
                                 None => "Unknown panic".to_string(),
                             },
                         };
-                        
+
                         error!("{SERIAL_PROVER_TAG} Proving panicked: {}", panic_msg);
-                        
+
                         // Attempt to mark the request as failed on the network.
-                        report_request_status(ctx, request.request_id.clone(), &request.request_id, "panic failure").await;
+                        report_request_status(
+                            ctx,
+                            request.request_id.clone(),
+                            &request.request_id,
+                            "panic failure",
+                        )
+                        .await;
                     }
                 },
                 Err(e) => {
                     // Check if this was a cancellation.
                     let is_cancelled = e.is_cancelled();
-                    
+
                     if is_cancelled {
                         warn!(
                             request_id = %hex::encode(&request.request_id),
@@ -745,10 +760,16 @@ impl<C: NodeContext> NodeProver<C> for SerialProver {
                     } else {
                         error!("{SERIAL_PROVER_TAG} Proving was aborted because: {:?}", e);
                     }
-                    
+
                     // Always notify network about task failure.
                     let status_type = if is_cancelled { "cancellation" } else { "task failure" };
-                    report_request_status(ctx, request.request_id.clone(), &request.request_id, status_type).await;
+                    report_request_status(
+                        ctx,
+                        request.request_id.clone(),
+                        &request.request_id,
+                        status_type,
+                    )
+                    .await;
                 }
             }
         }
