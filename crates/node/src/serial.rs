@@ -593,6 +593,9 @@ impl<C: NodeContext> NodeProver<C> for SerialProver {
             };
 
             // Store the join handle and extract its abort handle.
+            // TODO: Unfortunately, aborting this will not forcibly kill the thread. In SP1 V6,
+            // prove() and possibly execute() will be async so they will actually cancel when an
+            // abort occurs.
             let proving_handle = tokio::task::spawn_blocking(move || {
                 panic::catch_unwind(AssertUnwindSafe(move || {
                     let start = Instant::now();
@@ -642,6 +645,9 @@ impl<C: NodeContext> NodeProver<C> for SerialProver {
 
                         // Abort the proving task.
                         proving_abort_handle.abort();
+
+                        info!("{SERIAL_PROVER_TAG} Aborted proving task.");
+                        
                         break;
                     }
                 }
