@@ -77,7 +77,7 @@ impl Artifact {
                     .host_str()
                     .ok_or_else(|| anyhow!("S3 URI missing bucket: {}", uri))?;
                 let s3_client = get_s3_client().await;
-                download_s3_file(&s3_client, s3_bucket, &self.id, artifact_type).await
+                download_s3_file(s3_client, s3_bucket, &self.id, artifact_type).await
             }
             "https" => download_https_file(uri).await,
             scheme => Err(anyhow!("Unsupported URI scheme for download_raw_from_uri: {}", scheme)),
@@ -166,7 +166,7 @@ fn parse_artifact_id_from_https_url(https_url: &str) -> Result<String> {
     let path = url.path();
     let segments = path.split('/').collect::<Vec<&str>>();
     let artifact_id = segments.last().ok_or_else(|| anyhow!("Invalid HTTPS URL format"))?;
-    Ok(artifact_id.to_string())
+    Ok((*artifact_id).to_string())
 }
 
 /// Extracts the artifact ID from an S3 URL.
