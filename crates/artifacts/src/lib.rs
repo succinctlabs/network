@@ -20,6 +20,7 @@ use serde::{de::DeserializeOwned, Serialize};
 use spn_artifact_types::ArtifactType;
 use tokio::sync::OnceCell;
 use tracing::instrument;
+use url::Url;
 
 lazy_static! {
     /// A globally accessible S3 client.
@@ -46,10 +47,9 @@ impl Artifact {
         &self,
         item: T,
         s3_bucket: &str,
-        s3_region: &str,
         artifact_type: ArtifactType,
     ) -> Result<()> {
-        let s3_client = get_s3_client(s3_region).await;
+        let s3_client = get_s3_client().await;
         let data = bincode::serialize(&item).context("Failed to serialize data")?;
         upload_file(s3_client, s3_bucket, &self.id, artifact_type, Bytes::from(data)).await
     }
@@ -58,38 +58,78 @@ impl Artifact {
     pub async fn download_raw(
         &self,
         s3_bucket: &str,
-        s3_region: &str,
         artifact_type: ArtifactType,
     ) -> Result<Bytes> {
-        let s3_client = get_s3_client(s3_region).await;
-        download_file(s3_client, s3_bucket, &self.id, artifact_type).await
+        let s3_client = get_s3_client().await;
+        download_s3_file(s3_client, s3_bucket, &self.id, artifact_type).await
+    }
+
+    #[instrument(fields(label = self.label, id = self.id), skip_all)]
+    pub async fn download_raw_from_uri(
+        &self,
+        uri: &str,
+        artifact_type: ArtifactType,
+    ) -> Result<Bytes> {
+        let parsed_url = Url::parse(uri).context("Failed to parse URI")?;
+        match parsed_url.scheme() {
+            "s3" => {
+                let s3_bucket = parsed_url
+                    .host_str()
+                    .ok_or_else(|| anyhow!("S3 URI missing bucket: {}", uri))?;
+                let s3_client = get_s3_client().await;
+                download_s3_file(&s3_client, s3_bucket, &self.id, artifact_type).await
+            }
+            "https" => download_https_file(uri).await,
+            scheme => Err(anyhow!("Unsupported URI scheme for download_raw_from_uri: {}", scheme)),
+        }
     }
 
     pub async fn download_program<T: DeserializeOwned + Send + Sync + 'static>(
         &self,
         s3_bucket: &str,
-        s3_region: &str,
     ) -> Result<T> {
-        let bytes = self.download_raw(s3_bucket, s3_region, ArtifactType::Program).await?;
+        let bytes = self.download_raw(s3_bucket, ArtifactType::Program).await?;
         bincode::deserialize(&bytes).context("Failed to deserialize program")
+    }
+
+    pub async fn download_program_from_uri<T: DeserializeOwned + Send + Sync + 'static>(
+        &self,
+        uri: &str,
+    ) -> Result<T> {
+        let bytes = self.download_raw_from_uri(uri, ArtifactType::Program).await?;
+        bincode::deserialize(&bytes).context("Failed to deserialize program from URI")
     }
 
     pub async fn download_stdin<T: DeserializeOwned + Send + Sync + 'static>(
         &self,
         s3_bucket: &str,
-        s3_region: &str,
     ) -> Result<T> {
-        let bytes = self.download_raw(s3_bucket, s3_region, ArtifactType::Stdin).await?;
+        let bytes = self.download_raw(s3_bucket, ArtifactType::Stdin).await?;
         bincode::deserialize(&bytes).context("Failed to deserialize stdin")
+    }
+
+    pub async fn download_stdin_from_uri<T: DeserializeOwned + Send + Sync + 'static>(
+        &self,
+        uri: &str,
+    ) -> Result<T> {
+        let bytes = self.download_raw_from_uri(uri, ArtifactType::Stdin).await?;
+        bincode::deserialize(&bytes).context("Failed to deserialize stdin from URI")
     }
 
     pub async fn download_proof<T: DeserializeOwned + Send + Sync + 'static>(
         &self,
         s3_bucket: &str,
-        s3_region: &str,
     ) -> Result<T> {
-        let bytes = self.download_raw(s3_bucket, s3_region, ArtifactType::Proof).await?;
+        let bytes = self.download_raw(s3_bucket, ArtifactType::Proof).await?;
         bincode::deserialize(&bytes).context("Failed to deserialize proof")
+    }
+
+    pub async fn download_proof_from_uri<T: DeserializeOwned + Send + Sync + 'static>(
+        &self,
+        uri: &str,
+    ) -> Result<T> {
+        let bytes = self.download_raw_from_uri(uri, ArtifactType::Proof).await?;
+        bincode::deserialize(&bytes).context("Failed to deserialize proof from URI")
     }
 
     #[instrument(fields(label = self.label, id = self.id), skip_all)]
@@ -97,19 +137,43 @@ impl Artifact {
         &self,
         data: Bytes,
         s3_bucket: &str,
-        s3_region: &str,
         artifact_type: ArtifactType,
     ) -> Result<()> {
-        let s3_client = get_s3_client(s3_region).await;
+        let s3_client = get_s3_client().await;
         upload_file(s3_client, s3_bucket, &self.id, artifact_type, data).await
     }
+}
+
+/// Extracts the artifact ID from a URL.
+///
+/// Given a URL in the format `https://<host>/<artifact_type>/<artifact_id>` or `s3://<bucket>/<artifact_type>/<artifact_id>`,
+/// this function parses and returns just the artifact ID component (the last path segment).
+pub fn parse_artifact_id_from_url(url: &str) -> Result<String> {
+    let parsed_url = Url::parse(url).context("Failed to parse URL")?;
+    match parsed_url.scheme() {
+        "https" => parse_artifact_id_from_https_url(url),
+        "s3" => parse_artifact_id_from_s3_url(url),
+        scheme => Err(anyhow!("Unsupported URL scheme for parse_artifact_id_from_url: {}", scheme)),
+    }
+}
+
+/// Extracts the artifact ID from an HTTPS URL.
+///
+/// Given an HTTPS URL in the format `https://<host>/<artifact_type>/<artifact_id>`, this function
+/// parses and returns just the artifact ID component (the last path segment).
+fn parse_artifact_id_from_https_url(https_url: &str) -> Result<String> {
+    let url = Url::parse(https_url).context("Failed to parse HTTPS URL")?;
+    let path = url.path();
+    let segments = path.split('/').collect::<Vec<&str>>();
+    let artifact_id = segments.last().ok_or_else(|| anyhow!("Invalid HTTPS URL format"))?;
+    Ok(artifact_id.to_string())
 }
 
 /// Extracts the artifact ID from an S3 URL.
 ///
 /// Given an S3 URL in the format `s3://<bucket>/path/to/artifact_id`, this function parses and
 /// returns just the artifact ID component (the last path segment).
-pub fn parse_artifact_id_from_s3_url(s3_url: &str) -> Result<String> {
+fn parse_artifact_id_from_s3_url(s3_url: &str) -> Result<String> {
     #[allow(clippy::double_ended_iterator_last)]
     s3_url.split('/').last().map(String::from).ok_or_else(|| anyhow!("Invalid S3 URL format"))
 }
@@ -126,6 +190,7 @@ pub fn get_s3_prefix(artifact_type: ArtifactType) -> &'static str {
         ArtifactType::Program => "programs",
         ArtifactType::Stdin => "stdins",
         ArtifactType::Proof => "proofs",
+        ArtifactType::Transaction => "transactions",
     }
 }
 
@@ -138,7 +203,9 @@ pub fn get_s3_key(artifact_type: ArtifactType, id: &str) -> String {
     format!("{}/{}", get_s3_prefix(artifact_type), id)
 }
 
-async fn get_s3_client(s3_region: &str) -> &'static S3Client {
+async fn get_s3_client() -> &'static S3Client {
+    let s3_region = std::env::var("S3_REGION").unwrap_or_else(|_| "us-east-1".to_string());
+
     S3_CLIENT
         .get_or_init(|| async {
             // Load the default config.
@@ -172,7 +239,7 @@ async fn get_s3_client(s3_region: &str) -> &'static S3Client {
         .await
 }
 
-async fn download_file(
+async fn download_s3_file(
     client: &S3Client,
     bucket: &str,
     id: &str,
@@ -192,6 +259,16 @@ async fn download_file(
     let data = res.body.collect().await.context("Failed to read S3 object body")?;
     let bytes = data.into_bytes();
 
+    Ok(bytes)
+}
+
+async fn download_https_file(uri: &str) -> Result<Bytes> {
+    let client = reqwest::Client::new();
+    let res = client.get(uri).send().await.context("Failed to GET HTTPS URL")?;
+    if !res.status().is_success() {
+        return Err(anyhow!("Failed to download from HTTPS URL {}: status {}", uri, res.status()));
+    }
+    let bytes = res.bytes().await.context("Failed to read HTTPS response body")?;
     Ok(bytes)
 }
 

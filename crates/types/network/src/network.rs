@@ -330,6 +330,12 @@ pub struct ProofRequest {
     /// The settlement status of the request.
     #[prost(enumeration = "SettlementStatus", tag = "29")]
     pub settlement_status: i32,
+    /// The public program resource identifier.
+    #[prost(string, tag = "30")]
+    pub program_public_uri: ::prost::alloc::string::String,
+    /// The public stdin resource identifier.
+    #[prost(string, tag = "31")]
+    pub stdin_public_uri: ::prost::alloc::string::String,
 }
 #[derive(serde::Serialize, serde::Deserialize)]
 #[derive(Clone, PartialEq, ::prost::Message)]
@@ -366,6 +372,10 @@ pub struct GetProofRequestStatusResponse {
     /// included if the request has an execution status of EXECUTED.
     #[prost(bytes = "vec", optional, tag = "7")]
     pub public_values_hash: ::core::option::Option<::prost::alloc::vec::Vec<u8>>,
+    /// The optional public proof URI, where you can download the result of the
+    /// request. Only included if the request has a fulfillment status of FULFILLED.
+    #[prost(string, optional, tag = "8")]
+    pub proof_public_uri: ::core::option::Option<::prost::alloc::string::String>,
 }
 #[derive(serde::Serialize, serde::Deserialize)]
 #[derive(Clone, PartialEq, ::prost::Message)]
@@ -2645,6 +2655,12 @@ pub struct EthBlockRequest {
     /// The bets for the request.
     #[prost(message, repeated, tag = "37")]
     pub bets: ::prost::alloc::vec::Vec<BettorDetails>,
+    /// The public program resource identifier.
+    #[prost(string, tag = "38")]
+    pub program_public_uri: ::prost::alloc::string::String,
+    /// The public stdin resource identifier.
+    #[prost(string, tag = "39")]
+    pub stdin_public_uri: ::prost::alloc::string::String,
 }
 #[derive(serde::Serialize, serde::Deserialize)]
 #[derive(Clone, PartialEq, ::prost::Message)]
@@ -3693,6 +3709,9 @@ pub struct GetContestDetailsResponse {
     /// The multiplier amount.
     #[prost(string, tag = "14")]
     pub multiplier: ::prost::alloc::string::String,
+    /// The total amount of bets in the contest.
+    #[prost(string, tag = "15")]
+    pub total_bets: ::prost::alloc::string::String,
 }
 #[derive(serde::Serialize, serde::Deserialize)]
 #[derive(Clone, PartialEq, ::prost::Message)]
