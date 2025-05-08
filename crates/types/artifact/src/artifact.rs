@@ -30,6 +30,8 @@ pub enum ArtifactType {
     Stdin = 2,
     /// A proof artifact.
     Proof = 3,
+    /// A transaction artifact.
+    Transaction = 4,
 }
 impl ArtifactType {
     /// String value of the enum field names used in the ProtoBuf definition.
@@ -42,6 +44,7 @@ impl ArtifactType {
             Self::Program => "PROGRAM",
             Self::Stdin => "STDIN",
             Self::Proof => "PROOF",
+            Self::Transaction => "TRANSACTION",
         }
     }
     /// Creates an enum from field names used in the ProtoBuf definition.
@@ -51,6 +54,7 @@ impl ArtifactType {
             "PROGRAM" => Some(Self::Program),
             "STDIN" => Some(Self::Stdin),
             "PROOF" => Some(Self::Proof),
+            "TRANSACTION" => Some(Self::Transaction),
             _ => None,
         }
     }

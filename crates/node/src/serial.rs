@@ -11,7 +11,7 @@ use anyhow::{Context, Result};
 use chrono::{self, DateTime};
 use nvml_wrapper::Nvml;
 use sp1_sdk::{EnvProver, ProverClient, SP1ProofMode, SP1Stdin};
-use spn_artifacts::{parse_artifact_id_from_s3_url, Artifact};
+use spn_artifacts::{parse_artifact_id_from_url, Artifact};
 use spn_network_types::{
     prover_network_client::ProverNetworkClient, BidRequest, BidRequestBody, ExecutionStatus,
     FailFulfillmentRequest, FailFulfillmentRequestBody, FulfillProofRequest,
@@ -200,8 +200,8 @@ impl<C: NodeContext> NodeBidder<C> for SerialBidder {
                         strategy = %request.strategy,
                         requester = %hex::encode(request.requester),
                         tx_hash = %hex::encode(request.tx_hash),
-                        program_uri = %request.program_uri,
-                        stdin_uri = %request.stdin_uri,
+                        program_uri = %request.program_public_uri,
+                        stdin_uri = %request.stdin_public_uri,
                         gas_limit = %request.gas_limit,
                         cycle_limit = %request.cycle_limit,
                         created_at = %request.created_at,
@@ -253,22 +253,22 @@ impl<C: NodeContext> NodeBidder<C> for SerialBidder {
 pub struct SerialProver {
     /// The underlying prover for the node that will be used to generate proofs.
     prover: Arc<EnvProver>,
-    /// The S3 bucket used to fetch artifacts.
-    s3_bucket: String,
-    /// The S3 region used to fetch artifacts.
-    s3_region: String,
     /// Registry of unexecutable request IDs that should be cancelled.
     unexecutable_requests: Arc<Mutex<HashSet<Vec<u8>>>>,
+}
+
+impl Default for SerialProver {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl SerialProver {
     /// Create a new [`SerialProver`].
     #[must_use]
-    pub fn new(s3_bucket: String, s3_region: String) -> Self {
+    pub fn new() -> Self {
         Self {
             prover: Arc::new(ProverClient::from_env()),
-            s3_bucket,
-            s3_region,
             unexecutable_requests: Arc::new(Mutex::new(HashSet::new())),
         }
     }
@@ -560,25 +560,25 @@ impl<C: NodeContext> NodeProver<C> for SerialProver {
             );
 
             // Download the program.
-            let program_artifact_id = parse_artifact_id_from_s3_url(&request.program_uri)?;
+            let program_artifact_id = parse_artifact_id_from_url(&request.program_public_uri)?;
             let program_artifact = Artifact {
                 id: program_artifact_id.clone(),
                 label: "program".to_string(),
                 expiry: None,
             };
             let program: Vec<u8> =
-                program_artifact.download_program(&self.s3_bucket, &self.s3_region).await?;
+                program_artifact.download_program_from_uri(&request.program_public_uri).await?;
             info!(program_size = %program.len(), artifact_id = %hex::encode(program_artifact_id), "{SERIAL_PROVER_TAG} Downloaded program.");
 
             // Download the stdin.
-            let stdin_artifact_id = parse_artifact_id_from_s3_url(&request.stdin_uri)?;
+            let stdin_artifact_id = parse_artifact_id_from_url(&request.stdin_public_uri)?;
             let stdin_artifact = Artifact {
                 id: stdin_artifact_id.clone(),
                 label: "stdin".to_string(),
                 expiry: None,
             };
             let stdin: SP1Stdin =
-                stdin_artifact.download_stdin(&self.s3_bucket, &self.s3_region).await?;
+                stdin_artifact.download_stdin_from_uri(&request.stdin_public_uri).await?;
             info!(stdin_size = %stdin.buffer.iter().map(std::vec::Vec::len).sum::<usize>(), artifact_id = %hex::encode(stdin_artifact_id), "{SERIAL_PROVER_TAG} Downloaded stdin.");
 
             // Generate the proving keys and the proof in a separate thread to catch panics.
@@ -647,7 +647,7 @@ impl<C: NodeContext> NodeProver<C> for SerialProver {
                         proving_abort_handle.abort();
 
                         info!("{SERIAL_PROVER_TAG} Aborted proving task.");
-                        
+
                         break;
                     }
                 }

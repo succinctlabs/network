@@ -43,12 +43,6 @@ struct ProveArgs {
     /// The private key for the prover.
     #[arg(long)]
     private_key: String,
-    /// The S3 bucket for the prover.
-    #[arg(long)]
-    s3_bucket: String,
-    /// The S3 region for the prover.
-    #[arg(long)]
-    s3_region: String,
 }
 
 /// The main entry point for the CLI.
@@ -137,7 +131,7 @@ async fn main() -> Result<()> {
             let bidder = SerialBidder::new(U256::from(args.bid_amount), args.throughput);
 
             // Setup the prover
-            let prover = SerialProver::new(args.s3_bucket.clone(), args.s3_region.clone());
+            let prover = SerialProver::new();
 
             // Setup the monitor.
             let monitor = SerialMonitor;
@@ -148,8 +142,6 @@ async fn main() -> Result<()> {
                 rpc = %args.rpc_url,
                 throughput = %args.throughput,
                 bid_amount = %args.bid_amount,
-                s3_bucket = %args.s3_bucket,
-                s3_region = %args.s3_region,
                 "Starting Node on Succinct Network..."
             );
             let node = Node::new(ctx, bidder, prover, monitor);

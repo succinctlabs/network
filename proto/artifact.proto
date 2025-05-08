@@ -29,4 +29,6 @@ enum ArtifactType {
     STDIN = 2;
     // A proof artifact.
     PROOF = 3;
+    // A transaction artifact.
+    TRANSACTION = 4;
 }

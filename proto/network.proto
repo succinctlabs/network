@@ -597,6 +597,10 @@ message ProofRequest {
   ExecuteFailureCause execute_fail_cause = 28;
   // The settlement status of the request.
   SettlementStatus settlement_status = 29;
+  // The public program resource identifier.
+  string program_public_uri = 30;
+  // The public stdin resource identifier.
+  string stdin_public_uri = 31;
 }
 
 message GetProofRequestStatusRequest {
@@ -623,6 +627,9 @@ message GetProofRequestStatusResponse {
   // The optional public values hash from the execution of the request. Only
   // included if the request has an execution status of EXECUTED.
   optional bytes public_values_hash = 7;
+  // The optional public proof URI, where you can download the result of the
+  // request. Only included if the request has a fulfillment status of FULFILLED.
+  optional string proof_public_uri = 8;
 }
 
 message GetProofRequestDetailsRequest {
@@ -2228,6 +2235,10 @@ message EthBlockRequest {
   optional string fulfiller_social_image = 36;
   // The bets for the request.
   repeated BettorDetails bets = 37;
+  // The public program resource identifier.
+  string program_public_uri = 38;
+  // The public stdin resource identifier.
+  string stdin_public_uri = 39;
 }
 
 message GetFilteredEthBlockRequestsRequest {
@@ -2967,6 +2978,8 @@ message GetContestDetailsResponse {
   string base_stars = 13;
   // The multiplier amount.
   string multiplier = 14;
+  // The total amount of bets in the contest.
+  string total_bets = 15;
 }
 
 message ContestRequestDetails { 

@@ -26,3 +26,5 @@ prost = { workspace = true }
 serde = { workspace = true }
 tokio = { workspace = true }
 tracing = { workspace = true }
+url = { workspace = true }
+reqwest = { workspace = true }
