@@ -32,9 +32,7 @@ spn prove \
     --rpc-url <rpcUrl> \
     --throughput <throughput> \
     --bid-amount <bidAmount> \
-    --private-key <privateKey> \
-    --s3-bucket <s3Bucket> \
-    --s3-region <s3Region> \
+    --private-key <privateKey>
 ```
 
 Example Output:
