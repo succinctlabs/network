@@ -257,6 +257,12 @@ pub struct SerialProver {
     unexecutable_requests: Arc<Mutex<HashSet<Vec<u8>>>>,
 }
 
+impl Default for SerialProver {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl SerialProver {
     /// Create a new [`SerialProver`].
     #[must_use]
