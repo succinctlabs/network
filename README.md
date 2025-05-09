@@ -23,19 +23,11 @@ cd bin/cli
 cargo install --path .
 ```
 
-## Usage
+## Run the prover
 
-After installing, you can run the CLI using the following command template:
+See [GETTING_STARTED.md](GETTING_STARTED.md) to setup your prover and start generating proofs.
 
-```sh
-spn prove \
-    --rpc-url <rpcUrl> \
-    --throughput <throughput> \
-    --bid-amount <bidAmount> \
-    --private-key <privateKey>
-```
-
-Example Output:
+## Example Outputs
 
 ```sh
 ███████╗██╗   ██╗ ██████╗ ██████╗██╗███╗   ██╗ ██████╗████████╗
