@@ -96,7 +96,7 @@ async fn main() -> Result<()> {
                 },
                 CalibrationMetricsTable {
                     name: "Recommended Bid".to_string(),
-                    value: format!("{} wei", metrics.bid_amount),
+                    value: format!("{} gas per USDC", metrics.bid_amount),
                 },
             ];
 

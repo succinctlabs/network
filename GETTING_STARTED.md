@@ -11,6 +11,8 @@ Go to: [https://staging.succinct.xyz/stake](https://staging.succinct.xyz/stake)
 
 Click on "Create Prover" on the top right. Make a note of the address of your newly created prover.
 
+![Create Prover](./media/1-prover.png)
+
 The prover will show up in the table after the transaction is confirmed.
 
 ## Step 2: Stake to your prover
@@ -20,34 +22,81 @@ Ask Succinct to stake $PROVE with your prover, or ask them for $PROVE and stake 
 This can be accomplished by clicking on your prover in the table, and then submitting the stake
 transaction.
 
-## Step 3: Run the prover
+![Stake](./media/2-staked.png)
 
-With your prover created, you're now ready to run the code in this repository.
+A staked prover will have some non-zero amount of $PROVE staked.
 
-You'll first need to set the following environment variables:
+## Step 3: Calibrate your prover
 
-```sh
-export RPC_URL=https://rpc-production.succinct.xyz
-export THROUGHPUT=10000000
-export BID_AMOUNT=1
-export PRIVATE_KEY=0x...
-```
-
-Note: `PRIVATE_KEY` corresponds to the wallet that you created the prover with. This can be retrieved by
-going into your wallet and clicking on the "Export Private Key" button, then copying the private key.
-
-Once you've set these environment variables, you can run the following command to generate proofs:
+Determine your expected throughput and bid amount.
 
 ```sh
 cd bin/cli
 
+cargo run -- calibrate
+```
+
+An example output:
+
+```sh
+
+███████╗██╗   ██╗ ██████╗ ██████╗██╗███╗   ██╗ ██████╗████████╗
+██╔════╝██║   ██║██╔════╝██╔════╝██║████╗  ██║██╔════╝╚══██╔══╝
+███████╗██║   ██║██║     ██║     ██║██╔██╗ ██║██║        ██║
+╚════██║██║   ██║██║     ██║     ██║██║╚██╗██║██║        ██║
+███████║╚██████╔╝╚██████╗╚██████╗██║██║ ╚████║╚██████╗   ██║
+╚══════╝ ╚═════╝  ╚═════╝ ╚═════╝╚═╝╚═╝  ╚═══╝ ╚═════╝   ╚═╝
+
+Welcome to the Succinct Prover Node CLI! You're about to start your proving journey.
+
+Fire up your machine and join a global network of provers where your compute helps prove the world's software.
+
+Learn more: https://docs.succinct.xyz
+
+
+Calibration Results:
+┌───────────────────┬──────────────────────────────┐
+│ Metric            │ Value                        │
+├───────────────────┼──────────────────────────────┤
+│ Prover Throughput │ 945856.7406582063 gas/second │
+├───────────────────┼──────────────────────────────┤
+│ Recommended Bid   │ 1 gas per USDC               │
+└───────────────────┴──────────────────────────────┘
+```
+
+## Step 4: Run the prover
+
+With your prover created, you're now ready to run the code in this repository.
+
+You'll first need to determine the following:
+
+- `RPC_URL` is the URL of the Succinct Prover Network RPC.
+- `THROUGHPUT` is the throughput of your prover, retrieved from the calibration step.
+- `BID_AMOUNT` is the amount of gas per USDC unit (where 1e6 USDC units = $1), retrieved from the calibration
+  step. A higher bid amount will increase your chance of winning auctions, but will also reduces the
+  amount you earn per gas proven.
+- `PRIVATE_KEY` corresponds to the wallet that you created the prover with. This can be retrieved by
+going into your wallet and clicking on the "Export Private Key" button, then copying the private key.
+
+Once you know all of these values, you can set them as environment variables:
+
+```sh
+export RPC_URL=https://rpc-production.succinct.xyz
+export THROUGHPUT=945855
+export BID_AMOUNT=1
+export PRIVATE_KEY=0x...
+```
+
+Then, you can run the following command to generate proofs:
+
+```sh
 cargo run -- prove --rpc-url $RPC_URL --throughput $THROUGHPUT --bid-amount $BID_AMOUNT --private-key $PRIVATE_KEY
 ```
 
 After some initial setup time, you should start to see your prover bidding in auctions. If the
 auction for a request is won, you will generate a proof for it.
 
-An example output looks like this:
+An example output:
 
 ```sh
 
