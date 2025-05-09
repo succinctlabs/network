@@ -18,7 +18,7 @@ Before installing the CLI, ensure the following prerequisites are met:
 
 To install the CLI, navigate to the `bin/cli` directory and run the following command:
 
-```
+```sh
 cd bin/cli
 cargo install --path .
 ```
@@ -27,7 +27,7 @@ cargo install --path .
 
 After installing, you can run the CLI using the following command template:
 
-```
+```sh
 spn prove \
     --rpc-url <rpcUrl> \
     --throughput <throughput> \
@@ -36,7 +36,8 @@ spn prove \
 ```
 
 Example Output:
-```
+
+```sh
 ███████╗██╗   ██╗ ██████╗ ██████╗██╗███╗   ██╗ ██████╗████████╗
 ██╔════╝██║   ██║██╔════╝██╔════╝██║████╗  ██║██╔════╝╚══██╔══╝
 ███████╗██║   ██║██║     ██║     ██║██╔██╗ ██║██║        ██║   
