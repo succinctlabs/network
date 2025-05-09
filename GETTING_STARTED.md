@@ -28,7 +28,9 @@ A staked prover will have some non-zero amount of $PROVE staked.
 
 ## Step 3: Calibrate your prover
 
-Determine your expected throughput and bid amount.
+Ensure you have cloned this repository to a GPU machine.
+
+Then you need to determine your expected throughput and bid amount:
 
 ```sh
 cd bin/cli
