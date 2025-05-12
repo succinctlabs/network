@@ -1,12 +1,8 @@
 [package]
-name = "spn-cli"
+name = "node"
 version = { workspace = true }
 edition = { workspace = true }
 publish = false
-
-[[bin]]
-name = "spn"
-path = "src/main.rs"
 
 [build-dependencies]
 sp1-build = { workspace = true }

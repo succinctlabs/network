@@ -107,12 +107,6 @@ async fn main() -> Result<()> {
             // Print with a title.
             println!("\nCalibration Results:");
             println!("{table}\n");
-
-            // Print suggestion for next steps.
-            println!("To start proving with these parameters, run:\n");
-            println!("  spn prove --privateKey <privateKey> \\");
-            println!("      --estimatedThroughput {} \\", metrics.throughput);
-            println!("      --bidAmount {}\n", metrics.bid_amount);
         }
         Args::Prove(args) => {
             spn_utils::init_logger(spn_utils::LogFormat::Pretty);

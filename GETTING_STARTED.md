@@ -4,6 +4,8 @@
 
 - [A GPU machine](https://docs.succinct.xyz/docs/sp1/generating-proofs/hardware-acceleration)
 - [A wallet with sepolia ETH](https://sepolia-faucet.pk910.de/)
+- You'll export the wallet private key to run your prover from the command line, so it's
+  recommended to have a wallet without many funds.
 
 ## Step 1: Create a prover
 
