@@ -50,6 +50,9 @@ RUN --mount=type=ssh \
 # Runtime stage
 FROM --platform=linux/amd64 nvidia/cuda:12.5.0-runtime-ubuntu22.04 AS runtime
 
+# Disable the default NVIDIA entrypoint to avoid argument parsing issues
+ENTRYPOINT []
+
 # Install necessary runtime dependencies and Docker
 RUN DEBIAN_FRONTEND=noninteractive apt-get update -y && \
     DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
