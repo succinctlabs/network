@@ -23,6 +23,12 @@ RUN wget -q https://golang.org/dl/go$GO_VERSION.linux-${TARGETARCH}.tar.gz && \
 	rm go$GO_VERSION.linux-${TARGETARCH}.tar.gz
 ENV PATH=$PATH:/usr/local/go/bin
 
+# Install sp1up and the SP1 toolchain
+ENV SP1_HOME="/root/.sp1"
+ENV PATH="${SP1_HOME}/bin:${PATH}"
+RUN curl -L https://sp1.succinct.xyz | bash && \
+    sp1up
+
 # Prepare for git dependencies
 ENV CARGO_NET_GIT_FETCH_WITH_CLI=true
 RUN mkdir -p -m 0700 ~/.ssh && ssh-keyscan github.com >> ~/.ssh/known_hosts
