@@ -451,6 +451,52 @@ async fn report_request_status<C: NodeContext>(
 #[derive(Debug, Clone)]
 pub struct SerialMonitor;
 
+/// Holds GPU metrics obtained from NVML.
+#[derive(Debug, Clone, Copy)]
+struct GpuMetrics {
+    gpu_usage: u32,
+    vram_used: u64,
+    vram_total: u64,
+}
+
+impl SerialMonitor {
+    /// Attempts to fetch GPU metrics using NVML.
+    /// Logs warnings and returns None if any step fails.
+    fn try_get_gpu_metrics() -> Option<GpuMetrics> {
+        const SERIAL_MONITOR_TAG: &str = "\x1b[35m[SerialMonitor]\x1b[0m";
+
+        match Nvml::init() {
+            Ok(nvml) => match nvml.device_by_index(0) {
+                Ok(device) => match device.utilization_rates() {
+                    Ok(utilization) => match device.memory_info() {
+                        Ok(memory) => Some(GpuMetrics {
+                            gpu_usage: utilization.gpu,
+                            vram_used: memory.used,
+                            vram_total: memory.total,
+                        }),
+                        Err(e) => {
+                            warn!("{SERIAL_MONITOR_TAG} Failed to get GPU memory info: {:?}.", e);
+                            None
+                        }
+                    },
+                    Err(e) => {
+                        warn!("{SERIAL_MONITOR_TAG} Failed to get GPU utilization rates: {:?}.", e);
+                        None
+                    }
+                },
+                Err(e) => {
+                    warn!("{SERIAL_MONITOR_TAG} Failed to get GPU device by index 0: {:?}.", e);
+                    None
+                }
+            },
+            Err(e) => {
+                warn!("{SERIAL_MONITOR_TAG} Failed to initialize NVML: {:?}. GPU metrics will be skipped.", e);
+                None
+            }
+        }
+    }
+}
+
 #[async_trait]
 impl NodeMonitor<SerialContext> for SerialMonitor {
     async fn record(&self, ctx: &SerialContext) -> Result<()> {
@@ -494,23 +540,29 @@ impl NodeMonitor<SerialContext> for SerialMonitor {
         let used_disk_space =
             system.disks().iter().map(sysinfo::DiskExt::available_space).sum::<u64>();
 
-        // Get device metrics.
-        let nvml = Nvml::init()?;
-        let device = nvml.device_by_index(0)?;
-        let utilization = device.utilization_rates()?;
-        let memory = device.memory_info()?;
-
-        // Log the system health metrics including GPU and VRAM usage.
+        // Log basic system health metrics.
         info!(
             cpu_usage = %cpu_usage,
-            gpu_usage = %utilization.gpu,
-            vram_used = %memory.used,
-            vram_total = %memory.total,
             ram_used = %used_memory,
             ram_total = %total_memory,
             disk_used_percent = %(used_disk_space as f64 / total_disk_space as f64) * 100.0,
-            "{SERIAL_MONITOR_TAG} Checking node health..."
+            "{SERIAL_MONITOR_TAG} Checking basic node health..."
         );
+
+        // Conditionally check and log GPU metrics.
+        if SerialProver::has_cuda_support() {
+            if let Some(gpu_metrics) = Self::try_get_gpu_metrics() {
+                info!(
+                    gpu_usage = %gpu_metrics.gpu_usage,
+                    vram_used = %gpu_metrics.vram_used,
+                    vram_total = %gpu_metrics.vram_total,
+                    "{SERIAL_MONITOR_TAG} Checking GPU health..."
+                );
+            }
+            // Warnings are logged inside try_get_gpu_metrics if it returns None
+        } else {
+            debug!("{SERIAL_MONITOR_TAG} CUDA support not detected, skipping GPU health check.");
+        }
 
         Ok(())
     }
