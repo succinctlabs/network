@@ -1,0 +1,218 @@
+name: Build and Push Images
+
+on:
+    push:
+        branches:
+            - '**'
+        paths:
+            - 'workflows/**'
+            - 'crates/**'
+            - 'bin/**'
+            - 'Cargo.toml'
+    merge_group:
+
+env:
+    ECR_REPOSITORY: public.ecr.aws/succinct-labs/prover
+
+jobs:
+    build-amd64:
+        runs-on:
+            [
+                'runs-on',
+                'runner=32cpu-linux-x64',
+                'run-id=${{ github.run_id }}',
+                'hdd=41',
+                'spot=false',
+                'tag=gpu',
+                'disk=large',
+            ]
+        steps:
+            - name: Add SHORT_SHA env property with commit short sha
+              run: echo "SHORT_SHA=`echo ${GITHUB_SHA} | cut -c1-7`" >> $GITHUB_ENV
+
+            # https://github.com/orgs/community/discussions/25678
+            - name: Delete huge unnecessary tools folder
+              run: |
+                  df -h
+                  sudo rm -rf /opt/hostedtoolcache
+                  sudo rm -rf /usr/share/dotnet
+                  sudo rm -rf /usr/local/share/boost
+                  sudo rm -rf "$AGENT_TOOLSDIRECTORY"
+                  df -h
+
+            - name: Checkout repo
+              uses: actions/checkout@v4
+              with:
+                  submodules: true
+
+            - name: Setup CI
+              uses: ./.github/actions/setup
+
+            - name: Configure AWS credentials
+              uses: 'aws-actions/configure-aws-credentials@v1'
+              with:
+                  aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+                  aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+                  aws-region: ${{ secrets.AWS_REGION }}
+
+            - name: Set up Docker
+              uses: docker/setup-buildx-action@v3
+              with:
+                  platforms: linux/amd64,linux/arm64
+
+            - name: Set up NVIDIA Container Toolkit
+              run: |
+                  distribution=$(. /etc/os-release;echo $ID$VERSION_ID)
+                  curl -s -L https://nvidia.github.io/nvidia-docker/gpgkey | sudo apt-key add -
+                  curl -s -L https://nvidia.github.io/nvidia-docker/$distribution/nvidia-docker.list | sudo tee /etc/apt/sources.list.d/nvidia-docker.list
+                  sudo apt-get update && sudo apt-get install -y nvidia-container-toolkit
+                  sudo systemctl restart docker
+
+            - name: Login to Amazon ECR Public
+              uses: aws-actions/amazon-ecr-login@v2
+              with:
+                  registry-type: public
+
+            - name: Build and Push AMD64 GPU image
+              uses: docker/build-push-action@v5
+              with:
+                  context: .
+                  file: ./Dockerfile.gpu
+                  platforms: linux/amd64
+                  push: true
+                  tags: ${{ env.ECR_REPOSITORY }}-gpu:${{ env.SHORT_SHA }}-amd64
+                  build-args: |
+                      PRIVATE_PULL_TOKEN=${{ secrets.PRIVATE_PULL_TOKEN }}
+                  cache-from: type=gha
+                  cache-to: type=gha,mode=max
+
+            - name: Build and Push AMD64 CPU image
+              uses: docker/build-push-action@v5
+              with:
+                  context: .
+                  file: ./Dockerfile.cpu
+                  platforms: linux/amd64
+                  push: true
+                  tags: ${{ env.ECR_REPOSITORY }}-cpu:${{ env.SHORT_SHA }}-amd64
+                  build-args: |
+                      PRIVATE_PULL_TOKEN=${{ secrets.PRIVATE_PULL_TOKEN }}
+                  cache-from: type=gha
+                  cache-to: type=gha,mode=max
+
+    build-arm64:
+        runs-on:
+            [
+                'runs-on',
+                'runner=32cpu-linux-arm64',
+                'run-id=${{ github.run_id }}',
+                'hdd=41',
+                'spot=false',
+                'tag=gpu',
+                'disk=large',
+            ]
+        steps:
+            - name: Add SHORT_SHA env property with commit short sha
+              run: echo "SHORT_SHA=`echo ${GITHUB_SHA} | cut -c1-7`" >> $GITHUB_ENV
+
+            - name: Delete huge unnecessary tools folder
+              run: |
+                  df -h
+                  sudo rm -rf /opt/hostedtoolcache
+                  sudo rm -rf /usr/share/dotnet
+                  sudo rm -rf /usr/local/share/boost
+                  sudo rm -rf "$AGENT_TOOLSDIRECTORY"
+                  df -h
+
+            - name: Checkout repo
+              uses: actions/checkout@v4
+              with:
+                  submodules: true
+
+            - name: Setup CI
+              uses: ./.github/actions/setup
+
+            - name: Configure AWS credentials
+              uses: 'aws-actions/configure-aws-credentials@v1'
+              with:
+                  aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+                  aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+                  aws-region: ${{ secrets.AWS_REGION }}
+
+            - name: Set up Docker
+              uses: docker/setup-buildx-action@v3
+
+            - name: Set up NVIDIA Container Toolkit
+              run: |
+                  distribution=$(. /etc/os-release;echo $ID$VERSION_ID)
+                  curl -s -L https://nvidia.github.io/nvidia-docker/gpgkey | sudo apt-key add -
+                  curl -s -L https://nvidia.github.io/nvidia-docker/$distribution/nvidia-docker.list | sudo tee /etc/apt/sources.list.d/nvidia-docker.list
+                  sudo apt-get update && sudo apt-get install -y nvidia-container-toolkit
+                  sudo systemctl restart docker
+
+            - name: Login to Amazon ECR Public
+              uses: aws-actions/amazon-ecr-login@v2
+              with:
+                  registry-type: public
+
+            - name: Build and Push ARM64 GPU image
+              uses: docker/build-push-action@v5
+              with:
+                  context: .
+                  file: ./Dockerfile.gpu
+                  platforms: linux/arm64
+                  push: true
+                  tags: ${{ env.ECR_REPOSITORY }}-gpu:${{ env.SHORT_SHA }}-arm64
+                  build-args: |
+                      PRIVATE_PULL_TOKEN=${{ secrets.PRIVATE_PULL_TOKEN }}
+                  cache-from: type=gha
+                  cache-to: type=gha,mode=max
+
+            - name: Build and Push ARM64 CPU image
+              uses: docker/build-push-action@v5
+              with:
+                  context: .
+                  file: ./Dockerfile.cpu
+                  platforms: linux/arm64
+                  push: true
+                  tags: ${{ env.ECR_REPOSITORY }}-cpu:${{ env.SHORT_SHA }}-arm64
+                  build-args: |
+                      PRIVATE_PULL_TOKEN=${{ secrets.PRIVATE_PULL_TOKEN }}
+                  cache-from: type=gha
+                  cache-to: type=gha,mode=max
+
+    create-manifest:
+        needs: [build-amd64, build-arm64]
+        runs-on: ubuntu-latest
+        steps:
+            - name: Add SHORT_SHA env property with commit short sha
+              run: echo "SHORT_SHA=`echo ${GITHUB_SHA} | cut -c1-7`" >> $GITHUB_ENV
+
+            - name: Configure AWS credentials
+              uses: 'aws-actions/configure-aws-credentials@v1'
+              with:
+                  aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+                  aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+                  aws-region: ${{ secrets.AWS_REGION }}
+
+            - name: Login to Amazon ECR Public
+              uses: aws-actions/amazon-ecr-login@v2
+              with:
+                  registry-type: public
+
+            - name: Create and push GPU manifest
+              run: |
+                  docker buildx imagetools create -t ${{ env.ECR_REPOSITORY }}-gpu:${{ env.SHORT_SHA }} \
+                    ${{ env.ECR_REPOSITORY }}-gpu:${{ env.SHORT_SHA }}-amd64 \
+                    ${{ env.ECR_REPOSITORY }}-gpu:${{ env.SHORT_SHA }}-arm64
+                  docker buildx imagetools create -t ${{ env.ECR_REPOSITORY }}-gpu:latest \
+                    ${{ env.ECR_REPOSITORY }}-gpu:${{ env.SHORT_SHA }}-amd64 \
+                    ${{ env.ECR_REPOSITORY }}-gpu:${{ env.SHORT_SHA }}-arm64
+
+            - name: Create and push CPU manifest
+              run: |
+                  docker buildx imagetools create -t ${{ env.ECR_REPOSITORY }}-cpu:${{ env.SHORT_SHA }} \
+                    ${{ env.ECR_REPOSITORY }}-cpu:${{ env.SHORT_SHA }}-amd64 \
+                    ${{ env.ECR_REPOSITORY }}-cpu:${{ env.SHORT_SHA }}-arm64
+                  docker buildx imagetools create -t ${{ env.ECR_REPOSITORY }}-cpu:latest \
+                    ${{ env.ECR_REPOSITORY }}-cpu:${{ env.SHORT_SHA }}-amd64 \
+                    ${{ env.ECR_REPOSITORY }}-cpu:${{ env.SHORT_SHA }}-arm64
