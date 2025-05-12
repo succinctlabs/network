@@ -3,6 +3,8 @@ use std::{
     panic::{self, AssertUnwindSafe},
     sync::{atomic, Arc},
     time::{Duration, Instant, SystemTime},
+    process::Command,
+    env,
 };
 
 use alloy_primitives::U256;
@@ -23,7 +25,7 @@ use spn_utils::time_now;
 use sysinfo::{CpuExt, System, SystemExt};
 use tokio::sync::Mutex;
 use tonic::{async_trait, transport::Channel};
-use tracing::{error, info, warn};
+use tracing::{error, info, warn, debug};
 
 use crate::{NodeBidder, NodeContext, NodeMetrics, NodeMonitor, NodeProver, SP1_NETWORK_VERSION};
 
@@ -267,10 +269,45 @@ impl SerialProver {
     /// Create a new [`SerialProver`].
     #[must_use]
     pub fn new() -> Self {
+        // Set the SP1_PROVER environment variable based on CUDA support.
+        if Self::has_cuda_support() {
+            info!("CUDA support detected, using GPU prover");
+            env::set_var("SP1_PROVER", "cuda");
+        } else {
+            info!("no CUDA support detected, using CPU prover");
+            env::set_var("SP1_PROVER", "cpu");
+        };
+
+
         Self {
-            prover: Arc::new(ProverClient::from_env()),
+            prover: Arc::new(EnvProver::new()),
             unexecutable_requests: Arc::new(Mutex::new(HashSet::new())),
         }
+    }
+
+    /// Check if CUDA is available by testing if nvidia-smi is installed and CUDA GPUs are present.
+    fn has_cuda_support() -> bool {
+        // Common paths where nvidia-smi might be installed.
+        let nvidia_smi_paths = ["nvidia-smi", "/usr/bin/nvidia-smi", "/usr/local/bin/nvidia-smi"];
+
+        for path in nvidia_smi_paths {
+            match Command::new(path).output() {
+                Ok(output) => {
+                    if output.status.success() {
+                        debug!("found working nvidia-smi at: {}", path);
+                        return true;
+                    } else {
+                        debug!("nvidia-smi at {} exists but returned error status", path);
+                    }
+                }
+                Err(e) => {
+                    debug!("failed to execute nvidia-smi at {}: {}", path, e);
+                }
+            }
+        }
+
+        debug!("no working nvidia-smi found in any standard location");
+        false
     }
 
     /// Checks the network for unexecutable requests and maintains a registry.
