@@ -1,10 +1,10 @@
 use std::{
     collections::HashSet,
+    env,
     panic::{self, AssertUnwindSafe},
+    process::Command,
     sync::{atomic, Arc},
     time::{Duration, Instant, SystemTime},
-    process::Command,
-    env,
 };
 
 use alloy_primitives::U256;
@@ -25,7 +25,7 @@ use spn_utils::time_now;
 use sysinfo::{CpuExt, System, SystemExt};
 use tokio::sync::Mutex;
 use tonic::{async_trait, transport::Channel};
-use tracing::{error, info, warn, debug};
+use tracing::{debug, error, info, warn};
 
 use crate::{NodeBidder, NodeContext, NodeMetrics, NodeMonitor, NodeProver, SP1_NETWORK_VERSION};
 
@@ -277,7 +277,6 @@ impl SerialProver {
             info!("no CUDA support detected, using CPU prover");
             env::set_var("SP1_PROVER", "cpu");
         };
-
 
         Self {
             prover: Arc::new(EnvProver::new()),
