@@ -12,7 +12,7 @@ use alloy_signer_local::PrivateKeySigner;
 use anyhow::{Context, Result};
 use chrono::{self, DateTime};
 use nvml_wrapper::Nvml;
-use sp1_sdk::{EnvProver, ProverClient, SP1ProofMode, SP1Stdin};
+use sp1_sdk::{EnvProver, SP1ProofMode, SP1Stdin};
 use spn_artifacts::{parse_artifact_id_from_url, Artifact};
 use spn_network_types::{
     prover_network_client::ProverNetworkClient, BidRequest, BidRequestBody, ExecutionStatus,
