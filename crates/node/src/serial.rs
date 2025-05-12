@@ -3,6 +3,7 @@ use std::{
     panic::{self, AssertUnwindSafe},
     sync::{atomic, Arc},
     time::{Duration, Instant, SystemTime},
+    process::Command,
 };
 
 use alloy_primitives::U256;
@@ -10,7 +11,8 @@ use alloy_signer_local::PrivateKeySigner;
 use anyhow::{Context, Result};
 use chrono::{self, DateTime};
 use nvml_wrapper::Nvml;
-use sp1_sdk::{EnvProver, ProverClient, SP1ProofMode, SP1Stdin};
+use sp1_sdk::{EnvProver, ProverClient, SP1ProofMode, SP1Stdin, Prover as SP1Prover};
+use sp1_prover::components::CpuProverComponents;
 use spn_artifacts::{parse_artifact_id_from_url, Artifact};
 use spn_network_types::{
     prover_network_client::ProverNetworkClient, BidRequest, BidRequestBody, ExecutionStatus,
@@ -23,7 +25,7 @@ use spn_utils::time_now;
 use sysinfo::{CpuExt, System, SystemExt};
 use tokio::sync::Mutex;
 use tonic::{async_trait, transport::Channel};
-use tracing::{error, info, warn};
+use tracing::{error, info, warn, debug};
 
 use crate::{NodeBidder, NodeContext, NodeMetrics, NodeMonitor, NodeProver, SP1_NETWORK_VERSION};
 
@@ -249,10 +251,11 @@ impl<C: NodeContext> NodeBidder<C> for SerialBidder {
 
 /// A serial prover.
 ///
-/// This prover will generate proofs for requests sequentially using an [`EnvProver`].
+/// This prover will generate proofs for requests sequentially using an SP1 [`Prover`].
 pub struct SerialProver {
-    /// The underlying prover for the node that will be used to generate proofs.
-    prover: Arc<EnvProver>,
+    /// The underlying prover for the node that will be used to generate proofs. In cases where you
+    /// only need to support GPU or CPU proving, it's recommended to use [`EnvProver`] instead.
+    prover: Arc<Box<dyn SP1Prover<CpuProverComponents>>>,
     /// Registry of unexecutable request IDs that should be cancelled.
     unexecutable_requests: Arc<Mutex<HashSet<Vec<u8>>>>,
 }
@@ -267,10 +270,43 @@ impl SerialProver {
     /// Create a new [`SerialProver`].
     #[must_use]
     pub fn new() -> Self {
+        let prover: Box<dyn SP1Prover<CpuProverComponents>> = if Self::has_cuda_support() {
+            info!("CUDA support detected, using GPU prover");
+            Box::new(ProverClient::builder().cuda().build())
+        } else {
+            info!("no CUDA support detected, using CPU prover");
+            Box::new(ProverClient::builder().cpu().build())
+        };
+
         Self {
-            prover: Arc::new(ProverClient::from_env()),
+            prover: Arc::new(prover),
             unexecutable_requests: Arc::new(Mutex::new(HashSet::new())),
         }
+    }
+
+    /// Check if CUDA is available by testing if nvidia-smi is installed and CUDA GPUs are present.
+    fn has_cuda_support() -> bool {
+        // Common paths where nvidia-smi might be installed.
+        let nvidia_smi_paths = ["nvidia-smi", "/usr/bin/nvidia-smi", "/usr/local/bin/nvidia-smi"];
+
+        for path in nvidia_smi_paths {
+            match Command::new(path).output() {
+                Ok(output) => {
+                    if output.status.success() {
+                        debug!("found working nvidia-smi at: {}", path);
+                        return true;
+                    } else {
+                        debug!("nvidia-smi at {} exists but returned error status", path);
+                    }
+                }
+                Err(e) => {
+                    debug!("failed to execute nvidia-smi at {}: {}", path, e);
+                }
+            }
+        }
+
+        debug!("no working nvidia-smi found in any standard location");
+        false
     }
 
     /// Checks the network for unexecutable requests and maintains a registry.
@@ -606,13 +642,13 @@ impl<C: NodeContext> NodeProver<C> for SerialProver {
 
                     let start = Instant::now();
                     info!("{SERIAL_PROVER_TAG} Executing program...");
-                    let (_, report) = prover.execute(&pk.elf, &stdin).run().unwrap();
+                    let (_, report) = prover.execute(&pk.elf, &stdin).unwrap();
                     let cycles = report.total_instruction_count();
                     info!(duration = %start.elapsed().as_secs_f64(), cycles = %cycles, "{SERIAL_PROVER_TAG} Executed program.");
 
                     let start = Instant::now();
                     info!("{SERIAL_PROVER_TAG} Generating proof...");
-                    let proof = prover.prove(&pk, &stdin).mode(mode).run();
+                    let proof = prover.prove(&pk, &stdin, mode);
                     let proving_time = start.elapsed();
                     info!(duration = %proving_time.as_secs_f64(), cycles = %cycles, "{SERIAL_PROVER_TAG} Proof generation complete.");
                     (proof, cycles, proving_time)
