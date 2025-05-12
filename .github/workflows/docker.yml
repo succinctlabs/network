@@ -73,7 +73,7 @@ jobs:
               with:
                   registry-type: public
 
-            - name: Build and Push AMD64 GPU image
+            - name: Build and Push AMD64 GPU Image
               uses: docker/build-push-action@v5
               with:
                   context: .
@@ -81,12 +81,10 @@ jobs:
                   platforms: linux/amd64
                   push: true
                   tags: ${{ env.ECR_REPOSITORY }}-gpu:${{ env.SHORT_SHA }}-amd64
-                  build-args: |
-                      PRIVATE_PULL_TOKEN=${{ secrets.PRIVATE_PULL_TOKEN }}
                   cache-from: type=gha
                   cache-to: type=gha,mode=max
 
-            - name: Build and Push AMD64 CPU image
+            - name: Build and Push AMD64 CPU Image
               uses: docker/build-push-action@v5
               with:
                   context: .
@@ -94,8 +92,6 @@ jobs:
                   platforms: linux/amd64
                   push: true
                   tags: ${{ env.ECR_REPOSITORY }}-cpu:${{ env.SHORT_SHA }}-amd64
-                  build-args: |
-                      PRIVATE_PULL_TOKEN=${{ secrets.PRIVATE_PULL_TOKEN }}
                   cache-from: type=gha
                   cache-to: type=gha,mode=max
 
@@ -154,7 +150,7 @@ jobs:
               with:
                   registry-type: public
 
-            - name: Build and Push ARM64 GPU image
+            - name: Build and Push ARM64 GPU Image
               uses: docker/build-push-action@v5
               with:
                   context: .
@@ -162,12 +158,10 @@ jobs:
                   platforms: linux/arm64
                   push: true
                   tags: ${{ env.ECR_REPOSITORY }}-gpu:${{ env.SHORT_SHA }}-arm64
-                  build-args: |
-                      PRIVATE_PULL_TOKEN=${{ secrets.PRIVATE_PULL_TOKEN }}
                   cache-from: type=gha
                   cache-to: type=gha,mode=max
 
-            - name: Build and Push ARM64 CPU image
+            - name: Build and Push ARM64 CPU Image
               uses: docker/build-push-action@v5
               with:
                   context: .
@@ -175,8 +169,6 @@ jobs:
                   platforms: linux/arm64
                   push: true
                   tags: ${{ env.ECR_REPOSITORY }}-cpu:${{ env.SHORT_SHA }}-arm64
-                  build-args: |
-                      PRIVATE_PULL_TOKEN=${{ secrets.PRIVATE_PULL_TOKEN }}
                   cache-from: type=gha
                   cache-to: type=gha,mode=max
 
