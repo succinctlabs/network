@@ -2,7 +2,6 @@ use std::{
     collections::HashSet,
     env,
     panic::{self, AssertUnwindSafe},
-    process::Command,
     sync::{atomic, Arc},
     time::{Duration, Instant, SystemTime},
 };
@@ -25,7 +24,7 @@ use spn_utils::time_now;
 use sysinfo::{CpuExt, System, SystemExt};
 use tokio::sync::Mutex;
 use tonic::{async_trait, transport::Channel};
-use tracing::{debug, error, info, warn};
+use tracing::{error, info, warn};
 
 use crate::{NodeBidder, NodeContext, NodeMetrics, NodeMonitor, NodeProver, SP1_NETWORK_VERSION};
 
@@ -270,7 +269,7 @@ impl SerialProver {
     #[must_use]
     pub fn new() -> Self {
         // Set the SP1_PROVER environment variable based on CUDA support.
-        if Self::has_cuda_support() {
+        if spn_utils::has_cuda_support() {
             info!("CUDA support detected, using GPU prover");
             env::set_var("SP1_PROVER", "cuda");
         } else {
@@ -282,31 +281,6 @@ impl SerialProver {
             prover: Arc::new(EnvProver::new()),
             unexecutable_requests: Arc::new(Mutex::new(HashSet::new())),
         }
-    }
-
-    /// Check if CUDA is available by testing if nvidia-smi is installed and CUDA GPUs are present.
-    fn has_cuda_support() -> bool {
-        // Common paths where nvidia-smi might be installed.
-        let nvidia_smi_paths = ["nvidia-smi", "/usr/bin/nvidia-smi", "/usr/local/bin/nvidia-smi"];
-
-        for path in nvidia_smi_paths {
-            match Command::new(path).output() {
-                Ok(output) => {
-                    if output.status.success() {
-                        debug!("found working nvidia-smi at: {}", path);
-                        return true;
-                    } else {
-                        debug!("nvidia-smi at {} exists but returned error status", path);
-                    }
-                }
-                Err(e) => {
-                    debug!("failed to execute nvidia-smi at {}: {}", path, e);
-                }
-            }
-        }
-
-        debug!("no working nvidia-smi found in any standard location");
-        false
     }
 
     /// Checks the network for unexecutable requests and maintains a registry.
@@ -421,35 +395,11 @@ async fn fail_request<C: NodeContext>(ctx: &C, request_id: Vec<u8>) -> Result<()
     Ok(())
 }
 
-/// Helper function to report a request status to the network and log the result.
-/// This handles both success and failure of the reporting itself.
-async fn report_request_status<C: NodeContext>(
-    ctx: &C,
-    request_id: Vec<u8>,
-    display_request_id: &[u8],
-    status_type: &str,
-) {
-    const SERIAL_PROVER_TAG: &str = "\x1b[33m[SerialProver]\x1b[0m";
-
-    if let Err(fail_err) = fail_request(ctx, request_id).await {
-        error!(
-            request_id = %hex::encode(display_request_id),
-            "{SERIAL_PROVER_TAG} Failed to notify network about {} status: {:?}",
-            status_type,
-            fail_err
-        );
-    } else {
-        info!(
-            request_id = %hex::encode(display_request_id),
-            "{SERIAL_PROVER_TAG} Successfully reported {} status to network",
-            status_type
-        );
-    }
-}
-
 /// The metrics for a serial node.
 #[derive(Debug, Clone)]
-pub struct SerialMonitor;
+pub struct SerialMonitor {
+    pub has_cuda_support: bool,
+}
 
 /// Holds GPU metrics obtained from NVML.
 #[derive(Debug, Clone, Copy)]
@@ -459,7 +409,20 @@ struct GpuMetrics {
     vram_total: u64,
 }
 
+impl Default for SerialMonitor {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl SerialMonitor {
+    #[must_use]
+    pub fn new() -> Self {
+        Self {
+            has_cuda_support: spn_utils::has_cuda_support(),
+        }
+    }
+
     /// Attempts to fetch GPU metrics using NVML.
     /// Logs warnings and returns None if any step fails.
     fn try_get_gpu_metrics() -> Option<GpuMetrics> {
@@ -475,22 +438,18 @@ impl SerialMonitor {
                             vram_total: memory.total,
                         }),
                         Err(e) => {
-                            warn!("{SERIAL_MONITOR_TAG} Failed to get GPU memory info: {:?}.", e);
                             None
                         }
                     },
                     Err(e) => {
-                        warn!("{SERIAL_MONITOR_TAG} Failed to get GPU utilization rates: {:?}.", e);
                         None
                     }
                 },
                 Err(e) => {
-                    warn!("{SERIAL_MONITOR_TAG} Failed to get GPU device by index 0: {:?}.", e);
                     None
                 }
             },
             Err(e) => {
-                warn!("{SERIAL_MONITOR_TAG} Failed to initialize NVML: {:?}. GPU metrics will be skipped.", e);
                 None
             }
         }
@@ -550,7 +509,7 @@ impl NodeMonitor<SerialContext> for SerialMonitor {
         );
 
         // Conditionally check and log GPU metrics.
-        if SerialProver::has_cuda_support() {
+        if self.has_cuda_support {
             if let Some(gpu_metrics) = Self::try_get_gpu_metrics() {
                 info!(
                     gpu_usage = %gpu_metrics.gpu_usage,
@@ -559,9 +518,6 @@ impl NodeMonitor<SerialContext> for SerialMonitor {
                     "{SERIAL_MONITOR_TAG} Checking GPU health..."
                 );
             }
-            // Warnings are logged inside try_get_gpu_metrics if it returns None
-        } else {
-            debug!("{SERIAL_MONITOR_TAG} CUDA support not detected, skipping GPU health check.");
         }
 
         Ok(())
@@ -681,9 +637,6 @@ impl<C: NodeContext> NodeProver<C> for SerialProver {
             };
 
             // Store the join handle and extract its abort handle.
-            // TODO: Unfortunately, aborting this will not forcibly kill the thread. In SP1 V6,
-            // prove() and possibly execute() will be async so they will actually cancel when an
-            // abort occurs.
             let proving_handle = tokio::task::spawn_blocking(move || {
                 panic::catch_unwind(AssertUnwindSafe(move || {
                     let start = Instant::now();
@@ -867,5 +820,31 @@ impl<C: NodeContext> NodeProver<C> for SerialProver {
         }
 
         Ok(())
+    }
+}
+
+/// Helper function to report a request status to the network and log the result.
+/// This handles both success and failure of the reporting itself.
+async fn report_request_status<C: NodeContext>(
+    ctx: &C,
+    request_id: Vec<u8>,
+    display_request_id: &[u8],
+    status_type: &str,
+) {
+    const SERIAL_PROVER_TAG: &str = "\x1b[33m[SerialProver]\x1b[0m";
+
+    if let Err(fail_err) = fail_request(ctx, request_id).await {
+        error!(
+            request_id = %hex::encode(display_request_id),
+            "{SERIAL_PROVER_TAG} Failed to notify network about {} status: {:?}",
+            status_type,
+            fail_err
+        );
+    } else {
+        info!(
+            request_id = %hex::encode(display_request_id),
+            "{SERIAL_PROVER_TAG} Successfully reported {} status to network",
+            status_type
+        );
     }
 }
