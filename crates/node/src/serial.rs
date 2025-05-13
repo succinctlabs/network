@@ -418,41 +418,22 @@ impl Default for SerialMonitor {
 impl SerialMonitor {
     #[must_use]
     pub fn new() -> Self {
-        Self {
-            has_cuda_support: spn_utils::has_cuda_support(),
-        }
+        Self { has_cuda_support: spn_utils::has_cuda_support() }
     }
 
     /// Attempts to fetch GPU metrics using NVML.
-    /// Logs warnings and returns None if any step fails.
     fn try_get_gpu_metrics() -> Option<GpuMetrics> {
-        const SERIAL_MONITOR_TAG: &str = "\x1b[35m[SerialMonitor]\x1b[0m";
-
-        match Nvml::init() {
-            Ok(nvml) => match nvml.device_by_index(0) {
-                Ok(device) => match device.utilization_rates() {
-                    Ok(utilization) => match device.memory_info() {
-                        Ok(memory) => Some(GpuMetrics {
-                            gpu_usage: utilization.gpu,
-                            vram_used: memory.used,
-                            vram_total: memory.total,
-                        }),
-                        Err(e) => {
-                            None
-                        }
-                    },
-                    Err(e) => {
-                        None
-                    }
-                },
-                Err(e) => {
-                    None
-                }
-            },
-            Err(e) => {
-                None
-            }
-        }
+        Nvml::init().ok().and_then(|nvml| {
+            nvml.device_by_index(0).ok().and_then(|device| {
+                device.utilization_rates().ok().and_then(|utilization| {
+                    device.memory_info().ok().map(|memory| GpuMetrics {
+                        gpu_usage: utilization.gpu,
+                        vram_used: memory.used,
+                        vram_total: memory.total,
+                    })
+                })
+            })
+        })
     }
 }
 
