@@ -128,7 +128,7 @@ async fn main() -> Result<()> {
             let prover = SerialProver::new();
 
             // Setup the monitor.
-            let monitor = SerialMonitor;
+            let monitor = SerialMonitor::new();
 
             // Setup the node.
             info!(

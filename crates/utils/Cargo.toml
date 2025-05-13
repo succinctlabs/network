@@ -12,3 +12,4 @@ categories = { workspace = true }
 anyhow = { workspace = true }
 serde = { workspace = true }
 tracing-subscriber = { workspace = true }
+tracing = { workspace = true }
