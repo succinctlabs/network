@@ -1,6 +1,6 @@
-# Succinct Protocol Contracts
+# Succinct Prover Network Contracts
 
-This repository contains the smart contracts for the Succinct Prover Network.
+This folder contains the smart contracts for the Succinct Prover Network.
 
 ## Design
 
