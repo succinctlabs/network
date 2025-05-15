@@ -1,0 +1,220 @@
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.28;
+
+import {IProverRegistry} from "./IProverRegistry.sol";
+
+interface ISuccinctStaking is IProverRegistry {
+    /// @dev Represents a claim for unstaking some amount of $PROVE.
+    struct UnstakeClaim {
+        uint256 stPROVE;
+        uint256 timestamp;
+    }
+
+    /// @dev Represents a claim to slash a prover.
+    struct SlashClaim {
+        uint256 iPROVE;
+        uint256 timestamp;
+    }
+
+    /// @dev Emitted when a staker stakes into a prover.
+    event Stake(
+        address indexed staker,
+        address indexed prover,
+        uint256 PROVE,
+        uint256 iPROVE,
+        uint256 stPROVE
+    );
+
+    /// @dev Emitted when a staker requests to unstake $PROVE from a prover.
+    event UnstakeRequest(address indexed staker, address indexed prover, uint256 stPROVE);
+
+    /// @dev Emitted when a staker unstakes from a prover.
+    event Unstake(
+        address indexed staker,
+        address indexed prover,
+        uint256 PROVE,
+        uint256 iPROVE,
+        uint256 stPROVE
+    );
+
+    /// @dev Emitted when a $PROVE reward is distributed to a prover.
+    event Reward(address indexed prover, uint256 PROVE);
+
+    /// @dev Emitted when a prover is requested to be slashed.
+    event SlashRequest(address indexed prover, uint256 iPROVE, uint256 index);
+
+    /// @dev Emitted when a prover slash request is canceled.
+    event SlashCancel(address indexed prover, uint256 iPROVE, uint256 index);
+
+    /// @dev Emitted when a prover slash request is executed.
+    event Slash(address indexed prover, uint256 PROVE, uint256 iPROVE, uint256 index);
+
+    /// @dev Emitted when stakers are dispensed $PROVE.
+    event Dispense(uint256 PROVE);
+
+    /// @dev Thrown if the staker has insufficient balance to unstake, or if attempting to slash
+    ///      more than the prover has.
+    error InsufficientStakeBalance();
+
+    /// @dev Thrown if the staker tries to unstake while not staked with the prover.
+    error NotStaked();
+
+    /// @dev Thrown if the staker tries to claim an unstake while there is no unstake claims.
+    error NoUnstakeToClaim();
+
+    /// @dev Thrown if the staker tries to stake or unstake a zero amount.
+    error ZeroAmount();
+
+    /// @dev Thrown if the staker tries to stake less than the minimum stake amount.
+    error StakeBelowMinimum();
+
+    /// @dev Thrown if the staker tries to deposit while already staked with a different prover.
+    error AlreadyStakedWithDifferentProver(address existingProver);
+
+    /// @dev Thrown if the staker tries to unstake while there is a slash request for their prover.
+    error ProverHasSlashRequest();
+
+    /// @dev Thrown if the slash request is not ready to be completed.
+    error SlashNotReady();
+
+    /// @dev Thrown if the specified dispense amount exceeds the maximum dispense amount.
+    error AmountExceedsAvailableDispense();
+
+    /// @dev Emitted when the dispense rate is updated.
+    event DispenseRateUpdated(uint256 oldRate, uint256 newRate);
+
+    /// @notice Returns the address of the VApp.
+    /// @dev The VApp is responsible for triggering rewards and slashing.
+    function vapp() external view returns (address);
+
+    /// @notice Returns the minimum amount of $PROVE that needs to be staked.
+    function minStakeAmount() external view returns (uint256);
+
+    /// @notice Returns the minimum amount of time needed between requestUnstake() and finishUnstake().
+    function unstakePeriod() external view returns (uint256);
+
+    /// @notice Returns the minimum amount of time needed between requestSlash() and finishSlash().
+    function slashPeriod() external view returns (uint256);
+
+    /// @notice Returns the prover that a staker is staked with.
+    /// @dev A staker can only be staked with one prover at a time. To switch provers, they must
+    ///      fully unstake from their current prover first.
+    /// @param staker The address of the staker
+    /// @return The address of the prover
+    function stakedTo(address staker) external view returns (address);
+
+    /// @notice Returns the amount of $PROVE that a staker has staked to their prover.
+    /// @param staker The address of the staker
+    /// @return The amount of $PROVE
+    function staked(address staker) external view returns (uint256);
+
+    /// @notice Returns the amount of $PROVE that a prover has staked to them.
+    /// @param prover The address of the prover
+    /// @return The amount of $PROVE
+    function proverStaked(address prover) external view returns (uint256);
+
+    /// @notice Returns the unstake requests for a staker.
+    /// @param staker The address of the staker
+    /// @return The unstake requests
+    function unstakeRequests(address staker) external view returns (UnstakeClaim[] memory);
+
+    /// @notice Returns the slash requests for a prover.
+    /// @param prover The address of the prover
+    /// @return The slash requests
+    function slashRequests(address prover) external view returns (SlashClaim[] memory);
+
+    /// @notice Returns the amount of $PROVE that a staker would recieve with their pending unstake request.
+    /// @param staker The address of the staker
+    /// @return The amount of $PROVE
+    function unstakePending(address staker) external view returns (uint256);
+
+    /// @notice Returns the amount of $PROVE that a staker would recieve if they unstaked from a prover.
+    /// @param prover The address of the prover
+    /// @param amount The amount of $stPROVE to unstake
+    /// @return The amount of $PROVE
+    function previewRedeem(address prover, uint256 amount) external view returns (uint256);
+
+    /// @notice Returns the maximum amount of $PROVE that can be dispensed currently.
+    /// @return The maximum amount of $PROVE
+    function maxDispense() external view returns (uint256);
+
+    /// @notice Stake $PROVE to a prover. Must have approved $PROVE with this contract as the spender.
+    /// @dev Deposits $PROVE into the iPROVE to mint $iPROVE, then deposits $iPROVE into the chosen
+    ///      prover to mint $PROVER-N/$stPROVE.
+    /// @param prover The address of the prover to delegate $iPROVE to.
+    /// @param PROVE The amount of $PROVE to deposit.
+    /// @return The amount of $stPROVE received.
+    function stake(address prover, uint256 PROVE) external returns (uint256);
+
+    /// @notice Stake $PROVE to a prover.
+    /// @dev Deposits $PROVE to mint $iPROVE, then deposits $iPROVE into the chosen
+    ///      prover to mint $PROVER-N/$stPROVE.
+    /// @param prover The address of the prover to delegate $iPROVE to.
+    /// @param staker The address if the staker. Must correspond to the signer of the permit
+    ///        signature.
+    /// @param PROVE The amount of $PROVE to spend for the deposit.
+    /// @param deadline The deadline for the permit signature.
+    /// @param v The v component of the permit signature.
+    /// @param r The r component of the permit signature.
+    /// @param s The s component of the permit signature.
+    /// @return The amount of $stPROVE received.
+    function permitAndStake(
+        address prover,
+        address staker,
+        uint256 PROVE,
+        uint256 deadline,
+        uint8 v,
+        bytes32 r,
+        bytes32 s
+    ) external returns (uint256);
+
+    /// @notice Creates a request to unstake $stPROVE from the prover for the specified amount.
+    /// @dev The staker must have enough $stPROVE that is not already in the unclaim queue.
+    /// @param stPROVE The amount of $stPROVE to unstake.
+    function requestUnstake(uint256 stPROVE) external;
+
+    /// @notice Finishes the unstaking process. Must have first called requestUnstake() and waited
+    ///         for the unstake period to pass.
+    /// @dev For each claim, the staker withdraws $stPROVE/$PROVER to receive $iPROVE, then
+    ///      withdraws $iPROVE to receive $PROVE. This also claims any rewards earned, equivalent to
+    ///      calling `claimReward()`.
+    /// @return The amount of $PROVE received.
+    function finishUnstake() external returns (uint256);
+
+    /// @notice Rewards a prover, increasing the value of $PROVER for all stakers of that prover. Only
+    ///         callable by the VApp.
+    /// @dev The caller must have approved the prover to transfer $USDC.
+    /// @param prover The address of the prover to reward.
+    /// @param USDC The amount of $USDC to reward.
+    function reward(address prover, uint256 USDC) external;
+
+    /// @notice Creates a request to slash a prover for the specified amount. Only callable by the
+    ///         VApp.
+    /// @param prover The address of the prover to slash.
+    /// @param iPROVE The amount of $iPROVE to slash.
+    /// @return The index of the slash request.
+    function requestSlash(address prover, uint256 iPROVE) external returns (uint256);
+
+    /// @notice Cancels a slash request. Only callable by the owner.
+    /// @param prover The address of the prover to slash.
+    /// @param index The index of the slash request to cancel.
+    function cancelSlash(address prover, uint256 index) external;
+
+    /// @notice Finishes the slashing process. Must have first called requestSlash() and waited
+    ///         for the slash period to pass. Decreases the value of $stPROVE for all stakers of that
+    ///         prover. Only callable by the owner.
+    /// @param prover The address of the prover to slash.
+    /// @param index The index of the slash request to finish.
+    /// @return The amount of $iPROVE slashed.
+    function finishSlash(address prover, uint256 index) external returns (uint256);
+
+    /// @notice Rewards all $iPROVE holders with $PROVE. Only callable by the the owner.
+    /// @dev The amount MUST be less than or equal to maxDispense(), and the amount MUST be less than
+    ///      or equal to the amount of $PROVE balance of this contract.
+    /// @param PROVE The amount of $PROVE to dispense.
+    function dispense(uint256 PROVE) external;
+
+    /// @notice Updates the dispense rate. Only callable by the owner.
+    /// @param newRate The new dispense rate.
+    function setDispenseRate(uint256 newRate) external;
+}

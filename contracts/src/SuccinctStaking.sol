@@ -1,0 +1,482 @@
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.28;
+
+import {ProverRegistry} from "./ProverRegistry.sol";
+import {StakedSuccinct} from "./tokens/StakedSuccinct.sol";
+import {ISuccinctStaking} from "./interfaces/ISuccinctStaking.sol";
+import {IIntermediateSuccinct} from "./interfaces/IIntermediateSuccinct.sol";
+import {Initializable} from "../lib/openzeppelin-contracts/contracts/proxy/utils/Initializable.sol";
+import {Ownable} from "../lib/openzeppelin-contracts/contracts/access/Ownable.sol";
+import {IERC20} from "../lib/openzeppelin-contracts/contracts/interfaces/IERC20.sol";
+import {IERC20Permit} from
+    "../lib/openzeppelin-contracts/contracts/token/ERC20/extensions/IERC20Permit.sol";
+import {IERC4626} from "../lib/openzeppelin-contracts/contracts/interfaces/IERC4626.sol";
+import {SafeERC20} from "../lib/openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol";
+import {IERC20} from "../lib/openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
+
+/// @title SuccinctStaking
+/// @author Succinct Labs
+/// @notice Manages staking, unstaking, rewards, and slashing for the Succinct Prover Network.
+contract SuccinctStaking is
+    Ownable,
+    Initializable,
+    ProverRegistry,
+    ISuccinctStaking,
+    StakedSuccinct
+{
+    using SafeERC20 for IERC20;
+
+    address internal VAPP;
+    uint256 internal MIN_STAKE_AMOUNT;
+    uint256 internal UNSTAKE_PERIOD;
+    uint256 internal SLASH_PERIOD;
+
+    uint256 internal dispenseRate;
+    uint256 internal lastDispenseTimestamp;
+
+    mapping(address => address) internal stakerToProver;
+    mapping(address => UnstakeClaim[]) internal unstakeClaims;
+    mapping(address => SlashClaim[]) internal slashClaims;
+
+    /// @dev This call must be sent by the VApp contract. This also acts as a check to ensure that the contract
+    ///      has been initialized.
+    modifier onlyVApp() {
+        if (msg.sender != VAPP) {
+            revert NotAuthorized();
+        }
+        _;
+    }
+
+    /// @dev This contract only has an owner so it can be initialized by the owner later. This is done because
+    ///      other contracts (e.g. VAPP) need a reference to this contract, and this contract needs a
+    ///      reference to it. So we deploy this first, then initialize it later.
+    constructor(address _owner) Ownable(_owner) {}
+
+    /// @dev We don't do this in the constructor because we must deploy this contract
+    ///      first.
+    function initialize(
+        address _vApp,
+        address _prove,
+        address _intermediateProve,
+        uint256 _minStakeAmount,
+        uint256 _unstakePeriod,
+        uint256 _slashPeriod,
+        uint256 _dispenseRate
+    ) external onlyOwner initializer {
+        // Setup the immutable variables.
+        VAPP = _vApp;
+        MIN_STAKE_AMOUNT = _minStakeAmount;
+        UNSTAKE_PERIOD = _unstakePeriod;
+        SLASH_PERIOD = _slashPeriod;
+        __ProverRegistry_init(_prove, _intermediateProve);
+
+        // Setup the dispense system.
+        _setDispenseRate(_dispenseRate);
+        lastDispenseTimestamp = block.timestamp;
+
+        // Approve the $iPROVE contract to transfer $PROVE to $iPROVE during stake().
+        IERC20(PROVE).approve(I_PROVE, type(uint256).max);
+    }
+
+    /// @inheritdoc ISuccinctStaking
+    function vapp() external view override returns (address) {
+        return VAPP;
+    }
+
+    /// @inheritdoc ISuccinctStaking
+    function minStakeAmount() external view override returns (uint256) {
+        return MIN_STAKE_AMOUNT;
+    }
+
+    /// @inheritdoc ISuccinctStaking
+    function unstakePeriod() external view override returns (uint256) {
+        return UNSTAKE_PERIOD;
+    }
+
+    /// @inheritdoc ISuccinctStaking
+    function slashPeriod() external view override returns (uint256) {
+        return SLASH_PERIOD;
+    }
+
+    /// @inheritdoc ISuccinctStaking
+    function stakedTo(address _staker) external view override returns (address) {
+        return stakerToProver[_staker];
+    }
+
+    /// @inheritdoc ISuccinctStaking
+    function staked(address _staker) external view override returns (uint256) {
+        // Get the prover that the staker is staked with.
+        address prover = stakerToProver[_staker];
+        if (prover == address(0)) return 0;
+
+        return previewRedeem(prover, balanceOf(_staker));
+    }
+
+    /// @inheritdoc ISuccinctStaking
+    function proverStaked(address _prover) public view override returns (uint256) {
+        // Get the amount of $iPROVE in the prover.
+        uint256 iPROVE = IERC4626(_prover).totalAssets();
+
+        // Get the amount of $PROVE that would be received if the $iPROVE was redeemed.
+        return IERC4626(I_PROVE).previewRedeem(iPROVE);
+    }
+
+    /// @inheritdoc ISuccinctStaking
+    function unstakeRequests(address _staker)
+        external
+        view
+        override
+        returns (UnstakeClaim[] memory)
+    {
+        return unstakeClaims[_staker];
+    }
+
+    /// @inheritdoc ISuccinctStaking
+    function slashRequests(address _prover) external view override returns (SlashClaim[] memory) {
+        return slashClaims[_prover];
+    }
+
+    /// @inheritdoc ISuccinctStaking
+    function unstakePending(address _staker) external view override returns (uint256) {
+        // Get the prover that the staker is staked with.
+        address prover = stakerToProver[_staker];
+        if (prover == address(0)) return 0;
+
+        // Get the amount of $PROVE that would be received if the $iPROVE was redeemed.
+        return previewRedeem(prover, _getUnstakeClaimBalance(_staker));
+    }
+
+    /// @inheritdoc ISuccinctStaking
+    function previewRedeem(address _prover, uint256 _stPROVE)
+        public
+        view
+        override
+        returns (uint256)
+    {
+        // Get the amount of $iPROVE this staker has for this prover.
+        uint256 iPROVE = IERC4626(_prover).previewRedeem(_stPROVE);
+
+        // Get the amount of $PROVE that would be received if the $iPROVE was redeemed.
+        return IERC4626(I_PROVE).previewRedeem(iPROVE);
+    }
+
+    /// @inheritdoc ISuccinctStaking
+    function maxDispense() public view override returns (uint256) {
+        uint256 elapsedTime = block.timestamp - lastDispenseTimestamp;
+        return elapsedTime * dispenseRate;
+    }
+
+    /// @inheritdoc ISuccinctStaking
+    function stake(address _prover, uint256 _amount)
+        external
+        override
+        onlyForProver(_prover)
+        returns (uint256)
+    {
+        return _stake(msg.sender, _prover, _amount);
+    }
+
+    /// @inheritdoc ISuccinctStaking
+    function permitAndStake(
+        address _prover,
+        address _from,
+        uint256 _amount,
+        uint256 _deadline,
+        uint8 _v,
+        bytes32 _r,
+        bytes32 _s
+    ) external override onlyForProver(_prover) returns (uint256) {
+        IERC20Permit(PROVE).permit(_from, address(this), _amount, _deadline, _v, _r, _s);
+
+        return _stake(_from, _prover, _amount);
+    }
+
+    /// @inheritdoc ISuccinctStaking
+    function requestUnstake(uint256 _stPROVE) external override {
+        // Ensure unstaking a non-zero amount.
+        if (_stPROVE == 0) revert ZeroAmount();
+
+        // Get the prover that the staker is staked with.
+        address prover = stakerToProver[msg.sender];
+        if (prover == address(0)) revert NotStaked();
+
+        // Check that this prover is not in the process of being slashed.
+        if (slashClaims[prover].length > 0) revert ProverHasSlashRequest();
+
+        // Get the amount of $stPROVE this staker currently has for this prover.
+        // We do this by checking $PROVER-N, but they will always be 1:1.
+        uint256 stPROVEBalance = IERC20(prover).balanceOf(msg.sender);
+
+        // Get the amount $stPROVE this staker has pending a claim already.
+        uint256 stPROVEClaim = _getUnstakeClaimBalance(msg.sender);
+
+        // Check that this staker has enough $stPROVE to unstake.
+        if (stPROVEBalance < stPROVEClaim + _stPROVE) revert InsufficientStakeBalance();
+
+        // Create a claim to unstake $stPROVE from the prover for the specified amount.
+        unstakeClaims[msg.sender].push(
+            UnstakeClaim({stPROVE: _stPROVE, timestamp: block.timestamp})
+        );
+
+        emit UnstakeRequest(msg.sender, prover, _stPROVE);
+    }
+
+    /// @inheritdoc ISuccinctStaking
+    function finishUnstake() external override returns (uint256 PROVE_) {
+        // Get the prover that the staker is staked with.
+        address prover = stakerToProver[msg.sender];
+        if (prover == address(0)) revert NotStaked();
+
+        // Get the unstake claims for this staker.
+        UnstakeClaim[] storage claims = unstakeClaims[msg.sender];
+        if (claims.length == 0) revert NoUnstakeToClaim();
+
+        // Check that this prover is not in the process of being slashed.
+        if (slashClaims[prover].length > 0) revert ProverHasSlashRequest();
+
+        // Process the available unstake claims.
+        PROVE_ += _finishUnstake(prover, claims);
+
+        // If the staker has no remaining balance with this prover, remove the staker's delegate.
+        // This allows them to choose a different prover if they stake again.
+        if (IERC20(prover).balanceOf(msg.sender) == 0) {
+            // Remove the staker's prover delegation.
+            stakerToProver[msg.sender] = address(0);
+        }
+    }
+
+    /// @inheritdoc ISuccinctStaking
+    function reward(address _prover, uint256 _PROVE)
+        external
+        override
+        onlyVApp
+        onlyForProver(_prover)
+    {
+        // Ensure rewarding a non-zero amount.
+        if (_PROVE == 0) revert ZeroAmount();
+
+        // Ensure the prover has some stake.
+        //
+        // If this check isn't in place, then a the next staker to stake to this prover
+        // will lose their deposit.
+        if (proverStaked(_prover) == 0) revert NotStaked();
+
+        // Deposit $PROVE to mint $iPROVE, sending it to this contract.
+        uint256 iPROVE = IERC4626(I_PROVE).deposit(_PROVE, address(this));
+
+        // Transfer the $iPROVE to the $PROVER-N vault.
+        IERC20(I_PROVE).safeTransfer(_prover, iPROVE);
+
+        emit Reward(_prover, _PROVE);
+    }
+
+    /// @inheritdoc ISuccinctStaking
+    function requestSlash(address _prover, uint256 _iPROVE)
+        external
+        override
+        onlyVApp
+        onlyForProver(_prover)
+        returns (uint256 index)
+    {
+        // Get the amount of $iPROVE this prover currently has staked to it.
+        uint256 currentiPROVE = IERC4626(_prover).totalAssets();
+
+        // Get the amount $iPROVE this prover has pending a slash claim already.
+        uint256 claimiPROVE = _getSlashClaimBalance(_prover);
+
+        // Check that this prover has enough $iPROVE to be slashed for the specified amount.
+        if (currentiPROVE < claimiPROVE + _iPROVE) revert InsufficientStakeBalance();
+
+        // Create a claim to slash a prover for the specified amount.
+        index = slashClaims[_prover].length;
+        slashClaims[_prover].push(SlashClaim({iPROVE: _iPROVE, timestamp: block.timestamp}));
+
+        emit SlashRequest(_prover, _iPROVE, index);
+    }
+
+    /// @inheritdoc ISuccinctStaking
+    function cancelSlash(address _prover, uint256 _index)
+        external
+        override
+        onlyOwner
+        onlyForProver(_prover)
+    {
+        // Get the amount of $iPROVE.
+        uint256 iPROVE = slashClaims[_prover][_index].iPROVE;
+
+        // Delete the claim.
+        if (_index != slashClaims[_prover].length - 1) {
+            slashClaims[_prover][_index] = slashClaims[_prover][slashClaims[_prover].length - 1];
+        }
+        slashClaims[_prover].pop();
+
+        emit SlashCancel(_prover, iPROVE, _index);
+    }
+
+    /// @inheritdoc ISuccinctStaking
+    function finishSlash(address _prover, uint256 _index)
+        external
+        override
+        onlyOwner
+        onlyForProver(_prover)
+        returns (uint256 iPROVE)
+    {
+        // Get the slash claim
+        SlashClaim storage claim = slashClaims[_prover][_index];
+
+        // Ensure that the time has passed since the claim was created.
+        if (block.timestamp < claim.timestamp + SLASH_PERIOD) revert SlashNotReady();
+
+        // Get the amount of $iPROVE.
+        iPROVE = claim.iPROVE;
+
+        // Delete the claim.
+        if (_index != slashClaims[_prover].length - 1) {
+            slashClaims[_prover][_index] = slashClaims[_prover][slashClaims[_prover].length - 1];
+        }
+        slashClaims[_prover].pop();
+
+        // Burn the $iPROVE and $PROVE from the prover, decreasing the balance of the prover.
+        uint256 PROVE_ = IIntermediateSuccinct(I_PROVE).burn(_prover, iPROVE);
+
+        emit Slash(_prover, PROVE_, iPROVE, _index);
+    }
+
+    /// @inheritdoc ISuccinctStaking
+    function dispense(uint256 _PROVE) external override onlyOwner {
+        // Ensure dispensing a non-zero amount.
+        if (_PROVE == 0) revert ZeroAmount();
+
+        // Ensure the amount is less than or equal to the maximum dispenseable amount.
+        uint256 available = maxDispense();
+        if (_PROVE > available) revert AmountExceedsAvailableDispense();
+
+        // Update the timestamp based on dispensed amount.
+        uint256 timeConsumed = _PROVE / dispenseRate;
+        lastDispenseTimestamp += timeConsumed;
+
+        // Transfer escrowed $PROVE to the iPROVE vault. Will revert if
+        // not enough $PROVE is owned by this contract.
+        IERC20(PROVE).safeTransfer(I_PROVE, _PROVE);
+
+        emit Dispense(_PROVE);
+    }
+
+    /// @inheritdoc ISuccinctStaking
+    function setDispenseRate(uint256 _newRate) external override onlyOwner {
+        _setDispenseRate(_newRate);
+    }
+
+    /// @dev Deposit $PROVE into the staking contract, minting $iPROVE, then depositing $iPROVE
+    ///      into the prover to mint $PROVER-N, then minting $stPROVE to the staker (because
+    ///      $stPROVE always stays in sync with $PROVER-N balance).
+    function _stake(address _staker, address _prover, uint256 _PROVE)
+        internal
+        stakingOperation
+        returns (uint256 stPROVE)
+    {
+        // Ensure staking a non-zero amount.
+        if (_PROVE == 0) revert ZeroAmount();
+
+        // Ensure the staking amount is greater than the minimum stake amount.
+        if (_PROVE < MIN_STAKE_AMOUNT) revert StakeBelowMinimum();
+
+        // Ensure the staker is not already staked with a different prover.
+        address existingProver = stakerToProver[_staker];
+        if (existingProver != address(0) && existingProver != _prover) {
+            revert AlreadyStakedWithDifferentProver(existingProver);
+        }
+
+        // Set the prover as the staker's delegate.
+        if (existingProver == address(0)) {
+            stakerToProver[_staker] = _prover;
+        }
+
+        // Transfer $PROVE from the staker to this contract.
+        IERC20(PROVE).safeTransferFrom(_staker, address(this), _PROVE);
+
+        // Deposit $PROVE to mint $iPROVE, sending it to this contract.
+        uint256 iPROVE = IERC4626(I_PROVE).deposit(_PROVE, address(this));
+
+        // Deposit $iPROVE to mint $stPROVE, sending it to the staker directly.
+        stPROVE = IERC4626(_prover).deposit(iPROVE, _staker);
+
+        // Mint $stPROVE to the staker as a receipt token representing their ownership of $PROVER-N.
+        _mint(_staker, stPROVE);
+
+        emit Stake(_staker, _prover, _PROVE, iPROVE, stPROVE);
+    }
+
+    /// @dev Get the sum of all unstake claims for a staker for a given prover.
+    function _getUnstakeClaimBalance(address _staker)
+        internal
+        view
+        returns (uint256 unstakeClaimBalance)
+    {
+        for (uint256 i = 0; i < unstakeClaims[_staker].length; i++) {
+            unstakeClaimBalance += unstakeClaims[_staker][i].stPROVE;
+        }
+    }
+
+    /// @dev Get the sum of all slash claims for a prover.
+    function _getSlashClaimBalance(address _prover)
+        internal
+        view
+        returns (uint256 slashClaimBalance)
+    {
+        for (uint256 i = 0; i < slashClaims[_prover].length; i++) {
+            slashClaimBalance += slashClaims[_prover][i].iPROVE;
+        }
+    }
+
+    /// @dev Iterate over the claims, processing each one that has passed the unstake period.
+    function _finishUnstake(address _prover, UnstakeClaim[] storage _claims)
+        internal
+        returns (uint256 PROVE_)
+    {
+        uint256 i = 0;
+        while (i < _claims.length) {
+            if (block.timestamp >= _claims[i].timestamp + UNSTAKE_PERIOD) {
+                // Store claim value before modifying the array.
+                uint256 claimedAmount = _claims[i].stPROVE;
+
+                // Swap with the last element and pop (if not already the last element).
+                _claims[i] = _claims[_claims.length - 1];
+                _claims.pop();
+
+                // Process the unstake.
+                PROVE_ += _unstake(msg.sender, _prover, claimedAmount);
+            } else {
+                i++;
+            }
+        }
+    }
+
+    /// @dev Burn $stPROVE and withdraw $PROVER-N from the prover, receiving $iPROVE, then
+    ///      withdraw $iPROVE to receive $PROVE.
+    function _unstake(address _staker, address _prover, uint256 _stPROVE)
+        internal
+        stakingOperation
+        returns (uint256 PROVE_)
+    {
+        if (_stPROVE == 0) revert ZeroAmount();
+
+        // Burn the $stPROVE from the staker
+        _burn(_staker, _stPROVE);
+
+        // Withdraw $PROVER-N from the staker to have this contract receive $iPROVE.
+        uint256 iPROVE = IERC4626(_prover).redeem(_stPROVE, address(this), _staker);
+
+        // Withdraw $iPROVE from this contract to have the staker receive $PROVE.
+        PROVE_ = IERC4626(I_PROVE).redeem(iPROVE, _staker, address(this));
+
+        emit Unstake(_staker, _prover, PROVE_, iPROVE, _stPROVE);
+    }
+
+    /// @dev Set the new dispense rate.
+    function _setDispenseRate(uint256 _newRate) internal {
+        emit DispenseRateUpdated(dispenseRate, _newRate);
+
+        dispenseRate = _newRate;
+    }
+}
