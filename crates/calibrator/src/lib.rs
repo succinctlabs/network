@@ -122,7 +122,8 @@ mod tests {
         let cost_per_hour = 0.1;
         let utilization_rate = 0.5;
         let profit_margin = 0.1;
-        let calibrator = SinglePassCalibrator::new(elf, stdin, cost_per_hour, utilization_rate, profit_margin);
+        let calibrator =
+            SinglePassCalibrator::new(elf, stdin, cost_per_hour, utilization_rate, profit_margin);
 
         // Calibrate the prover.
         let metrics = calibrator.calibrate().unwrap();

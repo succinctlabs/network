@@ -129,7 +129,13 @@ async fn main() -> Result<()> {
 
             // Run the calibrator to get the metrics.
             println!("Starting calibration...");
-            let calibrator = SinglePassCalibrator::new(SPN_FIBONACCI_ELF.to_vec(), stdin, args.usd_cost_per_hour, args.utilization_rate, args.profit_margin);
+            let calibrator = SinglePassCalibrator::new(
+                SPN_FIBONACCI_ELF.to_vec(),
+                stdin,
+                args.usd_cost_per_hour,
+                args.utilization_rate,
+                args.profit_margin,
+            );
             let metrics =
                 calibrator.calibrate().map_err(|e| anyhow!("failed to calibrate: {}", e))?;
 
@@ -150,7 +156,10 @@ async fn main() -> Result<()> {
                 },
                 CalibrationResultsTable {
                     name: "Estimated Bid Price".to_string(),
-                    value: format!("{:.2} $PROVE per 1B PGUs", metrics.pgu_price * args.prove_price * 1_000_000_000.0),
+                    value: format!(
+                        "{:.2} $PROVE per 1B PGUs",
+                        metrics.pgu_price * args.prove_price * 1_000_000_000.0
+                    ),
                 },
             ];
 
