@@ -97,7 +97,7 @@ async fn main() -> Result<()> {
             // Create parameters table data.
             let params_data = vec![
                 ParametersTable {
-                    name: "Cost Per Hour".to_string(),
+                    name: "USD Cost Per Hour".to_string(),
                     value: format!("${:.2}", args.usd_cost_per_hour),
                 },
                 ParametersTable {
@@ -109,7 +109,7 @@ async fn main() -> Result<()> {
                     value: format!("{:.2}%", args.profit_margin * 100.0),
                 },
                 ParametersTable {
-                    name: "Price of $PROVE".to_string(),
+                    name: "USD Price of $PROVE".to_string(),
                     value: format!("${:.2}", args.prove_price),
                 },
             ];
