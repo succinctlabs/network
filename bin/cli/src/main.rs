@@ -146,11 +146,11 @@ async fn main() -> Result<()> {
             let results_data = vec![
                 CalibrationResultsTable {
                     name: "Estimated Throughput".to_string(),
-                    value: format!("{} pgus/second", metrics.pgus_per_second),
+                    value: format!("{} pgus/second", metrics.pgus_per_second.round()),
                 },
                 CalibrationResultsTable {
                     name: "Estimated Bid Price".to_string(),
-                    value: format!("{} $PROVE per 1B PGUs", metrics.pgu_price * args.prove_price),
+                    value: format!("{:.2} $PROVE per 1B PGUs", metrics.pgu_price * args.prove_price * 1_000_000_000.0),
                 },
             ];
 
