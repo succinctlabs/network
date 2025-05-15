@@ -23,9 +23,26 @@ use spn_node::{Node, NodeContext, SerialBidder, SerialContext, SerialMonitor, Se
 #[command(author, version, about, long_about = None)]
 enum Args {
     /// Calibrate the prover.
-    Calibrate,
+    Calibrate(CalibrateArgs),
     /// Run the prover with previously benchmarked parameters.  
     Prove(ProveArgs),
+}
+
+/// The arguments for the `calibrate` command.
+#[derive(Debug, Clone, Parser)]
+struct CalibrateArgs {
+    /// The cost per hour of the prover in USD.
+    #[arg(long, help = "Cost per hour in USD, e.g. 0.80")]
+    usd_cost_per_hour: f64,
+    /// The expected utilization rate of the prover.
+    #[arg(long, help = "Expected utilization rate, e.g. 0.5")]
+    utilization_rate: f64,
+    /// The target profit margin of the prover.
+    #[arg(long, help = "Target profit margin, e.g. 0.1")]
+    profit_margin: f64,
+    /// The price of $PROVE in USD.
+    #[arg(long, help = "Price of $PROVE in USD, e.g. 1.00")]
+    prove_price: f64,
 }
 
 /// The arguments for the `prove` command.
@@ -64,7 +81,7 @@ async fn main() -> Result<()> {
 
     // Run the command.
     match cli {
-        Args::Calibrate => {
+        Args::Calibrate(args) => {
             // Create the ELF.
             const SPN_FIBONACCI_ELF: &[u8] = include_elf!("spn-fibonacci-program");
 
@@ -74,7 +91,8 @@ async fn main() -> Result<()> {
             stdin.write(&n);
 
             // Run the calibrator to get the metrics.
-            let calibrator = SinglePassCalibrator::new(SPN_FIBONACCI_ELF.to_vec(), stdin);
+            println!("Starting calibration...");
+            let calibrator = SinglePassCalibrator::new(SPN_FIBONACCI_ELF.to_vec(), stdin, args.usd_cost_per_hour, args.utilization_rate, args.profit_margin);
             let metrics =
                 calibrator.calibrate().map_err(|e| anyhow!("failed to calibrate: {}", e))?;
 
@@ -91,12 +109,28 @@ async fn main() -> Result<()> {
             // Create table data.
             let data = vec![
                 CalibrationMetricsTable {
-                    name: "Prover Throughput".to_string(),
-                    value: format!("{} gas/second", metrics.throughput),
+                    name: "Cost Per Hour".to_string(),
+                    value: format!("${}", args.usd_cost_per_hour),
                 },
                 CalibrationMetricsTable {
-                    name: "Recommended Bid".to_string(),
-                    value: format!("{} gas per USDC", metrics.bid_amount),
+                    name: "Utilization Rate".to_string(),
+                    value: format!("{}%", args.utilization_rate * 100.0),
+                },
+                CalibrationMetricsTable {
+                    name: "Profit Margin".to_string(),
+                    value: format!("{}%", args.profit_margin * 100.0),
+                },
+                CalibrationMetricsTable {
+                    name: "Price of $PROVE".to_string(),
+                    value: format!("${}", args.prove_price),
+                },
+                CalibrationMetricsTable {
+                    name: "Estimated Throughput".to_string(),
+                    value: format!("{} pgus/second", metrics.pgus_per_second),
+                },
+                CalibrationMetricsTable {
+                    name: "Estimated Bid Price".to_string(),
+                    value: format!("{} $PROVE per 1B PGUs", metrics.pgu_price * args.prove_price),
                 },
             ];
 

@@ -19,9 +19,9 @@ pub trait Calibrator {
 #[derive(Debug, Clone, Copy, Default)]
 pub struct CalibratorMetrics {
     /// The prover gas per second that the prover can process.
-    pub throughput: f64,
+    pub pgus_per_second: f64,
     /// The recommended bid amount for the prover.
-    pub bid_amount: u64,
+    pub pgu_price: f64,
 }
 
 /// The default implementation of a calibrator.
@@ -31,13 +31,25 @@ pub struct SinglePassCalibrator {
     pub elf: Vec<u8>,
     /// The input stream to use for the calibration.
     pub stdin: SP1Stdin,
+    /// The cost per hour of the instance (USD).
+    pub cost_per_hour: f64,
+    /// The expected average utilization rate of the instance.
+    pub utilization_rate: f64,
+    /// The target profit margin for the prover.
+    pub profit_margin: f64,
 }
 
 impl SinglePassCalibrator {
     /// Create a new [`SinglePassCalibrator`].
     #[must_use]
-    pub fn new(elf: Vec<u8>, stdin: SP1Stdin) -> Self {
-        Self { elf, stdin }
+    pub fn new(
+        elf: Vec<u8>,
+        stdin: SP1Stdin,
+        cost_per_hour: f64,
+        utilization_rate: f64,
+        profit_margin: f64,
+    ) -> Self {
+        Self { elf, stdin, cost_per_hour, utilization_rate, profit_margin }
     }
 }
 
@@ -67,10 +79,26 @@ impl Calibrator for SinglePassCalibrator {
 
         // Calculate duration and throughput.
         let duration = start.elapsed();
-        let throughput = prover_gas as f64 / duration.as_secs_f64();
+        let pgus_per_second = prover_gas as f64 / duration.as_secs_f64();
+
+        // Calculate the price per pgu using a simple economic model..
+        //
+        // The economic model is based on the following assumptions:
+        // - The prover has a consistent cost per hour.
+        // - The prover has a consistent utilization rate.
+        // - The prover wants to maximize its profit.
+        //
+        // The model is based on the following formula:
+        //
+        // bidPricePerPGU = (costPerHour / averageUtilizationRate) * (1 + profitMargin) / maxThroughputPerHour
+        //
+        let pgus_per_hour = pgus_per_second * 3600.0;
+        let utilized_pgus_per_hour = pgus_per_hour * self.utilization_rate;
+        let optimal_pgu_price = self.cost_per_hour / utilized_pgus_per_hour;
+        let pgu_price = optimal_pgu_price * (1.0 + self.profit_margin);
 
         // Return the metrics.
-        Ok(CalibratorMetrics { throughput, bid_amount: 1 })
+        Ok(CalibratorMetrics { pgus_per_second, pgu_price })
     }
 }
 
@@ -92,7 +120,10 @@ mod tests {
         stdin.write(&n);
 
         // Create the calibrator.
-        let calibrator = SinglePassCalibrator::new(elf, stdin);
+        let cost_per_hour = 0.1;
+        let utilization_rate = 0.5;
+        let profit_margin = 0.1;
+        let calibrator = SinglePassCalibrator::new(elf, stdin, cost_per_hour, utilization_rate, profit_margin);
 
         // Calibrate the prover.
         let metrics = calibrator.calibrate().unwrap();
