@@ -91,7 +91,6 @@ impl Calibrator for SinglePassCalibrator {
         // The model is based on the following formula:
         //
         // bidPricePerPGU = (costPerHour / averageUtilizationRate) * (1 + profitMargin) / maxThroughputPerHour
-        //
         let pgus_per_hour = pgus_per_second * 3600.0;
         let utilized_pgus_per_hour = pgus_per_hour * self.utilization_rate;
         let optimal_pgu_price = self.cost_per_hour / utilized_pgus_per_hour;
