@@ -85,6 +85,43 @@ async fn main() -> Result<()> {
             // Create the ELF.
             const SPN_FIBONACCI_ELF: &[u8] = include_elf!("spn-fibonacci-program");
 
+            // Create a table for the input parameters.
+            #[derive(Tabled)]
+            struct ParametersTable {
+                #[tabled(rename = "Parameter")]
+                name: String,
+                #[tabled(rename = "Value")]
+                value: String,
+            }
+
+            // Create parameters table data.
+            let params_data = vec![
+                ParametersTable {
+                    name: "Cost Per Hour".to_string(),
+                    value: format!("${:.2}", args.usd_cost_per_hour),
+                },
+                ParametersTable {
+                    name: "Utilization Rate".to_string(),
+                    value: format!("{:.2}%", args.utilization_rate * 100.0),
+                },
+                ParametersTable {
+                    name: "Profit Margin".to_string(),
+                    value: format!("{:.2}%", args.profit_margin * 100.0),
+                },
+                ParametersTable {
+                    name: "Price of $PROVE".to_string(),
+                    value: format!("${:.2}", args.prove_price),
+                },
+            ];
+
+            // Create and style the parameters table.
+            let mut params_table = Table::new(params_data);
+            params_table.with(Style::modern());
+
+            // Print parameters with a title.
+            println!("\nParameters:");
+            println!("{params_table}\n");
+
             // Create the input stream.
             let n: u32 = 20;
             let mut stdin = SP1Stdin::new();
@@ -96,51 +133,34 @@ async fn main() -> Result<()> {
             let metrics =
                 calibrator.calibrate().map_err(|e| anyhow!("failed to calibrate: {}", e))?;
 
-            // Create a table for the metrics.
-            #[allow(clippy::items_after_statements)]
+            // Create a table for the calibration results.
             #[derive(Tabled)]
-            struct CalibrationMetricsTable {
+            struct CalibrationResultsTable {
                 #[tabled(rename = "Metric")]
                 name: String,
                 #[tabled(rename = "Value")]
                 value: String,
             }
 
-            // Create table data.
-            let data = vec![
-                CalibrationMetricsTable {
-                    name: "Cost Per Hour".to_string(),
-                    value: format!("${}", args.usd_cost_per_hour),
-                },
-                CalibrationMetricsTable {
-                    name: "Utilization Rate".to_string(),
-                    value: format!("{}%", args.utilization_rate * 100.0),
-                },
-                CalibrationMetricsTable {
-                    name: "Profit Margin".to_string(),
-                    value: format!("{}%", args.profit_margin * 100.0),
-                },
-                CalibrationMetricsTable {
-                    name: "Price of $PROVE".to_string(),
-                    value: format!("${}", args.prove_price),
-                },
-                CalibrationMetricsTable {
+            // Create results table data.
+            let results_data = vec![
+                CalibrationResultsTable {
                     name: "Estimated Throughput".to_string(),
                     value: format!("{} pgus/second", metrics.pgus_per_second),
                 },
-                CalibrationMetricsTable {
+                CalibrationResultsTable {
                     name: "Estimated Bid Price".to_string(),
                     value: format!("{} $PROVE per 1B PGUs", metrics.pgu_price * args.prove_price),
                 },
             ];
 
-            // Create and style the table.
-            let mut table = Table::new(data);
-            table.with(Style::modern());
+            // Create and style the results table.
+            let mut results_table = Table::new(results_data);
+            results_table.with(Style::modern());
 
-            // Print with a title.
+            // Print results with a title.
             println!("\nCalibration Results:");
-            println!("{table}\n");
+            println!("{results_table}\n");
         }
         Args::Prove(args) => {
             spn_utils::init_logger(spn_utils::LogFormat::Pretty);
