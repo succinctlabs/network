@@ -1,0 +1,11 @@
+[package]
+name = "spn-is-prime-program"
+version = "0.1.0"
+edition = "2021"
+
+[[bin]]
+name = "spn-is-prime-program"
+path = "src/main.rs"
+
+[dependencies]
+sp1-zkvm = { workspace = true }
