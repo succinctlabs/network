@@ -34,3 +34,10 @@ Cargo.lock
 *.pdb 
 
 bin/cli/test.sh
+
+# Compiler files
+cache/
+out/
+
+# Ignores broadcast logs
+broadcast/
