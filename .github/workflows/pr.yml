@@ -18,6 +18,42 @@ concurrency:
     cancel-in-progress: true
 
 jobs:
+    foundry-test:
+        strategy:
+          fail-fast: true
+    
+        name: Foundry project
+        runs-on: ubuntu-latest
+        steps:
+          - uses: actions/checkout@v4
+            with:
+              submodules: recursive
+    
+          - name: Install Foundry
+            uses: foundry-rs/foundry-toolchain@v1.4.0
+    
+          - name: Show Forge version
+            run: |
+              forge --version
+    
+          # 'forge fmt' doesn't work with the `transient` keyword yet https://github.com/foundry-rs/foundry/issues/9088
+          # - name: Run Forge fmt
+          #   run: |
+          #     forge fmt --check
+          #   id: fmt
+    
+          - name: Run Forge build
+            run: |
+              cd contracts
+              FOUNDRY_PROFILE=deploy forge build --sizes
+            id: build
+    
+          - name: Run Forge tests
+            run: |
+              cd contracts
+              FOUNDRY_PROFILE=deploy forge test -vvv
+            id: test
+
     cargo-test:
         name: Cargo Test
         runs-on:
