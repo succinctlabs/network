@@ -8,7 +8,7 @@ The protocol consists of the following core contracts:
 
 * [Succinct](./src/tokens/Succinct.sol) "Succinct (PROVE)" - The ERC20 primary liquid token.
 * [IntermediateSuccinct](./src/tokens/IntermediateSuccinct.sol) "IntermediateSuccinct (iPROVE)" - The ERC4626 token with $PROVE as the underlying.
-* [SuccinctProver](./src/tokens/SuccinctProver.sol) "Prover-N (PROVER-N)" - The ERC4626Rewards token with $iPROVE as the underlying and $USDC as the reward token. Each prover has their own deployment of this contract, and `N` is replaced with an incrementing number representing the prover's ID.
+* [SuccinctProver](./src/tokens/SuccinctProver.sol) "Prover-N (PROVER-N)" - The ERC4626Rewards token with $iPROVE as the underlying. Each prover has their own deployment of this contract, and `N` is replaced with an incrementing number representing the prover's ID.
 * [SuccinctStaking](./src/SuccinctStaking.sol) "StakedSuccinct (stPROVE)" - The ERC20 terminal receipt token, containing the logic for staking, unstaking, rewards, slashing, and dispensing. For the purposes of this document, $stPROVE treated as distinct from the staking contract logic.
 * [SuccinctGovernor](./src/SuccinctGovernor.sol) - The governor for on-chain governance, using $stPROVE as the votes token.
 * [VApp](./src/mocks/MockVApp.sol) - Handles settlement and is responsible for triggering rewards and slashing.

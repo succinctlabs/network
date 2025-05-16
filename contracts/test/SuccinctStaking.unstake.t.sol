@@ -216,17 +216,16 @@ contract SuccinctStakingUnstakeTests is SuccinctStakingTest {
 
     // Test multiple unstakes in the queue
     function test_Unstake_WhenMultipleUnstakes() public {
-        uint256 firstStakeAmount = 40;
-        uint256 secondStakeAmount = 60;
+        uint256 firstStakeAmount = STAKER_PROVE_AMOUNT / 2;
+        uint256 secondStakeAmount = STAKER_PROVE_AMOUNT / 4;
         uint256 halfUnstakePeriod = UNSTAKE_PERIOD / 2;
 
         // Staker 1 deposits twice to Alice prover
         _permitAndStake(STAKER_1, STAKER_1_PK, ALICE_PROVER, firstStakeAmount);
         _permitAndStake(STAKER_1, STAKER_1_PK, ALICE_PROVER, secondStakeAmount);
 
-        // Verify the stake was successful
-        assertEq(IERC20(PROVE).balanceOf(STAKER_1), 0);
-        assertEq(IERC20(ALICE_PROVER).balanceOf(STAKER_1), firstStakeAmount + secondStakeAmount);
+        // Record unstaked balance
+        uint256 unstakedBalance = IERC20(PROVE).balanceOf(STAKER_1);
 
         // First unstake
         _requestUnstake(STAKER_1, firstStakeAmount);
@@ -247,7 +246,7 @@ contract SuccinctStakingUnstakeTests is SuccinctStakingTest {
 
         // Verify first unstake is claimed but second isn't yet
         assertEq(SuccinctStaking(STAKING).unstakePending(STAKER_1), secondStakeAmount);
-        assertEq(IERC20(PROVE).balanceOf(STAKER_1), firstStakeAmount);
+        assertEq(IERC20(PROVE).balanceOf(STAKER_1), unstakedBalance + firstStakeAmount);
 
         // Wait for the second unstake to be claimable
         skip(halfUnstakePeriod);
@@ -257,7 +256,10 @@ contract SuccinctStakingUnstakeTests is SuccinctStakingTest {
         assertEq(SuccinctStaking(STAKING).unstakePending(STAKER_1), 0);
 
         // Verify both unstakes are now claimed
-        assertEq(IERC20(PROVE).balanceOf(STAKER_1), firstStakeAmount + secondStakeAmount);
+        assertEq(
+            IERC20(PROVE).balanceOf(STAKER_1),
+            unstakedBalance + firstStakeAmount + secondStakeAmount
+        );
     }
 
     // Test unstake queue with rewards

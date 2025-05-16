@@ -24,7 +24,6 @@ contract SuccinctStakingScript is BaseScript {
         address STAKING = readAddress(KEY);
         address VAPP = readAddress("VAPP");
         address PROVE = readAddress("PROVE");
-        address USDC = readAddress("USDC");
         address I_PROVE = readAddress("I_PROVE");
         uint256 MIN_STAKE_AMOUNT = readUint256("MIN_STAKE_AMOUNT");
         uint256 UNSTAKE_PERIOD = readUint256("UNSTAKE_PERIOD");
