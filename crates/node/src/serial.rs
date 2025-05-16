@@ -78,9 +78,9 @@ impl NodeContext for SerialContext {
 /// parameters to control how much it bids and how much throughput it can handle.
 #[derive(Debug, Clone)]
 pub struct SerialBidder {
-    /// The bid amount for the bidder.
+    /// The $PROVE price per billion proving gas units (PGUs) for the bidder.
     pub bid: U256,
-    /// The throughput for the bidder.
+    /// The throughput for the prover in proving gas units (PGUs) per second.
     pub throughput: f64,
 }
 
@@ -224,7 +224,7 @@ impl<C: NodeContext> NodeBidder<C> for SerialBidder {
                     }
 
                     // Bid on the request.
-                    info!(request_id = %request_id, bid_amount = %self.bid, "{SERIAL_BIDDER_TAG} Submitting a bid for request");
+                    info!(request_id = %request_id, bid = %self.bid, "{SERIAL_BIDDER_TAG} Submitting a bid for request");
                     let body = BidRequestBody {
                         nonce,
                         request_id: hex::decode(request_id.clone())
