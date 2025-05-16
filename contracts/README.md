@@ -53,11 +53,11 @@ FOUNDRY_PROFILE=deploy forge script AllScript --private-key $PRIVATE_KEY --broad
 ### Deposit
 
 ```sh
-cast send $USDC "mint(address,uint256)" $(cast wallet address --private-key $PRIVATE_KEY) 10000e6 --private-key $PRIVATE_KEY --rpc-url $ETH_RPC_URL
+cast send $PROVE "mint(address,uint256)" $(cast wallet address --private-key $PRIVATE_KEY) 10000e6 --private-key $PRIVATE_KEY --rpc-url $ETH_RPC_URL
 ```
 
 ```sh
-cast send $USDC "approve(address,uint256)" $VAPP 10000e6 --private-key $PRIVATE_KEY --rpc-url $ETH_RPC_URL
+cast send $PROVE "approve(address,uint256)" $VAPP 10000e6 --private-key $PRIVATE_KEY --rpc-url $ETH_RPC_URL
 ```
 
 ```sh
@@ -88,10 +88,10 @@ cast send $STAKING "stake(address,uint256)" $PROVER 10e18 --private-key $PRIVATE
 
 ### Reward
 
-Send some $USDC to the $VAPP contract (simulates the fee for requesting a proof):
+Send some $PROVE to the $VAPP contract (simulates the fee for requesting a proof):
 
 ```sh
-cast send $USDC "mint(address,uint256)" $VAPP 1000e18 --private-key $PRIVATE_KEY --rpc-url $ETH_RPC_URL
+cast send $PROVE "mint(address,uint256)" $VAPP 1000e18 --private-key $PRIVATE_KEY --rpc-url $ETH_RPC_URL
 ```
 
 Then send the reward to the prover (simulates the proof being fulfilled):

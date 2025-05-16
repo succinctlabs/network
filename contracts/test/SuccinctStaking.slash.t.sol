@@ -65,7 +65,7 @@ contract SuccinctStakingSlashTests is SuccinctStakingTest {
         assertEq(IERC20(PROVE).balanceOf(I_PROVE), slashAmount);
         assertEq(IERC20(I_PROVE).balanceOf(ALICE_PROVER), slashAmount);
         assertEq(IERC20(STAKING).balanceOf(STAKER_1), stakeAmount);
-        assertEq(IERC4626(ALICE_PROVER).previewRedeem(stakeAmount), 50);
+        assertEq(IERC4626(ALICE_PROVER).previewRedeem(stakeAmount), stakeAmount - slashAmount);
 
         // Complete unstake process
         _completeUnstake(STAKER_1, stakeAmount);
@@ -201,8 +201,7 @@ contract SuccinctStakingSlashTests is SuccinctStakingTest {
         _completeSlash(ALICE_PROVER, slashAmount);
 
         // Dispense some $PROVE
-        vm.prank(OWNER);
-        SuccinctStaking(STAKING).dispense(dispenseAmount);
+        _dispense(dispenseAmount);
 
         // Verify fully slashed
         assertEq(SuccinctStaking(STAKING).balanceOf(STAKER_1), stakeAmount);
@@ -237,8 +236,7 @@ contract SuccinctStakingSlashTests is SuccinctStakingTest {
         _completeSlash(ALICE_PROVER, slashAmount);
 
         // Dispense some $PROVE
-        vm.prank(OWNER);
-        SuccinctStaking(STAKING).dispense(dispenseAmount);
+        _dispense(dispenseAmount);
 
         // Verify Staker 1 fully slashed, while Staker 2 is unimpacted and has a claim on all of the dispensed $PROVE
         assertEq(SuccinctStaking(STAKING).balanceOf(STAKER_1), stakeAmount);

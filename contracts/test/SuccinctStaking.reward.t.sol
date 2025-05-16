@@ -108,7 +108,9 @@ contract SuccinctStakingRewardTests is SuccinctStakingTest {
         _permitAndStake(STAKER_1, STAKER_1_PK, ALICE_PROVER, stakeAmount1);
         _permitAndStake(STAKER_2, STAKER_2_PK, BOB_PROVER, stakeAmount2);
 
-        // Record initial staked amounts
+        // Record balances and initial staked amounts
+        uint256 originalBalance1 = IERC20(PROVE).balanceOf(STAKER_1);
+        uint256 originalBalance2 = IERC20(PROVE).balanceOf(STAKER_2);
         uint256 initialStaked1 = SuccinctStaking(STAKING).staked(STAKER_1);
         uint256 initialStaked2 = SuccinctStaking(STAKING).staked(STAKER_2);
 
@@ -126,8 +128,10 @@ contract SuccinctStakingRewardTests is SuccinctStakingTest {
         _completeUnstake(STAKER_2, stakeAmount2);
 
         // Staker 1 should get original stake + reward, Staker 2 only gets original stake
-        assertEq(IERC20(PROVE).balanceOf(STAKER_1), 198); // Account for rounding
-        assertEq(IERC20(PROVE).balanceOf(STAKER_2), 100); // Updated from 25 to 100
+        assertEq(
+            IERC20(PROVE).balanceOf(STAKER_1), originalBalance1 + stakeAmount1 + rewardAmount - 2
+        ); // Account for rounding
+        assertEq(IERC20(PROVE).balanceOf(STAKER_2), originalBalance2 + stakeAmount2);
         assertEq(IERC20(ALICE_PROVER).balanceOf(STAKER_1), 0);
         assertEq(IERC20(BOB_PROVER).balanceOf(STAKER_2), 0);
     }
@@ -144,7 +148,7 @@ contract SuccinctStakingRewardTests is SuccinctStakingTest {
 
         // Record initial staked amount for STAKER_1
         uint256 initialStaked1 = SuccinctStaking(STAKING).staked(STAKER_1);
-        uint256 unstakedBalance1 = IERC20(PROVE).balanceOf(STAKER_1);
+        uint256 originalBalance1 = IERC20(PROVE).balanceOf(STAKER_1);
         // Reward to Alice prover
         MockVApp(VAPP).processReward(ALICE_PROVER, rewardAmount);
 
@@ -156,7 +160,7 @@ contract SuccinctStakingRewardTests is SuccinctStakingTest {
         _permitAndStake(STAKER_2, STAKER_2_PK, ALICE_PROVER, stakeAmount2);
 
         // Record staked amounts after STAKER_2 joins
-        uint256 unstakedBalance2 = IERC20(PROVE).balanceOf(STAKER_2);
+        uint256 originalBalance2 = IERC20(PROVE).balanceOf(STAKER_2);
         uint256 staked1 = SuccinctStaking(STAKING).balanceOf(STAKER_1);
         uint256 staked2 = SuccinctStaking(STAKING).balanceOf(STAKER_2);
 
@@ -166,9 +170,9 @@ contract SuccinctStakingRewardTests is SuccinctStakingTest {
 
         // Staker 1 should get original stake + reward, Staker 2 only gets original stake
         assertEq(
-            IERC20(PROVE).balanceOf(STAKER_1), unstakedBalance1 + stakeAmount1 + rewardAmount - 1
+            IERC20(PROVE).balanceOf(STAKER_1), originalBalance1 + stakeAmount1 + rewardAmount - 1
         );
-        assertEq(IERC20(PROVE).balanceOf(STAKER_2), unstakedBalance2 + stakeAmount2 - 1);
+        assertEq(IERC20(PROVE).balanceOf(STAKER_2), originalBalance2 + stakeAmount2 - 1);
         assertEq(IERC20(ALICE_PROVER).balanceOf(STAKER_1), 0);
         assertEq(IERC20(ALICE_PROVER).balanceOf(STAKER_2), 0);
     }
@@ -185,8 +189,8 @@ contract SuccinctStakingRewardTests is SuccinctStakingTest {
         _permitAndStake(STAKER_2, STAKER_2_PK, BOB_PROVER, stakeAmount2);
 
         // Record initial staked amounts
-        uint256 unstakedBalance1 = IERC20(PROVE).balanceOf(STAKER_1);
-        uint256 unstakedBalance2 = IERC20(PROVE).balanceOf(STAKER_2);
+        uint256 originalBalance1 = IERC20(PROVE).balanceOf(STAKER_1);
+        uint256 originalBalance2 = IERC20(PROVE).balanceOf(STAKER_2);
         uint256 initialStaked1 = SuccinctStaking(STAKING).staked(STAKER_1);
         uint256 initialStaked2 = SuccinctStaking(STAKING).staked(STAKER_2);
 
@@ -209,10 +213,10 @@ contract SuccinctStakingRewardTests is SuccinctStakingTest {
 
         // Each staker gets their original stake plus rewards for their delegated prover
         assertEq(
-            IERC20(PROVE).balanceOf(STAKER_1), unstakedBalance1 + stakeAmount1 + rewardAmount1 - 1
+            IERC20(PROVE).balanceOf(STAKER_1), originalBalance1 + stakeAmount1 + rewardAmount1 - 1
         );
         assertEq(
-            IERC20(PROVE).balanceOf(STAKER_2), unstakedBalance2 + stakeAmount2 + rewardAmount2 - 1
+            IERC20(PROVE).balanceOf(STAKER_2), originalBalance2 + stakeAmount2 + rewardAmount2 - 1
         );
         assertEq(IERC20(ALICE_PROVER).balanceOf(STAKER_1), 0);
         assertEq(IERC20(BOB_PROVER).balanceOf(STAKER_2), 0);
