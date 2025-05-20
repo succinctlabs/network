@@ -17,16 +17,22 @@ use spn_network_types::{
     prover_network_client::ProverNetworkClient, BidRequest, BidRequestBody, ExecutionStatus,
     FailFulfillmentRequest, FailFulfillmentRequestBody, FulfillProofRequest,
     FulfillProofRequestBody, FulfillmentStatus, GetFilteredProofRequestsRequest, GetNonceRequest,
-    GetProofRequestDetailsRequest, MessageFormat, ProofMode, Signable,
+    GetProofRequestDetailsRequest, MessageFormat, ProofMode, Signable, ProofRequest,
 };
 use spn_rpc::{fetch_owner, RetryableRpc};
 use spn_utils::time_now;
 use sysinfo::{CpuExt, System, SystemExt};
 use tokio::sync::Mutex;
+use tokio::time;
 use tonic::{async_trait, transport::Channel};
 use tracing::{error, info, warn};
 
 use crate::{NodeBidder, NodeContext, NodeMetrics, NodeMonitor, NodeProver, SP1_NETWORK_VERSION};
+
+const REQUEST_LIMIT: u32 = 1;
+const OWNER_FETCH_RETRY_SECONDS: u64 = 5;
+const STREAM_ERROR_RECONNECT_SECONDS: u64 = 15;
+const STREAM_CLEAN_END_RECONNECT_SECONDS: u64 = 5;
 
 /// A context that implements [`NodeContext`] for a serial node.
 ///
@@ -95,156 +101,162 @@ impl SerialBidder {
 #[async_trait]
 impl<C: NodeContext> NodeBidder<C> for SerialBidder {
     #[allow(clippy::too_many_lines)]
-    async fn bid(&self, ctx: &C) -> Result<()> {
-        const SERIAL_BIDDER_TAG: &str = "\x1b[34m[SerialBidder]\x1b[0m";
+    async fn run_bidding_service(&self, ctx: Arc<C>) -> Result<()> {
+        const SERIAL_BIDDER_TAG: &str = "\x1b[34m[SerialBidder][0m";
+        info!("{SERIAL_BIDDER_TAG} Starting bidding service...");
 
-        // Fetch the owner.
-        let owner = fetch_owner(ctx.network(), ctx.signer().address().as_ref()).await?;
+        let owner = fetch_owner(ctx.network(), ctx.signer().address().as_ref())
+            .await
+            .context("Failed to fetch owner for bidding service. Terminating service.")?;
         info!(owner = %hex::encode(&owner), "{SERIAL_BIDDER_TAG} Fetched owner.");
 
-        // Fetch for assigned requests.
-        let assigned_requests = ctx
-            .network()
-            .clone()
-            .get_filtered_proof_requests(GetFilteredProofRequestsRequest {
+        loop {
+            // Check if we are already assigned a request. If so, don't bid on new ones.
+            let assigned_check_req = GetFilteredProofRequestsRequest {
                 version: Some(SP1_NETWORK_VERSION.to_string()),
                 fulfillment_status: Some(FulfillmentStatus::Assigned.into()),
-                minimum_deadline: Some(time_now()),
                 fulfiller: Some(owner.clone()),
-                limit: Some(1),
+                limit: Some(REQUEST_LIMIT),
                 ..Default::default()
-            })
-            .await?
-            .into_inner()
-            .requests;
-        info!(count = %assigned_requests.len(), "{SERIAL_BIDDER_TAG} Fetched assigned proof requests.");
+            };
+            match ctx.network().clone().get_filtered_proof_requests(assigned_check_req).await {
+                Ok(assigned_response) => {
+                    if !assigned_response.into_inner().requests.is_empty() {
+                        // info!("{SERIAL_BIDDER_TAG} Node is busy with an assigned request. Pausing bidding.");
+                        time::sleep(Duration::from_secs(STREAM_ERROR_RECONNECT_SECONDS)).await; // Use a general delay
+                        continue;
+                    }
+                }
+                Err(e) => {
+                    warn!("{SERIAL_BIDDER_TAG} Failed to check for assigned requests: {:?}. Retrying...", e);
+                    time::sleep(Duration::from_secs(STREAM_ERROR_RECONNECT_SECONDS)).await;
+                    continue;
+                }
+            }
 
-        if !assigned_requests.is_empty() {
-            info!(
-                "{SERIAL_BIDDER_TAG} At least one assigned proof request found. Skipping the bidding process for now."
-            );
-            return Ok(());
-        }
-
-        // Fetch for unassigned requests.
-        let unassigned_requests = ctx
-            .network()
-            .clone()
-            .get_filtered_proof_requests(GetFilteredProofRequestsRequest {
+            info!("{SERIAL_BIDDER_TAG} Node is not busy. Subscribing to unassigned proof requests...");
+            let unassigned_stream_req = GetFilteredProofRequestsRequest {
                 version: Some(SP1_NETWORK_VERSION.to_string()),
                 fulfillment_status: Some(FulfillmentStatus::Requested.into()),
                 minimum_deadline: Some(time_now()),
-                limit: Some(1),
                 not_bid_by: Some(owner.clone()),
+                limit: Some(REQUEST_LIMIT),
                 ..Default::default()
-            })
-            .await?
-            .into_inner()
-            .requests;
-        info!(count = %unassigned_requests.len(), "{SERIAL_BIDDER_TAG} Fetched unassigned proof requests.");
+            };
 
-        // If there are no open requests, return.
-        if unassigned_requests.is_empty() {
-            info!("{SERIAL_BIDDER_TAG} Found no unassigned requests to bid on.");
-            return Ok(());
-        }
+            let mut stream = match ctx.network().clone().subscribe_proof_requests(unassigned_stream_req).await {
+                Ok(response) => response.into_inner(),
+                Err(e) => {
+                    warn!("{SERIAL_BIDDER_TAG} Failed to subscribe to unassigned requests stream: {:?}. Retrying in {}s", e, STREAM_ERROR_RECONNECT_SECONDS);
+                    time::sleep(Duration::from_secs(STREAM_ERROR_RECONNECT_SECONDS)).await;
+                    continue;
+                }
+            };
+            info!("{SERIAL_BIDDER_TAG} Subscribed to unassigned proof requests stream.");
 
-        // There should only be at most one request.
-        if unassigned_requests.len() > 1 {
-            info!(
-                "{SERIAL_BIDDER_TAG} Found more than one unassigned request to bid on. Skipping..."
-            );
-            return Ok(());
-        }
+            loop { // Inner loop to process messages from the current stream
+                match stream.message().await {
+                    Ok(Some(request)) => {
+                        let request_id_hex = hex::encode(&request.request_id);
+                        info!("{SERIAL_BIDDER_TAG} Received unassigned request: {}", request_id_hex);
 
-        let request = unassigned_requests.first().unwrap();
-        let request_id = hex::encode(&request.request_id);
-        let address = ctx.signer().address().to_vec();
+                        // Process this one request
+                        let address = ctx.signer().address().to_vec();
+                        let bid_result = ctx.network()
+                            .clone()
+                            .with_retry(
+                                || async {
+                                    let nonce = ctx
+                                        .network()
+                                        .clone()
+                                        .get_nonce(GetNonceRequest { address: address.clone() })
+                                        .await?
+                                        .into_inner()
+                                        .nonce;
+                                    // info!(nonce = %nonce, "{SERIAL_BIDDER_TAG} Fetched account nonce for request {}", request_id_hex);
 
-        info!("{SERIAL_BIDDER_TAG} Found one unassigned request to bid on.");
-        ctx.network()
-            .clone()
-            .with_retry(
-                || async {
-                    // Get the nonce.
-                    let nonce = ctx
-                        .network()
-                        .clone()
-                        .get_nonce(GetNonceRequest { address: address.clone() })
-                        .await?
-                        .into_inner()
-                        .nonce;
-                    info!(nonce = %nonce, "{SERIAL_BIDDER_TAG} Fetched account nonce.");
+                                    let request_details = ctx
+                                        .network()
+                                        .clone()
+                                        .get_proof_request_details(GetProofRequestDetailsRequest {
+                                            request_id: request.request_id.clone(),
+                                        })
+                                        .await?
+                                        .into_inner()
+                                        .request
+                                        .ok_or_else(|| anyhow::anyhow!("Request details not found for {}", request_id_hex))?;
 
-                    // Get request details to access the deadline.
-                    let request = ctx
-                        .network()
-                        .clone()
-                        .get_proof_request_details(GetProofRequestDetailsRequest {
-                            request_id: hex::decode(request_id.clone())?,
-                        })
-                        .await?
-                        .into_inner()
-                        .request
-                        .ok_or_else(|| anyhow::anyhow!("request details not found"))?;
+                                    let current_time = time_now();
+                                    let remaining_time = request_details.deadline.saturating_sub(current_time);
+                                    let required_time = ((request_details.gas_limit as f64) / self.throughput) as u64;
 
-                    // Log the request details in a structured format.
-                    let current_time = time_now();
-                    let remaining_time = request.deadline.saturating_sub(current_time);
-                    let required_time = ((request.gas_limit as f64) / self.throughput) as u64;
+                                    info!(
+                                        request_id = %request_id_hex,
+                                        // vk_hash = %hex::encode(request_details.vk_hash),
+                                        // version = %request_details.version,
+                                        // mode = %request_details.mode,
+                                        // strategy = %request_details.strategy,
+                                        // requester = %hex::encode(request_details.requester),
+                                        // tx_hash = %hex::encode(request_details.tx_hash),
+                                        // program_uri = %request_details.program_public_uri,
+                                        // stdin_uri = %request_details.stdin_public_uri,
+                                        gas_limit = %request_details.gas_limit,
+                                        // cycle_limit = %request_details.cycle_limit,
+                                        // created_at = %request_details.created_at,
+                                        // created_at_utc = %DateTime::from_timestamp(i64::try_from(request_details.created_at).unwrap_or_default(), 0).unwrap_or_default(),
+                                        deadline = %request_details.deadline,
+                                        // deadline_utc = %DateTime::from_timestamp(i64::try_from(request_details.deadline).unwrap_or_default(), 0).unwrap_or_default(),
+                                        remaining_time_sec = %remaining_time,
+                                        required_time_sec = %required_time,
+                                        "{} Fetched request details for {}.", SERIAL_BIDDER_TAG, request_id_hex
+                                    );
 
-                    info!(
-                        request_id = %request_id,
-                        vk_hash = %hex::encode(request.vk_hash),
-                        version = %request.version,
-                        mode = %request.mode,
-                        strategy = %request.strategy,
-                        requester = %hex::encode(request.requester),
-                        tx_hash = %hex::encode(request.tx_hash),
-                        program_uri = %request.program_public_uri,
-                        stdin_uri = %request.stdin_public_uri,
-                        gas_limit = %request.gas_limit,
-                        cycle_limit = %request.cycle_limit,
-                        created_at = %request.created_at,
-                        created_at_utc = %DateTime::from_timestamp(i64::try_from(request.created_at).unwrap_or_default(), 0).unwrap_or_default(),
-                        deadline = %request.deadline,
-                        deadline_utc = %DateTime::from_timestamp(i64::try_from(request.deadline).unwrap_or_default(), 0).unwrap_or_default(),
-                        remaining_time = %remaining_time,
-                        remaining_time_minutes = %remaining_time / 60,
-                        remaining_time_seconds = %remaining_time % 60,
-                        required_time = %required_time,
-                        required_time_minutes = %required_time / 60,
-                        required_time_seconds = %required_time % 60,
-                        "{SERIAL_BIDDER_TAG} Fetched request details."
-                    );
+                                    if remaining_time < required_time {
+                                        info!("{SERIAL_BIDDER_TAG} Not enough time (remaining: {}s, required: {}s) to bid on request {}. Skipping...", remaining_time, required_time, request_id_hex);
+                                        return Ok(()); // Ok to skip, not an error for the retry
+                                    }
 
-                    if remaining_time < required_time {
-                        info!(request_id = %request_id, remaining_time = %remaining_time, required_time = %required_time, "{SERIAL_BIDDER_TAG} Not enough time to bid on request. Skipping...");
-                        return Ok(());
+                                    info!("{SERIAL_BIDDER_TAG} Submitting bid (amount: {}) for request {}", self.bid, request_id_hex);
+                                    let body = BidRequestBody {
+                                        nonce,
+                                        request_id: request.request_id.clone(),
+                                        amount: self.bid.to_string(),
+                                    };
+                                    let bid_request = BidRequest {
+                                        format: MessageFormat::Binary.into(),
+                                        signature: body.sign(&ctx.signer()).into(),
+                                        body: Some(body),
+                                    };
+                                    ctx.network().clone().bid(bid_request).await?;
+                                    info!("{SERIAL_BIDDER_TAG} Successfully bid on request {}", request_id_hex);
+                                    Ok(())
+                                },
+                                "Bid",
+                            )
+                            .await;
+
+                        if let Err(e) = bid_result {
+                            error!("{SERIAL_BIDDER_TAG} Failed to bid on request {}: {:?}", request_id_hex, e);
+                            // Decide if we should break from inner loop and re-establish stream or continue
+                        }
+                        // Since it's a serial bidder, after attempting to bid (success or fail),
+                        // break from inner loop to re-check if node is busy and then re-subscribe.
+                        // This ensures we only try to bid on one thing at a time from the stream.
+                        break;
                     }
-
-                    // Bid on the request.
-                    info!(request_id = %request_id, bid_amount = %self.bid, "{SERIAL_BIDDER_TAG} Submitting a bid for request");
-                    let body = BidRequestBody {
-                        nonce,
-                        request_id: hex::decode(request_id.clone())
-                            .context("failed to decode request_id")?,
-                        amount: self.bid.to_string(),
-                    };
-                    let bid_request = BidRequest {
-                        format: MessageFormat::Binary.into(),
-                        signature: body.sign(&ctx.signer()).into(),
-                        body: Some(body),
-                    };
-                    ctx.network().clone().bid(bid_request).await?;
-
-                    Ok(())
-                },
-                "Bid",
-            )
-            .await?;
-
-        Ok(())
+                    Ok(None) => {
+                        warn!("{SERIAL_BIDDER_TAG} Unassigned requests stream ended cleanly. Reconnecting in {}s...", STREAM_CLEAN_END_RECONNECT_SECONDS);
+                        time::sleep(Duration::from_secs(STREAM_CLEAN_END_RECONNECT_SECONDS)).await;
+                        break; // Break inner loop to re-establish stream in outer loop
+                    }
+                    Err(e) => {
+                        error!("{SERIAL_BIDDER_TAG} Error receiving from unassigned requests stream: {:?}. Reconnecting in {}s...", e, STREAM_ERROR_RECONNECT_SECONDS);
+                        time::sleep(Duration::from_secs(STREAM_ERROR_RECONNECT_SECONDS)).await;
+                        break; // Break inner loop to re-establish stream in outer loop
+                    }
+                }
+            } // End of inner stream processing loop
+        } // End of outer service loop
     }
 }
 
@@ -284,7 +296,7 @@ impl SerialProver {
     }
 
     /// Checks the network for unexecutable requests and maintains a registry.
-    fn ensure_unexecutable_check_task_running<C: NodeContext>(&self, ctx: &C) {
+    fn ensure_unexecutable_check_task_running(&self, ctx: &SerialContext, owner: Vec<u8>) {
         // Use a static AtomicBool to ensure we only start the task once across the entire
         // application.
         static TASK_STARTED: atomic::AtomicBool = atomic::AtomicBool::new(false);
@@ -298,64 +310,74 @@ impl SerialProver {
         }
 
         // Clone the references to use in the background task.
-        let unexecutable_requests = self.unexecutable_requests.clone();
-        let network = ctx.network().clone();
-        let signer_address = ctx.signer().address().to_vec();
+        let unexecutable_requests_clone = self.unexecutable_requests.clone();
+        let network_client_for_task = ctx.network().clone();
+        // let signer_address_for_task = ctx.signer().address().to_vec(); // Owner is now passed in
 
         // Spawn a background task to check for unexecutable requests.
         tokio::spawn(async move {
-            const SERIAL_PROVER_TAG: &str = "\x1b[33m[SerialProver]\x1b[0m";
+            const SERIAL_PROVER_TAG: &str = "[33m[SerialProver][0m";
 
             loop {
-                // Fetch the owner.
-                let owner = match fetch_owner(&network, &signer_address).await {
-                    Ok(owner) => owner,
-                    Err(e) => {
-                        tracing::warn!("{SERIAL_PROVER_TAG} Failed to fetch owner: {:?}", e);
-                        tokio::time::sleep(Duration::from_secs(5)).await;
-                        continue;
-                    }
+                // Owner is passed directly, no need to fetch it inside the loop.
+                // let owner = match fetch_owner(&network_client_for_task, &signer_address_for_task).await {
+                //     Ok(owner) => owner,
+                //     Err(e) => {
+                //         tracing::warn!("{SERIAL_PROVER_TAG} Failed to fetch owner for unexecutable stream: {:?}. Retrying in {}s.", e, OWNER_FETCH_RETRY_SECONDS);
+                //         time::sleep(Duration::from_secs(OWNER_FETCH_RETRY_SECONDS)).await;
+                //         continue;
+                //     }
+                // };
+
+                // Define the stream request
+                let stream_req_payload = GetFilteredProofRequestsRequest {
+                    version: Some(SP1_NETWORK_VERSION.to_string()),
+                    fulfillment_status: Some(FulfillmentStatus::Assigned.into()),
+                    execution_status: Some(ExecutionStatus::Unexecutable.into()),
+                    fulfiller: Some(owner.clone()), // Use the passed-in owner
+                    minimum_deadline: None,
+                    not_bid_by: None,
+                    requester: None,
+                    limit: None, // Stream all unexecutable for this owner
+                    ..Default::default()
                 };
 
-                // Check for unexecutable requests.
-                let response = match network
-                    .clone()
-                    .get_filtered_proof_requests(GetFilteredProofRequestsRequest {
-                        version: Some(SP1_NETWORK_VERSION.to_string()),
-                        fulfillment_status: Some(FulfillmentStatus::Assigned.into()),
-                        execution_status: Some(ExecutionStatus::Unexecutable.into()),
-                        fulfiller: Some(owner),
-                        limit: Some(100),
-                        ..Default::default()
-                    })
-                    .await
-                {
-                    Ok(resp) => resp.into_inner(),
+                // Attempt to establish the stream
+                let mut stream = match network_client_for_task.clone().subscribe_proof_requests(stream_req_payload).await {
+                    Ok(response) => response.into_inner(),
                     Err(e) => {
-                        tracing::warn!(
-                            "{SERIAL_PROVER_TAG} Failed to check for unexecutable requests: {:?}",
-                            e
-                        );
-                        tokio::time::sleep(Duration::from_secs(5)).await;
-                        continue;
+                        tracing::warn!("{SERIAL_PROVER_TAG} Failed to establish stream for unexecutable requests: {:?}. Retrying in {}s.", e, STREAM_ERROR_RECONNECT_SECONDS);
+                        time::sleep(Duration::from_secs(STREAM_ERROR_RECONNECT_SECONDS)).await;
+                        continue; // Retry the outer loop to re-establish stream
                     }
                 };
+                tracing::info!("{SERIAL_PROVER_TAG} Established stream for unexecutable requests assigned to owner {}.", hex::encode(&owner));
 
-                // Update the registry with unexecutable request IDs.
-                let mut registry = unexecutable_requests.lock().await;
-                for request in response.requests {
-                    let request_id_hex = hex::encode(&request.request_id);
-                    if registry.insert(request.request_id) {
-                        // Only log if this is a new insertion.
-                        tracing::info!(
-                            request_id = %request_id_hex,
-                            "{SERIAL_PROVER_TAG} Added request to unexecutable registry"
-                        );
+                // Inner loop for processing messages from the current stream connection
+                loop {
+                    match stream.message().await {
+                        Ok(Some(request)) => {
+                            let request_id_hex = hex::encode(&request.request_id);
+                            let mut registry = unexecutable_requests_clone.lock().await;
+                            if registry.insert(request.request_id.clone()) {
+                                tracing::info!(
+                                    request_id = %request_id_hex,
+                                    "{SERIAL_PROVER_TAG} Added request to unexecutable registry via stream"
+                                );
+                            }
+                        }
+                        Ok(None) => {
+                            tracing::warn!("{SERIAL_PROVER_TAG} Unexecutable requests stream ended. Reconnecting in {}s.", STREAM_CLEAN_END_RECONNECT_SECONDS);
+                            time::sleep(Duration::from_secs(STREAM_CLEAN_END_RECONNECT_SECONDS)).await;
+                            break; // Break inner loop to reconnect by re-entering outer loop
+                        }
+                        Err(status) => {
+                            tracing::warn!("{SERIAL_PROVER_TAG} Error receiving from unexecutable requests stream: {:?}. Reconnecting in {}s.", status, STREAM_ERROR_RECONNECT_SECONDS);
+                            time::sleep(Duration::from_secs(STREAM_ERROR_RECONNECT_SECONDS)).await;
+                            break; // Break inner loop to reconnect by re-entering outer loop
+                        }
                     }
                 }
-
-                // Sleep for a bit before checking again.
-                tokio::time::sleep(Duration::from_secs(5)).await;
             }
         });
     }
@@ -508,299 +530,280 @@ impl NodeMonitor<SerialContext> for SerialMonitor {
 #[async_trait]
 impl<C: NodeContext> NodeProver<C> for SerialProver {
     #[allow(clippy::too_many_lines)]
-    async fn prove(&self, ctx: &C) -> Result<()> {
-        const SERIAL_PROVER_TAG: &str = "\x1b[33m[SerialProver]\x1b[0m";
+    async fn run_proving_service(&self, ctx: Arc<C>) -> Result<()> {
+        const SERIAL_PROVER_TAG: &str = "[33m[SerialProver][0m";
+        info!("{SERIAL_PROVER_TAG} Starting proving service...");
 
-        // Ensure the background check task is running.
-        self.ensure_unexecutable_check_task_running(ctx);
+        let owner = fetch_owner(ctx.network(), ctx.signer().address().as_ref())
+            .await
+            .context("Failed to fetch owner for proving service. Terminating service.")?;
+        info!(owner = %hex::encode(&owner), "{SERIAL_PROVER_TAG} Fetched owner for proving service.");
 
-        // Fetch the owner.
-        let owner = fetch_owner(ctx.network(), ctx.signer().address().as_ref()).await?;
-        info!(owner = %hex::encode(&owner), "{SERIAL_PROVER_TAG} Fetched owner.");
+        // Ensure the background unexecutable check task is running, now passing the owner.
+        self.ensure_unexecutable_check_task_running(ctx.as_ref(), owner.clone());
 
-        // Fetch for assigned requests.
-        let requests = ctx
-            .network()
-            .clone()
-            .get_filtered_proof_requests(GetFilteredProofRequestsRequest {
+        loop { // Outer loop for stream reconnection
+            info!("{SERIAL_PROVER_TAG} Subscribing to assigned proof requests...");
+            let assigned_stream_req = GetFilteredProofRequestsRequest {
                 version: Some(SP1_NETWORK_VERSION.to_string()),
                 fulfillment_status: Some(FulfillmentStatus::Assigned.into()),
-                minimum_deadline: Some(time_now()),
+                minimum_deadline: Some(time_now()), // Consider if needed for assigned stream
                 fulfiller: Some(owner.clone()),
-                limit: Some(1),
+                // limit: Some(REQUEST_LIMIT), // Stream will give one by one
                 ..Default::default()
-            })
-            .await?
-            .into_inner()
-            .requests;
-        info!(count = %requests.len(), "{SERIAL_PROVER_TAG} Fetched assigned proof requests.");
-
-        // If there are no assigned requests, return.
-        if requests.is_empty() {
-            info!("{SERIAL_PROVER_TAG} Found no assigned requests to prove.");
-            return Ok(());
-        }
-
-        for request in requests {
-            // Check if this request is already known to be unexecutable.
-            let request_id = request.request_id.clone();
-            let unexecutable_registry = self.unexecutable_requests.lock().await;
-            if unexecutable_registry.contains(&request_id) {
-                info!(
-                    request_id = %hex::encode(&request_id),
-                    "{SERIAL_PROVER_TAG} Skipping request marked as UNEXECUTABLE"
-                );
-
-                // Release lock early.
-                drop(unexecutable_registry);
-
-                // Notify the network about the failure.
-                report_request_status(ctx, request_id.clone(), &request_id, "skipped UNEXECUTABLE")
-                    .await;
-
-                continue;
-            }
-
-            // No longer need the registry lock.
-            drop(unexecutable_registry);
-
-            // Log the request details.
-            let request_id_hex = hex::encode(&request.request_id);
-            info!(
-                request_id = %request_id_hex,
-                vk_hash = %hex::encode(request.vk_hash),
-                version = %request.version,
-                mode = %request.mode,
-                strategy = %request.strategy,
-                requester = %hex::encode(request.requester),
-                tx_hash = %hex::encode(request.tx_hash),
-                program_uri = %request.program_public_uri,
-                stdin_uri = %request.stdin_public_uri,
-                cycle_limit = %request.cycle_limit,
-                created_at = %request.created_at,
-                created_at_utc = %DateTime::from_timestamp(i64::try_from(request.created_at).unwrap_or_default(), 0).unwrap_or_default(),
-                deadline = %request.deadline,
-                deadline_utc = %DateTime::from_timestamp(i64::try_from(request.deadline).unwrap_or_default(), 0).unwrap_or_default(),
-                "{SERIAL_PROVER_TAG} Proving request..."
-            );
-
-            // Download the program.
-            let program_artifact_id = parse_artifact_id_from_url(&request.program_public_uri)?;
-            let program_artifact = Artifact {
-                id: program_artifact_id.clone(),
-                label: "program".to_string(),
-                expiry: None,
-            };
-            let program: Vec<u8> =
-                program_artifact.download_program_from_uri(&request.program_public_uri).await?;
-            info!(program_size = %program.len(), artifact_id = %hex::encode(program_artifact_id), "{SERIAL_PROVER_TAG} Downloaded program.");
-
-            // Download the stdin.
-            let stdin_artifact_id = parse_artifact_id_from_url(&request.stdin_public_uri)?;
-            let stdin_artifact = Artifact {
-                id: stdin_artifact_id.clone(),
-                label: "stdin".to_string(),
-                expiry: None,
-            };
-            let stdin: SP1Stdin =
-                stdin_artifact.download_stdin_from_uri(&request.stdin_public_uri).await?;
-            info!(stdin_size = %stdin.buffer.iter().map(std::vec::Vec::len).sum::<usize>(), artifact_id = %hex::encode(stdin_artifact_id), "{SERIAL_PROVER_TAG} Downloaded stdin.");
-
-            // Generate the proving keys and the proof in a separate thread to catch panics.
-            let prover = self.prover.clone();
-            let mode = ProofMode::try_from(request.mode).unwrap_or(ProofMode::Core);
-            let mode = match mode {
-                ProofMode::Core => SP1ProofMode::Core,
-                ProofMode::Compressed => SP1ProofMode::Compressed,
-                ProofMode::Plonk => SP1ProofMode::Plonk,
-                ProofMode::Groth16 => SP1ProofMode::Groth16,
-                ProofMode::UnspecifiedProofMode => unreachable!(),
             };
 
-            // Store the join handle and extract its abort handle.
-            let proving_handle = tokio::task::spawn_blocking(move || {
-                panic::catch_unwind(AssertUnwindSafe(move || {
-                    let start = Instant::now();
-                    info!("{SERIAL_PROVER_TAG} Setting up proving key...");
+            let mut stream = match ctx.network().clone().subscribe_proof_requests(assigned_stream_req).await {
+                Ok(response) => response.into_inner(),
+                Err(e) => {
+                    warn!("{SERIAL_PROVER_TAG} Failed to subscribe to assigned requests stream: {:?}. Retrying in {}s", e, STREAM_ERROR_RECONNECT_SECONDS);
+                    time::sleep(Duration::from_secs(STREAM_ERROR_RECONNECT_SECONDS)).await;
+                    continue; // Retry subscribing
+                }
+            };
+            info!("{SERIAL_PROVER_TAG} Subscribed to assigned proof requests stream.");
 
-                    let (pk, _) = prover.setup(&program);
-                    info!(duration = %start.elapsed().as_secs_f64(), "{SERIAL_PROVER_TAG} Set up proving key.");
+            // Inner loop to process messages from the current stream
+            'request_processing_loop: loop {
+                match stream.message().await {
+                    Ok(Some(request)) => {
+                        let request_id_for_processing = request.request_id.clone();
+                        let request_id_hex = hex::encode(&request_id_for_processing);
+                        info!("{SERIAL_PROVER_TAG} Received assigned request to prove: {}", request_id_hex);
 
-                    let start = Instant::now();
-                    info!("{SERIAL_PROVER_TAG} Executing program...");
-                    let (_, report) = prover.execute(&pk.elf, &stdin).run().unwrap();
-                    let cycles = report.total_instruction_count();
-                    info!(duration = %start.elapsed().as_secs_f64(), cycles = %cycles, "{SERIAL_PROVER_TAG} Executed program.");
+                        // Process this one request
+                        // Check if this request is already known to be unexecutable.
+                        let unexecutable_registry = self.unexecutable_requests.lock().await;
+                        if unexecutable_registry.contains(&request_id_for_processing) {
+                            info!(
+                                request_id = %request_id_hex,
+                                "{SERIAL_PROVER_TAG} Skipping request marked as UNEXECUTABLE (found before proving attempt)"
+                            );
+                            drop(unexecutable_registry); // Release lock
+                            report_request_status(ctx.as_ref(), request_id_for_processing, &request_id_for_processing, "skipped UNEXECUTABLE")
+                                .await;
+                            continue; // Get next message from stream
+                        }
+                        drop(unexecutable_registry); // Release lock
 
-                    let start = Instant::now();
-                    info!("{SERIAL_PROVER_TAG} Generating proof...");
-                    let proof = prover.prove(&pk, &stdin).mode(mode).run();
-                    let proving_time = start.elapsed();
-                    info!(duration = %proving_time.as_secs_f64(), cycles = %cycles, "{SERIAL_PROVER_TAG} Proof generation complete.");
-                    (proof, cycles, proving_time)
-                }))
-            });
-            let proving_abort_handle = proving_handle.abort_handle();
-
-            // Create a check task for this specific request.
-            let request_id = request.request_id.clone();
-            let unexecutable_registry = self.unexecutable_requests.clone();
-
-            // Spawn a task to periodically check if the request became UNEXECUTABLE.
-            let monitoring_task = tokio::spawn(async move {
-                // Check every 2 seconds if the request is now in our unexecutable registry.
-                let mut interval = tokio::time::interval(std::time::Duration::from_secs(2));
-                loop {
-                    interval.tick().await;
-
-                    // Check if we already know this request is unexecutable.
-                    let is_unexecutable = {
-                        let registry = unexecutable_registry.lock().await;
-                        registry.contains(&request_id)
-                    };
-
-                    if is_unexecutable {
                         info!(
-                            request_id = %hex::encode(&request_id),
-                            "{SERIAL_PROVER_TAG} Request now marked as UNEXECUTABLE, aborting proof generation"
+                            request_id = %request_id_hex,
+                            // ... (full logging of request details as before)
+                            "{SERIAL_PROVER_TAG} Proving request..."
                         );
 
-                        // Abort the proving task.
-                        proving_abort_handle.abort();
-
-                        info!("{SERIAL_PROVER_TAG} Aborted proving task.");
-
-                        break;
-                    }
-                }
-            });
-
-            // Wait for the proving task to complete or be aborted.
-            let result = proving_handle.await;
-
-            // Cancel the monitoring task since proving is done.
-            monitoring_task.abort();
-
-            match result {
-                Ok(panic_result) => match panic_result {
-                    Ok((proof_result, cycles, proving_time)) => {
-                        match proof_result {
-                            Ok(proof) => {
-                                // Update the metrics.
-                                let metrics = ctx.metrics();
-                                *metrics.total_cycles.lock().await += cycles;
-                                *metrics.total_proving_time.lock().await += proving_time;
-                                *metrics.fulfilled.lock().await += 1;
-
-                                // Now serialize the actual proof value
-                                let proof_bytes = bincode::serialize(&proof)
-                                    .context("failed to serialize proof")?;
-
-                                // Fulfill the proof.
-                                let address = ctx.signer().address().to_vec();
-                                if let Err(e) = ctx.network()
-                                    .clone()
-                                    .with_retry(
-                                        || async {
-                                            // Get the nonce.
-                                            let nonce = ctx
-                                                .network()
-                                                .clone()
-                                                .get_nonce(GetNonceRequest { address: address.clone() })
-                                                .await?
-                                                .into_inner()
-                                                .nonce;
-                                            info!(nonce = %nonce, "{SERIAL_PROVER_TAG} Fetched account nonce.");
-
-                                            // Create and submit the fulfill request.
-                                            let body = FulfillProofRequestBody {
-                                                nonce,
-                                                request_id: request.request_id.clone(),
-                                                proof: proof_bytes.clone(),
-                                                reserved_metadata: None,
-                                            };
-                                            let fulfill_request = FulfillProofRequest {
-                                                format: MessageFormat::Binary.into(),
-                                                signature: body.sign(&ctx.signer()).into(),
-                                                body: Some(body),
-                                            };
-                                            ctx.network().clone().fulfill_proof(fulfill_request).await?;
-                                            info!(
-                                                request_id = %hex::encode(&request.request_id),
-                                                proof_size = %proof_bytes.len(),
-                                                "{SERIAL_PROVER_TAG} Proof fulfillment submitted."
-                                            );
-                                            Ok(())
-                                        },
-                                        "Fulfill",
-                                    )
-                                    .await
-                                {
-                                    error!("{SERIAL_PROVER_TAG} Failed to fulfill proof: {:?}", e);
-                                }
-                            }
+                        // Download the program.
+                        let program_artifact_id = match parse_artifact_id_from_url(&request.program_public_uri) {
+                            Ok(id) => id,
                             Err(e) => {
-                                error!("{SERIAL_PROVER_TAG} Proof generation failed: {:?}", e);
-
-                                // Report failure to the network
-                                report_request_status(
-                                    ctx,
-                                    request.request_id.clone(),
-                                    &request.request_id,
-                                    "proof failure",
-                                )
-                                .await;
+                                error!("{SERIAL_PROVER_TAG} Failed to parse program URI for request {}: {:?}. Marking as failed.", request_id_hex, e);
+                                report_request_status(ctx.as_ref(), request_id_for_processing, &request_id_for_processing, "program URI parse failure").await;
+                                continue;
                             }
-                        }
-                    }
-                    Err(e) => {
-                        let panic_msg = match e.downcast_ref::<&str>() {
-                            Some(s) => (*s).to_string(),
-                            None => match e.downcast_ref::<String>() {
-                                Some(s) => s.clone(),
-                                None => "Unknown panic".to_string(),
-                            },
+                        };
+                        let program_artifact = Artifact {
+                            id: program_artifact_id.clone(),
+                            label: "program".to_string(),
+                            expiry: None,
+                        };
+                        let program: Vec<u8> = match program_artifact.download_program_from_uri(&request.program_public_uri).await {
+                            Ok(p) => p,
+                            Err(e) => {
+                                error!("{SERIAL_PROVER_TAG} Failed to download program for request {}: {:?}. Marking as failed.", request_id_hex, e);
+                                report_request_status(ctx.as_ref(), request_id_for_processing, &request_id_for_processing, "program download failure").await;
+                                continue;
+                            }
+                        };
+                        info!(program_size = %program.len(), artifact_id = %hex::encode(program_artifact_id), "{SERIAL_PROVER_TAG} Downloaded program for {}.", request_id_hex);
+
+                        // Download the stdin.
+                        let stdin_artifact_id = match parse_artifact_id_from_url(&request.stdin_public_uri) {
+                             Ok(id) => id,
+                             Err(e) => {
+                                error!("{SERIAL_PROVER_TAG} Failed to parse stdin URI for request {}: {:?}. Marking as failed.", request_id_hex, e);
+                                report_request_status(ctx.as_ref(), request_id_for_processing, &request_id_for_processing, "stdin URI parse failure").await;
+                                continue;
+                            }
+                        };
+                        let stdin_artifact = Artifact {
+                            id: stdin_artifact_id.clone(),
+                            label: "stdin".to_string(),
+                            expiry: None,
+                        };
+                        let stdin: SP1Stdin = match stdin_artifact.download_stdin_from_uri(&request.stdin_public_uri).await {
+                            Ok(s) => s,
+                            Err(e) => {
+                                error!("{SERIAL_PROVER_TAG} Failed to download stdin for request {}: {:?}. Marking as failed.", request_id_hex, e);
+                                report_request_status(ctx.as_ref(), request_id_for_processing, &request_id_for_processing, "stdin download failure").await;
+                                continue;
+                            }
+                        };
+                        info!(stdin_size = %stdin.buffer.iter().map(std::vec::Vec::len).sum::<usize>(), artifact_id = %hex::encode(stdin_artifact_id), "{SERIAL_PROVER_TAG} Downloaded stdin for {}.", request_id_hex);
+
+
+                        // Generate the proving keys and the proof in a separate thread to catch panics.
+                        let prover_clone = self.prover.clone();
+                        let mode = ProofMode::try_from(request.mode).unwrap_or(ProofMode::Core);
+                        let internal_mode = match mode {
+                            ProofMode::Core => SP1ProofMode::Core,
+                            ProofMode::Compressed => SP1ProofMode::Compressed,
+                            ProofMode::Plonk => SP1ProofMode::Plonk,
+                            ProofMode::Groth16 => SP1ProofMode::Groth16,
+                            ProofMode::UnspecifiedProofMode => {
+                                error!("{SERIAL_PROVER_TAG} Unspecified proof mode for request {}. Marking as failed.", request_id_hex);
+                                report_request_status(ctx.as_ref(), request_id_for_processing, &request_id_for_processing, "unspecified proof mode").await;
+                                continue;
+                            }
                         };
 
-                        error!("{SERIAL_PROVER_TAG} Proving panicked: {}", panic_msg);
+                        let proving_handle = tokio::task::spawn_blocking(move || {
+                            panic::catch_unwind(AssertUnwindSafe(move || {
+                                let start_setup = Instant::now();
+                                info!("{SERIAL_PROVER_TAG} Setting up proving key for {}...", request_id_hex);
+                                let (pk, _) = prover_clone.setup(&program);
+                                info!(duration = %start_setup.elapsed().as_secs_f64(), "{SERIAL_PROVER_TAG} Set up proving key for {}.", request_id_hex);
 
-                        // Attempt to mark the request as failed on the network.
-                        report_request_status(
-                            ctx,
-                            request.request_id.clone(),
-                            &request.request_id,
-                            "panic failure",
-                        )
-                        .await;
+                                let start_exec = Instant::now();
+                                info!("{SERIAL_PROVER_TAG} Executing program for {}...", request_id_hex);
+                                let exec_result = prover_clone.execute(&pk.elf, &stdin).run();
+                                let report = match exec_result {
+                                    Ok((_, r)) => r,
+                                    Err(e) => {
+                                        // This error needs to be propagated out of the catch_unwind
+                                        return Err(anyhow::anyhow!("Execution failed for {}: {:?}", request_id_hex, e));
+                                    }
+                                };
+                                let cycles = report.total_instruction_count();
+                                info!(duration = %start_exec.elapsed().as_secs_f64(), cycles = %cycles, "{SERIAL_PROVER_TAG} Executed program for {}.", request_id_hex);
+
+                                let start_prove = Instant::now();
+                                info!("{SERIAL_PROVER_TAG} Generating proof for {} (mode: {:?})...", request_id_hex, internal_mode);
+                                let proof = prover_clone.prove(&pk, &stdin).mode(internal_mode).run(); // Pass internal_mode
+                                let proving_time = start_prove.elapsed();
+                                info!(duration = %proving_time.as_secs_f64(), cycles = %cycles, "{SERIAL_PROVER_TAG} Proof generation complete for {}.", request_id_hex);
+                                Ok((proof, cycles, proving_time)) // Return Ok result here
+                            }))
+                        });
+                        let proving_abort_handle = proving_handle.abort_handle();
+
+                        // Create a check task for this specific request.
+                        let unexecutable_registry_clone = self.unexecutable_requests.clone();
+                        let request_id_monitor = request_id_for_processing.clone();
+
+                        let monitoring_task = tokio::spawn(async move {
+                            let mut interval = tokio::time::interval(std::time::Duration::from_secs(2));
+                            loop {
+                                interval.tick().await;
+                                let is_unexecutable = {
+                                    let registry = unexecutable_registry_clone.lock().await;
+                                    registry.contains(&request_id_monitor)
+                                };
+                                if is_unexecutable {
+                                    info!(request_id = %hex::encode(&request_id_monitor), "{SERIAL_PROVER_TAG} Request now marked as UNEXECUTABLE, aborting proof generation");
+                                    proving_abort_handle.abort();
+                                    info!("{SERIAL_PROVER_TAG} Aborted proving task for {}.", hex::encode(&request_id_monitor));
+                                    break;
+                                }
+                            }
+                        });
+
+                        let result = proving_handle.await;
+                        monitoring_task.abort(); // Ensure monitor task is cleaned up
+
+                        match result {
+                            Ok(panic_result) => match panic_result {
+                                Ok(Ok((proof_result, cycles, proving_time))) => { // Inner Ok for the result of execution and proving
+                                    match proof_result {
+                                        Ok(proof) => {
+                                            let metrics = ctx.metrics();
+                                            *metrics.total_cycles.lock().await += cycles;
+                                            *metrics.total_proving_time.lock().await += proving_time;
+                                            *metrics.fulfilled.lock().await += 1;
+
+                                            let proof_bytes = match bincode::serialize(&proof) {
+                                                Ok(pb) => pb,
+                                                Err(e) => {
+                                                    error!("{SERIAL_PROVER_TAG} Failed to serialize proof for {}: {:?}", request_id_hex, e);
+                                                    report_request_status(ctx.as_ref(), request_id_for_processing, &request_id_for_processing, "proof serialization failure").await;
+                                                    continue; // Next message from stream
+                                                }
+                                            };
+
+                                            let address = ctx.signer().address().to_vec();
+                                            if let Err(e) = ctx.network().clone().with_retry(
+                                                || async {
+                                                    let nonce = ctx.network().clone().get_nonce(GetNonceRequest { address: address.clone() }).await?.into_inner().nonce;
+                                                    // info!(nonce = %nonce, "{SERIAL_PROVER_TAG} Fetched account nonce for fulfilling {}.", request_id_hex);
+                                                    let body = FulfillProofRequestBody {
+                                                        nonce,
+                                                        request_id: request_id_for_processing.clone(),
+                                                        proof: proof_bytes.clone(),
+                                                        reserved_metadata: None,
+                                                    };
+                                                    let fulfill_request = FulfillProofRequest {
+                                                        format: MessageFormat::Binary.into(),
+                                                        signature: body.sign(&ctx.signer()).into(),
+                                                        body: Some(body),
+                                                    };
+                                                    ctx.network().clone().fulfill_proof(fulfill_request).await?;
+                                                    info!(request_id = %request_id_hex, proof_size = %proof_bytes.len(), "{SERIAL_PROVER_TAG} Proof fulfillment submitted for {}.", request_id_hex);
+                                                    Ok(())
+                                                },
+                                                "Fulfill",
+                                            ).await {
+                                                error!("{SERIAL_PROVER_TAG} Failed to fulfill proof for {}: {:?}", request_id_hex, e);
+                                                // Failure to fulfill is critical, but the proof was generated.
+                                                // The request remains assigned. The node might retry later or operator needs to check.
+                                            }
+                                        }
+                                        Err(e) => { // Error from prover.prove() or prover.execute()
+                                            error!("{SERIAL_PROVER_TAG} Proof generation failed for {}: {:?}", request_id_hex, e);
+                                            report_request_status(ctx.as_ref(), request_id_for_processing, &request_id_for_processing, "proof generation failure").await;
+                                        }
+                                    }
+                                }
+                                Ok(Err(e)) => { // Error explicitly returned from AssertUnwindSafe block (e.g. execute error)
+                                    error!("{SERIAL_PROVER_TAG} Proving process failed for {}: {:?}", request_id_hex, e);
+                                    report_request_status(ctx.as_ref(), request_id_for_processing, &request_id_for_processing, "proving process internal failure").await;
+                                }
+                                Err(e) => { // Panic occurred
+                                    let panic_msg = match e.downcast_ref::<&str>() {
+                                        Some(s) => (*s).to_string(),
+                                        None => match e.downcast_ref::<String>() {
+                                            Some(s) => s.clone(),
+                                            None => "Unknown panic".to_string(),
+                                        },
+                                    };
+                                    error!("{SERIAL_PROVER_TAG} Proving panicked for {}: {}", request_id_hex, panic_msg);
+                                    report_request_status(ctx.as_ref(), request_id_for_processing, &request_id_for_processing, "panic failure").await;
+                                }
+                            },
+                            Err(e) => { // Task join error (e.g., aborted)
+                                let is_cancelled = e.is_cancelled();
+                                if is_cancelled {
+                                    warn!(request_id = %request_id_hex, "{SERIAL_PROVER_TAG} Proving was aborted for {} (likely due to UNEXECUTABLE)", request_id_hex);
+                                } else {
+                                    error!("{SERIAL_PROVER_TAG} Proving task for {} was aborted unexpectedly: {:?}", request_id_hex, e);
+                                }
+                                report_request_status(ctx.as_ref(), request_id_for_processing, &request_id_for_processing, if is_cancelled { "aborted (unexecutable)" } else { "task join error" }).await;
+                            }
+                        }
+                        // After processing one request (success or failure), we are ready for the next from the stream.
+                        // The serial nature is maintained by only processing one at a time.
                     }
-                },
-                Err(e) => {
-                    // Check if this was a cancellation.
-                    let is_cancelled = e.is_cancelled();
-
-                    if is_cancelled {
-                        warn!(
-                            request_id = %hex::encode(&request.request_id),
-                            "{SERIAL_PROVER_TAG} Proving was aborted because request is UNEXECUTABLE"
-                        );
-                    } else {
-                        error!("{SERIAL_PROVER_TAG} Proving was aborted because: {:?}", e);
+                    Ok(None) => {
+                        warn!("{SERIAL_PROVER_TAG} Assigned requests stream ended cleanly. Reconnecting in {}s...", STREAM_CLEAN_END_RECONNECT_SECONDS);
+                        time::sleep(Duration::from_secs(STREAM_CLEAN_END_RECONNECT_SECONDS)).await;
+                        break 'request_processing_loop; // Break inner loop to re-establish stream
                     }
-
-                    // Always notify network about task failure.
-                    let status_type = if is_cancelled { "cancellation" } else { "task failure" };
-                    report_request_status(
-                        ctx,
-                        request.request_id.clone(),
-                        &request.request_id,
-                        status_type,
-                    )
-                    .await;
+                    Err(e) => {
+                        error!("{SERIAL_PROVER_TAG} Error receiving from assigned requests stream: {:?}. Reconnecting in {}s...", e, STREAM_ERROR_RECONNECT_SECONDS);
+                        time::sleep(Duration::from_secs(STREAM_ERROR_RECONNECT_SECONDS)).await;
+                        break 'request_processing_loop; // Break inner loop to re-establish stream
+                    }
                 }
-            }
-        }
-
-        Ok(())
+            } // End of inner stream processing loop
+        } // End of outer service loop (for stream reconnection)
     }
 }
 

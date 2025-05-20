@@ -78,7 +78,7 @@ pub trait NodeContext: Send + Sync + 'static {
 #[async_trait]
 pub trait NodeBidder<C>: Send + Sync + 'static {
     /// Bid on requests.
-    async fn bid(&self, ctx: &C) -> Result<()>;
+    async fn run_bidding_service(&self, ctx: Arc<C>) -> Result<()>;
 }
 
 /// The prover for a node.
@@ -88,7 +88,7 @@ pub trait NodeBidder<C>: Send + Sync + 'static {
 #[async_trait]
 pub trait NodeProver<C>: Send + Sync + 'static {
     /// Prove requests.
-    async fn prove(&self, ctx: &C) -> Result<()>;
+    async fn run_proving_service(&self, ctx: Arc<C>) -> Result<()>;
 }
 
 /// The monitor for a node.
@@ -118,48 +118,90 @@ pub struct NodeMetrics {
 impl<C: NodeContext, B: NodeBidder<C>, P: NodeProver<C>, M: NodeMonitor<C>> Node<C, B, P, M> {
     /// Run the node.
     pub async fn run(self) -> Result<()> {
-        // Run the bid and prove task.
-        let ctx = self.ctx.clone();
+        // Run the bid task.
+        let ctx_bidder = self.ctx.clone();
         let bidder = self.bidder.clone();
-        let prover = self.prover.clone();
-        let bid_and_prove_task = tokio::spawn(async move {
-            let result: Result<()> = async {
-                loop {
-                    let bid_future = bidder.bid(&ctx);
-                    let prove_future = prover.prove(&ctx);
-                    let _ = tokio::join!(bid_future, prove_future);
-
-                    sleep(Duration::from_secs(3)).await;
-                }
+        let bid_task = tokio::spawn(async move {
+            if let Err(e) = bidder.run_bidding_service(ctx_bidder).await {
+                tracing::error!("Bidding service failed: {:?}", e);
+                return Err(e);
             }
-            .await;
-            result
+            Ok(())
+        });
+
+        // Run the prove task.
+        let ctx_prover = self.ctx.clone();
+        let prover = self.prover.clone();
+        let prove_task = tokio::spawn(async move {
+            if let Err(e) = prover.run_proving_service(ctx_prover).await {
+                tracing::error!("Proving service failed: {:?}", e);
+                return Err(e);
+            }
+            Ok(())
         });
 
         // Run the system monitor task.
-        let ctx = self.ctx.clone();
+        let ctx_monitor = self.ctx.clone();
         let monitor = self.monitor.clone();
         let monitor_task = tokio::spawn(async move {
             let result: Result<()> = async {
                 loop {
-                    monitor.record(&ctx).await?;
+                    if let Err(e) = monitor.record(&ctx_monitor).await {
+                         tracing::warn!("Monitor task record failed: {:?}", e);
+                         // Decide if this should be fatal or just log and continue
+                    }
                     sleep(Duration::from_secs(30)).await;
                 }
             }
             .await;
-            result
+            // If the loop exits, it implies an issue or it was designed to exit.
+            // For a persistent monitor, it would ideally not exit without error.
+            if let Err(e) = result {
+                tracing::error!("Monitor service failed: {:?}", e);
+                return Err(e);
+            }
+            Ok(())
         });
 
         // Wait until one of the tasks fails.
         tokio::select! {
-            result = bid_and_prove_task => {
-                if let Err(e) = result {
-                    return Err(e.into());
+            result = bid_task => {
+                match result {
+                    Ok(Ok(())) => tracing::info!("Bidding service completed successfully."),
+                    Ok(Err(e)) => {
+                        tracing::error!("Bidding service exited with error: {:?}", e);
+                        return Err(e.into());
+                    }
+                    Err(e) => {
+                        tracing::error!("Bidding service panicked: {:?}", e);
+                        return Err(e.into());
+                    }
+                }
+            },
+            result = prove_task => {
+                match result {
+                    Ok(Ok(())) => tracing::info!("Proving service completed successfully."),
+                    Ok(Err(e)) => {
+                        tracing::error!("Proving service exited with error: {:?}", e);
+                        return Err(e.into());
+                    }
+                    Err(e) => {
+                        tracing::error!("Proving service panicked: {:?}", e);
+                        return Err(e.into());
+                    }
                 }
             },
             result = monitor_task => {
-                if let Err(e) = result {
-                    return Err(e.into());
+                 match result {
+                    Ok(Ok(())) => tracing::info!("Monitor service completed successfully."),
+                    Ok(Err(e)) => {
+                        tracing::error!("Monitor service exited with error: {:?}", e);
+                        return Err(e.into());
+                    }
+                    Err(e) => {
+                        tracing::error!("Monitor service panicked: {:?}", e);
+                        return Err(e.into());
+                    }
                 }
             },
         }

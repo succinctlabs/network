@@ -42,6 +42,14 @@ pub struct RequestProofRequestBody {
     /// The gas limit for the request. If 0, the cycle_limit is used.
     #[prost(uint64, tag = "9")]
     pub gas_limit: u64,
+    /// The minimum period a request can be in auction in seconds. Zero indicates no minimum. Only
+    /// applicable if the strategy is auction.
+    #[prost(uint64, tag = "10")]
+    pub min_auction_period: u64,
+    /// The whitelist of provers that can bid and prove this request. An empty list indicates that
+    /// any prover can participate. Only applicable if the strategy is auction.
+    #[prost(bytes = "vec", repeated, tag = "11")]
+    pub whitelist: ::prost::alloc::vec::Vec<::prost::alloc::vec::Vec<u8>>,
 }
 #[derive(serde::Serialize, serde::Deserialize)]
 #[derive(Clone, PartialEq, ::prost::Message)]
@@ -336,6 +344,14 @@ pub struct ProofRequest {
     /// The public stdin resource identifier.
     #[prost(string, tag = "31")]
     pub stdin_public_uri: ::prost::alloc::string::String,
+    /// The minimum period a request can be in auction in seconds. Zero indicates no minimum. Only
+    /// applicable if the strategy is auction.
+    #[prost(uint64, tag = "32")]
+    pub min_auction_period: u64,
+    /// The whitelist of provers that can bid and prove this request. An empty list indicates that
+    /// any prover can participate. Only applicable if the strategy is auction.
+    #[prost(bytes = "vec", repeated, tag = "33")]
+    pub whitelist: ::prost::alloc::vec::Vec<::prost::alloc::vec::Vec<u8>>,
 }
 #[derive(serde::Serialize, serde::Deserialize)]
 #[derive(Clone, PartialEq, ::prost::Message)]
@@ -1417,7 +1433,7 @@ pub struct GetBillingSummaryRequest {
 #[derive(serde::Serialize, serde::Deserialize)]
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct GetBillingSummaryResponse {
-    /// A list summarizing charges by month and clusters for the specifed payer.
+    /// A list summarizing charges by month and clusters for the specified payer.
     #[prost(message, repeated, tag = "1")]
     pub billing_summary: ::prost::alloc::vec::Vec<PayerBillingSummary>,
 }
@@ -1601,7 +1617,7 @@ pub struct GetUsageSummaryRequest {
 #[derive(serde::Serialize, serde::Deserialize)]
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct GetUsageSummaryResponse {
-    /// A list summarizing usage by month and clusters for the specifed payer.
+    /// A list summarizing usage by month and clusters for the specified payer.
     #[prost(message, repeated, tag = "1")]
     pub usage_summary: ::prost::alloc::vec::Vec<PayerUsageSummary>,
 }
@@ -3316,6 +3332,9 @@ pub struct ProverEntry {
     /// The total number of points;
     #[prost(uint64, tag = "11")]
     pub total_points: u64,
+    /// The total number of stars.
+    #[prost(uint64, tag = "12")]
+    pub total_stars: u64,
 }
 #[derive(serde::Serialize, serde::Deserialize)]
 #[derive(Clone, PartialEq, ::prost::Message)]
@@ -3378,6 +3397,9 @@ pub struct GetProverLeaderboardRequest {
     /// The optional page number to return (default is 1).
     #[prost(uint32, optional, tag = "2")]
     pub page: ::core::option::Option<u32>,
+    /// The optional gpu variant to filter by.
+    #[prost(enumeration = "GpuVariant", optional, tag = "3")]
+    pub gpu_variant: ::core::option::Option<i32>,
 }
 #[derive(serde::Serialize, serde::Deserialize)]
 #[derive(Clone, PartialEq, ::prost::Message)]
@@ -3668,6 +3690,9 @@ pub struct BettorDetails {
     /// The social image of the bettor.
     #[prost(string, optional, tag = "7")]
     pub social_image: ::core::option::Option<::prost::alloc::string::String>,
+    /// The gpu variant of the bettor.
+    #[prost(enumeration = "GpuVariant", optional, tag = "8")]
+    pub gpu_variant: ::core::option::Option<i32>,
 }
 #[derive(serde::Serialize, serde::Deserialize)]
 #[derive(Clone, PartialEq, ::prost::Message)]
@@ -3793,6 +3818,9 @@ pub struct ProverActivity {
     /// The creation time of the request.
     #[prost(uint64, optional, tag = "8")]
     pub created_at: ::core::option::Option<u64>,
+    /// The total number of bets placed for this proof.
+    #[prost(uint64, tag = "9")]
+    pub total_bets: u64,
 }
 #[derive(serde::Serialize, serde::Deserialize)]
 #[derive(Clone, PartialEq, ::prost::Message)]
@@ -4809,13 +4837,7 @@ impl ChargeType {
 }
 /// Generated client implementations.
 pub mod prover_network_client {
-    #![allow(
-        unused_variables,
-        dead_code,
-        missing_docs,
-        clippy::wildcard_imports,
-        clippy::let_unit_value,
-    )]
+    #![allow(unused_variables, dead_code, missing_docs, clippy::let_unit_value)]
     use tonic::codegen::*;
     use tonic::codegen::http::Uri;
     #[derive(Debug, Clone)]
@@ -4910,7 +4932,8 @@ pub mod prover_network_client {
                 .ready()
                 .await
                 .map_err(|e| {
-                    tonic::Status::unknown(
+                    tonic::Status::new(
+                        tonic::Code::Unknown,
                         format!("Service was not ready: {}", e.into()),
                     )
                 })?;
@@ -4935,7 +4958,8 @@ pub mod prover_network_client {
                 .ready()
                 .await
                 .map_err(|e| {
-                    tonic::Status::unknown(
+                    tonic::Status::new(
+                        tonic::Code::Unknown,
                         format!("Service was not ready: {}", e.into()),
                     )
                 })?;
@@ -4960,7 +4984,8 @@ pub mod prover_network_client {
                 .ready()
                 .await
                 .map_err(|e| {
-                    tonic::Status::unknown(
+                    tonic::Status::new(
+                        tonic::Code::Unknown,
                         format!("Service was not ready: {}", e.into()),
                     )
                 })?;
@@ -4985,7 +5010,8 @@ pub mod prover_network_client {
                 .ready()
                 .await
                 .map_err(|e| {
-                    tonic::Status::unknown(
+                    tonic::Status::new(
+                        tonic::Code::Unknown,
                         format!("Service was not ready: {}", e.into()),
                     )
                 })?;
@@ -5010,7 +5036,8 @@ pub mod prover_network_client {
                 .ready()
                 .await
                 .map_err(|e| {
-                    tonic::Status::unknown(
+                    tonic::Status::new(
+                        tonic::Code::Unknown,
                         format!("Service was not ready: {}", e.into()),
                     )
                 })?;
@@ -5035,7 +5062,8 @@ pub mod prover_network_client {
                 .ready()
                 .await
                 .map_err(|e| {
-                    tonic::Status::unknown(
+                    tonic::Status::new(
+                        tonic::Code::Unknown,
                         format!("Service was not ready: {}", e.into()),
                     )
                 })?;
@@ -5062,7 +5090,8 @@ pub mod prover_network_client {
                 .ready()
                 .await
                 .map_err(|e| {
-                    tonic::Status::unknown(
+                    tonic::Status::new(
+                        tonic::Code::Unknown,
                         format!("Service was not ready: {}", e.into()),
                     )
                 })?;
@@ -5089,7 +5118,8 @@ pub mod prover_network_client {
                 .ready()
                 .await
                 .map_err(|e| {
-                    tonic::Status::unknown(
+                    tonic::Status::new(
+                        tonic::Code::Unknown,
                         format!("Service was not ready: {}", e.into()),
                     )
                 })?;
@@ -5104,6 +5134,34 @@ pub mod prover_network_client {
                 );
             self.inner.unary(req, path, codec).await
         }
+        /// Subscribe to proof requests that meet the filter criteria.
+        pub async fn subscribe_proof_requests(
+            &mut self,
+            request: impl tonic::IntoRequest<super::GetFilteredProofRequestsRequest>,
+        ) -> std::result::Result<
+            tonic::Response<tonic::codec::Streaming<super::ProofRequest>>,
+            tonic::Status,
+        > {
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::new(
+                        tonic::Code::Unknown,
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
+            let codec = tonic::codec::ProstCodec::default();
+            let path = http::uri::PathAndQuery::from_static(
+                "/network.ProverNetwork/SubscribeProofRequests",
+            );
+            let mut req = request.into_request();
+            req.extensions_mut()
+                .insert(
+                    GrpcMethod::new("network.ProverNetwork", "SubscribeProofRequests"),
+                );
+            self.inner.server_streaming(req, path, codec).await
+        }
         /// Search for proof requests, programs, and requesters.
         pub async fn get_search_results(
             &mut self,
@@ -5116,7 +5174,8 @@ pub mod prover_network_client {
                 .ready()
                 .await
                 .map_err(|e| {
-                    tonic::Status::unknown(
+                    tonic::Status::new(
+                        tonic::Code::Unknown,
                         format!("Service was not ready: {}", e.into()),
                     )
                 })?;
@@ -5141,7 +5200,8 @@ pub mod prover_network_client {
                 .ready()
                 .await
                 .map_err(|e| {
-                    tonic::Status::unknown(
+                    tonic::Status::new(
+                        tonic::Code::Unknown,
                         format!("Service was not ready: {}", e.into()),
                     )
                 })?;
@@ -5168,7 +5228,8 @@ pub mod prover_network_client {
                 .ready()
                 .await
                 .map_err(|e| {
-                    tonic::Status::unknown(
+                    tonic::Status::new(
+                        tonic::Code::Unknown,
                         format!("Service was not ready: {}", e.into()),
                     )
                 })?;
@@ -5195,7 +5256,8 @@ pub mod prover_network_client {
                 .ready()
                 .await
                 .map_err(|e| {
-                    tonic::Status::unknown(
+                    tonic::Status::new(
+                        tonic::Code::Unknown,
                         format!("Service was not ready: {}", e.into()),
                     )
                 })?;
@@ -5220,7 +5282,8 @@ pub mod prover_network_client {
                 .ready()
                 .await
                 .map_err(|e| {
-                    tonic::Status::unknown(
+                    tonic::Status::new(
+                        tonic::Code::Unknown,
                         format!("Service was not ready: {}", e.into()),
                     )
                 })?;
@@ -5245,7 +5308,8 @@ pub mod prover_network_client {
                 .ready()
                 .await
                 .map_err(|e| {
-                    tonic::Status::unknown(
+                    tonic::Status::new(
+                        tonic::Code::Unknown,
                         format!("Service was not ready: {}", e.into()),
                     )
                 })?;
@@ -5272,7 +5336,8 @@ pub mod prover_network_client {
                 .ready()
                 .await
                 .map_err(|e| {
-                    tonic::Status::unknown(
+                    tonic::Status::new(
+                        tonic::Code::Unknown,
                         format!("Service was not ready: {}", e.into()),
                     )
                 })?;
@@ -5297,7 +5362,8 @@ pub mod prover_network_client {
                 .ready()
                 .await
                 .map_err(|e| {
-                    tonic::Status::unknown(
+                    tonic::Status::new(
+                        tonic::Code::Unknown,
                         format!("Service was not ready: {}", e.into()),
                     )
                 })?;
@@ -5322,7 +5388,8 @@ pub mod prover_network_client {
                 .ready()
                 .await
                 .map_err(|e| {
-                    tonic::Status::unknown(
+                    tonic::Status::new(
+                        tonic::Code::Unknown,
                         format!("Service was not ready: {}", e.into()),
                     )
                 })?;
@@ -5347,7 +5414,8 @@ pub mod prover_network_client {
                 .ready()
                 .await
                 .map_err(|e| {
-                    tonic::Status::unknown(
+                    tonic::Status::new(
+                        tonic::Code::Unknown,
                         format!("Service was not ready: {}", e.into()),
                     )
                 })?;
@@ -5372,7 +5440,8 @@ pub mod prover_network_client {
                 .ready()
                 .await
                 .map_err(|e| {
-                    tonic::Status::unknown(
+                    tonic::Status::new(
+                        tonic::Code::Unknown,
                         format!("Service was not ready: {}", e.into()),
                     )
                 })?;
@@ -5397,7 +5466,8 @@ pub mod prover_network_client {
                 .ready()
                 .await
                 .map_err(|e| {
-                    tonic::Status::unknown(
+                    tonic::Status::new(
+                        tonic::Code::Unknown,
                         format!("Service was not ready: {}", e.into()),
                     )
                 })?;
@@ -5422,7 +5492,8 @@ pub mod prover_network_client {
                 .ready()
                 .await
                 .map_err(|e| {
-                    tonic::Status::unknown(
+                    tonic::Status::new(
+                        tonic::Code::Unknown,
                         format!("Service was not ready: {}", e.into()),
                     )
                 })?;
@@ -5447,7 +5518,8 @@ pub mod prover_network_client {
                 .ready()
                 .await
                 .map_err(|e| {
-                    tonic::Status::unknown(
+                    tonic::Status::new(
+                        tonic::Code::Unknown,
                         format!("Service was not ready: {}", e.into()),
                     )
                 })?;
@@ -5472,7 +5544,8 @@ pub mod prover_network_client {
                 .ready()
                 .await
                 .map_err(|e| {
-                    tonic::Status::unknown(
+                    tonic::Status::new(
+                        tonic::Code::Unknown,
                         format!("Service was not ready: {}", e.into()),
                     )
                 })?;
@@ -5497,7 +5570,8 @@ pub mod prover_network_client {
                 .ready()
                 .await
                 .map_err(|e| {
-                    tonic::Status::unknown(
+                    tonic::Status::new(
+                        tonic::Code::Unknown,
                         format!("Service was not ready: {}", e.into()),
                     )
                 })?;
@@ -5522,7 +5596,8 @@ pub mod prover_network_client {
                 .ready()
                 .await
                 .map_err(|e| {
-                    tonic::Status::unknown(
+                    tonic::Status::new(
+                        tonic::Code::Unknown,
                         format!("Service was not ready: {}", e.into()),
                     )
                 })?;
@@ -5547,7 +5622,8 @@ pub mod prover_network_client {
                 .ready()
                 .await
                 .map_err(|e| {
-                    tonic::Status::unknown(
+                    tonic::Status::new(
+                        tonic::Code::Unknown,
                         format!("Service was not ready: {}", e.into()),
                     )
                 })?;
@@ -5572,7 +5648,8 @@ pub mod prover_network_client {
                 .ready()
                 .await
                 .map_err(|e| {
-                    tonic::Status::unknown(
+                    tonic::Status::new(
+                        tonic::Code::Unknown,
                         format!("Service was not ready: {}", e.into()),
                     )
                 })?;
@@ -5597,7 +5674,8 @@ pub mod prover_network_client {
                 .ready()
                 .await
                 .map_err(|e| {
-                    tonic::Status::unknown(
+                    tonic::Status::new(
+                        tonic::Code::Unknown,
                         format!("Service was not ready: {}", e.into()),
                     )
                 })?;
@@ -5622,7 +5700,8 @@ pub mod prover_network_client {
                 .ready()
                 .await
                 .map_err(|e| {
-                    tonic::Status::unknown(
+                    tonic::Status::new(
+                        tonic::Code::Unknown,
                         format!("Service was not ready: {}", e.into()),
                     )
                 })?;
@@ -5649,7 +5728,8 @@ pub mod prover_network_client {
                 .ready()
                 .await
                 .map_err(|e| {
-                    tonic::Status::unknown(
+                    tonic::Status::new(
+                        tonic::Code::Unknown,
                         format!("Service was not ready: {}", e.into()),
                     )
                 })?;
@@ -5674,7 +5754,8 @@ pub mod prover_network_client {
                 .ready()
                 .await
                 .map_err(|e| {
-                    tonic::Status::unknown(
+                    tonic::Status::new(
+                        tonic::Code::Unknown,
                         format!("Service was not ready: {}", e.into()),
                     )
                 })?;
@@ -5701,7 +5782,8 @@ pub mod prover_network_client {
                 .ready()
                 .await
                 .map_err(|e| {
-                    tonic::Status::unknown(
+                    tonic::Status::new(
+                        tonic::Code::Unknown,
                         format!("Service was not ready: {}", e.into()),
                     )
                 })?;
@@ -5726,7 +5808,8 @@ pub mod prover_network_client {
                 .ready()
                 .await
                 .map_err(|e| {
-                    tonic::Status::unknown(
+                    tonic::Status::new(
+                        tonic::Code::Unknown,
                         format!("Service was not ready: {}", e.into()),
                     )
                 })?;
@@ -5753,7 +5836,8 @@ pub mod prover_network_client {
                 .ready()
                 .await
                 .map_err(|e| {
-                    tonic::Status::unknown(
+                    tonic::Status::new(
+                        tonic::Code::Unknown,
                         format!("Service was not ready: {}", e.into()),
                     )
                 })?;
@@ -5778,7 +5862,8 @@ pub mod prover_network_client {
                 .ready()
                 .await
                 .map_err(|e| {
-                    tonic::Status::unknown(
+                    tonic::Status::new(
+                        tonic::Code::Unknown,
                         format!("Service was not ready: {}", e.into()),
                     )
                 })?;
@@ -5803,7 +5888,8 @@ pub mod prover_network_client {
                 .ready()
                 .await
                 .map_err(|e| {
-                    tonic::Status::unknown(
+                    tonic::Status::new(
+                        tonic::Code::Unknown,
                         format!("Service was not ready: {}", e.into()),
                     )
                 })?;
@@ -5828,7 +5914,8 @@ pub mod prover_network_client {
                 .ready()
                 .await
                 .map_err(|e| {
-                    tonic::Status::unknown(
+                    tonic::Status::new(
+                        tonic::Code::Unknown,
                         format!("Service was not ready: {}", e.into()),
                     )
                 })?;
@@ -5853,7 +5940,8 @@ pub mod prover_network_client {
                 .ready()
                 .await
                 .map_err(|e| {
-                    tonic::Status::unknown(
+                    tonic::Status::new(
+                        tonic::Code::Unknown,
                         format!("Service was not ready: {}", e.into()),
                     )
                 })?;
@@ -5878,7 +5966,8 @@ pub mod prover_network_client {
                 .ready()
                 .await
                 .map_err(|e| {
-                    tonic::Status::unknown(
+                    tonic::Status::new(
+                        tonic::Code::Unknown,
                         format!("Service was not ready: {}", e.into()),
                     )
                 })?;
@@ -5905,7 +5994,8 @@ pub mod prover_network_client {
                 .ready()
                 .await
                 .map_err(|e| {
-                    tonic::Status::unknown(
+                    tonic::Status::new(
+                        tonic::Code::Unknown,
                         format!("Service was not ready: {}", e.into()),
                     )
                 })?;
@@ -5930,7 +6020,8 @@ pub mod prover_network_client {
                 .ready()
                 .await
                 .map_err(|e| {
-                    tonic::Status::unknown(
+                    tonic::Status::new(
+                        tonic::Code::Unknown,
                         format!("Service was not ready: {}", e.into()),
                     )
                 })?;
@@ -5953,7 +6044,8 @@ pub mod prover_network_client {
                 .ready()
                 .await
                 .map_err(|e| {
-                    tonic::Status::unknown(
+                    tonic::Status::new(
+                        tonic::Code::Unknown,
                         format!("Service was not ready: {}", e.into()),
                     )
                 })?;
@@ -5975,7 +6067,8 @@ pub mod prover_network_client {
                 .ready()
                 .await
                 .map_err(|e| {
-                    tonic::Status::unknown(
+                    tonic::Status::new(
+                        tonic::Code::Unknown,
                         format!("Service was not ready: {}", e.into()),
                     )
                 })?;
@@ -5997,7 +6090,8 @@ pub mod prover_network_client {
                 .ready()
                 .await
                 .map_err(|e| {
-                    tonic::Status::unknown(
+                    tonic::Status::new(
+                        tonic::Code::Unknown,
                         format!("Service was not ready: {}", e.into()),
                     )
                 })?;
@@ -6022,7 +6116,8 @@ pub mod prover_network_client {
                 .ready()
                 .await
                 .map_err(|e| {
-                    tonic::Status::unknown(
+                    tonic::Status::new(
+                        tonic::Code::Unknown,
                         format!("Service was not ready: {}", e.into()),
                     )
                 })?;
@@ -6049,7 +6144,8 @@ pub mod prover_network_client {
                 .ready()
                 .await
                 .map_err(|e| {
-                    tonic::Status::unknown(
+                    tonic::Status::new(
+                        tonic::Code::Unknown,
                         format!("Service was not ready: {}", e.into()),
                     )
                 })?;
@@ -6079,7 +6175,8 @@ pub mod prover_network_client {
                 .ready()
                 .await
                 .map_err(|e| {
-                    tonic::Status::unknown(
+                    tonic::Status::new(
+                        tonic::Code::Unknown,
                         format!("Service was not ready: {}", e.into()),
                     )
                 })?;
@@ -6104,7 +6201,8 @@ pub mod prover_network_client {
                 .ready()
                 .await
                 .map_err(|e| {
-                    tonic::Status::unknown(
+                    tonic::Status::new(
+                        tonic::Code::Unknown,
                         format!("Service was not ready: {}", e.into()),
                     )
                 })?;
@@ -6129,7 +6227,8 @@ pub mod prover_network_client {
                 .ready()
                 .await
                 .map_err(|e| {
-                    tonic::Status::unknown(
+                    tonic::Status::new(
+                        tonic::Code::Unknown,
                         format!("Service was not ready: {}", e.into()),
                     )
                 })?;
@@ -6154,7 +6253,8 @@ pub mod prover_network_client {
                 .ready()
                 .await
                 .map_err(|e| {
-                    tonic::Status::unknown(
+                    tonic::Status::new(
+                        tonic::Code::Unknown,
                         format!("Service was not ready: {}", e.into()),
                     )
                 })?;
@@ -6179,7 +6279,8 @@ pub mod prover_network_client {
                 .ready()
                 .await
                 .map_err(|e| {
-                    tonic::Status::unknown(
+                    tonic::Status::new(
+                        tonic::Code::Unknown,
                         format!("Service was not ready: {}", e.into()),
                     )
                 })?;
@@ -6204,7 +6305,8 @@ pub mod prover_network_client {
                 .ready()
                 .await
                 .map_err(|e| {
-                    tonic::Status::unknown(
+                    tonic::Status::new(
+                        tonic::Code::Unknown,
                         format!("Service was not ready: {}", e.into()),
                     )
                 })?;
@@ -6229,7 +6331,8 @@ pub mod prover_network_client {
                 .ready()
                 .await
                 .map_err(|e| {
-                    tonic::Status::unknown(
+                    tonic::Status::new(
+                        tonic::Code::Unknown,
                         format!("Service was not ready: {}", e.into()),
                     )
                 })?;
@@ -6254,7 +6357,8 @@ pub mod prover_network_client {
                 .ready()
                 .await
                 .map_err(|e| {
-                    tonic::Status::unknown(
+                    tonic::Status::new(
+                        tonic::Code::Unknown,
                         format!("Service was not ready: {}", e.into()),
                     )
                 })?;
@@ -6279,7 +6383,8 @@ pub mod prover_network_client {
                 .ready()
                 .await
                 .map_err(|e| {
-                    tonic::Status::unknown(
+                    tonic::Status::new(
+                        tonic::Code::Unknown,
                         format!("Service was not ready: {}", e.into()),
                     )
                 })?;
@@ -6304,7 +6409,8 @@ pub mod prover_network_client {
                 .ready()
                 .await
                 .map_err(|e| {
-                    tonic::Status::unknown(
+                    tonic::Status::new(
+                        tonic::Code::Unknown,
                         format!("Service was not ready: {}", e.into()),
                     )
                 })?;
@@ -6329,7 +6435,8 @@ pub mod prover_network_client {
                 .ready()
                 .await
                 .map_err(|e| {
-                    tonic::Status::unknown(
+                    tonic::Status::new(
+                        tonic::Code::Unknown,
                         format!("Service was not ready: {}", e.into()),
                     )
                 })?;
@@ -6354,7 +6461,8 @@ pub mod prover_network_client {
                 .ready()
                 .await
                 .map_err(|e| {
-                    tonic::Status::unknown(
+                    tonic::Status::new(
+                        tonic::Code::Unknown,
                         format!("Service was not ready: {}", e.into()),
                     )
                 })?;
@@ -6381,7 +6489,8 @@ pub mod prover_network_client {
                 .ready()
                 .await
                 .map_err(|e| {
-                    tonic::Status::unknown(
+                    tonic::Status::new(
+                        tonic::Code::Unknown,
                         format!("Service was not ready: {}", e.into()),
                     )
                 })?;
@@ -6406,7 +6515,8 @@ pub mod prover_network_client {
                 .ready()
                 .await
                 .map_err(|e| {
-                    tonic::Status::unknown(
+                    tonic::Status::new(
+                        tonic::Code::Unknown,
                         format!("Service was not ready: {}", e.into()),
                     )
                 })?;
@@ -6431,7 +6541,8 @@ pub mod prover_network_client {
                 .ready()
                 .await
                 .map_err(|e| {
-                    tonic::Status::unknown(
+                    tonic::Status::new(
+                        tonic::Code::Unknown,
                         format!("Service was not ready: {}", e.into()),
                     )
                 })?;
@@ -6456,7 +6567,8 @@ pub mod prover_network_client {
                 .ready()
                 .await
                 .map_err(|e| {
-                    tonic::Status::unknown(
+                    tonic::Status::new(
+                        tonic::Code::Unknown,
                         format!("Service was not ready: {}", e.into()),
                     )
                 })?;
@@ -6483,7 +6595,8 @@ pub mod prover_network_client {
                 .ready()
                 .await
                 .map_err(|e| {
-                    tonic::Status::unknown(
+                    tonic::Status::new(
+                        tonic::Code::Unknown,
                         format!("Service was not ready: {}", e.into()),
                     )
                 })?;
@@ -6513,7 +6626,8 @@ pub mod prover_network_client {
                 .ready()
                 .await
                 .map_err(|e| {
-                    tonic::Status::unknown(
+                    tonic::Status::new(
+                        tonic::Code::Unknown,
                         format!("Service was not ready: {}", e.into()),
                     )
                 })?;
@@ -6538,7 +6652,8 @@ pub mod prover_network_client {
                 .ready()
                 .await
                 .map_err(|e| {
-                    tonic::Status::unknown(
+                    tonic::Status::new(
+                        tonic::Code::Unknown,
                         format!("Service was not ready: {}", e.into()),
                     )
                 })?;
@@ -6565,7 +6680,8 @@ pub mod prover_network_client {
                 .ready()
                 .await
                 .map_err(|e| {
-                    tonic::Status::unknown(
+                    tonic::Status::new(
+                        tonic::Code::Unknown,
                         format!("Service was not ready: {}", e.into()),
                     )
                 })?;
@@ -6592,7 +6708,8 @@ pub mod prover_network_client {
                 .ready()
                 .await
                 .map_err(|e| {
-                    tonic::Status::unknown(
+                    tonic::Status::new(
+                        tonic::Code::Unknown,
                         format!("Service was not ready: {}", e.into()),
                     )
                 })?;
@@ -6622,7 +6739,8 @@ pub mod prover_network_client {
                 .ready()
                 .await
                 .map_err(|e| {
-                    tonic::Status::unknown(
+                    tonic::Status::new(
+                        tonic::Code::Unknown,
                         format!("Service was not ready: {}", e.into()),
                     )
                 })?;
@@ -6649,7 +6767,8 @@ pub mod prover_network_client {
                 .ready()
                 .await
                 .map_err(|e| {
-                    tonic::Status::unknown(
+                    tonic::Status::new(
+                        tonic::Code::Unknown,
                         format!("Service was not ready: {}", e.into()),
                     )
                 })?;
@@ -6674,7 +6793,8 @@ pub mod prover_network_client {
                 .ready()
                 .await
                 .map_err(|e| {
-                    tonic::Status::unknown(
+                    tonic::Status::new(
+                        tonic::Code::Unknown,
                         format!("Service was not ready: {}", e.into()),
                     )
                 })?;
@@ -6699,7 +6819,8 @@ pub mod prover_network_client {
                 .ready()
                 .await
                 .map_err(|e| {
-                    tonic::Status::unknown(
+                    tonic::Status::new(
+                        tonic::Code::Unknown,
                         format!("Service was not ready: {}", e.into()),
                     )
                 })?;
@@ -6724,7 +6845,8 @@ pub mod prover_network_client {
                 .ready()
                 .await
                 .map_err(|e| {
-                    tonic::Status::unknown(
+                    tonic::Status::new(
+                        tonic::Code::Unknown,
                         format!("Service was not ready: {}", e.into()),
                     )
                 })?;
@@ -6749,7 +6871,8 @@ pub mod prover_network_client {
                 .ready()
                 .await
                 .map_err(|e| {
-                    tonic::Status::unknown(
+                    tonic::Status::new(
+                        tonic::Code::Unknown,
                         format!("Service was not ready: {}", e.into()),
                     )
                 })?;
@@ -6774,7 +6897,8 @@ pub mod prover_network_client {
                 .ready()
                 .await
                 .map_err(|e| {
-                    tonic::Status::unknown(
+                    tonic::Status::new(
+                        tonic::Code::Unknown,
                         format!("Service was not ready: {}", e.into()),
                     )
                 })?;
@@ -6799,7 +6923,8 @@ pub mod prover_network_client {
                 .ready()
                 .await
                 .map_err(|e| {
-                    tonic::Status::unknown(
+                    tonic::Status::new(
+                        tonic::Code::Unknown,
                         format!("Service was not ready: {}", e.into()),
                     )
                 })?;
@@ -6824,7 +6949,8 @@ pub mod prover_network_client {
                 .ready()
                 .await
                 .map_err(|e| {
-                    tonic::Status::unknown(
+                    tonic::Status::new(
+                        tonic::Code::Unknown,
                         format!("Service was not ready: {}", e.into()),
                     )
                 })?;
@@ -6852,7 +6978,8 @@ pub mod prover_network_client {
                 .ready()
                 .await
                 .map_err(|e| {
-                    tonic::Status::unknown(
+                    tonic::Status::new(
+                        tonic::Code::Unknown,
                         format!("Service was not ready: {}", e.into()),
                     )
                 })?;
@@ -6877,7 +7004,8 @@ pub mod prover_network_client {
                 .ready()
                 .await
                 .map_err(|e| {
-                    tonic::Status::unknown(
+                    tonic::Status::new(
+                        tonic::Code::Unknown,
                         format!("Service was not ready: {}", e.into()),
                     )
                 })?;
@@ -6904,7 +7032,8 @@ pub mod prover_network_client {
                 .ready()
                 .await
                 .map_err(|e| {
-                    tonic::Status::unknown(
+                    tonic::Status::new(
+                        tonic::Code::Unknown,
                         format!("Service was not ready: {}", e.into()),
                     )
                 })?;
@@ -6931,7 +7060,8 @@ pub mod prover_network_client {
                 .ready()
                 .await
                 .map_err(|e| {
-                    tonic::Status::unknown(
+                    tonic::Status::new(
+                        tonic::Code::Unknown,
                         format!("Service was not ready: {}", e.into()),
                     )
                 })?;
@@ -6958,7 +7088,8 @@ pub mod prover_network_client {
                 .ready()
                 .await
                 .map_err(|e| {
-                    tonic::Status::unknown(
+                    tonic::Status::new(
+                        tonic::Code::Unknown,
                         format!("Service was not ready: {}", e.into()),
                     )
                 })?;
@@ -6983,7 +7114,8 @@ pub mod prover_network_client {
                 .ready()
                 .await
                 .map_err(|e| {
-                    tonic::Status::unknown(
+                    tonic::Status::new(
+                        tonic::Code::Unknown,
                         format!("Service was not ready: {}", e.into()),
                     )
                 })?;
@@ -7008,7 +7140,8 @@ pub mod prover_network_client {
                 .ready()
                 .await
                 .map_err(|e| {
-                    tonic::Status::unknown(
+                    tonic::Status::new(
+                        tonic::Code::Unknown,
                         format!("Service was not ready: {}", e.into()),
                     )
                 })?;
@@ -7033,7 +7166,8 @@ pub mod prover_network_client {
                 .ready()
                 .await
                 .map_err(|e| {
-                    tonic::Status::unknown(
+                    tonic::Status::new(
+                        tonic::Code::Unknown,
                         format!("Service was not ready: {}", e.into()),
                     )
                 })?;
@@ -7058,7 +7192,8 @@ pub mod prover_network_client {
                 .ready()
                 .await
                 .map_err(|e| {
-                    tonic::Status::unknown(
+                    tonic::Status::new(
+                        tonic::Code::Unknown,
                         format!("Service was not ready: {}", e.into()),
                     )
                 })?;
@@ -7080,7 +7215,8 @@ pub mod prover_network_client {
                 .ready()
                 .await
                 .map_err(|e| {
-                    tonic::Status::unknown(
+                    tonic::Status::new(
+                        tonic::Code::Unknown,
                         format!("Service was not ready: {}", e.into()),
                     )
                 })?;
@@ -7104,7 +7240,8 @@ pub mod prover_network_client {
                 .ready()
                 .await
                 .map_err(|e| {
-                    tonic::Status::unknown(
+                    tonic::Status::new(
+                        tonic::Code::Unknown,
                         format!("Service was not ready: {}", e.into()),
                     )
                 })?;
@@ -7129,7 +7266,8 @@ pub mod prover_network_client {
                 .ready()
                 .await
                 .map_err(|e| {
-                    tonic::Status::unknown(
+                    tonic::Status::new(
+                        tonic::Code::Unknown,
                         format!("Service was not ready: {}", e.into()),
                     )
                 })?;
@@ -7154,7 +7292,8 @@ pub mod prover_network_client {
                 .ready()
                 .await
                 .map_err(|e| {
-                    tonic::Status::unknown(
+                    tonic::Status::new(
+                        tonic::Code::Unknown,
                         format!("Service was not ready: {}", e.into()),
                     )
                 })?;
@@ -7179,7 +7318,8 @@ pub mod prover_network_client {
                 .ready()
                 .await
                 .map_err(|e| {
-                    tonic::Status::unknown(
+                    tonic::Status::new(
+                        tonic::Code::Unknown,
                         format!("Service was not ready: {}", e.into()),
                     )
                 })?;
@@ -7204,7 +7344,8 @@ pub mod prover_network_client {
                 .ready()
                 .await
                 .map_err(|e| {
-                    tonic::Status::unknown(
+                    tonic::Status::new(
+                        tonic::Code::Unknown,
                         format!("Service was not ready: {}", e.into()),
                     )
                 })?;
@@ -7231,7 +7372,8 @@ pub mod prover_network_client {
                 .ready()
                 .await
                 .map_err(|e| {
-                    tonic::Status::unknown(
+                    tonic::Status::new(
+                        tonic::Code::Unknown,
                         format!("Service was not ready: {}", e.into()),
                     )
                 })?;
@@ -7256,7 +7398,8 @@ pub mod prover_network_client {
                 .ready()
                 .await
                 .map_err(|e| {
-                    tonic::Status::unknown(
+                    tonic::Status::new(
+                        tonic::Code::Unknown,
                         format!("Service was not ready: {}", e.into()),
                     )
                 })?;
@@ -7283,7 +7426,8 @@ pub mod prover_network_client {
                 .ready()
                 .await
                 .map_err(|e| {
-                    tonic::Status::unknown(
+                    tonic::Status::new(
+                        tonic::Code::Unknown,
                         format!("Service was not ready: {}", e.into()),
                     )
                 })?;
@@ -7308,7 +7452,8 @@ pub mod prover_network_client {
                 .ready()
                 .await
                 .map_err(|e| {
-                    tonic::Status::unknown(
+                    tonic::Status::new(
+                        tonic::Code::Unknown,
                         format!("Service was not ready: {}", e.into()),
                     )
                 })?;
@@ -7333,7 +7478,8 @@ pub mod prover_network_client {
                 .ready()
                 .await
                 .map_err(|e| {
-                    tonic::Status::unknown(
+                    tonic::Status::new(
+                        tonic::Code::Unknown,
                         format!("Service was not ready: {}", e.into()),
                     )
                 })?;
@@ -7360,7 +7506,8 @@ pub mod prover_network_client {
                 .ready()
                 .await
                 .map_err(|e| {
-                    tonic::Status::unknown(
+                    tonic::Status::new(
+                        tonic::Code::Unknown,
                         format!("Service was not ready: {}", e.into()),
                     )
                 })?;
@@ -7387,7 +7534,8 @@ pub mod prover_network_client {
                 .ready()
                 .await
                 .map_err(|e| {
-                    tonic::Status::unknown(
+                    tonic::Status::new(
+                        tonic::Code::Unknown,
                         format!("Service was not ready: {}", e.into()),
                     )
                 })?;
@@ -7414,7 +7562,8 @@ pub mod prover_network_client {
                 .ready()
                 .await
                 .map_err(|e| {
-                    tonic::Status::unknown(
+                    tonic::Status::new(
+                        tonic::Code::Unknown,
                         format!("Service was not ready: {}", e.into()),
                     )
                 })?;
@@ -7444,7 +7593,8 @@ pub mod prover_network_client {
                 .ready()
                 .await
                 .map_err(|e| {
-                    tonic::Status::unknown(
+                    tonic::Status::new(
+                        tonic::Code::Unknown,
                         format!("Service was not ready: {}", e.into()),
                     )
                 })?;
@@ -7470,7 +7620,8 @@ pub mod prover_network_client {
                 .ready()
                 .await
                 .map_err(|e| {
-                    tonic::Status::unknown(
+                    tonic::Status::new(
+                        tonic::Code::Unknown,
                         format!("Service was not ready: {}", e.into()),
                     )
                 })?;
@@ -7500,7 +7651,8 @@ pub mod prover_network_client {
                 .ready()
                 .await
                 .map_err(|e| {
-                    tonic::Status::unknown(
+                    tonic::Status::new(
+                        tonic::Code::Unknown,
                         format!("Service was not ready: {}", e.into()),
                     )
                 })?;
@@ -7525,7 +7677,8 @@ pub mod prover_network_client {
                 .ready()
                 .await
                 .map_err(|e| {
-                    tonic::Status::unknown(
+                    tonic::Status::new(
+                        tonic::Code::Unknown,
                         format!("Service was not ready: {}", e.into()),
                     )
                 })?;
@@ -7552,7 +7705,8 @@ pub mod prover_network_client {
                 .ready()
                 .await
                 .map_err(|e| {
-                    tonic::Status::unknown(
+                    tonic::Status::new(
+                        tonic::Code::Unknown,
                         format!("Service was not ready: {}", e.into()),
                     )
                 })?;
@@ -7581,7 +7735,8 @@ pub mod prover_network_client {
                 .ready()
                 .await
                 .map_err(|e| {
-                    tonic::Status::unknown(
+                    tonic::Status::new(
+                        tonic::Code::Unknown,
                         format!("Service was not ready: {}", e.into()),
                     )
                 })?;
@@ -7613,7 +7768,8 @@ pub mod prover_network_client {
                 .ready()
                 .await
                 .map_err(|e| {
-                    tonic::Status::unknown(
+                    tonic::Status::new(
+                        tonic::Code::Unknown,
                         format!("Service was not ready: {}", e.into()),
                     )
                 })?;
@@ -7635,13 +7791,7 @@ pub mod prover_network_client {
 }
 /// Generated server implementations.
 pub mod prover_network_server {
-    #![allow(
-        unused_variables,
-        dead_code,
-        missing_docs,
-        clippy::wildcard_imports,
-        clippy::let_unit_value,
-    )]
+    #![allow(unused_variables, dead_code, missing_docs, clippy::let_unit_value)]
     use tonic::codegen::*;
     /// Generated trait containing gRPC methods that should be implemented for use with ProverNetworkServer.
     #[async_trait]
@@ -7708,6 +7858,20 @@ pub mod prover_network_server {
             request: tonic::Request<super::GetFilteredProofRequestsRequest>,
         ) -> std::result::Result<
             tonic::Response<super::GetFilteredProofRequestsResponse>,
+            tonic::Status,
+        >;
+        /// Server streaming response type for the SubscribeProofRequests method.
+        type SubscribeProofRequestsStream: tonic::codegen::tokio_stream::Stream<
+                Item = std::result::Result<super::ProofRequest, tonic::Status>,
+            >
+            + std::marker::Send
+            + 'static;
+        /// Subscribe to proof requests that meet the filter criteria.
+        async fn subscribe_proof_requests(
+            &self,
+            request: tonic::Request<super::GetFilteredProofRequestsRequest>,
+        ) -> std::result::Result<
+            tonic::Response<Self::SubscribeProofRequestsStream>,
             tonic::Status,
         >;
         /// Search for proof requests, programs, and requesters.
@@ -8935,6 +9099,59 @@ pub mod prover_network_server {
                                 max_encoding_message_size,
                             );
                         let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                "/network.ProverNetwork/SubscribeProofRequests" => {
+                    #[allow(non_camel_case_types)]
+                    struct SubscribeProofRequestsSvc<T: ProverNetwork>(pub Arc<T>);
+                    impl<
+                        T: ProverNetwork,
+                    > tonic::server::ServerStreamingService<
+                        super::GetFilteredProofRequestsRequest,
+                    > for SubscribeProofRequestsSvc<T> {
+                        type Response = super::ProofRequest;
+                        type ResponseStream = T::SubscribeProofRequestsStream;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::ResponseStream>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<
+                                super::GetFilteredProofRequestsRequest,
+                            >,
+                        ) -> Self::Future {
+                            let inner = Arc::clone(&self.0);
+                            let fut = async move {
+                                <T as ProverNetwork>::subscribe_proof_requests(
+                                        &inner,
+                                        request,
+                                    )
+                                    .await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let method = SubscribeProofRequestsSvc(inner);
+                        let codec = tonic::codec::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
+                            );
+                        let res = grpc.server_streaming(method, req).await;
                         Ok(res)
                     };
                     Box::pin(fut)
@@ -13558,19 +13775,17 @@ pub mod prover_network_server {
                 }
                 _ => {
                     Box::pin(async move {
-                        let mut response = http::Response::new(empty_body());
-                        let headers = response.headers_mut();
-                        headers
-                            .insert(
-                                tonic::Status::GRPC_STATUS,
-                                (tonic::Code::Unimplemented as i32).into(),
-                            );
-                        headers
-                            .insert(
-                                http::header::CONTENT_TYPE,
-                                tonic::metadata::GRPC_CONTENT_TYPE,
-                            );
-                        Ok(response)
+                        Ok(
+                            http::Response::builder()
+                                .status(200)
+                                .header("grpc-status", tonic::Code::Unimplemented as i32)
+                                .header(
+                                    http::header::CONTENT_TYPE,
+                                    tonic::metadata::GRPC_CONTENT_TYPE,
+                                )
+                                .body(empty_body())
+                                .unwrap(),
+                        )
                     })
                 }
             }
