@@ -304,7 +304,7 @@ contract SuccinctStaking is
         // Get the amount of $iPROVE.
         uint256 iPROVE = slashClaims[_prover][_index].iPROVE;
 
-        // Delete the claim.SuccinctStaking
+        // Delete the claim.
         if (_index != slashClaims[_prover].length - 1) {
             slashClaims[_prover][_index] = slashClaims[_prover][slashClaims[_prover].length - 1];
         }
