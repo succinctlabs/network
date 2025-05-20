@@ -114,7 +114,7 @@ contract SuccinctStakingUnstakeTests is SuccinctStakingTest {
             IERC20(PROVE).balanceOf(STAKER_2),
             STAKER_PROVE_AMOUNT - stakeAmount2 + stakeAmount2 + expectedReward2
         ); // No rounding issue here
-        assertEq(IERC20(ALICE_PROVER).balanceOf(STAKER_1), 0);
+        assertEq(IERC20(ALICE_PROVER).balanceOf(STAKING), 0);
         assertEq(IERC20(ALICE_PROVER).balanceOf(STAKER_2), 0);
     }
 
@@ -144,11 +144,12 @@ contract SuccinctStakingUnstakeTests is SuccinctStakingTest {
 
         // Complete unstake process
         _completeUnstake(STAKER_1, stakeAmount);
+        _completeUnstake(STAKER_2, stakeAmount);
 
         // Verify staker only gets original stake (no rewards)
         assertEq(IERC20(PROVE).balanceOf(STAKER_1), STAKER_PROVE_AMOUNT);
-        assertEq(IERC20(ALICE_PROVER).balanceOf(STAKER_1), 0);
-        assertEq(IERC20(BOB_PROVER).balanceOf(STAKER_1), 0);
+        assertEq(IERC20(ALICE_PROVER).balanceOf(STAKING), 0);
+        assertEq(IERC20(BOB_PROVER).balanceOf(STAKING), 0);
     }
 
     // 2 stakers, 2 provers - dispense only
@@ -180,7 +181,7 @@ contract SuccinctStakingUnstakeTests is SuccinctStakingTest {
         // Verify final balances with dispense. Note: off-by-one is expected due to rounding.
         assertEq(IERC20(PROVE).balanceOf(STAKER_1), STAKER_PROVE_AMOUNT + expectedDispense1 - 1);
         assertEq(IERC20(PROVE).balanceOf(STAKER_2), STAKER_PROVE_AMOUNT + expectedDispense2);
-        assertEq(IERC20(ALICE_PROVER).balanceOf(STAKER_1), 0);
+        assertEq(IERC20(ALICE_PROVER).balanceOf(STAKING), 0);
         assertEq(IERC20(BOB_PROVER).balanceOf(STAKER_2), 0);
     }
 
@@ -296,7 +297,7 @@ contract SuccinctStakingUnstakeTests is SuccinctStakingTest {
         // Verify the staker got their original stake + BOTH rewards
         assertEq(claimedAmount, stakeAmount + totalRewards - 1); // Account for rounding
         assertEq(IERC20(PROVE).balanceOf(STAKER_1), stakeAmount + totalRewards - 1); // Account for rounding
-        assertEq(IERC20(ALICE_PROVER).balanceOf(STAKER_1), 0);
+        assertEq(IERC20(ALICE_PROVER).balanceOf(STAKING), 0);
     }
 
     function test_Unstake_WhenManySmallUnstakes() public {
@@ -319,7 +320,7 @@ contract SuccinctStakingUnstakeTests is SuccinctStakingTest {
         _finishUnstake(STAKER_1);
 
         assertEq(IERC20(PROVE).balanceOf(STAKER_1), stakeAmount);
-        assertEq(IERC20(ALICE_PROVER).balanceOf(STAKER_1), 0);
+        assertEq(IERC20(ALICE_PROVER).balanceOf(STAKING), 0);
     }
 
     function test_Unstake_WhenManySmallStakesUnstakes() public {
@@ -345,7 +346,7 @@ contract SuccinctStakingUnstakeTests is SuccinctStakingTest {
         _finishUnstake(STAKER_1);
 
         assertEq(IERC20(PROVE).balanceOf(STAKER_1), stakeAmount * numStakes);
-        assertEq(IERC20(ALICE_PROVER).balanceOf(STAKER_1), 0);
+        assertEq(IERC20(ALICE_PROVER).balanceOf(STAKING), 0);
     }
 
     function test_Unstake_WhenManySmallStakesUnstakesTimeBetween() public {
@@ -376,7 +377,7 @@ contract SuccinctStakingUnstakeTests is SuccinctStakingTest {
         _finishUnstake(STAKER_1);
 
         assertEq(IERC20(PROVE).balanceOf(STAKER_1), stakeAmount * numStakes);
-        assertEq(IERC20(ALICE_PROVER).balanceOf(STAKER_1), 0);
+        assertEq(IERC20(ALICE_PROVER).balanceOf(STAKING), 0);
     }
 
     function test_RevertUnstake_WhenSomeoneElseCallsClaimUnstake() public {

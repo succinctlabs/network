@@ -16,7 +16,7 @@ contract SuccinctStakingStakeTests is SuccinctStakingTest {
         // Initial state checks
         assertEq(IERC20(PROVE).balanceOf(STAKER_1), stakeAmount);
         assertEq(IERC20(I_PROVE).balanceOf(ALICE_PROVER), 0);
-        assertEq(IERC20(ALICE_PROVER).balanceOf(STAKER_1), 0);
+        assertEq(IERC20(ALICE_PROVER).balanceOf(STAKING), 0);
         assertEq(IERC20(PROVE).balanceOf(I_PROVE), 0);
         assertEq(SuccinctStaking(STAKING).proverStaked(ALICE_PROVER), 0);
 
@@ -33,7 +33,7 @@ contract SuccinctStakingStakeTests is SuccinctStakingTest {
         assertEq(IERC20(PROVE).balanceOf(STAKING), STAKING_PROVE_AMOUNT);
         assertEq(IERC20(I_PROVE).balanceOf(ALICE_PROVER), stakeAmount);
         assertEq(IERC20(STAKING).balanceOf(STAKER_1), stakeAmount);
-        assertEq(IERC20(ALICE_PROVER).balanceOf(STAKER_1), stakeAmount);
+        assertEq(IERC20(ALICE_PROVER).balanceOf(STAKING), stakeAmount);
         assertEq(IERC20(PROVE).balanceOf(I_PROVE), stakeAmount);
     }
 
@@ -44,7 +44,7 @@ contract SuccinctStakingStakeTests is SuccinctStakingTest {
         // Initial state checks
         assertEq(IERC20(PROVE).balanceOf(STAKER_1), stakeAmount);
         assertEq(IERC20(I_PROVE).balanceOf(ALICE_PROVER), 0);
-        assertEq(IERC20(ALICE_PROVER).balanceOf(STAKER_1), 0);
+        assertEq(IERC20(ALICE_PROVER).balanceOf(STAKING), 0);
         assertEq(IERC20(PROVE).balanceOf(I_PROVE), 0);
 
         // Stake to unknown prover.
@@ -138,7 +138,7 @@ contract SuccinctStakingStakeTests is SuccinctStakingTest {
         // Check balances
         assertEq(IERC20(PROVE).balanceOf(STAKER_1), STAKER_PROVE_AMOUNT);
         assertEq(IERC20(PROVE).balanceOf(I_PROVE), 0);
-        assertEq(IERC20(ALICE_PROVER).balanceOf(STAKER_1), 0);
+        assertEq(IERC20(ALICE_PROVER).balanceOf(STAKING), 0);
     }
 
     function test_RevertPermitAndStake_WhenDeadlineExpired() public {
@@ -181,6 +181,6 @@ contract SuccinctStakingStakeTests is SuccinctStakingTest {
         // Check balances unchanged
         assertEq(IERC20(PROVE).balanceOf(STAKER_1), STAKER_PROVE_AMOUNT);
         assertEq(IERC20(PROVE).balanceOf(I_PROVE), 0);
-        assertEq(IERC20(ALICE_PROVER).balanceOf(STAKER_1), 0);
+        assertEq(IERC20(ALICE_PROVER).balanceOf(STAKING), 0);
     }
 }
