@@ -31,7 +31,7 @@ contract SuccinctStakingRewardTests is SuccinctStakingTest {
         assertEq(IERC20(PROVE).balanceOf(STAKER_1), 0);
         assertEq(IERC20(PROVE).balanceOf(I_PROVE), stakeAmount + rewardAmount);
         assertEq(IERC20(I_PROVE).balanceOf(ALICE_PROVER), stakeAmount + rewardAmount);
-        assertEq(IERC20(ALICE_PROVER).balanceOf(STAKER_1), stakeAmount);
+        assertEq(IERC20(ALICE_PROVER).balanceOf(STAKING), stakeAmount);
         assertEq(IERC20(STAKING).balanceOf(STAKER_1), stakeAmount);
     }
 
@@ -60,7 +60,7 @@ contract SuccinctStakingRewardTests is SuccinctStakingTest {
         assertEq(IERC20(PROVE).balanceOf(STAKER_1), stakeAmount + rewardAmount - 1);
         assertEq(IERC20(PROVE).balanceOf(I_PROVE), 1);
         assertEq(IERC20(I_PROVE).balanceOf(ALICE_PROVER), 1);
-        assertEq(IERC20(ALICE_PROVER).balanceOf(STAKER_1), 0);
+        assertEq(IERC20(ALICE_PROVER).balanceOf(STAKING), 0);
         assertEq(IERC20(STAKING).balanceOf(STAKER_1), 0);
     }
 
@@ -132,7 +132,7 @@ contract SuccinctStakingRewardTests is SuccinctStakingTest {
             IERC20(PROVE).balanceOf(STAKER_1), originalBalance1 + stakeAmount1 + rewardAmount - 2
         ); // Account for rounding
         assertEq(IERC20(PROVE).balanceOf(STAKER_2), originalBalance2 + stakeAmount2);
-        assertEq(IERC20(ALICE_PROVER).balanceOf(STAKER_1), 0);
+        assertEq(IERC20(ALICE_PROVER).balanceOf(STAKING), 0);
         assertEq(IERC20(BOB_PROVER).balanceOf(STAKER_2), 0);
     }
 
@@ -173,7 +173,7 @@ contract SuccinctStakingRewardTests is SuccinctStakingTest {
             IERC20(PROVE).balanceOf(STAKER_1), originalBalance1 + stakeAmount1 + rewardAmount - 1
         );
         assertEq(IERC20(PROVE).balanceOf(STAKER_2), originalBalance2 + stakeAmount2 - 1);
-        assertEq(IERC20(ALICE_PROVER).balanceOf(STAKER_1), 0);
+        assertEq(IERC20(ALICE_PROVER).balanceOf(STAKING), 0);
         assertEq(IERC20(ALICE_PROVER).balanceOf(STAKER_2), 0);
     }
 
@@ -218,7 +218,7 @@ contract SuccinctStakingRewardTests is SuccinctStakingTest {
         assertEq(
             IERC20(PROVE).balanceOf(STAKER_2), originalBalance2 + stakeAmount2 + rewardAmount2 - 1
         );
-        assertEq(IERC20(ALICE_PROVER).balanceOf(STAKER_1), 0);
+        assertEq(IERC20(ALICE_PROVER).balanceOf(STAKING), 0);
         assertEq(IERC20(BOB_PROVER).balanceOf(STAKER_2), 0);
     }
 

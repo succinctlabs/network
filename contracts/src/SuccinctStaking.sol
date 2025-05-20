@@ -205,7 +205,7 @@ contract SuccinctStaking is
 
         // Get the amount of $stPROVE this staker currently has for this prover.
         // We do this by checking $PROVER-N, but they will always be 1:1.
-        uint256 stPROVEBalance = IERC20(prover).balanceOf(msg.sender);
+        uint256 stPROVEBalance = balanceOf(msg.sender);
 
         // Get the amount $stPROVE this staker has pending a claim already.
         uint256 stPROVEClaim = _getUnstakeClaimBalance(msg.sender);
@@ -239,7 +239,7 @@ contract SuccinctStaking is
 
         // If the staker has no remaining balance with this prover, remove the staker's delegate.
         // This allows them to choose a different prover if they stake again.
-        if (IERC20(prover).balanceOf(msg.sender) == 0) {
+        if (balanceOf(msg.sender) == 0) {
             // Remove the staker's prover delegation.
             stakerToProver[msg.sender] = address(0);
         }
@@ -398,8 +398,8 @@ contract SuccinctStaking is
         // Deposit $PROVE to mint $iPROVE, sending it to this contract.
         uint256 iPROVE = IERC4626(I_PROVE).deposit(_PROVE, address(this));
 
-        // Deposit $iPROVE to mint $stPROVE, sending it to the staker directly.
-        stPROVE = IERC4626(_prover).deposit(iPROVE, _staker);
+        // Deposit $iPROVE to mint $stPROVE, sending it to this contract.
+        stPROVE = IERC4626(_prover).deposit(iPROVE, address(this));
 
         // Mint $stPROVE to the staker as a receipt token representing their ownership of $PROVER-N.
         _mint(_staker, stPROVE);
@@ -464,8 +464,8 @@ contract SuccinctStaking is
         // Burn the $stPROVE from the staker
         _burn(_staker, _stPROVE);
 
-        // Withdraw $PROVER-N from the staker to have this contract receive $iPROVE.
-        uint256 iPROVE = IERC4626(_prover).redeem(_stPROVE, address(this), _staker);
+        // Withdraw $PROVER-N from this contract to have this contract receive $iPROVE.
+        uint256 iPROVE = IERC4626(_prover).redeem(_stPROVE, address(this), address(this));
 
         // Withdraw $iPROVE from this contract to have the staker receive $PROVE.
         PROVE_ = IERC4626(I_PROVE).redeem(iPROVE, _staker, address(this));
