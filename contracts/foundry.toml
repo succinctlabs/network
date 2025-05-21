@@ -5,6 +5,7 @@ libs = ["lib"]
 solc = '0.8.28'
 fs_permissions = [
 	{ access = "read", path = "./out" },
+	{ access = "read", path = "./fixtures" },
 	{ access = "read-write", path = "./deployments" },
 ]
 
