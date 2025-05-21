@@ -4,13 +4,13 @@ pragma solidity ^0.8.28;
 import {BaseScript} from "../utils/Base.s.sol";
 import {SuccinctVApp} from "../../src/SuccinctVApp.sol";
 import {FixtureLoader, SP1ProofFixtureJson, Fixture} from "../../test/utils/FixtureLoader.sol";
-
-// TODO: Make this upgradable
+import {ERC1967Proxy} from
+    "../../lib/openzeppelin-contracts/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 
 contract SuccinctVAppScript is BaseScript, FixtureLoader {
     string internal constant KEY = "VAPP";
 
-    // Get from the corresponding chain here: 
+    // Get from the corresponding chain here:
     // https://github.com/succinctlabs/sp1-contracts/tree/main/contracts/deployments
     address internal SP1_VERIFIER_GATEWAY_GROTH16 = 0x397A5f7f3dBd538f23DE225B51f532c34448dA9B;
 
@@ -27,7 +27,9 @@ contract SuccinctVAppScript is BaseScript, FixtureLoader {
         bytes32 vkey = fixture.vkey;
 
         // Deploy contract
-        SuccinctVApp vapp = new SuccinctVApp{salt: salt}();
+        address vappImpl = address(new SuccinctVApp{salt: salt}());
+        SuccinctVApp vapp =
+            SuccinctVApp(payable(address(new ERC1967Proxy{salt: salt}(vappImpl, ""))));
         vapp.initialize(msg.sender, WETH, USDC, PROVE, STAKING, VERIFIER, vkey);
         vapp.addToken(PROVE);
 

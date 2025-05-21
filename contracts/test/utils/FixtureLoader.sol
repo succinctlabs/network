@@ -18,12 +18,16 @@ struct SP1ProofFixtureJson {
 contract FixtureLoader {
     using stdJson for string;
 
-    function loadFixture(VmSafe vm, Fixture fixture) public view returns (SP1ProofFixtureJson memory) {
+    function loadFixture(VmSafe vm, Fixture fixture)
+        public
+        view
+        returns (SP1ProofFixtureJson memory)
+    {
         string memory fixturePath;
         if (fixture == Fixture.Groth16) {
-            fixturePath = "/contracts/fixtures/groth16-fixture.json";
+            fixturePath = "/fixtures/groth16-fixture.json";
         } else if (fixture == Fixture.Plonk) {
-            fixturePath = "/contracts/fixtures/plonk-fixture.json";
+            fixturePath = "/fixtures/plonk-fixture.json";
         } else {
             revert("Invalid fixture");
         }

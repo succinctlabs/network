@@ -25,10 +25,10 @@ import {MockStaking} from "../src/mocks/MockStaking.sol";
 import {MockVerifier} from "../src/mocks/MockVerifier.sol";
 import {ISP1Verifier} from "../src/interfaces/ISP1Verifier.sol";
 import {ERC20} from "../lib/openzeppelin-contracts/contracts/token/ERC20/ERC20.sol";
+import {ERC1967Proxy} from "../lib/openzeppelin-contracts/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 
 contract SuccinctVAppTest is Test, FixtureLoader {
-	using stdJson for string;
-
+    using stdJson for string;
 
     SP1ProofFixtureJson public jsonFixture;
     PublicValuesStruct public fixture;
@@ -36,7 +36,7 @@ contract SuccinctVAppTest is Test, FixtureLoader {
     WETH9 public WETH;
     MockERC20 public PROVE;
     MockERC20 public USDC;
-	SuccinctVApp public vapp;
+    SuccinctVApp public vapp;
     MockStaking public staking;
 
     address user1;
@@ -46,7 +46,8 @@ contract SuccinctVAppTest is Test, FixtureLoader {
     function setUp() public {
         jsonFixture = loadFixture(vm, Fixture.Groth16);
 
-        PublicValuesStruct memory _fixture = abi.decode(jsonFixture.publicValues, (PublicValuesStruct));
+        PublicValuesStruct memory _fixture =
+            abi.decode(jsonFixture.publicValues, (PublicValuesStruct));
         fixture.old_root = _fixture.old_root;
         fixture.new_root = _fixture.new_root;
         for (uint256 i = 0; i < _fixture.actions.length; i++) {
@@ -62,10 +63,17 @@ contract SuccinctVAppTest is Test, FixtureLoader {
 
         staking = new MockStaking(address(PROVE));
 
-		vapp = new SuccinctVApp();
-		vapp.initialize(
-			address(this), address(WETH), address(USDC), address(PROVE), address(staking), verifier, jsonFixture.vkey
-		);
+        address vappImpl = address(new SuccinctVApp());
+        vapp = SuccinctVApp(payable(address(new ERC1967Proxy(vappImpl, ""))));
+        vapp.initialize(
+            address(this),
+            address(WETH),
+            address(USDC),
+            address(PROVE),
+            address(staking),
+            verifier,
+            jsonFixture.vkey
+        );
 
         // Whitelist USDC for testing
         vapp.addToken(address(USDC));
@@ -79,12 +87,16 @@ contract SuccinctVAppTest is Test, FixtureLoader {
         vm.deal(user3, 100 ether);
     }
 
-	function mockCall(bool verified) public {
+    function mockCall(bool verified) public {
         if (verified) {
-            vm.mockCall(verifier, abi.encodeWithSelector(ISP1Verifier.verifyProof.selector), abi.encode());
+            vm.mockCall(
+                verifier, abi.encodeWithSelector(ISP1Verifier.verifyProof.selector), abi.encode()
+            );
         } else {
             vm.mockCallRevert(
-                verifier, abi.encodeWithSelector(ISP1Verifier.verifyProof.selector), "Verification failed"
+                verifier,
+                abi.encodeWithSelector(ISP1Verifier.verifyProof.selector),
+                "Verification failed"
             );
         }
     }
@@ -105,7 +117,13 @@ contract SuccinctVAppTest is Test, FixtureLoader {
     function test_RevertIf_InitializeInvalid() public {
         vm.expectRevert(abi.encodeWithSignature("InvalidInitialization()"));
         vapp.initialize(
-            address(0), address(WETH), address(USDC), address(PROVE), address(staking), verifier, jsonFixture.vkey
+            address(0),
+            address(WETH),
+            address(USDC),
+            address(PROVE),
+            address(staking),
+            verifier,
+            jsonFixture.vkey
         );
     }
 
@@ -367,7 +385,9 @@ contract SuccinctVAppTest is Test, FixtureLoader {
         assertEq(uint8(status), uint8(ReceiptStatus.None));
 
         // Deposit
-        bytes memory data = abi.encode(DepositAction({account: address(this), token: address(USDC), amount: amount}));
+        bytes memory data = abi.encode(
+            DepositAction({account: address(this), token: address(USDC), amount: amount})
+        );
         vm.expectEmit(true, true, true, true);
         emit ISuccinctVApp.ReceiptPending(1, ActionType.Deposit, data);
         vapp.deposit(address(this), address(USDC), amount);
@@ -385,8 +405,12 @@ contract SuccinctVAppTest is Test, FixtureLoader {
             new_root: bytes32(uint256(1)),
             timestamp: uint64(block.timestamp)
         });
-        publicValues.actions[0] =
-            Action({action: ActionType.Deposit, status: ReceiptStatus.Completed, receipt: 1, data: data});
+        publicValues.actions[0] = Action({
+            action: ActionType.Deposit,
+            status: ReceiptStatus.Completed,
+            receipt: 1,
+            data: data
+        });
 
         mockCall(true);
 
@@ -470,7 +494,8 @@ contract SuccinctVAppTest is Test, FixtureLoader {
         vm.stopPrank();
 
         // Update state after deposit
-        bytes memory depositData = abi.encode(DepositAction({account: user1, token: address(USDC), amount: amount}));
+        bytes memory depositData =
+            abi.encode(DepositAction({account: user1, token: address(USDC), amount: amount}));
         PublicValuesStruct memory depositPublicValues = PublicValuesStruct({
             actions: new Action[](1),
             old_root: bytes32(0),
@@ -494,8 +519,9 @@ contract SuccinctVAppTest is Test, FixtureLoader {
 
         // Withdraw
         vm.startPrank(user2);
-        bytes memory withdrawData =
-            abi.encode(WithdrawAction({account: user2, token: address(USDC), amount: amount, to: user2}));
+        bytes memory withdrawData = abi.encode(
+            WithdrawAction({account: user2, token: address(USDC), amount: amount, to: user2})
+        );
 
         vm.expectEmit(true, true, true, true);
         emit ISuccinctVApp.ReceiptPending(2, ActionType.Withdraw, withdrawData);
@@ -503,7 +529,8 @@ contract SuccinctVAppTest is Test, FixtureLoader {
         vm.stopPrank();
 
         assertEq(withdrawReceipt, 2);
-        (ActionType actionType, ReceiptStatus status,, bytes memory data) = vapp.receipts(withdrawReceipt);
+        (ActionType actionType, ReceiptStatus status,, bytes memory data) =
+            vapp.receipts(withdrawReceipt);
         assertEq(uint8(actionType), uint8(ActionType.Withdraw));
         assertEq(uint8(status), uint8(ReceiptStatus.Pending));
         assertEq(data, withdrawData);
@@ -568,7 +595,8 @@ contract SuccinctVAppTest is Test, FixtureLoader {
         vm.stopPrank();
 
         // Update state after deposit
-        bytes memory depositData = abi.encode(DepositAction({account: user1, token: address(USDC), amount: amount}));
+        bytes memory depositData =
+            abi.encode(DepositAction({account: user1, token: address(USDC), amount: amount}));
         PublicValuesStruct memory depositPublicValues = PublicValuesStruct({
             actions: new Action[](1),
             old_root: bytes32(0),
@@ -592,8 +620,9 @@ contract SuccinctVAppTest is Test, FixtureLoader {
 
         // Withdraw with a different recipient (user2 initiates withdrawal to user3)
         vm.startPrank(user2);
-        bytes memory withdrawData =
-            abi.encode(WithdrawAction({account: user2, token: address(USDC), amount: amount, to: user3}));
+        bytes memory withdrawData = abi.encode(
+            WithdrawAction({account: user2, token: address(USDC), amount: amount, to: user3})
+        );
 
         vm.expectEmit(true, true, true, true);
         emit ISuccinctVApp.ReceiptPending(2, ActionType.Withdraw, withdrawData);
@@ -601,7 +630,8 @@ contract SuccinctVAppTest is Test, FixtureLoader {
         vm.stopPrank();
 
         assertEq(withdrawReceipt, 2);
-        (ActionType actionType, ReceiptStatus status,, bytes memory data) = vapp.receipts(withdrawReceipt);
+        (ActionType actionType, ReceiptStatus status,, bytes memory data) =
+            vapp.receipts(withdrawReceipt);
         assertEq(uint8(actionType), uint8(ActionType.Withdraw));
         assertEq(uint8(status), uint8(ReceiptStatus.Pending));
         assertEq(data, withdrawData);
@@ -693,7 +723,8 @@ contract SuccinctVAppTest is Test, FixtureLoader {
         vm.stopPrank();
 
         // Process the deposit
-        bytes memory depositData = abi.encode(DepositAction({account: user2, token: address(WETH), amount: amount}));
+        bytes memory depositData =
+            abi.encode(DepositAction({account: user2, token: address(WETH), amount: amount}));
         PublicValuesStruct memory depositPublicValues = PublicValuesStruct({
             actions: new Action[](1),
             old_root: bytes32(0),
@@ -712,8 +743,9 @@ contract SuccinctVAppTest is Test, FixtureLoader {
 
         // Request withdrawal from user2 to user1
         vm.startPrank(user2);
-        bytes memory withdrawData =
-            abi.encode(WithdrawAction({account: user2, token: address(WETH), amount: amount, to: user1}));
+        bytes memory withdrawData = abi.encode(
+            WithdrawAction({account: user2, token: address(WETH), amount: amount, to: user1})
+        );
         uint64 withdrawReceipt = vapp.withdraw(user1, address(WETH), amount);
         vm.stopPrank();
 
@@ -800,7 +832,8 @@ contract SuccinctVAppTest is Test, FixtureLoader {
         vm.stopPrank();
 
         assertEq(addSignerReceipt1, 1);
-        (ActionType actionType, ReceiptStatus status,, bytes memory data) = vapp.receipts(addSignerReceipt1);
+        (ActionType actionType, ReceiptStatus status,, bytes memory data) =
+            vapp.receipts(addSignerReceipt1);
         assertEq(uint8(actionType), uint8(ActionType.AddSigner));
         assertEq(uint8(status), uint8(ReceiptStatus.Pending));
         assertEq(data, addSignerData1);
@@ -1023,7 +1056,8 @@ contract SuccinctVAppTest is Test, FixtureLoader {
 
         // Now, remove the first delegated signer
         vm.startPrank(user1);
-        bytes memory removeSignerData = abi.encode(RemoveSignerAction({owner: user1, signer: signer1}));
+        bytes memory removeSignerData =
+            abi.encode(RemoveSignerAction({owner: user1, signer: signer1}));
 
         vm.expectEmit(true, true, true, true);
         emit ISuccinctVApp.ReceiptPending(3, ActionType.RemoveSigner, removeSignerData);
@@ -1207,6 +1241,7 @@ contract SuccinctVAppTest is Test, FixtureLoader {
     function test_RevertIf_UpdateStateInvalid() public {
         bytes memory fakeProof = new bytes(jsonFixture.proof.length);
 
+        mockCall(false);
         vm.expectRevert();
         vapp.updateState(jsonFixture.publicValues, fakeProof);
     }
