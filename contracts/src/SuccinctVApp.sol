@@ -271,7 +271,7 @@ contract SuccinctVApp is
     /// @notice Updates the vapp program verification key, forks the state root
     /// @dev Only callable by the owner, executes a state update
     /// @param _vkey The new vkey
-    /// @param new_oldRoot The old root committed by the new program
+    /// @param _newOldRoot The old root committed by the new program
     /// @param _publicValues The encoded public values
     /// @param _proofBytes The encoded proof
     function fork(
@@ -468,10 +468,10 @@ contract SuccinctVApp is
         // Verify the proof
         ISP1Verifier(verifier).verifyProof(vappProgramVKey, _publicValues, _proofBytes);
         PublicValuesStruct memory publicValues = abi.decode(_publicValues, (PublicValuesStruct));
-        if (publicValues.new_root == bytes32(0)) revert InvalidRoot();
+        if (publicValues.newRoot == bytes32(0)) revert InvalidRoot();
 
         // Verify the old root
-        if (blockNumber != 0 && roots[blockNumber] != publicValues.old_root) {
+        if (blockNumber != 0 && roots[blockNumber] != publicValues.oldRoot) {
             revert InvalidOldRoot();
         }
 
@@ -483,15 +483,15 @@ contract SuccinctVApp is
 
         // Update the state root
         uint64 _block = ++blockNumber;
-        roots[_block] = publicValues.new_root;
+        roots[_block] = publicValues.newRoot;
         timestamps[_block] = publicValues.timestamp;
 
         // Commit the actions
         _handleActions(publicValues);
 
-        emit Block(_block, publicValues.new_root, publicValues.old_root);
+        emit Block(_block, publicValues.newRoot, publicValues.oldRoot);
 
-        return (_block, publicValues.new_root, publicValues.old_root);
+        return (_block, publicValues.newRoot, publicValues.oldRoot);
     }
 
     /// @dev Handles committed actions, reverts if the actions are invalid

@@ -30,7 +30,6 @@ interface ISuccinctVApp {
                                  OWNER
     //////////////////////////////////////////////////////////////*/
 
-
     /// @notice Updated staking
     event UpdatedStaking(address indexed staking);
 
@@ -51,7 +50,7 @@ interface ISuccinctVApp {
 
     /// @notice Fork the program
     event Fork(
-        bytes32 indexed vkey, uint64 indexed block, bytes32 indexed new_root, bytes32 old_root
+        bytes32 indexed vkey, uint64 indexed block, bytes32 indexed newRoot, bytes32 oldRoot
     );
 
     /*//////////////////////////////////////////////////////////////
@@ -79,9 +78,7 @@ interface ISuccinctVApp {
         external
         returns (uint64 receipt);
 
-    function claimWithdrawal(address to, address token)
-        external
-        returns (uint256 amount);
+    function claimWithdrawal(address to, address token) external returns (uint256 amount);
 
     function addDelegatedSigner(address signer) external returns (uint64 receipt);
 
@@ -102,7 +99,7 @@ interface ISuccinctVApp {
     //////////////////////////////////////////////////////////////*/
 
     /// @notice When a new block is committed
-    event Block(uint64 indexed block, bytes32 indexed new_root, bytes32 indexed old_root);
+    event Block(uint64 indexed block, bytes32 indexed newRoot, bytes32 indexed oldRoot);
 
     /// @notice Generalized receipt completed event for all action types
     event ReceiptCompleted(uint64 indexed receipt, ActionType indexed action, bytes data);

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.28;
 
-import {ProverRegistry} from "./ProverRegistry.sol";
+import {ProverRegistry} from "./libraries/ProverRegistry.sol";
 import {StakedSuccinct} from "./tokens/StakedSuccinct.sol";
 import {ISuccinctStaking} from "./interfaces/ISuccinctStaking.sol";
 import {IIntermediateSuccinct} from "./interfaces/IIntermediateSuccinct.sol";
@@ -18,11 +18,11 @@ import {IERC20} from "../lib/openzeppelin-contracts/contracts/token/ERC20/IERC20
 /// @author Succinct Labs
 /// @notice Manages staking, unstaking, rewards, and slashing for the Succinct Prover Network.
 contract SuccinctStaking is
-    Ownable,
     Initializable,
+    Ownable,
     ProverRegistry,
-    ISuccinctStaking,
-    StakedSuccinct
+    StakedSuccinct,
+    ISuccinctStaking
 {
     using SafeERC20 for IERC20;
 

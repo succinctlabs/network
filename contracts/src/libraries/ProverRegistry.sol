@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.28;
 
-import {Create2} from "../lib/openzeppelin-contracts/contracts/utils/Create2.sol";
-import {SuccinctProver} from "./tokens/SuccinctProver.sol";
-import {IERC20} from "../lib/openzeppelin-contracts/contracts/interfaces/IERC20.sol";
-import {IProver} from "./interfaces/IProver.sol";
-import {IProverRegistry} from "./interfaces/IProverRegistry.sol";
+import {SuccinctProver} from "../tokens/SuccinctProver.sol";
+import {Create2} from "../../lib/openzeppelin-contracts/contracts/utils/Create2.sol";
+import {IERC20} from "../../lib/openzeppelin-contracts/contracts/interfaces/IERC20.sol";
+import {IProver} from "../interfaces/IProver.sol";
+import {IProverRegistry} from "../interfaces/IProverRegistry.sol";
 
 /// @title ProverRegistry
 /// @author Succinct Labs
