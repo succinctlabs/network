@@ -109,7 +109,11 @@ library Actions {
     /// @dev Decode actions
     /// @param actions The actions to decode
     /// @return decoded The decoded actions
-    function decode(Action[] memory actions) internal pure returns (ActionsInternal memory decoded) {
+    function decode(Action[] memory actions)
+        internal
+        pure
+        returns (ActionsInternal memory decoded)
+    {
         // Build the action arrays
         DecodeData memory data;
         for (uint64 i = 0; i < actions.length; i++) {
@@ -161,20 +165,28 @@ library Actions {
             }
 
             if (action.action == ActionType.Deposit) {
-                DepositInternal memory deposit =
-                    DepositInternal({action: action, data: abi.decode(action.data, (DepositAction))});
+                DepositInternal memory deposit = DepositInternal({
+                    action: action,
+                    data: abi.decode(action.data, (DepositAction))
+                });
                 decoded.deposits[data.depositLength++] = deposit;
             } else if (action.action == ActionType.Withdraw) {
-                WithdrawInternal memory withdraw =
-                    WithdrawInternal({action: action, data: abi.decode(action.data, (WithdrawAction))});
+                WithdrawInternal memory withdraw = WithdrawInternal({
+                    action: action,
+                    data: abi.decode(action.data, (WithdrawAction))
+                });
                 decoded.withdrawals[data.withdrawLength++] = withdraw;
             } else if (action.action == ActionType.AddSigner) {
-                AddSignerInternal memory addSigner =
-                    AddSignerInternal({action: action, data: abi.decode(action.data, (AddSignerAction))});
+                AddSignerInternal memory addSigner = AddSignerInternal({
+                    action: action,
+                    data: abi.decode(action.data, (AddSignerAction))
+                });
                 decoded.addSigners[data.addSignerLength++] = addSigner;
             } else if (action.action == ActionType.RemoveSigner) {
-                RemoveSignerInternal memory removeSigner =
-                    RemoveSignerInternal({action: action, data: abi.decode(action.data, (RemoveSignerAction))});
+                RemoveSignerInternal memory removeSigner = RemoveSignerInternal({
+                    action: action,
+                    data: abi.decode(action.data, (RemoveSignerAction))
+                });
                 decoded.removeSigners[data.removeSignerLength++] = removeSigner;
             } else if (action.action == ActionType.Slash) {
                 SlashInternal memory slash =
@@ -185,12 +197,16 @@ library Actions {
                     RewardInternal({action: action, data: abi.decode(action.data, (RewardAction))});
                 decoded.rewards[data.rewardLength++] = reward;
             } else if (action.action == ActionType.ProverState) {
-                ProverStateInternal memory proverState =
-                    ProverStateInternal({action: action, data: abi.decode(action.data, (ProverStateAction))});
+                ProverStateInternal memory proverState = ProverStateInternal({
+                    action: action,
+                    data: abi.decode(action.data, (ProverStateAction))
+                });
                 decoded.proverStates[data.proverStateLength++] = proverState;
             } else if (action.action == ActionType.FeeUpdate) {
-                FeeUpdateInternal memory feeUpdate =
-                    FeeUpdateInternal({action: action, data: abi.decode(action.data, (FeeUpdateAction))});
+                FeeUpdateInternal memory feeUpdate = FeeUpdateInternal({
+                    action: action,
+                    data: abi.decode(action.data, (FeeUpdateAction))
+                });
                 decoded.feeUpdates[data.feeUpdateLength++] = feeUpdate;
             } else {
                 revert InvalidAction();
@@ -224,11 +240,18 @@ library Actions {
                 }
 
                 if (receipt.status != ReceiptStatus.Pending) {
-                    revert InvalidReceiptStatus(actions[i].action, actions[i].receipt, receipt.status);
+                    revert InvalidReceiptStatus(
+                        actions[i].action, actions[i].receipt, receipt.status
+                    );
                 }
 
-                if (actions[i].status != ReceiptStatus.Completed && actions[i].status != ReceiptStatus.Failed) {
-                    revert InvalidActionStatus(actions[i].action, actions[i].receipt, actions[i].status);
+                if (
+                    actions[i].status != ReceiptStatus.Completed
+                        && actions[i].status != ReceiptStatus.Failed
+                ) {
+                    revert InvalidActionStatus(
+                        actions[i].action, actions[i].receipt, actions[i].status
+                    );
                 }
 
                 if (actions[i].action == ActionType.Deposit) {

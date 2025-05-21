@@ -34,16 +34,26 @@ interface ISuccinctVApp {
     event ReceiptPending(uint64 indexed receipt, ActionType indexed action, bytes data);
 
     /// @notice Withdrawal claimed event
-    event WithdrawalClaimed(address indexed account, address indexed token, address sender, uint256 amount);
+    event WithdrawalClaimed(
+        address indexed account, address indexed token, address sender, uint256 amount
+    );
 
     /// @notice Emergency withdrawal event
-    event EmergencyWithdrawal(address indexed account, address indexed token, uint256 balance, bytes32 root);
+    event EmergencyWithdrawal(
+        address indexed account, address indexed token, uint256 balance, bytes32 root
+    );
 
-    function deposit(address account, address token, uint256 amount) external returns (uint64 receipt);
+    function deposit(address account, address token, uint256 amount)
+        external
+        returns (uint64 receipt);
 
-    function withdraw(address to, address token, uint256 amount) external returns (uint64 receipt);
+    function withdraw(address to, address token, uint256 amount)
+        external
+        returns (uint64 receipt);
 
-    function claimWithdrawal(address to, address token, bool unwrapWETH) external returns (uint256 amount);
+    function claimWithdrawal(address to, address token, bool unwrapWETH)
+        external
+        returns (uint256 amount);
 
     function addDelegatedSigner(address signer) external returns (uint64 receipt);
 

@@ -3,9 +3,9 @@ pragma solidity ^0.8.28;
 
 import {IERC20} from "../../lib/openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
 
-/// @title IWeth
+/// @title IWETH
 /// @notice Interface for the Wrapped Ether (WETH) token contract
-interface IWeth is IERC20 {
+interface IWETH is IERC20 {
     /// @notice Deposit ETH and receive WETH tokens
     function deposit() external payable;
 

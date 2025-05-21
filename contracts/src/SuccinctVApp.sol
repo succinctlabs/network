@@ -2,15 +2,19 @@
 pragma solidity ^0.8.28;
 
 import {ISP1Verifier} from "./interfaces/ISP1Verifier.sol";
-import {Initializable} from "../lib/openzeppelin-contracts-upgradeable/contracts/proxy/utils/Initializable.sol";
-import {ReentrancyGuardUpgradeable} from "../lib/openzeppelin-contracts-upgradeable/contracts/utils/ReentrancyGuardUpgradeable.sol";
-import {OwnableUpgradeable} from "../lib/openzeppelin-contracts-upgradeable/contracts/access/OwnableUpgradeable.sol";
-import {MerkleProof} from "../lib/openzeppelin-contracts/contracts/utils/cryptography/MerkleProof.sol";
+import {Initializable} from
+    "../lib/openzeppelin-contracts-upgradeable/contracts/proxy/utils/Initializable.sol";
+import {ReentrancyGuardUpgradeable} from
+    "../lib/openzeppelin-contracts-upgradeable/contracts/utils/ReentrancyGuardUpgradeable.sol";
+import {OwnableUpgradeable} from
+    "../lib/openzeppelin-contracts-upgradeable/contracts/access/OwnableUpgradeable.sol";
+import {MerkleProof} from
+    "../lib/openzeppelin-contracts/contracts/utils/cryptography/MerkleProof.sol";
 import {ERC20} from "../lib/openzeppelin-contracts/contracts/token/ERC20/ERC20.sol";
 import {SafeERC20} from "../lib/openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol";
 
 import {ISuccinctVApp} from "./interfaces/ISuccinctVApp.sol";
-import {IWeth} from "./interfaces/IWeth.sol";
+import {IWETH} from "./interfaces/IWETH.sol";
 import {ISuccinctStaking} from "./interfaces/ISuccinctStaking.sol";
 import {
     Receipt,
@@ -43,14 +47,19 @@ import {
 /// @title SuccinctVApp
 /// @author Succinct Labs
 /// @notice Settlement layer for the vApp, processes deposits and withdrawals resulting from state transitions.
-contract SuccinctVApp is Initializable, ReentrancyGuardUpgradeable, OwnableUpgradeable, ISuccinctVApp {
+contract SuccinctVApp is
+    Initializable,
+    ReentrancyGuardUpgradeable,
+    OwnableUpgradeable,
+    ISuccinctVApp
+{
     using SafeERC20 for ERC20;
 
     /// @notice The maximum fee value (100% in basis points)
     uint256 public constant FEE_UNIT = 10000;
 
     /// @notice The address of the WETH token
-    IWeth public WETH;
+    IWETH public WETH;
 
     /// @notice The address of the USDC token
     ERC20 public USDC;
@@ -144,7 +153,7 @@ contract SuccinctVApp is Initializable, ReentrancyGuardUpgradeable, OwnableUpgra
         __ReentrancyGuard_init();
         __Ownable_init(_owner);
 
-        WETH = IWeth(_weth);
+        WETH = IWETH(_weth);
         USDC = ERC20(_usdc);
         PROVE = ERC20(_prove);
         staking = ISuccinctStaking(_staking);
@@ -183,7 +192,9 @@ contract SuccinctVApp is Initializable, ReentrancyGuardUpgradeable, OwnableUpgra
     event MinAmountUpdated(address indexed token, uint256 amount);
 
     /// @notice Fork the program
-    event Fork(bytes32 indexed vkey, uint64 indexed block, bytes32 indexed new_root, bytes32 old_root);
+    event Fork(
+        bytes32 indexed vkey, uint64 indexed block, bytes32 indexed new_root, bytes32 old_root
+    );
 
     /// @notice Updates the succinct staking contract address
     /// @dev Only callable by the owner
@@ -262,11 +273,12 @@ contract SuccinctVApp is Initializable, ReentrancyGuardUpgradeable, OwnableUpgra
     /// @param new_old_root The old root committed by the new program
     /// @param _publicValues The encoded public values
     /// @param _proofBytes The encoded proof
-    function fork(bytes32 _vkey, bytes32 new_old_root, bytes calldata _publicValues, bytes calldata _proofBytes)
-        external
-        onlyOwner
-        returns (uint64, bytes32, bytes32)
-    {
+    function fork(
+        bytes32 _vkey,
+        bytes32 new_old_root,
+        bytes calldata _publicValues,
+        bytes calldata _proofBytes
+    ) external onlyOwner returns (uint64, bytes32, bytes32) {
         // Update the vkey
         vappProgramVKey = _vkey;
 
@@ -298,7 +310,11 @@ contract SuccinctVApp is Initializable, ReentrancyGuardUpgradeable, OwnableUpgra
     /// @param account The account to deposit to
     /// @param token The token to deposit
     /// @param amount The amount to deposit
-    function deposit(address account, address token, uint256 amount) external nonReentrant returns (uint64 receipt) {
+    function deposit(address account, address token, uint256 amount)
+        external
+        nonReentrant
+        returns (uint64 receipt)
+    {
         if (account == address(0)) revert InvalidAddress();
         if (!whitelistedTokens[token]) revert TokenNotWhitelisted();
 
@@ -308,7 +324,8 @@ contract SuccinctVApp is Initializable, ReentrancyGuardUpgradeable, OwnableUpgra
             revert MinAmount();
         }
 
-        bytes memory data = abi.encode(DepositAction({account: account, token: token, amount: amount}));
+        bytes memory data =
+            abi.encode(DepositAction({account: account, token: token, amount: amount}));
         receipt = _createReceipt(ActionType.Deposit, data);
 
         totalDeposits[token] += amount;
@@ -321,7 +338,11 @@ contract SuccinctVApp is Initializable, ReentrancyGuardUpgradeable, OwnableUpgra
     /// @param to The recipient address to receive the withdrawn funds
     /// @param token The token to withdraw
     /// @param amount The amount to withdraw
-    function withdraw(address to, address token, uint256 amount) external nonReentrant returns (uint64 receipt) {
+    function withdraw(address to, address token, uint256 amount)
+        external
+        nonReentrant
+        returns (uint64 receipt)
+    {
         if (to == address(0)) revert InvalidAddress();
         if (!whitelistedTokens[token]) revert TokenNotWhitelisted();
 
@@ -331,7 +352,8 @@ contract SuccinctVApp is Initializable, ReentrancyGuardUpgradeable, OwnableUpgra
             revert MinAmount();
         }
 
-        bytes memory data = abi.encode(WithdrawAction({account: msg.sender, token: token, amount: amount, to: to}));
+        bytes memory data =
+            abi.encode(WithdrawAction({account: msg.sender, token: token, amount: amount, to: to}));
         receipt = _createReceipt(ActionType.Withdraw, data);
     }
 
@@ -340,7 +362,11 @@ contract SuccinctVApp is Initializable, ReentrancyGuardUpgradeable, OwnableUpgra
     /// @param to The address to claim the withdrawal for
     /// @param token The token to claim
     /// @param unwrap Whether to unwrap WETH to ETH (only applicable if token is WETH)
-    function claimWithdrawal(address to, address token, bool unwrap) external nonReentrant returns (uint256 amount) {
+    function claimWithdrawal(address to, address token, bool unwrap)
+        external
+        nonReentrant
+        returns (uint256 amount)
+    {
         amount = withdrawalClaims[to][token];
         if (amount == 0) revert NoWithdrawalToClaim();
 
@@ -390,7 +416,8 @@ contract SuccinctVApp is Initializable, ReentrancyGuardUpgradeable, OwnableUpgra
         bytes memory data = abi.encode(RemoveSignerAction({owner: msg.sender, signer: signer}));
         receipt = _createReceipt(ActionType.RemoveSigner, data);
 
-        delegatedSigners[msg.sender][index] = delegatedSigners[msg.sender][delegatedSigners[msg.sender].length - 1];
+        delegatedSigners[msg.sender][index] =
+            delegatedSigners[msg.sender][delegatedSigners[msg.sender].length - 1];
         delegatedSigners[msg.sender].pop();
         usedSigners[signer] = false;
     }
@@ -400,10 +427,17 @@ contract SuccinctVApp is Initializable, ReentrancyGuardUpgradeable, OwnableUpgra
     /// @param actionType The type of action
     /// @param data The encoded action data
     /// @return receipt The receipt ID
-    function _createReceipt(ActionType actionType, bytes memory data) internal returns (uint64 receipt) {
+    function _createReceipt(ActionType actionType, bytes memory data)
+        internal
+        returns (uint64 receipt)
+    {
         receipt = ++currentReceipt;
-        receipts[receipt] =
-            Receipt({action: actionType, status: ReceiptStatus.Pending, timestamp: uint64(block.timestamp), data: data});
+        receipts[receipt] = Receipt({
+            action: actionType,
+            status: ReceiptStatus.Pending,
+            timestamp: uint64(block.timestamp),
+            data: data
+        });
 
         emit ReceiptPending(receipt, actionType, data);
     }
@@ -439,7 +473,10 @@ contract SuccinctVApp is Initializable, ReentrancyGuardUpgradeable, OwnableUpgra
     /// @param token The token to withdraw
     /// @param balance The balance to withdraw
     /// @param proof The proof of the balance
-    function emergencyWithdraw(address token, uint256 balance, bytes32[] calldata proof) external nonReentrant {
+    function emergencyWithdraw(address token, uint256 balance, bytes32[] calldata proof)
+        external
+        nonReentrant
+    {
         if (!whitelistedTokens[token]) revert TokenNotWhitelisted();
         if (proof.length == 0) revert InvalidProof();
         if (block.timestamp < timestamp() + freezeDuration) revert NotFrozen();
@@ -487,7 +524,9 @@ contract SuccinctVApp is Initializable, ReentrancyGuardUpgradeable, OwnableUpgra
 
         // Assert that the timestamp is not in the future and is increasing
         if (publicValues.timestamp > block.timestamp) revert InvalidTimestamp();
-        if (blockNumber != 0 && timestamps[blockNumber] > publicValues.timestamp) revert TimestampInPast();
+        if (blockNumber != 0 && timestamps[blockNumber] > publicValues.timestamp) {
+            revert TimestampInPast();
+        }
 
         // Update the state root
         uint64 _block = ++blockNumber;
@@ -508,7 +547,14 @@ contract SuccinctVApp is Initializable, ReentrancyGuardUpgradeable, OwnableUpgra
         // Validate the actions
         uint64 _timestamp = uint64(block.timestamp);
         uint64 _actionDelay = maxActionDelay;
-        Actions.validate(receipts, publicValues.actions, finalizedReceipt, currentReceipt, _timestamp, _actionDelay);
+        Actions.validate(
+            receipts,
+            publicValues.actions,
+            finalizedReceipt,
+            currentReceipt,
+            _timestamp,
+            _actionDelay
+        );
 
         // Execute the actions
         ActionsInternal memory decoded = Actions.decode(publicValues.actions);
@@ -533,7 +579,9 @@ contract SuccinctVApp is Initializable, ReentrancyGuardUpgradeable, OwnableUpgra
         for (uint64 i = 0; i < actions.length; i++) {
             receipts[actions[i].action.receipt].status = actions[i].action.status;
 
-            emit ReceiptCompleted(actions[i].action.receipt, ActionType.Deposit, actions[i].action.data);
+            emit ReceiptCompleted(
+                actions[i].action.receipt, ActionType.Deposit, actions[i].action.data
+            );
         }
     }
 
@@ -546,7 +594,9 @@ contract SuccinctVApp is Initializable, ReentrancyGuardUpgradeable, OwnableUpgra
                 receipts[actions[i].action.receipt].status = actions[i].action.status;
 
                 if (actions[i].action.status == ReceiptStatus.Failed) {
-                    emit ReceiptFailed(actions[i].action.receipt, ActionType.Withdraw, actions[i].action.data);
+                    emit ReceiptFailed(
+                        actions[i].action.receipt, ActionType.Withdraw, actions[i].action.data
+                    );
                 }
             }
 
@@ -554,9 +604,13 @@ contract SuccinctVApp is Initializable, ReentrancyGuardUpgradeable, OwnableUpgra
             if (actions[i].action.status == ReceiptStatus.Completed) {
                 if (whitelistedTokens[actions[i].data.token]) {
                     // Process the withdrawal
-                    _processWithdraw(actions[i].data.to, actions[i].data.token, actions[i].data.amount);
+                    _processWithdraw(
+                        actions[i].data.to, actions[i].data.token, actions[i].data.amount
+                    );
 
-                    emit ReceiptCompleted(actions[i].action.receipt, ActionType.Withdraw, actions[i].action.data);
+                    emit ReceiptCompleted(
+                        actions[i].action.receipt, ActionType.Withdraw, actions[i].action.data
+                    );
                 }
             }
         }
@@ -569,7 +623,9 @@ contract SuccinctVApp is Initializable, ReentrancyGuardUpgradeable, OwnableUpgra
             receipts[actions[i].action.receipt].status = actions[i].action.status;
 
             if (actions[i].action.status == ReceiptStatus.Completed) {
-                emit ReceiptCompleted(actions[i].action.receipt, ActionType.AddSigner, actions[i].action.data);
+                emit ReceiptCompleted(
+                    actions[i].action.receipt, ActionType.AddSigner, actions[i].action.data
+                );
             }
         }
     }
@@ -581,7 +637,9 @@ contract SuccinctVApp is Initializable, ReentrancyGuardUpgradeable, OwnableUpgra
             receipts[actions[i].action.receipt].status = actions[i].action.status;
 
             if (actions[i].action.status == ReceiptStatus.Completed) {
-                emit ReceiptCompleted(actions[i].action.receipt, ActionType.RemoveSigner, actions[i].action.data);
+                emit ReceiptCompleted(
+                    actions[i].action.receipt, ActionType.RemoveSigner, actions[i].action.data
+                );
             }
         }
     }
@@ -593,7 +651,9 @@ contract SuccinctVApp is Initializable, ReentrancyGuardUpgradeable, OwnableUpgra
             if (actions[i].action.status == ReceiptStatus.Completed) {
                 staking.requestSlash(actions[i].data.prover, actions[i].data.amount);
 
-                emit ReceiptCompleted(actions[i].action.receipt, ActionType.Slash, actions[i].action.data);
+                emit ReceiptCompleted(
+                    actions[i].action.receipt, ActionType.Slash, actions[i].action.data
+                );
             }
         }
     }
@@ -609,7 +669,9 @@ contract SuccinctVApp is Initializable, ReentrancyGuardUpgradeable, OwnableUpgra
                 // Call reward function on staking contract
                 staking.reward(actions[i].data.prover, actions[i].data.amount);
 
-                emit ReceiptCompleted(actions[i].action.receipt, ActionType.Reward, actions[i].action.data);
+                emit ReceiptCompleted(
+                    actions[i].action.receipt, ActionType.Reward, actions[i].action.data
+                );
             }
         }
     }
@@ -653,7 +715,9 @@ contract SuccinctVApp is Initializable, ReentrancyGuardUpgradeable, OwnableUpgra
                     require(actualUsdcBalance == assertedUsdcBalance, "USDC balance mismatch");
                 }
 
-                emit ReceiptCompleted(actions[i].action.receipt, ActionType.ProverState, actions[i].action.data);
+                emit ReceiptCompleted(
+                    actions[i].action.receipt, ActionType.ProverState, actions[i].action.data
+                );
             }
         }
     }
