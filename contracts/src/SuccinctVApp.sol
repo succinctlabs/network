@@ -14,7 +14,6 @@ import {ERC20} from "../lib/openzeppelin-contracts/contracts/token/ERC20/ERC20.s
 import {SafeERC20} from "../lib/openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol";
 
 import {ISuccinctVApp} from "./interfaces/ISuccinctVApp.sol";
-import {IWETH} from "./interfaces/IWETH.sol";
 import {ISuccinctStaking} from "./interfaces/ISuccinctStaking.sol";
 import {
     Receipt,
@@ -43,6 +42,8 @@ import {
     ProverStateAction,
     FeeUpdateAction
 } from "./libraries/PublicValues.sol";
+import {UUPSUpgradeable} from
+    "../lib/openzeppelin-contracts-upgradeable/contracts/proxy/utils/UUPSUpgradeable.sol";
 
 /// @title SuccinctVApp
 /// @author Succinct Labs
@@ -51,15 +52,13 @@ contract SuccinctVApp is
     Initializable,
     ReentrancyGuardUpgradeable,
     OwnableUpgradeable,
+    UUPSUpgradeable,
     ISuccinctVApp
 {
     using SafeERC20 for ERC20;
 
     /// @notice The maximum fee value (100% in basis points)
     uint256 public constant FEE_UNIT = 10000;
-
-    /// @notice The address of the WETH token
-    IWETH public WETH;
 
     /// @notice The address of the USDC token
     ERC20 public USDC;
@@ -139,7 +138,6 @@ contract SuccinctVApp is
     /// @custom:oz-upgrades-unsafe-allow-initializers
     function initialize(
         address _owner,
-        address _weth,
         address _usdc,
         address _prove,
         address _staking,
@@ -153,7 +151,6 @@ contract SuccinctVApp is
         __ReentrancyGuard_init();
         __Ownable_init(_owner);
 
-        WETH = IWETH(_weth);
         USDC = ERC20(_usdc);
         PROVE = ERC20(_prove);
         staking = ISuccinctStaking(_staking);
@@ -296,11 +293,6 @@ contract SuccinctVApp is
         return updateState(_publicValues, _proofBytes);
     }
 
-    /// @notice Receive function to handle incoming ETH (used for WETH unwrapping)
-    receive() external payable {
-        require(msg.sender == address(WETH), "Only WETH");
-    }
-
     /*//////////////////////////////////////////////////////////////
                                   USER
     //////////////////////////////////////////////////////////////*/
@@ -361,8 +353,7 @@ contract SuccinctVApp is
     /// @dev Anyone can claim a withdrawal for an account
     /// @param to The address to claim the withdrawal for
     /// @param token The token to claim
-    /// @param unwrap Whether to unwrap WETH to ETH (only applicable if token is WETH)
-    function claimWithdrawal(address to, address token, bool unwrap)
+    function claimWithdrawal(address to, address token)
         external
         nonReentrant
         returns (uint256 amount)
@@ -370,20 +361,12 @@ contract SuccinctVApp is
         amount = withdrawalClaims[to][token];
         if (amount == 0) revert NoWithdrawalToClaim();
 
-        // Transfer the withdrawal
+        // Adjust the balances.
         pendingWithdrawalClaims[token] -= amount;
         withdrawalClaims[to][token] = 0;
 
-        if (unwrap && token == address(WETH)) {
-            // For WETH, unwrap to ETH if requested
-            ERC20(token).safeTransfer(address(this), amount);
-            WETH.withdraw(amount);
-            (bool success,) = to.call{value: amount}("");
-            if (!success) revert ETHTransferFailed();
-        } else {
-            // For all other tokens, transfer normally
-            ERC20(token).safeTransfer(to, amount);
-        }
+        // Transfer the withdrawal.
+        ERC20(token).safeTransfer(to, amount);
 
         emit WithdrawalClaimed(to, token, msg.sender, amount);
     }
@@ -735,4 +718,7 @@ contract SuccinctVApp is
     function timestamp() public view returns (uint64) {
         return timestamps[blockNumber];
     }
+
+    /// @notice Authorizes an upgrade for the implementation contract.
+    function _authorizeUpgrade(address _newImplementation) internal override onlyOwner {}
 }

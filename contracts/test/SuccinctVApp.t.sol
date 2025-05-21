@@ -57,7 +57,6 @@ contract SuccinctVAppTest is Test, FixtureLoader {
         verifier = address(new MockVerifier());
 
         // Setup tokens
-        WETH = new WETH9();
         PROVE = new MockERC20("PROVE", "PROVE", 18);
         USDC = new MockERC20("USDC", "USDC", 6);
 
@@ -67,7 +66,6 @@ contract SuccinctVAppTest is Test, FixtureLoader {
         vapp = SuccinctVApp(payable(address(new ERC1967Proxy(vappImpl, ""))));
         vapp.initialize(
             address(this),
-            address(WETH),
             address(USDC),
             address(PROVE),
             address(staking),
@@ -118,7 +116,6 @@ contract SuccinctVAppTest is Test, FixtureLoader {
         vm.expectRevert(abi.encodeWithSignature("InvalidInitialization()"));
         vapp.initialize(
             address(0),
-            address(WETH),
             address(USDC),
             address(PROVE),
             address(staking),
@@ -569,7 +566,7 @@ contract SuccinctVAppTest is Test, FixtureLoader {
         vm.startPrank(user2);
         vm.expectEmit(true, true, true, true);
         emit ISuccinctVApp.WithdrawalClaimed(user2, address(USDC), user2, amount);
-        uint256 claimedAmount = vapp.claimWithdrawal(user2, address(USDC), false);
+        uint256 claimedAmount = vapp.claimWithdrawal(user2, address(USDC));
         vm.stopPrank();
 
         assertEq(claimedAmount, amount);
@@ -580,7 +577,7 @@ contract SuccinctVAppTest is Test, FixtureLoader {
         // Reattempt claim
         vm.startPrank(user2);
         vm.expectRevert(abi.encodeWithSignature("NoWithdrawalToClaim()"));
-        vapp.claimWithdrawal(user2, address(USDC), false);
+        vapp.claimWithdrawal(user2, address(USDC));
         vm.stopPrank();
     }
 
@@ -671,7 +668,7 @@ contract SuccinctVAppTest is Test, FixtureLoader {
         vm.startPrank(user3);
         vm.expectEmit(true, true, true, true);
         emit ISuccinctVApp.WithdrawalClaimed(user3, address(USDC), user3, amount);
-        uint256 claimedAmount = vapp.claimWithdrawal(user3, address(USDC), false);
+        uint256 claimedAmount = vapp.claimWithdrawal(user3, address(USDC));
         vm.stopPrank();
 
         // Verify claim was successful, and user3 has the funds
@@ -684,13 +681,13 @@ contract SuccinctVAppTest is Test, FixtureLoader {
         // Attempt to claim again should fail
         vm.startPrank(user3);
         vm.expectRevert(abi.encodeWithSignature("NoWithdrawalToClaim()"));
-        vapp.claimWithdrawal(user3, address(USDC), false);
+        vapp.claimWithdrawal(user3, address(USDC));
         vm.stopPrank();
 
         // User2 shouldn't be able to claim either
         vm.startPrank(user2);
         vm.expectRevert(abi.encodeWithSignature("NoWithdrawalToClaim()"));
-        vapp.claimWithdrawal(user2, address(USDC), false);
+        vapp.claimWithdrawal(user2, address(USDC));
         vm.stopPrank();
     }
 
@@ -704,85 +701,6 @@ contract SuccinctVAppTest is Test, FixtureLoader {
 
         // Verify no withdrawal receipt was created
         assertEq(vapp.currentReceipt(), 0);
-    }
-
-    function test_ClaimWithdrawalUnwrapWETH() public {
-        // Add WETH to whitelist
-        vapp.addToken(address(WETH));
-
-        uint256 amount = 1 ether; // 1 WETH
-
-        // Mint WETH for user2 (we'll use user2 to deposit)
-        vm.deal(user2, amount);
-        vm.startPrank(user2);
-        WETH.deposit{value: amount}();
-        WETH.approve(address(vapp), amount);
-
-        // Deposit WETH through the vapp
-        uint64 depositReceipt = vapp.deposit(user2, address(WETH), amount);
-        vm.stopPrank();
-
-        // Process the deposit
-        bytes memory depositData =
-            abi.encode(DepositAction({account: user2, token: address(WETH), amount: amount}));
-        PublicValuesStruct memory depositPublicValues = PublicValuesStruct({
-            actions: new Action[](1),
-            old_root: bytes32(0),
-            new_root: bytes32(uint256(1)),
-            timestamp: uint64(block.timestamp)
-        });
-        depositPublicValues.actions[0] = Action({
-            action: ActionType.Deposit,
-            status: ReceiptStatus.Completed,
-            receipt: depositReceipt,
-            data: depositData
-        });
-
-        mockCall(true);
-        vapp.updateState(abi.encode(depositPublicValues), jsonFixture.proof);
-
-        // Request withdrawal from user2 to user1
-        vm.startPrank(user2);
-        bytes memory withdrawData = abi.encode(
-            WithdrawAction({account: user2, token: address(WETH), amount: amount, to: user1})
-        );
-        uint64 withdrawReceipt = vapp.withdraw(user1, address(WETH), amount);
-        vm.stopPrank();
-
-        // Process the withdrawal
-        PublicValuesStruct memory withdrawPublicValues = PublicValuesStruct({
-            actions: new Action[](1),
-            old_root: bytes32(uint256(1)),
-            new_root: bytes32(uint256(2)),
-            timestamp: uint64(block.timestamp)
-        });
-        withdrawPublicValues.actions[0] = Action({
-            action: ActionType.Withdraw,
-            status: ReceiptStatus.Completed,
-            receipt: withdrawReceipt,
-            data: withdrawData
-        });
-
-        mockCall(true);
-        vapp.updateState(abi.encode(withdrawPublicValues), jsonFixture.proof);
-
-        // Verify withdrawal claims
-        assertEq(vapp.withdrawalClaims(user1, address(WETH)), amount);
-
-        // Check initial balances
-        uint256 initialETHBalance = user1.balance;
-        uint256 initialWETHBalance = WETH.balanceOf(user1);
-        assertEq(initialWETHBalance, 0);
-
-        // Claim withdrawal with unwrap
-        vm.prank(user1);
-        uint256 claimedAmount = vapp.claimWithdrawal(user1, address(WETH), true);
-
-        // Verify ETH received and no WETH received
-        assertEq(claimedAmount, amount);
-        assertEq(user1.balance, initialETHBalance + amount);
-        assertEq(WETH.balanceOf(user1), 0);
-        assertEq(vapp.withdrawalClaims(user1, address(WETH)), 0);
     }
 
     function test_RevertIf_WithdrawNonWhitelistedToken() public {
@@ -1186,7 +1104,7 @@ contract SuccinctVAppTest is Test, FixtureLoader {
 
         // Claim withdrawal
         assertEq(ERC20(testUsdc).balanceOf(user), 0);
-        vapp.claimWithdrawal(user, address(testUsdc), false);
+        vapp.claimWithdrawal(user, address(testUsdc));
         assertEq(ERC20(testUsdc).balanceOf(user), 100);
         vm.stopPrank();
     }
