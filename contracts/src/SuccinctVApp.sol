@@ -60,14 +60,11 @@ contract SuccinctVApp is
     /// @notice The maximum fee value (100% in basis points)
     uint256 public constant FEE_UNIT = 10000;
 
-    /// @notice The address of the USDC token
-    ERC20 public USDC;
-
     /// @notice The address of the PROVE token
-    ERC20 public PROVE;
+    address public PROVE;
 
     /// @notice The address of the succinct staking contract
-    ISuccinctStaking public staking;
+    address public staking;
 
     /// @notice The address of the SP1 verifier contract.
     /// @dev This can either be a specific SP1Verifier for a specific version, or the
@@ -138,66 +135,73 @@ contract SuccinctVApp is
     /// @custom:oz-upgrades-unsafe-allow-initializers
     function initialize(
         address _owner,
-        address _usdc,
         address _prove,
         address _staking,
         address _verifier,
         bytes32 _vappProgramVKey
     ) external initializer {
-        if (_owner == address(0) || _usdc == address(0) || _prove == address(0)) {
-            revert InvalidAddress();
+        if (_owner == address(0) || _prove == address(0)) {
+            revert ZeroAddress();
         }
 
         __ReentrancyGuard_init();
         __Ownable_init(_owner);
 
-        USDC = ERC20(_usdc);
-        PROVE = ERC20(_prove);
-        staking = ISuccinctStaking(_staking);
+        PROVE = _prove;
+        staking = _staking;
         verifier = _verifier;
         vappProgramVKey = _vappProgramVKey;
         maxActionDelay = 1 days;
         freezeDuration = 1 days;
 
         emit UpdatedStaking(_staking);
-        emit UpdatedVerifier(verifier);
-        emit Fork(vappProgramVKey, 0, bytes32(0), bytes32(0));
+        emit UpdatedVerifier(_verifier);
+        emit Fork(_vappProgramVKey, 0, bytes32(0), bytes32(0));
         emit UpdatedMaxActionDelay(maxActionDelay);
         emit UpdatedFreezeDuration(freezeDuration);
+    }
+
+    /// @notice Returns the state root for the current block.
+    function root() public view returns (bytes32) {
+        return roots[blockNumber];
+    }
+
+    /// @notice Returns the timestamp for the current block.
+    function timestamp() public view returns (uint64) {
+        return timestamps[blockNumber];
+    }
+
+    /// @notice Returns the index of a delegated signer for an owner
+    /// @param _owner The owner to check
+    /// @param _signer The signer to check
+    /// @return index The index of the signer, returns type(uint256).max if not found
+    function hasDelegatedSigner(address _owner, address _signer) public view returns (uint256) {
+        address[] memory signers = delegatedSigners[_owner];
+        for (uint256 i = 0; i < signers.length; i++) {
+            if (signers[i] == _signer) {
+                return i;
+            }
+        }
+
+        return type(uint256).max;
+    }
+
+    /// @notice Get the delegated signers for an owner
+    /// @param _owner The owner to get the delegated signers for
+    /// @return The delegated signers
+    function getDelegatedSigners(address _owner) external view returns (address[] memory) {
+        return delegatedSigners[_owner];
     }
 
     /*//////////////////////////////////////////////////////////////
                                  OWNER
     //////////////////////////////////////////////////////////////*/
 
-    /// @notice Updated staking
-    event UpdatedStaking(address indexed staking);
-
-    /// @notice Updated verifier
-    event UpdatedVerifier(address indexed verifier);
-
-    /// @notice Updated max action delay
-    event UpdatedMaxActionDelay(uint64 indexed actionDelay);
-
-    /// @notice Updated freeze duration
-    event UpdatedFreezeDuration(uint64 indexed freezeDuration);
-
-    /// @notice Token whitelist status changed
-    event TokenWhitelist(address indexed token, bool allowed);
-
-    /// @notice Minimum amount updated for a token
-    event MinAmountUpdated(address indexed token, uint256 amount);
-
-    /// @notice Fork the program
-    event Fork(
-        bytes32 indexed vkey, uint64 indexed block, bytes32 indexed new_root, bytes32 old_root
-    );
-
     /// @notice Updates the succinct staking contract address
     /// @dev Only callable by the owner
     /// @param _staking The new staking contract address
     function updateStaking(address _staking) external onlyOwner {
-        staking = ISuccinctStaking(_staking);
+        staking = _staking;
 
         emit UpdatedStaking(_staking);
     }
@@ -233,7 +237,7 @@ contract SuccinctVApp is
     /// @dev Only callable by the owner
     /// @param _token The token address to add
     function addToken(address _token) external onlyOwner {
-        if (_token == address(0)) revert InvalidAddress();
+        if (_token == address(0)) revert ZeroAddress();
         if (whitelistedTokens[_token]) revert TokenAlreadyWhitelisted();
 
         whitelistedTokens[_token] = true;
@@ -257,7 +261,7 @@ contract SuccinctVApp is
     /// @param _token The token address
     /// @param _amount The minimum amount
     function setMinAmount(address _token, uint256 _amount) external onlyOwner {
-        if (_token == address(0)) revert InvalidAddress();
+        if (_token == address(0)) revert ZeroAddress();
 
         minAmounts[_token] = _amount;
 
@@ -267,28 +271,28 @@ contract SuccinctVApp is
     /// @notice Updates the vapp program verification key, forks the state root
     /// @dev Only callable by the owner, executes a state update
     /// @param _vkey The new vkey
-    /// @param new_old_root The old root committed by the new program
+    /// @param new_oldRoot The old root committed by the new program
     /// @param _publicValues The encoded public values
     /// @param _proofBytes The encoded proof
     function fork(
         bytes32 _vkey,
-        bytes32 new_old_root,
+        bytes32 _newOldRoot,
         bytes calldata _publicValues,
         bytes calldata _proofBytes
     ) external onlyOwner returns (uint64, bytes32, bytes32) {
-        // Update the vkey
+        // Update the vkey.
         vappProgramVKey = _vkey;
 
-        // Update the root and produce a new block
-        bytes32 old_root = bytes32(0);
+        // Update the root and produce a new block.
+        bytes32 _oldRoot = bytes32(0);
         uint64 _block = blockNumber;
         if (_block != 0) {
-            old_root = roots[_block];
+            _oldRoot = roots[_block];
         }
-        roots[++_block] = new_old_root;
+        roots[++_block] = _newOldRoot;
 
-        emit Block(_block, new_old_root, old_root);
-        emit Fork(vappProgramVKey, _block, new_old_root, old_root);
+        emit Block(_block, _newOldRoot, _oldRoot);
+        emit Fork(vappProgramVKey, _block, _newOldRoot, _oldRoot);
 
         return updateState(_publicValues, _proofBytes);
     }
@@ -307,7 +311,7 @@ contract SuccinctVApp is
         nonReentrant
         returns (uint64 receipt)
     {
-        if (account == address(0)) revert InvalidAddress();
+        if (account == address(0)) revert ZeroAddress();
         if (!whitelistedTokens[token]) revert TokenNotWhitelisted();
 
         // Check minimum amount if set (skip check if minimum is 0)
@@ -335,7 +339,7 @@ contract SuccinctVApp is
         nonReentrant
         returns (uint64 receipt)
     {
-        if (to == address(0)) revert InvalidAddress();
+        if (to == address(0)) revert ZeroAddress();
         if (!whitelistedTokens[token]) revert TokenNotWhitelisted();
 
         // Check minimum amount if set (skip check if minimum is 0)
@@ -373,36 +377,36 @@ contract SuccinctVApp is
 
     /// @notice Add a delegated signer for an owner
     /// @dev Only callable by the prover owner
-    /// @param signer The delegated signer to add
-    function addDelegatedSigner(address signer) external returns (uint64 receipt) {
-        if (!staking.hasProver(msg.sender)) revert InvalidAddress();
-        if (signer == address(0)) revert InvalidAddress();
-        if (staking.isProver(signer)) revert InvalidSigner();
-        if (staking.hasProver(signer)) revert InvalidSigner();
-        if (usedSigners[signer]) revert InvalidSigner();
+    /// @param _signer The delegated signer to add
+    function addDelegatedSigner(address _signer) external returns (uint64 receipt) {
+        if (_signer == address(0)) revert ZeroAddress();
+        if (usedSigners[_signer]) revert InvalidSigner();
+        if (!ISuccinctStaking(staking).hasProver(msg.sender)) revert ZeroAddress();
+        if (ISuccinctStaking(staking).isProver(_signer)) revert InvalidSigner();
+        if (ISuccinctStaking(staking).hasProver(_signer)) revert InvalidSigner();
 
-        bytes memory data = abi.encode(AddSignerAction({owner: msg.sender, signer: signer}));
+        bytes memory data = abi.encode(AddSignerAction({owner: msg.sender, signer: _signer}));
         receipt = _createReceipt(ActionType.AddSigner, data);
 
-        delegatedSigners[msg.sender].push(signer);
-        usedSigners[signer] = true;
+        delegatedSigners[msg.sender].push(_signer);
+        usedSigners[_signer] = true;
     }
 
     /// @notice Remove a delegated signer for an owner
     /// @dev Only callable by the prover owner
-    /// @param signer The delegated signer to remove
-    function removeDelegatedSigner(address signer) external returns (uint64 receipt) {
-        uint256 index = hasDelegatedSigner(msg.sender, signer);
+    /// @param _signer The delegated signer to remove
+    function removeDelegatedSigner(address _signer) external returns (uint64 receipt) {
+        uint256 index = hasDelegatedSigner(msg.sender, _signer);
         if (index == type(uint256).max) revert InvalidSigner();
-        if (!usedSigners[signer]) revert InvalidSigner();
+        if (!usedSigners[_signer]) revert InvalidSigner();
 
-        bytes memory data = abi.encode(RemoveSignerAction({owner: msg.sender, signer: signer}));
+        bytes memory data = abi.encode(RemoveSignerAction({owner: msg.sender, signer: _signer}));
         receipt = _createReceipt(ActionType.RemoveSigner, data);
 
         delegatedSigners[msg.sender][index] =
             delegatedSigners[msg.sender][delegatedSigners[msg.sender].length - 1];
         delegatedSigners[msg.sender].pop();
-        usedSigners[signer] = false;
+        usedSigners[_signer] = false;
     }
 
     /// @notice Creates a receipt for an action
@@ -425,66 +429,32 @@ contract SuccinctVApp is
         emit ReceiptPending(receipt, actionType, data);
     }
 
-    /// @notice Returns the index of a delegated signer for an owner
-    /// @param owner The owner to check
-    /// @param signer The signer to check
-    /// @return index The index of the signer, returns type(uint256).max if not found
-    function hasDelegatedSigner(address owner, address signer) public view returns (uint256) {
-        address[] memory signers = delegatedSigners[owner];
-        for (uint256 i = 0; i < signers.length; i++) {
-            if (signers[i] == signer) {
-                return i;
-            }
-        }
-
-        return type(uint256).max;
-    }
-
-    /// @notice Get the delegated signers for an owner
-    /// @param owner The owner to get the delegated signers for
-    /// @return The delegated signers
-    function getDelegatedSigners(address owner) external view returns (address[] memory) {
-        return delegatedSigners[owner];
-    }
-
     /*//////////////////////////////////////////////////////////////
                                EMERGENCY
     //////////////////////////////////////////////////////////////*/
 
-    /// @notice Emergency withdraw
+    /// @notice Emergency withdraw.
     /// @dev Anyone can call this function to withdraw their balance after the freeze duration has passed
-    /// @param token The token to withdraw
-    /// @param balance The balance to withdraw
-    /// @param proof The proof of the balance
-    function emergencyWithdraw(address token, uint256 balance, bytes32[] calldata proof)
+    /// @param _token The token to withdraw
+    /// @param _balance The balance to withdraw
+    /// @param _proof The proof of the balance
+    function emergencyWithdraw(address _token, uint256 _balance, bytes32[] calldata _proof)
         external
         nonReentrant
     {
-        if (!whitelistedTokens[token]) revert TokenNotWhitelisted();
-        if (proof.length == 0) revert InvalidProof();
+        if (_proof.length == 0) revert InvalidProof();
+        if (!whitelistedTokens[_token]) revert TokenNotWhitelisted();
         if (block.timestamp < timestamp() + freezeDuration) revert NotFrozen();
 
-        bytes32 leaf = sha256(abi.encodePacked(msg.sender, token, balance));
+        bytes32 leaf = sha256(abi.encodePacked(msg.sender, _token, _balance));
         bytes32 _root = root();
-        bool isValid = MerkleProof.verifyCalldata(proof, _root, leaf, _hashPair);
+        bool isValid = MerkleProof.verifyCalldata(_proof, _root, leaf, _hashPair);
         if (!isValid) revert ProofFailed();
 
-        _processWithdraw(msg.sender, token, balance);
+        _processWithdraw(msg.sender, _token, _balance);
 
-        emit EmergencyWithdrawal(msg.sender, token, balance, _root);
+        emit EmergencyWithdrawal(msg.sender, _token, _balance, _root);
     }
-
-    /// @notice Hashes a pair of bytes32 values
-    /// @param a The first value
-    /// @param b The second value
-    /// @return The hashed value
-    function _hashPair(bytes32 a, bytes32 b) internal pure returns (bytes32) {
-        return (a < b) ? sha256(abi.encodePacked(a, b)) : sha256(abi.encodePacked(b, a));
-    }
-
-    /*//////////////////////////////////////////////////////////////
-                                 STATE
-    //////////////////////////////////////////////////////////////*/
 
     /// @notice The entrypoint for verifying the state transition proof, commits actions and updates the state root
     /// @dev Reverts if the committed actions are invalid, callable by anyone
@@ -517,7 +487,7 @@ contract SuccinctVApp is
         timestamps[_block] = publicValues.timestamp;
 
         // Commit the actions
-        _actions(publicValues);
+        _handleActions(publicValues);
 
         emit Block(_block, publicValues.new_root, publicValues.old_root);
 
@@ -525,14 +495,13 @@ contract SuccinctVApp is
     }
 
     /// @dev Handles committed actions, reverts if the actions are invalid
-    /// @param publicValues The encoded public values
-    function _actions(PublicValuesStruct memory publicValues) internal {
+    function _handleActions(PublicValuesStruct memory _publicValues) internal {
         // Validate the actions
         uint64 _timestamp = uint64(block.timestamp);
         uint64 _actionDelay = maxActionDelay;
         Actions.validate(
             receipts,
-            publicValues.actions,
+            _publicValues.actions,
             finalizedReceipt,
             currentReceipt,
             _timestamp,
@@ -540,7 +509,7 @@ contract SuccinctVApp is
         );
 
         // Execute the actions
-        ActionsInternal memory decoded = Actions.decode(publicValues.actions);
+        ActionsInternal memory decoded = Actions.decode(_publicValues.actions);
         _depositActions(decoded.deposits);
         _withdrawActions(decoded.withdrawals);
         _addSignerActions(decoded.addSigners);
@@ -556,169 +525,150 @@ contract SuccinctVApp is
         }
     }
 
-    /// @dev Handles deposit actions
-    /// @param actions The deposit actions to execute
-    function _depositActions(DepositInternal[] memory actions) internal {
-        for (uint64 i = 0; i < actions.length; i++) {
-            receipts[actions[i].action.receipt].status = actions[i].action.status;
+    /// @dev Handles deposit actions.
+    function _depositActions(DepositInternal[] memory _actions) internal {
+        for (uint64 i = 0; i < _actions.length; i++) {
+            receipts[_actions[i].action.receipt].status = _actions[i].action.status;
 
             emit ReceiptCompleted(
-                actions[i].action.receipt, ActionType.Deposit, actions[i].action.data
+                _actions[i].action.receipt, ActionType.Deposit, _actions[i].action.data
             );
         }
     }
 
-    /// @dev Handles withdraw actions
-    /// @param actions The withdraw actions to execute
-    function _withdrawActions(WithdrawInternal[] memory actions) internal {
-        for (uint64 i = 0; i < actions.length; i++) {
+    /// @dev Handles withdraw actions.
+    function _withdrawActions(WithdrawInternal[] memory _actions) internal {
+        for (uint64 i = 0; i < _actions.length; i++) {
             // Only update if there is a corresponding receipt
-            if (actions[i].action.receipt != 0) {
-                receipts[actions[i].action.receipt].status = actions[i].action.status;
+            if (_actions[i].action.receipt != 0) {
+                receipts[_actions[i].action.receipt].status = _actions[i].action.status;
 
-                if (actions[i].action.status == ReceiptStatus.Failed) {
+                if (_actions[i].action.status == ReceiptStatus.Failed) {
                     emit ReceiptFailed(
-                        actions[i].action.receipt, ActionType.Withdraw, actions[i].action.data
+                        _actions[i].action.receipt, ActionType.Withdraw, _actions[i].action.data
                     );
                 }
             }
 
             // Handle the action status
-            if (actions[i].action.status == ReceiptStatus.Completed) {
-                if (whitelistedTokens[actions[i].data.token]) {
+            if (_actions[i].action.status == ReceiptStatus.Completed) {
+                if (whitelistedTokens[_actions[i].data.token]) {
                     // Process the withdrawal
                     _processWithdraw(
-                        actions[i].data.to, actions[i].data.token, actions[i].data.amount
+                        _actions[i].data.to, _actions[i].data.token, _actions[i].data.amount
                     );
 
                     emit ReceiptCompleted(
-                        actions[i].action.receipt, ActionType.Withdraw, actions[i].action.data
+                        _actions[i].action.receipt, ActionType.Withdraw, _actions[i].action.data
                     );
                 }
             }
         }
     }
 
-    /// @dev Handles add signer actions
-    /// @param actions The add signer actions to execute
-    function _addSignerActions(AddSignerInternal[] memory actions) internal {
-        for (uint64 i = 0; i < actions.length; i++) {
-            receipts[actions[i].action.receipt].status = actions[i].action.status;
+    /// @dev Handles add signer actions.
+    function _addSignerActions(AddSignerInternal[] memory _actions) internal {
+        for (uint64 i = 0; i < _actions.length; i++) {
+            receipts[_actions[i].action.receipt].status = _actions[i].action.status;
 
-            if (actions[i].action.status == ReceiptStatus.Completed) {
+            if (_actions[i].action.status == ReceiptStatus.Completed) {
                 emit ReceiptCompleted(
-                    actions[i].action.receipt, ActionType.AddSigner, actions[i].action.data
+                    _actions[i].action.receipt, ActionType.AddSigner, _actions[i].action.data
                 );
             }
         }
     }
 
-    /// @dev Handles remove signer actions
-    /// @param actions The remove signer actions to execute
-    function _removeSignerActions(RemoveSignerInternal[] memory actions) internal {
-        for (uint64 i = 0; i < actions.length; i++) {
-            receipts[actions[i].action.receipt].status = actions[i].action.status;
+    /// @dev Handles remove signer actions.
+    function _removeSignerActions(RemoveSignerInternal[] memory _actions) internal {
+        for (uint64 i = 0; i < _actions.length; i++) {
+            receipts[_actions[i].action.receipt].status = _actions[i].action.status;
 
-            if (actions[i].action.status == ReceiptStatus.Completed) {
+            if (_actions[i].action.status == ReceiptStatus.Completed) {
                 emit ReceiptCompleted(
-                    actions[i].action.receipt, ActionType.RemoveSigner, actions[i].action.data
+                    _actions[i].action.receipt, ActionType.RemoveSigner, _actions[i].action.data
                 );
             }
         }
     }
 
-    /// @dev Handles slash actions
-    /// @param actions The slash actions to execute
-    function _slashActions(SlashInternal[] memory actions) internal {
-        for (uint64 i = 0; i < actions.length; i++) {
-            if (actions[i].action.status == ReceiptStatus.Completed) {
-                staking.requestSlash(actions[i].data.prover, actions[i].data.amount);
+    /// @dev Handles slash actions.
+    function _slashActions(SlashInternal[] memory _actions) internal {
+        for (uint64 i = 0; i < _actions.length; i++) {
+            if (_actions[i].action.status == ReceiptStatus.Completed) {
+                ISuccinctStaking(staking).requestSlash(
+                    _actions[i].data.prover, _actions[i].data.amount
+                );
 
                 emit ReceiptCompleted(
-                    actions[i].action.receipt, ActionType.Slash, actions[i].action.data
+                    _actions[i].action.receipt, ActionType.Slash, _actions[i].action.data
                 );
             }
         }
     }
 
-    /// @dev Handles reward actions
-    /// @param actions The reward actions to execute
-    function _rewardActions(RewardInternal[] memory actions) internal {
-        for (uint64 i = 0; i < actions.length; i++) {
-            if (actions[i].action.status == ReceiptStatus.Completed) {
-                // Approve USDC transfer for the staking contract
-                USDC.approve(actions[i].data.prover, actions[i].data.amount);
+    /// @dev Handles reward actions.
+    function _rewardActions(RewardInternal[] memory _actions) internal {
+        for (uint64 i = 0; i < _actions.length; i++) {
+            if (_actions[i].action.status == ReceiptStatus.Completed) {
+                // Approve $PROVE transfer for the staking contract.
+                ERC20(PROVE).approve(_actions[i].data.prover, _actions[i].data.amount);
 
-                // Call reward function on staking contract
-                staking.reward(actions[i].data.prover, actions[i].data.amount);
+                // Call reward function on staking contract.
+                ISuccinctStaking(staking).reward(_actions[i].data.prover, _actions[i].data.amount);
 
                 emit ReceiptCompleted(
-                    actions[i].action.receipt, ActionType.Reward, actions[i].action.data
+                    _actions[i].action.receipt, ActionType.Reward, _actions[i].action.data
                 );
             }
         }
     }
 
-    /// @dev Processes a withdrawal by creating a claim for the amount
-    /// @param to The address to withdraw to
-    /// @param token The token to withdraw
-    /// @param amount The amount to withdraw
-    function _processWithdraw(address to, address token, uint256 amount) internal {
-        if (!whitelistedTokens[token]) revert TokenNotWhitelisted();
-
-        pendingWithdrawalClaims[token] += amount;
-        withdrawalClaims[to][token] += amount;
-        totalDeposits[token] -= amount;
-    }
-
-    /// @dev Handles prover state actions
-    /// @param actions The prover state actions to execute
-    function _proverStateActions(ProverStateInternal[] memory actions) internal {
-        for (uint64 i = 0; i < actions.length; i++) {
-            if (actions[i].action.status == ReceiptStatus.Completed) {
-                // Verify array lengths match
+    /// @dev Handles prover state actions.
+    function _proverStateActions(ProverStateInternal[] memory _actions) internal {
+        for (uint64 i = 0; i < _actions.length; i++) {
+            if (_actions[i].action.status == ReceiptStatus.Completed) {
+                // Verify array lengths match.
                 require(
-                    actions[i].data.provers.length == actions[i].data.proveBalances.length
-                        && actions[i].data.provers.length == actions[i].data.usdcBalances.length,
+                    _actions[i].data.provers.length == _actions[i].data.proveBalances.length
+                        && _actions[i].data.provers.length == _actions[i].data.usdcBalances.length,
                     "Array length mismatch"
                 );
 
-                // Verify each prover's on-chain balance matches the asserted balance
-                for (uint256 j = 0; j < actions[i].data.provers.length; j++) {
-                    address prover = actions[i].data.provers[j];
-                    uint256 assertedProveBalance = actions[i].data.proveBalances[j];
-                    uint256 assertedUsdcBalance = actions[i].data.usdcBalances[j];
+                // Verify each prover's on-chain balance matches the asserted balance.
+                for (uint256 j = 0; j < _actions[i].data.provers.length; j++) {
+                    address prover = _actions[i].data.provers[j];
+                    uint256 assertedProveBalance = _actions[i].data.proveBalances[j];
 
-                    // Check PROVE token balance
-                    uint256 actualProveBalance = PROVE.balanceOf(prover);
+                    // Check $PROVE token balance.
+                    uint256 actualProveBalance = ERC20(PROVE).balanceOf(prover);
                     require(actualProveBalance == assertedProveBalance, "PROVE balance mismatch");
-
-                    // Check USDC token balance
-                    uint256 actualUsdcBalance = USDC.balanceOf(prover);
-                    require(actualUsdcBalance == assertedUsdcBalance, "USDC balance mismatch");
                 }
 
                 emit ReceiptCompleted(
-                    actions[i].action.receipt, ActionType.ProverState, actions[i].action.data
+                    _actions[i].action.receipt, ActionType.ProverState, _actions[i].action.data
                 );
             }
         }
     }
 
-    /// @dev Handles fee update actions
-    /// @param actions The fee update actions to execute
-    function _feeUpdateActions(FeeUpdateInternal[] memory actions) internal {}
+    /// @dev Processes a withdrawal by creating a claim for the amount.
+    function _processWithdraw(address _to, address _token, uint256 _amount) internal {
+        if (!whitelistedTokens[_token]) revert TokenNotWhitelisted();
 
-    /// @notice Returns the state root for the current block
-    function root() public view returns (bytes32) {
-        return roots[blockNumber];
+        pendingWithdrawalClaims[_token] += _amount;
+        withdrawalClaims[_to][_token] += _amount;
+        totalDeposits[_token] -= _amount;
     }
 
-    /// @notice Returns the timestamp for the current block
-    function timestamp() public view returns (uint64) {
-        return timestamps[blockNumber];
+    /// @dev Handles fee update actions.
+    function _feeUpdateActions(FeeUpdateInternal[] memory _actions) internal {}
+
+    /// @dev Hashes a pair of bytes32 values using SHA-256.
+    function _hashPair(bytes32 _a, bytes32 _b) internal pure returns (bytes32) {
+        return (_a < _b) ? sha256(abi.encodePacked(_a, _b)) : sha256(abi.encodePacked(_b, _a));
     }
 
-    /// @notice Authorizes an upgrade for the implementation contract.
+    /// @dev Authorizes an ERC1967 proxy upgrade to a new implementation contract.
     function _authorizeUpgrade(address _newImplementation) internal override onlyOwner {}
 }

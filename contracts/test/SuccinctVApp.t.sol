@@ -4,7 +4,6 @@ pragma solidity ^0.8.28;
 import {Test, console} from "../lib/forge-std/src/Test.sol";
 import {stdJson} from "../lib/forge-std/src/StdJson.sol";
 import {FixtureLoader, Fixture, SP1ProofFixtureJson} from "./utils/FixtureLoader.sol";
-import {WETH9} from "./utils/WETH9.sol";
 import {MockERC20} from "./utils/MockERC20.sol";
 import {SuccinctVApp} from "../src/SuccinctVApp.sol";
 import {ISuccinctVApp} from "../src/interfaces/ISuccinctVApp.sol";
@@ -33,9 +32,7 @@ contract SuccinctVAppTest is Test, FixtureLoader {
     SP1ProofFixtureJson public jsonFixture;
     PublicValuesStruct public fixture;
     address public verifier;
-    WETH9 public WETH;
     MockERC20 public PROVE;
-    MockERC20 public USDC;
     SuccinctVApp public vapp;
     MockStaking public staking;
 
@@ -58,7 +55,6 @@ contract SuccinctVAppTest is Test, FixtureLoader {
 
         // Setup tokens
         PROVE = new MockERC20("PROVE", "PROVE", 18);
-        USDC = new MockERC20("USDC", "USDC", 6);
 
         staking = new MockStaking(address(PROVE));
 
@@ -66,15 +62,14 @@ contract SuccinctVAppTest is Test, FixtureLoader {
         vapp = SuccinctVApp(payable(address(new ERC1967Proxy(vappImpl, ""))));
         vapp.initialize(
             address(this),
-            address(USDC),
             address(PROVE),
             address(staking),
             verifier,
             jsonFixture.vkey
         );
 
-        // Whitelist USDC for testing
-        vapp.addToken(address(USDC));
+        // Whitelist PROVE for testing
+        vapp.addToken(address(PROVE));
 
         user1 = makeAddr("user1");
         user2 = makeAddr("user2");
@@ -103,7 +98,6 @@ contract SuccinctVAppTest is Test, FixtureLoader {
 
     function test_Initialize() public view {
         assertEq(vapp.owner(), address(this));
-        assertEq(address(vapp.USDC()), address(USDC));
         assertEq(address(vapp.PROVE()), address(PROVE));
         assertEq(address(vapp.staking()), address(staking));
         assertEq(vapp.verifier(), verifier);
@@ -116,7 +110,6 @@ contract SuccinctVAppTest is Test, FixtureLoader {
         vm.expectRevert(abi.encodeWithSignature("InvalidInitialization()"));
         vapp.initialize(
             address(0),
-            address(USDC),
             address(PROVE),
             address(staking),
             verifier,
@@ -128,7 +121,7 @@ contract SuccinctVAppTest is Test, FixtureLoader {
         address newStaking = address(1);
 
         vm.expectEmit(true, true, true, true);
-        emit SuccinctVApp.UpdatedStaking(newStaking);
+        emit ISuccinctVApp.UpdatedStaking(newStaking);
         vapp.updateStaking(newStaking);
 
         assertEq(address(vapp.staking()), newStaking);
@@ -144,7 +137,7 @@ contract SuccinctVAppTest is Test, FixtureLoader {
         address newVerifier = address(1);
 
         vm.expectEmit(true, true, true, true);
-        emit SuccinctVApp.UpdatedVerifier(newVerifier);
+        emit ISuccinctVApp.UpdatedVerifier(newVerifier);
         vapp.updateVerifier(newVerifier);
 
         assertEq(vapp.verifier(), newVerifier);
@@ -160,7 +153,7 @@ contract SuccinctVAppTest is Test, FixtureLoader {
         uint64 newDelay = 2 days;
 
         vm.expectEmit(true, true, true, true);
-        emit SuccinctVApp.UpdatedMaxActionDelay(newDelay);
+        emit ISuccinctVApp.UpdatedMaxActionDelay(newDelay);
         vapp.updateActionDelay(newDelay);
 
         assertEq(vapp.maxActionDelay(), newDelay);
@@ -176,7 +169,7 @@ contract SuccinctVAppTest is Test, FixtureLoader {
         uint64 newDuration = 3 days;
 
         vm.expectEmit(true, true, true, true);
-        emit SuccinctVApp.UpdatedFreezeDuration(newDuration);
+        emit ISuccinctVApp.UpdatedFreezeDuration(newDuration);
         vapp.updateFreezeDuration(newDuration);
 
         assertEq(vapp.freezeDuration(), newDuration);
@@ -192,7 +185,7 @@ contract SuccinctVAppTest is Test, FixtureLoader {
         address token = address(99);
 
         vm.expectEmit(true, true, true, true);
-        emit SuccinctVApp.TokenWhitelist(token, true);
+        emit ISuccinctVApp.TokenWhitelist(token, true);
         vapp.addToken(token);
 
         assertTrue(vapp.whitelistedTokens(token));
@@ -205,7 +198,7 @@ contract SuccinctVAppTest is Test, FixtureLoader {
     }
 
     function test_RevertIf_AddTokenZeroAddress() public {
-        vm.expectRevert(abi.encodeWithSignature("InvalidAddress()"));
+        vm.expectRevert(abi.encodeWithSignature("ZeroAddress()"));
         vapp.addToken(address(0));
     }
 
@@ -222,7 +215,7 @@ contract SuccinctVAppTest is Test, FixtureLoader {
         vapp.addToken(token);
 
         vm.expectEmit(true, true, true, true);
-        emit SuccinctVApp.TokenWhitelist(token, false);
+        emit ISuccinctVApp.TokenWhitelist(token, false);
         vapp.removeToken(token);
 
         assertFalse(vapp.whitelistedTokens(token));
@@ -245,41 +238,41 @@ contract SuccinctVAppTest is Test, FixtureLoader {
     }
 
     function test_SetMinAmount() public {
-        address token = address(USDC);
-        uint256 minAmount = 10e6; // 10 USDC
+        address token = address(PROVE);
+        uint256 minAmount = 10e6; // 10 PROVE
 
         vm.expectEmit(true, true, true, true);
-        emit SuccinctVApp.MinAmountUpdated(token, minAmount);
+        emit ISuccinctVApp.MinAmountUpdated(token, minAmount);
         vapp.setMinAmount(token, minAmount);
 
         assertEq(vapp.minAmounts(token), minAmount);
 
         // Update to a different value
-        uint256 newMinAmount = 20e6; // 20 USDC
+        uint256 newMinAmount = 20e6; // 20 PROVE
 
         vm.expectEmit(true, true, true, true);
-        emit SuccinctVApp.MinAmountUpdated(token, newMinAmount);
+        emit ISuccinctVApp.MinAmountUpdated(token, newMinAmount);
         vapp.setMinAmount(token, newMinAmount);
 
         assertEq(vapp.minAmounts(token), newMinAmount);
 
         // Set to zero to disable minimum check
         vm.expectEmit(true, true, true, true);
-        emit SuccinctVApp.MinAmountUpdated(token, 0);
+        emit ISuccinctVApp.MinAmountUpdated(token, 0);
         vapp.setMinAmount(token, 0);
 
         assertEq(vapp.minAmounts(token), 0);
     }
 
     function test_RevertIf_SetMinAmountZeroAddress() public {
-        vm.expectRevert(abi.encodeWithSignature("InvalidAddress()"));
+        vm.expectRevert(abi.encodeWithSignature("ZeroAddress()"));
         vapp.setMinAmount(address(0), 10e6);
     }
 
     function test_RevertIf_SetMinAmountNotOwner() public {
         vm.expectRevert(abi.encodeWithSignature("OwnableUnauthorizedAccount(address)", user1));
         vm.prank(user1);
-        vapp.setMinAmount(address(USDC), 10e6);
+        vapp.setMinAmount(address(PROVE), 10e6);
     }
 
     function test_Fork() public {
@@ -297,7 +290,7 @@ contract SuccinctVAppTest is Test, FixtureLoader {
 
         vm.expectEmit(true, true, true, true);
         emit ISuccinctVApp.Block(1, newRoot, bytes32(0));
-        emit SuccinctVApp.Fork(newVkey, 1, newRoot, bytes32(0));
+        emit ISuccinctVApp.Fork(newVkey, 1, newRoot, bytes32(0));
 
         (uint64 _block, bytes32 returnedNewRoot, bytes32 returnedOldRoot) =
             vapp.fork(newVkey, newRoot, abi.encode(publicValues), jsonFixture.proof);
@@ -356,7 +349,7 @@ contract SuccinctVAppTest is Test, FixtureLoader {
 
         vm.expectEmit(true, true, true, true);
         emit ISuccinctVApp.Block(2, newRoot, bytes32(uint256(1)));
-        emit SuccinctVApp.Fork(newVkey, 2, newRoot, bytes32(uint256(1)));
+        emit ISuccinctVApp.Fork(newVkey, 2, newRoot, bytes32(uint256(1)));
 
         (uint64 blockNum, bytes32 returnedNewRoot, bytes32 returnedOldRoot) =
             vapp.fork(newVkey, newRoot, abi.encode(publicValues2), jsonFixture.proof);
@@ -372,25 +365,25 @@ contract SuccinctVAppTest is Test, FixtureLoader {
 
     function test_Deposit() public {
         uint256 amount = 100e6;
-        USDC.mint(address(this), amount);
-        USDC.approve(address(vapp), amount);
+        PROVE.mint(address(this), amount);
+        PROVE.approve(address(vapp), amount);
 
-        assertEq(USDC.balanceOf(address(this)), amount);
-        assertEq(USDC.balanceOf(address(vapp)), 0);
+        assertEq(PROVE.balanceOf(address(this)), amount);
+        assertEq(PROVE.balanceOf(address(vapp)), 0);
         assertEq(vapp.currentReceipt(), 0);
         (, ReceiptStatus status,,) = vapp.receipts(1);
         assertEq(uint8(status), uint8(ReceiptStatus.None));
 
         // Deposit
         bytes memory data = abi.encode(
-            DepositAction({account: address(this), token: address(USDC), amount: amount})
+            DepositAction({account: address(this), token: address(PROVE), amount: amount})
         );
         vm.expectEmit(true, true, true, true);
         emit ISuccinctVApp.ReceiptPending(1, ActionType.Deposit, data);
-        vapp.deposit(address(this), address(USDC), amount);
+        vapp.deposit(address(this), address(PROVE), amount);
 
-        assertEq(USDC.balanceOf(address(this)), 0);
-        assertEq(USDC.balanceOf(address(vapp)), amount);
+        assertEq(PROVE.balanceOf(address(this)), 0);
+        assertEq(PROVE.balanceOf(address(vapp)), amount);
         assertEq(vapp.currentReceipt(), 1);
         (, status,,) = vapp.receipts(1);
         assertEq(uint8(status), uint8(ReceiptStatus.Pending));
@@ -428,13 +421,13 @@ contract SuccinctVAppTest is Test, FixtureLoader {
 
     function test_RevertIf_DepositZeroAddress() public {
         uint256 amount = 100e6;
-        USDC.mint(user1, amount);
+        PROVE.mint(user1, amount);
 
         vm.startPrank(user1);
-        USDC.approve(address(vapp), amount);
+        PROVE.approve(address(vapp), amount);
 
-        vm.expectRevert(abi.encodeWithSignature("InvalidAddress()"));
-        vapp.deposit(address(0), address(USDC), amount);
+        vm.expectRevert(abi.encodeWithSignature("ZeroAddress()"));
+        vapp.deposit(address(0), address(PROVE), amount);
         vm.stopPrank();
 
         // Verify no deposit receipt was created
@@ -460,20 +453,20 @@ contract SuccinctVAppTest is Test, FixtureLoader {
     }
 
     function test_RevertIf_DepositBelowMinimum() public {
-        uint256 minAmount = 10e6; // 10 USDC
-        uint256 depositAmount = 5e6; // 5 USDC - below minimum
+        uint256 minAmount = 10e6; // 10 PROVE
+        uint256 depositAmount = 5e6; // 5 PROVE - below minimum
 
         // Set minimum amount
-        vapp.setMinAmount(address(USDC), minAmount);
+        vapp.setMinAmount(address(PROVE), minAmount);
 
         // Try to deposit below minimum
-        USDC.mint(user1, depositAmount);
+        PROVE.mint(user1, depositAmount);
 
         vm.startPrank(user1);
-        USDC.approve(address(vapp), depositAmount);
+        PROVE.approve(address(vapp), depositAmount);
 
         vm.expectRevert(abi.encodeWithSignature("MinAmount()"));
-        vapp.deposit(user1, address(USDC), depositAmount);
+        vapp.deposit(user1, address(PROVE), depositAmount);
         vm.stopPrank();
 
         // Verify no deposit receipt was created
@@ -481,18 +474,18 @@ contract SuccinctVAppTest is Test, FixtureLoader {
     }
 
     function test_Withdraw() public {
-        uint256 amount = 100e6; // 100 USDC (6 decimals)
+        uint256 amount = 100e6; // 100 PROVE (6 decimals)
 
         // Deposit
-        USDC.mint(user1, amount);
+        PROVE.mint(user1, amount);
         vm.startPrank(user1);
-        USDC.approve(address(vapp), amount);
-        uint64 depositReceipt = vapp.deposit(user1, address(USDC), amount);
+        PROVE.approve(address(vapp), amount);
+        uint64 depositReceipt = vapp.deposit(user1, address(PROVE), amount);
         vm.stopPrank();
 
         // Update state after deposit
         bytes memory depositData =
-            abi.encode(DepositAction({account: user1, token: address(USDC), amount: amount}));
+            abi.encode(DepositAction({account: user1, token: address(PROVE), amount: amount}));
         PublicValuesStruct memory depositPublicValues = PublicValuesStruct({
             actions: new Action[](1),
             old_root: bytes32(0),
@@ -517,12 +510,12 @@ contract SuccinctVAppTest is Test, FixtureLoader {
         // Withdraw
         vm.startPrank(user2);
         bytes memory withdrawData = abi.encode(
-            WithdrawAction({account: user2, token: address(USDC), amount: amount, to: user2})
+            WithdrawAction({account: user2, token: address(PROVE), amount: amount, to: user2})
         );
 
         vm.expectEmit(true, true, true, true);
         emit ISuccinctVApp.ReceiptPending(2, ActionType.Withdraw, withdrawData);
-        uint64 withdrawReceipt = vapp.withdraw(user2, address(USDC), amount);
+        uint64 withdrawReceipt = vapp.withdraw(user2, address(PROVE), amount);
         vm.stopPrank();
 
         assertEq(withdrawReceipt, 2);
@@ -555,45 +548,45 @@ contract SuccinctVAppTest is Test, FixtureLoader {
         vapp.updateState(abi.encode(withdrawPublicValues), jsonFixture.proof);
 
         // Verify withdrawal claims created
-        assertEq(vapp.withdrawalClaims(user2, address(USDC)), amount);
-        assertEq(vapp.pendingWithdrawalClaims(address(USDC)), amount);
+        assertEq(vapp.withdrawalClaims(user2, address(PROVE)), amount);
+        assertEq(vapp.pendingWithdrawalClaims(address(PROVE)), amount);
 
         // Verify finalizedReceipt updated
         assertEq(vapp.finalizedReceipt(), 2);
 
         // Claim withdrawal
-        assertEq(USDC.balanceOf(user2), 0);
+        assertEq(PROVE.balanceOf(user2), 0);
         vm.startPrank(user2);
         vm.expectEmit(true, true, true, true);
-        emit ISuccinctVApp.WithdrawalClaimed(user2, address(USDC), user2, amount);
-        uint256 claimedAmount = vapp.claimWithdrawal(user2, address(USDC));
+        emit ISuccinctVApp.WithdrawalClaimed(user2, address(PROVE), user2, amount);
+        uint256 claimedAmount = vapp.claimWithdrawal(user2, address(PROVE));
         vm.stopPrank();
 
         assertEq(claimedAmount, amount);
-        assertEq(USDC.balanceOf(user2), amount); // User2 now has the USDC
-        assertEq(vapp.withdrawalClaims(user2, address(USDC)), 0); // Claim is cleared
-        assertEq(vapp.pendingWithdrawalClaims(address(USDC)), 0); // No more pending claims
+        assertEq(PROVE.balanceOf(user2), amount); // User2 now has the PROVE
+        assertEq(vapp.withdrawalClaims(user2, address(PROVE)), 0); // Claim is cleared
+        assertEq(vapp.pendingWithdrawalClaims(address(PROVE)), 0); // No more pending claims
 
         // Reattempt claim
         vm.startPrank(user2);
         vm.expectRevert(abi.encodeWithSignature("NoWithdrawalToClaim()"));
-        vapp.claimWithdrawal(user2, address(USDC));
+        vapp.claimWithdrawal(user2, address(PROVE));
         vm.stopPrank();
     }
 
     function test_WithdrawTo() public {
-        uint256 amount = 100e6; // 100 USDC (6 decimals)
+        uint256 amount = 100e6; // 100 PROVE (6 decimals)
 
         // Deposit
-        USDC.mint(user1, amount);
+        PROVE.mint(user1, amount);
         vm.startPrank(user1);
-        USDC.approve(address(vapp), amount);
-        uint64 depositReceipt = vapp.deposit(user1, address(USDC), amount);
+        PROVE.approve(address(vapp), amount);
+        uint64 depositReceipt = vapp.deposit(user1, address(PROVE), amount);
         vm.stopPrank();
 
         // Update state after deposit
         bytes memory depositData =
-            abi.encode(DepositAction({account: user1, token: address(USDC), amount: amount}));
+            abi.encode(DepositAction({account: user1, token: address(PROVE), amount: amount}));
         PublicValuesStruct memory depositPublicValues = PublicValuesStruct({
             actions: new Action[](1),
             old_root: bytes32(0),
@@ -618,12 +611,12 @@ contract SuccinctVAppTest is Test, FixtureLoader {
         // Withdraw with a different recipient (user2 initiates withdrawal to user3)
         vm.startPrank(user2);
         bytes memory withdrawData = abi.encode(
-            WithdrawAction({account: user2, token: address(USDC), amount: amount, to: user3})
+            WithdrawAction({account: user2, token: address(PROVE), amount: amount, to: user3})
         );
 
         vm.expectEmit(true, true, true, true);
         emit ISuccinctVApp.ReceiptPending(2, ActionType.Withdraw, withdrawData);
-        uint64 withdrawReceipt = vapp.withdraw(user3, address(USDC), amount);
+        uint64 withdrawReceipt = vapp.withdraw(user3, address(PROVE), amount);
         vm.stopPrank();
 
         assertEq(withdrawReceipt, 2);
@@ -656,38 +649,38 @@ contract SuccinctVAppTest is Test, FixtureLoader {
         vapp.updateState(abi.encode(withdrawPublicValues), jsonFixture.proof);
 
         // Verify withdrawal claim was created for user3, not user2
-        assertEq(vapp.withdrawalClaims(user2, address(USDC)), 0);
-        assertEq(vapp.withdrawalClaims(user3, address(USDC)), amount);
-        assertEq(vapp.pendingWithdrawalClaims(address(USDC)), amount);
+        assertEq(vapp.withdrawalClaims(user2, address(PROVE)), 0);
+        assertEq(vapp.withdrawalClaims(user3, address(PROVE)), amount);
+        assertEq(vapp.pendingWithdrawalClaims(address(PROVE)), amount);
 
         // Verify finalizedReceipt updated
         assertEq(vapp.finalizedReceipt(), 2);
 
         // Claim withdrawal as user3
-        assertEq(USDC.balanceOf(user3), 0);
+        assertEq(PROVE.balanceOf(user3), 0);
         vm.startPrank(user3);
         vm.expectEmit(true, true, true, true);
-        emit ISuccinctVApp.WithdrawalClaimed(user3, address(USDC), user3, amount);
-        uint256 claimedAmount = vapp.claimWithdrawal(user3, address(USDC));
+        emit ISuccinctVApp.WithdrawalClaimed(user3, address(PROVE), user3, amount);
+        uint256 claimedAmount = vapp.claimWithdrawal(user3, address(PROVE));
         vm.stopPrank();
 
         // Verify claim was successful, and user3 has the funds
         assertEq(claimedAmount, amount);
-        assertEq(USDC.balanceOf(user3), amount); // User3 now has the USDC
-        assertEq(USDC.balanceOf(user2), 0); // User2 has nothing
-        assertEq(vapp.withdrawalClaims(user3, address(USDC)), 0); // Claim is cleared
-        assertEq(vapp.pendingWithdrawalClaims(address(USDC)), 0); // No more pending claims
+        assertEq(PROVE.balanceOf(user3), amount); // User3 now has the PROVE
+        assertEq(PROVE.balanceOf(user2), 0); // User2 has nothing
+        assertEq(vapp.withdrawalClaims(user3, address(PROVE)), 0); // Claim is cleared
+        assertEq(vapp.pendingWithdrawalClaims(address(PROVE)), 0); // No more pending claims
 
         // Attempt to claim again should fail
         vm.startPrank(user3);
         vm.expectRevert(abi.encodeWithSignature("NoWithdrawalToClaim()"));
-        vapp.claimWithdrawal(user3, address(USDC));
+        vapp.claimWithdrawal(user3, address(PROVE));
         vm.stopPrank();
 
         // User2 shouldn't be able to claim either
         vm.startPrank(user2);
         vm.expectRevert(abi.encodeWithSignature("NoWithdrawalToClaim()"));
-        vapp.claimWithdrawal(user2, address(USDC));
+        vapp.claimWithdrawal(user2, address(PROVE));
         vm.stopPrank();
     }
 
@@ -695,8 +688,8 @@ contract SuccinctVAppTest is Test, FixtureLoader {
         uint256 amount = 100e6;
 
         vm.startPrank(user1);
-        vm.expectRevert(abi.encodeWithSignature("InvalidAddress()"));
-        vapp.withdraw(address(0), address(USDC), amount);
+        vm.expectRevert(abi.encodeWithSignature("ZeroAddress()"));
+        vapp.withdraw(address(0), address(PROVE), amount);
         vm.stopPrank();
 
         // Verify no withdrawal receipt was created
@@ -718,16 +711,16 @@ contract SuccinctVAppTest is Test, FixtureLoader {
     }
 
     function test_RevertIf_WithdrawBelowMinimum() public {
-        uint256 minAmount = 10e6; // 10 USDC
-        uint256 withdrawAmount = 5e6; // 5 USDC - below minimum
+        uint256 minAmount = 10e6; // 10 PROVE
+        uint256 withdrawAmount = 5e6; // 5 PROVE - below minimum
 
         // Set minimum amount
-        vapp.setMinAmount(address(USDC), minAmount);
+        vapp.setMinAmount(address(PROVE), minAmount);
 
         // Try to withdraw below minimum
         vm.startPrank(user1);
         vm.expectRevert(abi.encodeWithSignature("MinAmount()"));
-        vapp.withdraw(user1, address(USDC), withdrawAmount);
+        vapp.withdraw(user1, address(PROVE), withdrawAmount);
         vm.stopPrank();
 
         // Verify no withdrawal receipt was created
@@ -840,7 +833,7 @@ contract SuccinctVAppTest is Test, FixtureLoader {
         address signer = makeAddr("signer");
 
         vm.startPrank(user1);
-        vm.expectRevert(abi.encodeWithSignature("InvalidAddress()"));
+        vm.expectRevert(abi.encodeWithSignature("ZeroAddress()"));
         vapp.addDelegatedSigner(signer);
         vm.stopPrank();
 
@@ -853,7 +846,7 @@ contract SuccinctVAppTest is Test, FixtureLoader {
         staking.setHasProver(user1, true);
 
         vm.startPrank(user1);
-        vm.expectRevert(abi.encodeWithSignature("InvalidAddress()"));
+        vm.expectRevert(abi.encodeWithSignature("ZeroAddress()"));
         vapp.addDelegatedSigner(address(0));
         vm.stopPrank();
 
@@ -1067,8 +1060,8 @@ contract SuccinctVAppTest is Test, FixtureLoader {
 
         // Failover so that we can use the hardcoded usdc in the merkle root
         address testUsdc = 0xF62849F9A0B5Bf2913b396098F7c7019b51A820a;
-        if (testUsdc != address(USDC)) {
-            vm.etch(testUsdc, address(USDC).code);
+        if (testUsdc != address(PROVE)) {
+            vm.etch(testUsdc, address(PROVE).code);
             vapp.addToken(testUsdc);
         }
         MockERC20(testUsdc).mint(address(this), 100);

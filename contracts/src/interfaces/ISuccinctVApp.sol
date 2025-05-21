@@ -8,7 +8,7 @@ import {ActionType} from "../libraries/PublicValues.sol";
 interface ISuccinctVApp {
     /// @notice Errors
     error InvalidAmount();
-    error InvalidAddress();
+    error ZeroAddress();
     error InvalidRoot();
     error InvalidOldRoot();
     error SweepTransferFailed();
@@ -25,6 +25,34 @@ interface ISuccinctVApp {
     error InvalidSigner();
     error MinAmount();
     error ETHTransferFailed();
+
+    /*//////////////////////////////////////////////////////////////
+                                 OWNER
+    //////////////////////////////////////////////////////////////*/
+
+
+    /// @notice Updated staking
+    event UpdatedStaking(address indexed staking);
+
+    /// @notice Updated verifier
+    event UpdatedVerifier(address indexed verifier);
+
+    /// @notice Updated max action delay
+    event UpdatedMaxActionDelay(uint64 indexed actionDelay);
+
+    /// @notice Updated freeze duration
+    event UpdatedFreezeDuration(uint64 indexed freezeDuration);
+
+    /// @notice Token whitelist status changed
+    event TokenWhitelist(address indexed token, bool allowed);
+
+    /// @notice Minimum amount updated for a token
+    event MinAmountUpdated(address indexed token, uint256 amount);
+
+    /// @notice Fork the program
+    event Fork(
+        bytes32 indexed vkey, uint64 indexed block, bytes32 indexed new_root, bytes32 old_root
+    );
 
     /*//////////////////////////////////////////////////////////////
                                   USER
