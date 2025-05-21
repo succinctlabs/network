@@ -37,7 +37,12 @@ contract MockStaking {
         IERC20(PROVE).transferFrom(_depositor, address(this), _amount);
     }
 
-    function unstake(address _withdrawer, address _proverVault, address _destination, uint256 _amount) external {
+    function unstake(
+        address _withdrawer,
+        address _proverVault,
+        address _destination,
+        uint256 _amount
+    ) external {
         proverVaultBalances[_proverVault][_withdrawer] -= _amount;
 
         IERC20(PROVE).transfer(_destination, _amount);

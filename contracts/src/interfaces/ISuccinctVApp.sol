@@ -51,7 +51,7 @@ interface ISuccinctVApp {
         external
         returns (uint64 receipt);
 
-    function claimWithdrawal(address to, address token, bool unwrapWETH)
+    function claimWithdrawal(address to, address token)
         external
         returns (uint256 amount);
 
