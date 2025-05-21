@@ -19,7 +19,7 @@ string constant SYMBOL = "stPROVE";
 abstract contract StakedSuccinct is ERC20, ERC20Permit, ERC20Votes {
     error NonTransferable();
 
-    bool internal isStakingOperation;
+    bool internal transient isStakingOperation;
 
     modifier stakingOperation() {
         isStakingOperation = true;
