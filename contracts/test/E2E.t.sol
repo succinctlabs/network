@@ -30,7 +30,6 @@ import {
 
 import {ERC1967Proxy} from "../lib/openzeppelin-contracts/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 
-
 // Tests the entire protocol end-to-end.
 contract E2ETest is Test, FixtureLoader {
     // Constants
@@ -41,8 +40,8 @@ contract E2ETest is Test, FixtureLoader {
     uint256 public constant UNSTAKE_PERIOD = 21 days;
     uint256 public constant SLASH_PERIOD = 7 days;
     uint256 public constant DISPENSE_RATE = 1268391679; // ~4% yearly
-	uint64 public constant MAX_ACTION_DELAY = 1 days;
-	uint64 public constant FREEZE_DURATION = 1 days;
+    uint64 public constant MAX_ACTION_DELAY = 1 days;
+    uint64 public constant FREEZE_DURATION = 1 days;
 
     // Fixtures
     SP1ProofFixtureJson public jsonFixture;
@@ -84,7 +83,7 @@ contract E2ETest is Test, FixtureLoader {
 
         // Load fixtures
         jsonFixture = loadFixture(vm, Fixture.Groth16);
-        
+
         PublicValuesStruct memory _fixture =
             abi.decode(jsonFixture.publicValues, (PublicValuesStruct));
         fixture.oldRoot = _fixture.oldRoot;
@@ -108,16 +107,10 @@ contract E2ETest is Test, FixtureLoader {
         // Deploy VApp
         address vappImpl = address(new SuccinctVApp());
         VAPP = address(new ERC1967Proxy(vappImpl, ""));
-       
+
         // Initialize VApp
         SuccinctVApp(VAPP).initialize(
-            OWNER,
-            PROVE,
-            STAKING,
-            VERIFIER,
-            jsonFixture.vkey,
-            MAX_ACTION_DELAY,
-            FREEZE_DURATION
+            OWNER, PROVE, STAKING, VERIFIER, jsonFixture.vkey, MAX_ACTION_DELAY, FREEZE_DURATION
         );
         vm.prank(OWNER);
         SuccinctVApp(VAPP).addToken(PROVE);
@@ -288,6 +281,5 @@ contract E2ETest is Test, FixtureLoader {
         IERC20(PROVE).approve(VAPP, REQUESTER_PROVE_AMOUNT);
         vm.prank(REQUESTER);
         SuccinctVApp(VAPP).deposit(REQUESTER, PROVE, REQUESTER_PROVE_AMOUNT);
-    
     }
 }
