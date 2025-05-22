@@ -151,24 +151,7 @@ contract E2ETest is Test, FixtureLoader {
         vm.prank(_staker);
         SuccinctStaking(STAKING).stake(_prover, _amount);
     }
-
-    function _permitAndStake(address _staker, uint256 _stakerPK, address _prover, uint256 _amount)
-        internal
-    {
-        _permitAndStake(_staker, _stakerPK, _prover, _amount, block.timestamp + 1 days);
-    }
-
-    function _permitAndStake(
-        address _staker,
-        uint256 _stakerPK,
-        address _prover,
-        uint256 _amount,
-        uint256 _deadline
-    ) internal {
-        (uint8 v, bytes32 r, bytes32 s) = _signPermit(_stakerPK, _staker, _amount, _deadline);
-        SuccinctStaking(STAKING).permitAndStake(_prover, _staker, _amount, _deadline, v, r, s);
-    }
-
+    
     function _completeUnstake(address _staker, uint256 _amount) internal returns (uint256) {
         _requestUnstake(_staker, _amount);
         skip(UNSTAKE_PERIOD);
@@ -185,68 +168,6 @@ contract E2ETest is Test, FixtureLoader {
         return SuccinctStaking(STAKING).finishUnstake();
     }
 
-    function _completeSlash(address _prover, uint256 _amount) internal {
-        uint256 index = _requestSlash(_prover, _amount);
-        skip(SLASH_PERIOD);
-        _finishSlash(_prover, index);
-    }
-
-    function _requestSlash(address _prover, uint256 _amount) internal returns (uint256) {
-        // TODO
-        // return SuccinctVApp(VAPP).processSlash(_prover, _amount);
-    }
-
-    function _finishSlash(address _prover, uint256 _index) internal {
-        vm.prank(OWNER);
-        SuccinctStaking(STAKING).finishSlash(_prover, _index);
-    }
-
-    function _dispense(uint256 _amount) internal {
-        _waitRequiredDispenseTime(_amount);
-        vm.prank(OWNER);
-        SuccinctStaking(STAKING).dispense(_amount);
-    }
-
-    function _waitRequiredDispenseTime(uint256 _amount) internal {
-        skip(_amount * DISPENSE_RATE);
-    }
-
-    function _signPermit(uint256 _pk, address _owner, uint256 _amount, uint256 _deadline)
-        internal
-        view
-        returns (uint8 v, bytes32 r, bytes32 s)
-    {
-        bytes32 PERMIT_TYPEHASH = keccak256(
-            "Permit(address owner,address spender,uint256 value,uint256 nonce,uint256 deadline)"
-        );
-
-        // Get the current nonce for the owner
-        uint256 nonce = IERC20Permit(PROVE).nonces(_owner);
-
-        // Construct the permit digest
-        bytes32 structHash =
-            keccak256(abi.encode(PERMIT_TYPEHASH, _owner, STAKING, _amount, nonce, _deadline));
-        bytes32 digest = keccak256(
-            abi.encodePacked("\x19\x01", IERC20Permit(PROVE).DOMAIN_SEPARATOR(), structHash)
-        );
-
-        // Sign the digest
-        return vm.sign(_pk, digest);
-    }
-
-    function mockCall(bool verified) public {
-        if (verified) {
-            vm.mockCall(
-                VERIFIER, abi.encodeWithSelector(ISP1Verifier.verifyProof.selector), abi.encode()
-            );
-        } else {
-            vm.mockCallRevert(
-                VERIFIER,
-                abi.encodeWithSelector(ISP1Verifier.verifyProof.selector),
-                "Verification failed"
-            );
-        }
-    }
 
     function test_SetUp() public view {
         // Immutable variables
@@ -333,8 +254,6 @@ contract E2ETest is Test, FixtureLoader {
         uint256 vappBalanceBefore = IERC20(PROVE).balanceOf(VAPP);
 
         // Step 3: Process the reward through VApp state update
-        // Mock the verifier to return true
-        mockCall(true);
 
         // Execute the state update with reward
         SuccinctVApp(VAPP).updateState(abi.encode(publicValues), jsonFixture.proof);
