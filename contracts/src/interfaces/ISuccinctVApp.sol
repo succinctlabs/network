@@ -27,7 +27,7 @@ interface ISuccinctVApp {
     event TokenWhitelist(address indexed token, bool allowed);
 
     /// @notice Minimum amount updated for a token.
-    event MinAmountUpdated(address indexed token, uint256 amount);
+    event DepositBelowMinimumUpdated(address indexed token, uint256 amount);
 
     /// @notice Fork the program.
     event Fork(
@@ -72,7 +72,7 @@ interface ISuccinctVApp {
     error TokenNotWhitelisted();
     error TokenAlreadyWhitelisted();
     error InvalidSigner();
-    error MinAmount();
+    error DepositBelowMinimum();
 
     /// @notice The maximum fee value (100% in basis points).
     function FEE_UNIT() external view returns (uint256);
@@ -260,5 +260,5 @@ interface ISuccinctVApp {
     /// @dev Only callable by the owner.
     /// @param token The token to update the minimum amount for.
     /// @param amount The new minimum amount.
-    function setMinAmount(address token, uint256 amount) external;
+    function setMinimumDeposit(address token, uint256 amount) external;
 }

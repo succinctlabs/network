@@ -261,43 +261,43 @@ contract SuccinctVAppTest is Test, FixtureLoader {
         SuccinctVApp(VAPP).removeToken(token);
     }
 
-    function test_SetMinAmount() public {
+    function test_SetDepositBelowMinimum() public {
         address token = PROVE;
         uint256 minAmount = 10e6; // 10 PROVE
 
         vm.expectEmit(true, true, true, true);
-        emit ISuccinctVApp.MinAmountUpdated(token, minAmount);
+        emit ISuccinctVApp.DepositBelowMinimumUpdated(token, minAmount);
         vm.prank(OWNER);
-        SuccinctVApp(VAPP).setMinAmount(token, minAmount);
+        SuccinctVApp(VAPP).setMinimumDeposit(token, minAmount);
 
         assertEq(SuccinctVApp(VAPP).minAmounts(token), minAmount);
 
         // Update to a different value
-        uint256 newMinAmount = 20e6; // 20 PROVE
+        uint256 newDepositBelowMinimum = 20e6; // 20 PROVE
 
         vm.expectEmit(true, true, true, true);
-        emit ISuccinctVApp.MinAmountUpdated(token, newMinAmount);
-        SuccinctVApp(VAPP).setMinAmount(token, newMinAmount);
+        emit ISuccinctVApp.DepositBelowMinimumUpdated(token, newDepositBelowMinimum);
+        SuccinctVApp(VAPP).setMinimumDeposit(token, newDepositBelowMinimum);
 
-        assertEq(SuccinctVApp(VAPP).minAmounts(token), newMinAmount);
+        assertEq(SuccinctVApp(VAPP).minAmounts(token), newDepositBelowMinimum);
 
         // Set to zero to disable minimum check
         vm.expectEmit(true, true, true, true);
-        emit ISuccinctVApp.MinAmountUpdated(token, 0);
-        SuccinctVApp(VAPP).setMinAmount(token, 0);
+        emit ISuccinctVApp.DepositBelowMinimumUpdated(token, 0);
+        SuccinctVApp(VAPP).setMinimumDeposit(token, 0);
 
         assertEq(SuccinctVApp(VAPP).minAmounts(token), 0);
     }
 
-    function test_RevertIf_SetMinAmountZeroAddress() public {
+    function test_RevertIf_SetDepositBelowMinimumZeroAddress() public {
         vm.expectRevert(abi.encodeWithSignature("ZeroAddress()"));
-        SuccinctVApp(VAPP).setMinAmount(address(0), 10e6);
+        SuccinctVApp(VAPP).setMinimumDeposit(address(0), 10e6);
     }
 
-    function test_RevertIf_SetMinAmountNotOwner() public {
+    function test_RevertIf_SetDepositBelowMinimumNotOwner() public {
         vm.expectRevert(abi.encodeWithSignature("OwnableUnauthorizedAccount(address)", REQUESTER_1));
         vm.prank(REQUESTER_1);
-        SuccinctVApp(VAPP).setMinAmount(PROVE, 10e6);
+        SuccinctVApp(VAPP).setMinimumDeposit(PROVE, 10e6);
     }
 
     function test_Fork() public {
@@ -478,10 +478,10 @@ contract SuccinctVAppTest is Test, FixtureLoader {
 
     function test_RevertDeposit_WhenBelowMinimum() public {
         uint256 minAmount = 10e6; // 10 PROVE
-        uint256 depositAmount = 5e6; // 5 PROVE - below minimum
+        uint256 depositAmount = minAmount / 2; // 5 PROVE - below minimum
 
         // Set minimum amount
-        SuccinctVApp(VAPP).setMinAmount(PROVE, minAmount);
+        SuccinctVApp(VAPP).setMinimumDeposit(PROVE, minAmount);
 
         // Try to deposit below minimum
         MockERC20(PROVE).mint(REQUESTER_1, depositAmount);
@@ -489,8 +489,7 @@ contract SuccinctVAppTest is Test, FixtureLoader {
         vm.startPrank(REQUESTER_1);
         MockERC20(PROVE).approve(address(VAPP), depositAmount);
 
-        vm.expectRevert(abi.encodeWithSelector(ISuccinctVApp.MinAmount.selector));
-        vm.prank(REQUESTER_1);
+        vm.expectRevert(abi.encodeWithSelector(ISuccinctVApp.DepositBelowMinimum.selector));
         SuccinctVApp(VAPP).deposit(REQUESTER_1, PROVE, depositAmount);
         vm.stopPrank();
 
@@ -594,7 +593,7 @@ contract SuccinctVAppTest is Test, FixtureLoader {
 
         // Reattempt claim
         vm.startPrank(REQUESTER_2);
-        vm.expectRevert(abi.encodeWithSignature("NoWithdrawalToClaim()"));
+        vm.expectRevert(abi.encodeWithSelector(ISuccinctVApp.NoWithdrawalToClaim.selector));
         SuccinctVApp(VAPP).claimWithdrawal(REQUESTER_2, PROVE);
         vm.stopPrank();
     }
@@ -698,22 +697,22 @@ contract SuccinctVAppTest is Test, FixtureLoader {
 
         // Attempt to claim again should fail
         vm.startPrank(REQUESTER_3);
-        vm.expectRevert(abi.encodeWithSignature("NoWithdrawalToClaim()"));
+        vm.expectRevert(abi.encodeWithSelector(ISuccinctVApp.NoWithdrawalToClaim.selector));
         SuccinctVApp(VAPP).claimWithdrawal(REQUESTER_3, PROVE);
         vm.stopPrank();
 
         // User2 shouldn't be able to claim either
         vm.startPrank(REQUESTER_2);
-        vm.expectRevert(abi.encodeWithSignature("NoWithdrawalToClaim()"));
+        vm.expectRevert(abi.encodeWithSelector(ISuccinctVApp.NoWithdrawalToClaim.selector));
         SuccinctVApp(VAPP).claimWithdrawal(REQUESTER_2, PROVE);
         vm.stopPrank();
     }
 
-    function test_RevertIf_WithdrawZeroAddress() public {
+    function test_RevertWithdraw_WhenZeroAddress() public {
         uint256 amount = 100e6;
 
         vm.startPrank(REQUESTER_1);
-        vm.expectRevert(abi.encodeWithSignature("ZeroAddress()"));
+        vm.expectRevert(abi.encodeWithSelector(ISuccinctVApp.ZeroAddress.selector));
         SuccinctVApp(VAPP).withdraw(address(0), PROVE, amount);
         vm.stopPrank();
 
@@ -721,13 +720,13 @@ contract SuccinctVAppTest is Test, FixtureLoader {
         assertEq(SuccinctVApp(VAPP).currentReceipt(), 0);
     }
 
-    function test_RevertIf_WithdrawNonWhitelistedToken() public {
+    function test_RevertWithdraw_WhenNonWhitelistedToken() public {
         // Create a new token that isn't whitelisted
         MockERC20 nonWhitelistedToken = new MockERC20("TEST", "TEST", 18);
         uint256 amount = 100e6; // 100 tokens
 
         vm.startPrank(REQUESTER_1);
-        vm.expectRevert(abi.encodeWithSignature("TokenNotWhitelisted()"));
+        vm.expectRevert(abi.encodeWithSelector(ISuccinctVApp.TokenNotWhitelisted.selector));
         SuccinctVApp(VAPP).withdraw(REQUESTER_1, address(nonWhitelistedToken), amount);
         vm.stopPrank();
 
@@ -735,16 +734,16 @@ contract SuccinctVAppTest is Test, FixtureLoader {
         assertEq(SuccinctVApp(VAPP).currentReceipt(), 0);
     }
 
-    function test_RevertIf_WithdrawBelowMinimum() public {
+    function test_RevertWithdraw_WhenBelowMinimum() public {
         uint256 minAmount = 10e6; // 10 PROVE
         uint256 withdrawAmount = 5e6; // 5 PROVE - below minimum
 
         // Set minimum amount
-        SuccinctVApp(VAPP).setMinAmount(PROVE, minAmount);
+        SuccinctVApp(VAPP).setMinimumDeposit(PROVE, minAmount);
 
         // Try to withdraw below minimum
         vm.startPrank(REQUESTER_1);
-        vm.expectRevert(abi.encodeWithSignature("MinAmount()"));
+        vm.expectRevert(abi.encodeWithSelector(ISuccinctVApp.DepositBelowMinimum.selector));
         SuccinctVApp(VAPP).withdraw(REQUESTER_1, PROVE, withdrawAmount);
         vm.stopPrank();
 
@@ -855,12 +854,12 @@ contract SuccinctVAppTest is Test, FixtureLoader {
         assertTrue(SuccinctVApp(VAPP).usedSigners(signer2));
     }
 
-    function test_RevertIf_AddDelegatedSignerNotProverOwner() public {
+    function test_RevertAddDelegatedSigner_WhenNotProverOwner() public {
         // user1 is not a prover owner
         address signer = makeAddr("signer");
 
         vm.startPrank(REQUESTER_1);
-        vm.expectRevert(abi.encodeWithSignature("ZeroAddress()"));
+        vm.expectRevert(abi.encodeWithSelector(ISuccinctVApp.InvalidSigner.selector));
         SuccinctVApp(VAPP).addDelegatedSigner(signer);
         vm.stopPrank();
 
@@ -868,12 +867,12 @@ contract SuccinctVAppTest is Test, FixtureLoader {
         assertEq(SuccinctVApp(VAPP).currentReceipt(), 0);
     }
 
-    function test_RevertIf_AddDelegatedSignerZeroAddress() public {
+    function test_RevertAddDelegatedSigner_WhenZeroAddress() public {
         // Setup user1 as a prover owner
         MockStaking(STAKING).setHasProver(REQUESTER_1, true);
 
         vm.startPrank(REQUESTER_1);
-        vm.expectRevert(abi.encodeWithSignature("ZeroAddress()"));
+        vm.expectRevert(abi.encodeWithSelector(ISuccinctVApp.ZeroAddress.selector));
         SuccinctVApp(VAPP).addDelegatedSigner(address(0));
         vm.stopPrank();
 
@@ -881,13 +880,13 @@ contract SuccinctVAppTest is Test, FixtureLoader {
         assertEq(SuccinctVApp(VAPP).currentReceipt(), 0);
     }
 
-    function test_RevertIf_AddDelegatedSignerIsProver() public {
+    function test_RevertAddDelegatedSigner_WhenProver() public {
         // Setup user1 as a prover owner and user2 as a prover
         MockStaking(STAKING).setHasProver(REQUESTER_1, true);
         MockStaking(STAKING).setIsProver(REQUESTER_2, true);
 
         vm.startPrank(REQUESTER_1);
-        vm.expectRevert(abi.encodeWithSignature("InvalidSigner()"));
+        vm.expectRevert(abi.encodeWithSelector(ISuccinctVApp.InvalidSigner.selector));
         SuccinctVApp(VAPP).addDelegatedSigner(REQUESTER_2);
         vm.stopPrank();
 
@@ -895,13 +894,13 @@ contract SuccinctVAppTest is Test, FixtureLoader {
         assertEq(SuccinctVApp(VAPP).currentReceipt(), 0);
     }
 
-    function test_RevertIf_AddDelegatedSignerHasProver() public {
+    function test_RevertAddDelegatedSigner_WhenHasProver() public {
         // Setup user1 and user2 as prover owners
         MockStaking(STAKING).setHasProver(REQUESTER_1, true);
         MockStaking(STAKING).setHasProver(REQUESTER_2, true);
 
         vm.startPrank(REQUESTER_1);
-        vm.expectRevert(abi.encodeWithSignature("InvalidSigner()"));
+        vm.expectRevert(abi.encodeWithSelector(ISuccinctVApp.InvalidSigner.selector));
         SuccinctVApp(VAPP).addDelegatedSigner(REQUESTER_2);
         vm.stopPrank();
 
@@ -909,7 +908,7 @@ contract SuccinctVAppTest is Test, FixtureLoader {
         assertEq(SuccinctVApp(VAPP).currentReceipt(), 0);
     }
 
-    function test_RevertIf_AddDelegatedSignerAlreadyUsed() public {
+    function test_RevertAddDelegatedSigner_WhenAlreadyUsed() public {
         // Setup user1 and user2 as prover owners
         MockStaking(STAKING).setHasProver(REQUESTER_1, true);
         MockStaking(STAKING).setHasProver(REQUESTER_2, true);
@@ -923,7 +922,7 @@ contract SuccinctVAppTest is Test, FixtureLoader {
 
         // Try to add the same signer to user2
         vm.startPrank(REQUESTER_2);
-        vm.expectRevert(abi.encodeWithSignature("InvalidSigner()"));
+        vm.expectRevert(abi.encodeWithSelector(ISuccinctVApp.InvalidSigner.selector));
         SuccinctVApp(VAPP).addDelegatedSigner(signer);
         vm.stopPrank();
 
@@ -1048,7 +1047,7 @@ contract SuccinctVAppTest is Test, FixtureLoader {
         assertEq(SuccinctVApp(VAPP).finalizedReceipt(), 3);
     }
 
-    function test_RevertIf_RemoveDelegatedSignerNotOwner() public {
+    function test_RevertRemoveDelegatedSigner_WhenNotOwner() public {
         // Setup user1 as a prover owner and add a delegated signer
         MockStaking(STAKING).setHasProver(REQUESTER_1, true);
         MockStaking(STAKING).setHasProver(REQUESTER_2, true);
@@ -1059,7 +1058,7 @@ contract SuccinctVAppTest is Test, FixtureLoader {
 
         // User2 tries to remove user1's signer
         vm.startPrank(REQUESTER_2);
-        vm.expectRevert(abi.encodeWithSignature("InvalidSigner()"));
+        vm.expectRevert(abi.encodeWithSelector(ISuccinctVApp.InvalidSigner.selector));
         SuccinctVApp(VAPP).removeDelegatedSigner(signer);
         vm.stopPrank();
 
@@ -1070,14 +1069,14 @@ contract SuccinctVAppTest is Test, FixtureLoader {
         assertTrue(SuccinctVApp(VAPP).usedSigners(signer));
     }
 
-    function test_RevertIf_RemoveDelegatedSignerNotRegistered() public {
+    function test_RevertRemoveDelegatedSigner_WhenNotRegistered() public {
         // Setup user1 as a prover owner
         MockStaking(STAKING).setHasProver(REQUESTER_1, true);
         address signer = makeAddr("signer");
 
         // Try to remove a signer that was never added
         vm.startPrank(REQUESTER_1);
-        vm.expectRevert(abi.encodeWithSignature("InvalidSigner()"));
+        vm.expectRevert(abi.encodeWithSelector(ISuccinctVApp.InvalidSigner.selector));
         SuccinctVApp(VAPP).removeDelegatedSigner(signer);
         vm.stopPrank();
 
@@ -1132,7 +1131,7 @@ contract SuccinctVAppTest is Test, FixtureLoader {
         vm.stopPrank();
     }
 
-    function test_UpdateStateValid() public {
+    function test_UpdateState_WhenValid() public {
         mockCall(true);
 
         assertEq(SuccinctVApp(VAPP).blockNumber(), 0);
@@ -1150,7 +1149,7 @@ contract SuccinctVAppTest is Test, FixtureLoader {
         assertEq(SuccinctVApp(VAPP).root(), fixture.newRoot);
     }
 
-    function test_UpdateStateTwice() public {
+    function test_UpdateState_WhenValidTwice() public {
         mockCall(true);
 
         SuccinctVApp(VAPP).updateState(jsonFixture.publicValues, jsonFixture.proof);
@@ -1179,7 +1178,7 @@ contract SuccinctVAppTest is Test, FixtureLoader {
         assertEq(SuccinctVApp(VAPP).root(), publicValues.newRoot);
     }
 
-    function test_RevertIf_UpdateStateInvalid() public {
+    function test_RevertUpdateState_WhenInvalid() public {
         bytes memory fakeProof = new bytes(jsonFixture.proof.length);
 
         mockCall(false);
@@ -1187,7 +1186,7 @@ contract SuccinctVAppTest is Test, FixtureLoader {
         SuccinctVApp(VAPP).updateState(jsonFixture.publicValues, fakeProof);
     }
 
-    function test_RevertIf_UpdateStateInvalidRoot() public {
+    function test_RevertUpdateState_WhenInvalidRoot() public {
         PublicValuesStruct memory publicValues = PublicValuesStruct({
             actions: new Action[](0),
             oldRoot: bytes32(0),
@@ -1200,7 +1199,7 @@ contract SuccinctVAppTest is Test, FixtureLoader {
         SuccinctVApp(VAPP).updateState(abi.encode(publicValues), jsonFixture.proof);
     }
 
-    function test_RevertIf_UpdateStateInvalidOldRoot() public {
+    function test_RevertUpdateState_WhenInvalidOldRoot() public {
         mockCall(true);
         SuccinctVApp(VAPP).updateState(jsonFixture.publicValues, jsonFixture.proof);
         assertEq(SuccinctVApp(VAPP).blockNumber(), 1);
@@ -1217,7 +1216,7 @@ contract SuccinctVAppTest is Test, FixtureLoader {
         SuccinctVApp(VAPP).updateState(abi.encode(publicValues), jsonFixture.proof);
     }
 
-    function test_RevertIf_UpdateStateInvalidTimestampFuture() public {
+    function test_RevertUpdateState_WhenInvalidTimestampFuture() public {
         mockCall(true);
 
         // Create public values with a future timestamp
@@ -1232,7 +1231,7 @@ contract SuccinctVAppTest is Test, FixtureLoader {
         SuccinctVApp(VAPP).updateState(abi.encode(publicValues), jsonFixture.proof);
     }
 
-    function test_RevertIf_UpdateStateTimestampInPast() public {
+    function test_RevertUpdateState_WhenTimestampInPast() public {
         mockCall(true);
 
         // First update with current timestamp

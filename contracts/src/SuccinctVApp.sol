@@ -213,7 +213,7 @@ contract SuccinctVApp is
         // Check minimum amount if set (skip check if minimum is 0).
         uint256 minAmount = minAmounts[token];
         if (minAmount > 0 && amount < minAmount) {
-            revert MinAmount();
+            revert DepositBelowMinimum();
         }
 
         // Create the receipt.
@@ -241,7 +241,7 @@ contract SuccinctVApp is
         // Check minimum amount if set (skip check if minimum is 0).
         uint256 minAmount = minAmounts[token];
         if (minAmount > 0 && amount < minAmount) {
-            revert MinAmount();
+            revert DepositBelowMinimum();
         }
 
         // Create the receipt.
@@ -274,7 +274,7 @@ contract SuccinctVApp is
     function addDelegatedSigner(address _signer) external override returns (uint64 receipt) {
         if (_signer == address(0)) revert ZeroAddress();
         if (usedSigners[_signer]) revert InvalidSigner();
-        if (!ISuccinctStaking(staking).hasProver(msg.sender)) revert ZeroAddress();
+        if (!ISuccinctStaking(staking).hasProver(msg.sender)) revert InvalidSigner();
         if (ISuccinctStaking(staking).isProver(_signer)) revert InvalidSigner();
         if (ISuccinctStaking(staking).hasProver(_signer)) revert InvalidSigner();
 
@@ -417,8 +417,8 @@ contract SuccinctVApp is
     }
 
     /// @inheritdoc ISuccinctVApp
-    function setMinAmount(address _token, uint256 _amount) external override onlyOwner {
-        _setMinAmount(_token, _amount);
+    function setMinimumDeposit(address _token, uint256 _amount) external override onlyOwner {
+        _setMinimumDeposit(_token, _amount);
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -657,12 +657,12 @@ contract SuccinctVApp is
     }
 
     /// @dev Sets the minimum amount for a token.
-    function _setMinAmount(address _token, uint256 _amount) internal {
+    function _setMinimumDeposit(address _token, uint256 _amount) internal {
         if (_token == address(0)) revert ZeroAddress();
 
         minAmounts[_token] = _amount;
 
-        emit MinAmountUpdated(_token, _amount);
+        emit DepositBelowMinimumUpdated(_token, _amount);
     }
 
     /// @dev Handles fee update actions.
