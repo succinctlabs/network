@@ -8,7 +8,6 @@ import {SuccinctVApp} from "../src/SuccinctVApp.sol";
 import {IntermediateSuccinct} from "../src/tokens/IntermediateSuccinct.sol";
 import {IProver} from "../src/interfaces/IProver.sol";
 import {IIntermediateSuccinct} from "../src/interfaces/IIntermediateSuccinct.sol";
-import {MockVApp} from "../src/mocks/MockVApp.sol";
 import {ERC20} from "../lib/openzeppelin-contracts/contracts/token/ERC20/ERC20.sol";
 import {IERC20} from "../lib/openzeppelin-contracts/contracts/interfaces/IERC20.sol";
 import {IERC20Permit} from
@@ -109,8 +108,10 @@ contract E2ETest is Test, FixtureLoader {
         // Deploy VApp
         address vappImpl = address(new SuccinctVApp());
         VAPP = address(new ERC1967Proxy(vappImpl, ""));
+       
+        // Initialize VApp
         SuccinctVApp(VAPP).initialize(
-            address(this),
+            OWNER,
             PROVE,
             STAKING,
             VERIFIER,
@@ -118,6 +119,8 @@ contract E2ETest is Test, FixtureLoader {
             MAX_ACTION_DELAY,
             FREEZE_DURATION
         );
+        vm.prank(OWNER);
+        SuccinctVApp(VAPP).addToken(PROVE);
 
         // Initialize Staking
         vm.prank(OWNER);
@@ -135,7 +138,7 @@ contract E2ETest is Test, FixtureLoader {
         vm.prank(REQUESTER);
         IERC20(PROVE).approve(VAPP, REQUESTER_PROVE_AMOUNT);
         vm.prank(REQUESTER);
-        MockVApp(VAPP).deposit(REQUESTER_PROVE_AMOUNT);
+        SuccinctVApp(VAPP).deposit(REQUESTER, PROVE, REQUESTER_PROVE_AMOUNT);
 
         // Create the provers
         vm.prank(ALICE);
@@ -195,7 +198,8 @@ contract E2ETest is Test, FixtureLoader {
     }
 
     function _requestSlash(address _prover, uint256 _amount) internal returns (uint256) {
-        return MockVApp(VAPP).processSlash(_prover, _amount);
+        // TODO
+        // return SuccinctVApp(VAPP).processSlash(_prover, _amount);
     }
 
     function _finishSlash(address _prover, uint256 _index) internal {
@@ -243,8 +247,8 @@ contract E2ETest is Test, FixtureLoader {
         // assertEq(SuccinctStaking(STAKING).iProve(), I_PROVE);
         // assertEq(SuccinctStaking(STAKING).unstakePeriod(), UNSTAKE_PERIOD);
         // assertEq(SuccinctStaking(STAKING).slashPeriod(), SLASH_PERIOD);
-        // assertEq(MockVApp(VAPP).staking(), STAKING);
-        // assertEq(MockVApp(VAPP).prove(), PROVE);
+        // assertEq(SuccinctVApp(VAPP).staking(), STAKING);
+        // assertEq(SuccinctVApp(VAPP).prove(), PROVE);
         // assertEq(IIntermediateSuccinct(I_PROVE).staking(), STAKING);
         // assertEq(IERC4626(I_PROVE).asset(), PROVE);
 
