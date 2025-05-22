@@ -27,19 +27,19 @@ import {MockStaking} from "../src/mocks/MockStaking.sol";
 contract SuccinctVAppRewardTest is SuccinctVAppTest {
     function test_Reward_WhenValid() public {
         address proverToReward = REQUESTER_1;
-        uint256 rewardAmount = 100e18; // 100 PROVE tokens (assuming 18 decimals)
-        uint256 initialVappProveBalance = 200e18;
+        uint256 initialVappProveBalance = IERC20(PROVE).balanceOf(VAPP);
+        uint256 rewardAmount = initialVappProveBalance / 2;
 
         // Mint PROVE tokens to VAPP contract, as it's the source of rewards
-        MockERC20(PROVE).mint(address(VAPP), initialVappProveBalance);
-        assertEq(MockERC20(PROVE).balanceOf(address(VAPP)), initialVappProveBalance);
+        MockERC20(PROVE).mint(VAPP, initialVappProveBalance);
+        assertEq(MockERC20(PROVE).balanceOf(VAPP), initialVappProveBalance);
         assertEq(MockERC20(PROVE).balanceOf(proverToReward), 0);
 
         // Set VAPP address in MockStaking
-        MockStaking(STAKING).setVApp(address(VAPP));
+        MockStaking(STAKING).setVApp(VAPP);
 
         // Set up approval from VAPP to STAKING for reward amount
-        vm.prank(address(VAPP));
+        vm.prank(VAPP);
         MockERC20(PROVE).approve(STAKING, rewardAmount);
 
         // Prepare PublicValues for updateState
@@ -70,13 +70,9 @@ contract SuccinctVAppRewardTest is SuccinctVAppTest {
             1 // Expected number of calls
         );
 
-        // Expect VAPP to approve STAKING contract to spend VAPP's PROVE tokens
-        vm.expectEmit(true, false, false, true); // address, bool, bool, address
-        emit IERC20.Approval(address(VAPP), STAKING, rewardAmount);
-
         // Expect PROVE tokens to be transferred from VAPP to proverToReward (via STAKING contract)
         vm.expectEmit(true, true, false, true); // address, address, bool, address
-        emit IERC20.Transfer(address(VAPP), proverToReward, rewardAmount);
+        emit IERC20.Transfer(VAPP, proverToReward, rewardAmount);
 
         // Expect ReceiptCompleted event for the reward
         vm.expectEmit(true, true, true, true);
@@ -91,7 +87,7 @@ contract SuccinctVAppRewardTest is SuccinctVAppTest {
         SuccinctVApp(VAPP).updateState(abi.encode(publicValues), jsonFixture.proof);
 
         // Assert final state
-        assertEq(MockERC20(PROVE).balanceOf(address(VAPP)), initialVappProveBalance - rewardAmount);
+        assertEq(MockERC20(PROVE).balanceOf(VAPP), initialVappProveBalance - rewardAmount);
         assertEq(MockERC20(PROVE).balanceOf(proverToReward), rewardAmount);
         assertEq(SuccinctVApp(VAPP).finalizedReceipt(), 1);
         assertEq(SuccinctVApp(VAPP).blockNumber(), expectedBlockNumber);

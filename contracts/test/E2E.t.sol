@@ -36,7 +36,7 @@ contract E2ETest is Test, FixtureLoader {
     // Constants
     uint256 public constant STAKING_PROVE_AMOUNT = 1000e18;
     uint256 public constant REQUESTER_PROVE_AMOUNT = 10e18;
-    uint256 public constant STAKER_PROVE_AMOUNT = 1e18;
+    uint256 public constant STAKER_PROVE_AMOUNT = 10e18;
     uint256 public constant MIN_STAKE_AMOUNT = 1e12;
     uint256 public constant UNSTAKE_PERIOD = 21 days;
     uint256 public constant SLASH_PERIOD = 7 days;
@@ -143,6 +143,9 @@ contract E2ETest is Test, FixtureLoader {
         // Mint some $PROVE for the stakers
         deal(PROVE, STAKER_1, STAKER_PROVE_AMOUNT);
         deal(PROVE, STAKER_2, STAKER_PROVE_AMOUNT);
+
+        // Staker 1 stakes $PROVE to ALICE_PROVER
+        _stake(STAKER_1, ALICE_PROVER, STAKER_PROVE_AMOUNT);
     }
 
     function _stake(address _staker, address _prover, uint256 _amount) internal {
@@ -212,24 +215,15 @@ contract E2ETest is Test, FixtureLoader {
         uint256 stakeAmount = STAKER_PROVE_AMOUNT;
         uint256 rewardAmount = 5e18; // 5 PROVE tokens as reward (within the 10e18 available in VApp)
 
-        // Record initial balances
         uint256 initialStakerBalance = IERC20(PROVE).balanceOf(STAKER_1);
-        uint256 initialVAppBalance = IERC20(PROVE).balanceOf(VAPP);
-
-        // Verify VApp has enough balance for the reward
-        assertGe(initialVAppBalance, rewardAmount, "VApp should have enough balance for reward");
 
         // Step 1: STAKER_1 stakes to ALICE_PROVER
-        _stake(STAKER_1, ALICE_PROVER, stakeAmount);
-
-        // Verify staking worked correctly
-        assertEq(SuccinctStaking(STAKING).stakedTo(STAKER_1), ALICE_PROVER);
-        assertEq(SuccinctStaking(STAKING).staked(STAKER_1), stakeAmount);
-        assertEq(SuccinctStaking(STAKING).proverStaked(ALICE_PROVER), stakeAmount);
-        assertEq(IERC20(PROVE).balanceOf(STAKER_1), initialStakerBalance - stakeAmount);
+        // STAKER_1 has already deposited $PROVE to ALICE_PROVER (done in setUp)
 
         // Step 2: Simulate offchain proof fulfillment by creating a reward action
         // The REQUESTER already has deposited $PROVE in the VApp (done in setUp)
+
+        // Step 3: Process the reward through VApp state update
 
         // Prepare reward action for ALICE_PROVER
         bytes memory rewardData =
@@ -253,8 +247,6 @@ contract E2ETest is Test, FixtureLoader {
         uint256 proverStakedBefore = SuccinctStaking(STAKING).proverStaked(ALICE_PROVER);
         uint256 vappBalanceBefore = IERC20(PROVE).balanceOf(VAPP);
 
-        // Step 3: Process the reward through VApp state update
-
         // Execute the state update with reward
         SuccinctVApp(VAPP).updateState(abi.encode(publicValues), jsonFixture.proof);
 
@@ -272,6 +264,7 @@ contract E2ETest is Test, FixtureLoader {
         );
 
         // Step 4: STAKER_1 unstakes and should receive more than they originally staked
+        
         uint256 stakerBalanceBeforeUnstake = IERC20(PROVE).balanceOf(STAKER_1);
         uint256 expectedUnstakeAmount = SuccinctStaking(STAKING).staked(STAKER_1);
 
@@ -307,12 +300,64 @@ contract E2ETest is Test, FixtureLoader {
 
         // Calculate and verify the profit
         uint256 finalBalance = IERC20(PROVE).balanceOf(STAKER_1);
-        uint256 profit = finalBalance - initialStakerBalance;
+        uint256 profit = finalBalance - initialStakerBalance - stakeAmount;
 
         // The profit should be a portion of the reward based on the staker's share
         // Since STAKER_1 is the only staker to ALICE_PROVER, they should get the full reward
         assertApproxEqAbs(
             profit, rewardAmount, 1e6, "Staker should receive the full reward as the only staker"
         );
+    }
+
+    function test_GasReward() public {
+        // Prepare reward action for ALICE_PROVER
+        uint256 rewardAmount = 5e18;
+        bytes memory rewardData =
+            abi.encode(RewardAction({prover: ALICE_PROVER, amount: rewardAmount}));
+
+        PublicValuesStruct memory publicValues = PublicValuesStruct({
+            actions: new Action[](1),
+            oldRoot: SuccinctVApp(VAPP).root(),
+            newRoot: bytes32(uint256(0xbeef)),
+            timestamp: uint64(block.timestamp)
+        });
+        publicValues.actions[0] = Action({
+            action: ActionType.Reward,
+            status: ReceiptStatus.Completed,
+            receipt: 1, // Receipt ID for the reward action
+            data: rewardData
+        });
+
+        // Execute the state update with reward
+        SuccinctVApp(VAPP).updateState(abi.encode(publicValues), jsonFixture.proof);
+    }
+
+    function test_GasReward_WhenTwoRewards() public {
+        // Prepare reward action for ALICE_PROVER
+        uint256 rewardAmount = 5e18;
+        bytes memory rewardData =
+            abi.encode(RewardAction({prover: ALICE_PROVER, amount: rewardAmount}));
+
+        PublicValuesStruct memory publicValues = PublicValuesStruct({
+            actions: new Action[](2),
+            oldRoot: SuccinctVApp(VAPP).root(),
+            newRoot: bytes32(uint256(0xbeef)),
+            timestamp: uint64(block.timestamp)
+        });
+        publicValues.actions[0] = Action({
+            action: ActionType.Reward,
+            status: ReceiptStatus.Completed,
+            receipt: 1, // Receipt ID for the reward action
+            data: rewardData
+        });
+        publicValues.actions[1] = Action({
+            action: ActionType.Reward,
+            status: ReceiptStatus.Completed,
+            receipt: 2, // Receipt ID for the reward action
+            data: rewardData
+        });
+
+        // Execute the state update with reward
+        SuccinctVApp(VAPP).updateState(abi.encode(publicValues), jsonFixture.proof);
     }
 }

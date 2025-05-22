@@ -558,8 +558,8 @@ contract SuccinctVApp is
     function _rewardActions(RewardInternal[] memory _actions) internal {
         for (uint64 i = 0; i < _actions.length; i++) {
             if (_actions[i].action.status == ReceiptStatus.Completed) {
-                // Approve $PROVE transfer for the staking contract.
-                ERC20(prove).approve(staking, _actions[i].data.amount);
+                // Transfer $PROVE from VApp to staking contract.
+                ERC20(prove).safeTransfer(staking, _actions[i].data.amount);
 
                 // Call reward function on staking contract.
                 ISuccinctStaking(staking).reward(_actions[i].data.prover, _actions[i].data.amount);
