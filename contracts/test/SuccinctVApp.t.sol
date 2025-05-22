@@ -25,6 +25,9 @@ import {FixtureLoader, Fixture, SP1ProofFixtureJson} from "./utils/FixtureLoader
 import {MockERC20} from "./utils/MockERC20.sol";
 import {ERC20} from "../lib/openzeppelin-contracts/contracts/token/ERC20/ERC20.sol";
 import {ERC1967Proxy} from "../lib/openzeppelin-contracts/contracts/proxy/ERC1967/ERC1967Proxy.sol";
+import {Ownable} from "../lib/openzeppelin-contracts/contracts/access/Ownable.sol";
+import {Initializable} from "../lib/openzeppelin-contracts/contracts/proxy/utils/Initializable.sol";
+import {ISuccinctVApp} from "../src/interfaces/ISuccinctVApp.sol";
 
 contract SuccinctVAppTest is Test, FixtureLoader {
     using stdJson for string;
@@ -38,6 +41,7 @@ contract SuccinctVAppTest is Test, FixtureLoader {
     PublicValuesStruct public fixture;
 
     // EOAs
+    address OWNER;
     address REQUESTER_1;
     address REQUESTER_2;
     address REQUESTER_3;
@@ -51,7 +55,6 @@ contract SuccinctVAppTest is Test, FixtureLoader {
     function setUp() public {
         // Load fixtures
         jsonFixture = loadFixture(vm, Fixture.Groth16);
-
         PublicValuesStruct memory _fixture =
             abi.decode(jsonFixture.publicValues, (PublicValuesStruct));
         fixture.oldRoot = _fixture.oldRoot;
@@ -60,10 +63,14 @@ contract SuccinctVAppTest is Test, FixtureLoader {
             fixture.actions.push(_fixture.actions[i]);
         }
 
+        // Create owner
+        // OWNER = makeAddr("OWNER");
+        OWNER = address(this);
+
         // Create requesters
-        REQUESTER_1 = makeAddr("requester1");
-        REQUESTER_2 = makeAddr("requester2");
-        REQUESTER_3 = makeAddr("requester3");
+        REQUESTER_1 = makeAddr("REQUESTER_1");
+        REQUESTER_2 = makeAddr("REQUESTER_2");
+        REQUESTER_3 = makeAddr("REQUESTER_3");
 
         // Deploy verifier
         VERIFIER = address(new MockVerifier());
@@ -78,7 +85,7 @@ contract SuccinctVAppTest is Test, FixtureLoader {
         address vappImpl = address(new SuccinctVApp());
         VAPP = address(new ERC1967Proxy(vappImpl, ""));
         SuccinctVApp(VAPP).initialize(
-            address(this),
+            OWNER,
             PROVE,
             STAKING,
             VERIFIER,
@@ -88,6 +95,7 @@ contract SuccinctVAppTest is Test, FixtureLoader {
         );
 
         // Whitelist $PROVE
+        vm.prank(OWNER);
         SuccinctVApp(VAPP).addToken(PROVE);
     }
 
@@ -106,7 +114,7 @@ contract SuccinctVAppTest is Test, FixtureLoader {
     }
 
     function test_SetUp() public view {
-        assertEq(SuccinctVApp(VAPP).owner(), address(this));
+        assertEq(SuccinctVApp(VAPP).owner(), OWNER);
         assertEq(SuccinctVApp(VAPP).prove(), PROVE);
         assertEq(SuccinctVApp(VAPP).staking(), STAKING);
         assertEq(SuccinctVApp(VAPP).verifier(), VERIFIER);
@@ -115,10 +123,11 @@ contract SuccinctVAppTest is Test, FixtureLoader {
         assertEq(SuccinctVApp(VAPP).blockNumber(), 0);
     }
 
-    function test_RevertIf_InitializeInvalid() public {
-        vm.expectRevert(abi.encodeWithSignature("InvalidInitialization()"));
+
+    function test_RevertInitialized_WhenInvalidInitialization() public {
+        vm.expectRevert(abi.encodeWithSelector(Initializable.InvalidInitialization.selector));
         SuccinctVApp(VAPP).initialize(
-            address(0), PROVE, STAKING, VERIFIER, jsonFixture.vkey, 1 days, 1 days
+            OWNER, PROVE, STAKING, VERIFIER, jsonFixture.vkey, 1 days, 1 days
         );
     }
 
@@ -127,13 +136,14 @@ contract SuccinctVAppTest is Test, FixtureLoader {
 
         vm.expectEmit(true, true, true, true);
         emit ISuccinctVApp.UpdatedStaking(newStaking);
+        vm.prank(OWNER);
         SuccinctVApp(VAPP).updateStaking(newStaking);
 
         assertEq(SuccinctVApp(VAPP).staking(), newStaking);
     }
 
-    function test_RevertIf_UpdateStakingNotOwner() public {
-        vm.expectRevert(abi.encodeWithSignature("OwnableUnauthorizedAccount(address)", REQUESTER_1));
+    function test_RevertUpdateStaking_WhenNotOwner() public {
+        vm.expectRevert(abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, REQUESTER_1));
         vm.prank(REQUESTER_1);
         SuccinctVApp(VAPP).updateStaking(address(1));
     }
@@ -143,13 +153,14 @@ contract SuccinctVAppTest is Test, FixtureLoader {
 
         vm.expectEmit(true, true, true, true);
         emit ISuccinctVApp.UpdatedVerifier(newVerifier);
+        vm.prank(OWNER);
         SuccinctVApp(VAPP).updateVerifier(newVerifier);
 
         assertEq(SuccinctVApp(VAPP).verifier(), newVerifier);
     }
 
-    function test_RevertIf_UpdateVerifierNotOwner() public {
-        vm.expectRevert(abi.encodeWithSignature("OwnableUnauthorizedAccount(address)", REQUESTER_1));
+    function test_RevertUpdateVerifier_WhenNotOwner() public {
+        vm.expectRevert(abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, REQUESTER_1));
         vm.prank(REQUESTER_1);
         SuccinctVApp(VAPP).updateVerifier(address(1));
     }
@@ -159,13 +170,14 @@ contract SuccinctVAppTest is Test, FixtureLoader {
 
         vm.expectEmit(true, true, true, true);
         emit ISuccinctVApp.UpdatedMaxActionDelay(newDelay);
+        vm.prank(OWNER);
         SuccinctVApp(VAPP).updateActionDelay(newDelay);
 
         assertEq(SuccinctVApp(VAPP).maxActionDelay(), newDelay);
     }
 
-    function test_RevertIf_UpdateActionDelayNotOwner() public {
-        vm.expectRevert(abi.encodeWithSignature("OwnableUnauthorizedAccount(address)", REQUESTER_1));
+    function test_RevertUpdateActionDelay_WhenNotOwner() public {
+        vm.expectRevert(abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, REQUESTER_1));
         vm.prank(REQUESTER_1);
         SuccinctVApp(VAPP).updateActionDelay(2 days);
     }
@@ -175,13 +187,14 @@ contract SuccinctVAppTest is Test, FixtureLoader {
 
         vm.expectEmit(true, true, true, true);
         emit ISuccinctVApp.UpdatedFreezeDuration(newDuration);
+        vm.prank(OWNER);
         SuccinctVApp(VAPP).updateFreezeDuration(newDuration);
 
         assertEq(SuccinctVApp(VAPP).freezeDuration(), newDuration);
     }
 
-    function test_RevertIf_UpdateFreezeDurationNotOwner() public {
-        vm.expectRevert(abi.encodeWithSignature("OwnableUnauthorizedAccount(address)", REQUESTER_1));
+    function test_RevertUpdateFreezeDuration_WhenNotOwner() public {
+        vm.expectRevert(abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, REQUESTER_1));
         vm.prank(REQUESTER_1);
         SuccinctVApp(VAPP).updateFreezeDuration(3 days);
     }
@@ -196,49 +209,55 @@ contract SuccinctVAppTest is Test, FixtureLoader {
         assertTrue(SuccinctVApp(VAPP).whitelistedTokens(token));
     }
 
-    function test_RevertIf_AddTokenNotOwner() public {
-        vm.expectRevert(abi.encodeWithSignature("OwnableUnauthorizedAccount(address)", REQUESTER_1));
+    function test_RevertAddToken_WhenNotOwner() public {
+        vm.expectRevert(abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, REQUESTER_1));
         vm.prank(REQUESTER_1);
         SuccinctVApp(VAPP).addToken(address(99));
     }
 
-    function test_RevertIf_AddTokenZeroAddress() public {
-        vm.expectRevert(abi.encodeWithSignature("ZeroAddress()"));
+    function test_RevertAddToken_WhenZeroAddress() public {
+        vm.expectRevert(abi.encodeWithSelector(ISuccinctVApp.ZeroAddress.selector));
+        vm.prank(OWNER);
         SuccinctVApp(VAPP).addToken(address(0));
     }
 
-    function test_RevertIf_AddTokenAlreadyWhitelisted() public {
+    function test_RevertAddToken_WhenAlreadyWhitelisted() public {
         address token = address(99);
+        vm.prank(OWNER);
         SuccinctVApp(VAPP).addToken(token);
 
-        vm.expectRevert(abi.encodeWithSignature("TokenAlreadyWhitelisted()"));
+        vm.expectRevert(abi.encodeWithSelector(ISuccinctVApp.TokenAlreadyWhitelisted.selector));
+        vm.prank(OWNER);
         SuccinctVApp(VAPP).addToken(token);
     }
 
     function test_RemoveToken() public {
         address token = address(99);
+        vm.prank(OWNER);
         SuccinctVApp(VAPP).addToken(token);
 
         vm.expectEmit(true, true, true, true);
         emit ISuccinctVApp.TokenWhitelist(token, false);
+        vm.prank(OWNER);
         SuccinctVApp(VAPP).removeToken(token);
 
         assertFalse(SuccinctVApp(VAPP).whitelistedTokens(token));
     }
 
-    function test_RevertIf_RemoveTokenNotOwner() public {
+    function test_RevertRemoveToken_WhenNotOwner() public {
         address token = address(99);
         SuccinctVApp(VAPP).addToken(token);
 
-        vm.expectRevert(abi.encodeWithSignature("OwnableUnauthorizedAccount(address)", REQUESTER_1));
+        vm.expectRevert(abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, REQUESTER_1));
         vm.prank(REQUESTER_1);
         SuccinctVApp(VAPP).removeToken(token);
     }
 
-    function test_RevertIf_RemoveTokenNotWhitelisted() public {
+    function test_RevertRemoveToken_WhenNotWhitelisted() public {
         address token = address(99);
 
-        vm.expectRevert(abi.encodeWithSignature("TokenNotWhitelisted()"));
+        vm.expectRevert(abi.encodeWithSelector(ISuccinctVApp.TokenNotWhitelisted.selector));
+        vm.prank(OWNER);
         SuccinctVApp(VAPP).removeToken(token);
     }
 
@@ -248,6 +267,7 @@ contract SuccinctVAppTest is Test, FixtureLoader {
 
         vm.expectEmit(true, true, true, true);
         emit ISuccinctVApp.MinAmountUpdated(token, minAmount);
+        vm.prank(OWNER);
         SuccinctVApp(VAPP).setMinAmount(token, minAmount);
 
         assertEq(SuccinctVApp(VAPP).minAmounts(token), minAmount);
@@ -456,7 +476,7 @@ contract SuccinctVAppTest is Test, FixtureLoader {
         assertEq(SuccinctVApp(VAPP).currentReceipt(), 0);
     }
 
-    function test_RevertIf_DepositBelowMinimum() public {
+    function test_RevertDeposit_WhenBelowMinimum() public {
         uint256 minAmount = 10e6; // 10 PROVE
         uint256 depositAmount = 5e6; // 5 PROVE - below minimum
 
@@ -469,7 +489,8 @@ contract SuccinctVAppTest is Test, FixtureLoader {
         vm.startPrank(REQUESTER_1);
         MockERC20(PROVE).approve(address(VAPP), depositAmount);
 
-        vm.expectRevert(abi.encodeWithSignature("MinAmount()"));
+        vm.expectRevert(abi.encodeWithSelector(ISuccinctVApp.MinAmount.selector));
+        vm.prank(REQUESTER_1);
         SuccinctVApp(VAPP).deposit(REQUESTER_1, PROVE, depositAmount);
         vm.stopPrank();
 

@@ -241,34 +241,53 @@ contract E2ETest is Test, FixtureLoader {
     }
 
     function test_SetUp() public view {
-        // // Immutable variables
-        // assertEq(SuccinctStaking(STAKING).vapp(), VAPP);
-        // assertEq(SuccinctStaking(STAKING).prove(), PROVE);
-        // assertEq(SuccinctStaking(STAKING).iProve(), I_PROVE);
-        // assertEq(SuccinctStaking(STAKING).unstakePeriod(), UNSTAKE_PERIOD);
-        // assertEq(SuccinctStaking(STAKING).slashPeriod(), SLASH_PERIOD);
-        // assertEq(SuccinctVApp(VAPP).staking(), STAKING);
-        // assertEq(SuccinctVApp(VAPP).prove(), PROVE);
-        // assertEq(IIntermediateSuccinct(I_PROVE).staking(), STAKING);
-        // assertEq(IERC4626(I_PROVE).asset(), PROVE);
+        // Immutable variables
+        assertEq(SuccinctStaking(STAKING).vapp(), VAPP);
+        assertEq(SuccinctStaking(STAKING).prove(), PROVE);
+        assertEq(SuccinctStaking(STAKING).iProve(), I_PROVE);
+        assertEq(SuccinctStaking(STAKING).unstakePeriod(), UNSTAKE_PERIOD);
+        assertEq(SuccinctStaking(STAKING).slashPeriod(), SLASH_PERIOD);
+        assertEq(SuccinctVApp(VAPP).staking(), STAKING);
+        assertEq(SuccinctVApp(VAPP).prove(), PROVE);
+        assertEq(IIntermediateSuccinct(I_PROVE).staking(), STAKING);
+        assertEq(IERC4626(I_PROVE).asset(), PROVE);
 
-        // // Prover checks
-        // assertEq(IProver(ALICE_PROVER).owner(), ALICE);
-        // assertEq(IProver(BOB_PROVER).owner(), BOB);
-        // assertEq(IProver(ALICE_PROVER).id(), 1);
-        // assertEq(IProver(BOB_PROVER).id(), 2);
-        // assertEq(ERC20(ALICE_PROVER).name(), "SuccinctProver-1");
-        // assertEq(ERC20(BOB_PROVER).name(), "SuccinctProver-2");
-        // assertEq(ERC20(ALICE_PROVER).symbol(), "PROVER-1");
-        // assertEq(ERC20(BOB_PROVER).symbol(), "PROVER-2");
-        // assertEq(SuccinctStaking(STAKING).proverCount(), 2);
-        // assertEq(SuccinctStaking(STAKING).ownerOf(ALICE_PROVER), ALICE);
-        // assertEq(SuccinctStaking(STAKING).ownerOf(BOB_PROVER), BOB);
-        // assertEq(SuccinctStaking(STAKING).isProver(ALICE_PROVER), true);
-        // assertEq(SuccinctStaking(STAKING).isProver(BOB_PROVER), true);
-        // assertEq(SuccinctStaking(STAKING).getProver(ALICE), ALICE_PROVER);
-        // assertEq(SuccinctStaking(STAKING).getProver(BOB), BOB_PROVER);
-        // assertEq(SuccinctStaking(STAKING).hasProver(ALICE), true);
-        // assertEq(SuccinctStaking(STAKING).hasProver(BOB), true);
+        // Prover checks
+        assertEq(IProver(ALICE_PROVER).owner(), ALICE);
+        assertEq(IProver(BOB_PROVER).owner(), BOB);
+        assertEq(IProver(ALICE_PROVER).id(), 1);
+        assertEq(IProver(BOB_PROVER).id(), 2);
+        assertEq(ERC20(ALICE_PROVER).name(), "SuccinctProver-1");
+        assertEq(ERC20(BOB_PROVER).name(), "SuccinctProver-2");
+        assertEq(ERC20(ALICE_PROVER).symbol(), "PROVER-1");
+        assertEq(ERC20(BOB_PROVER).symbol(), "PROVER-2");
+        assertEq(SuccinctStaking(STAKING).proverCount(), 2);
+        assertEq(SuccinctStaking(STAKING).ownerOf(ALICE_PROVER), ALICE);
+        assertEq(SuccinctStaking(STAKING).ownerOf(BOB_PROVER), BOB);
+        assertEq(SuccinctStaking(STAKING).isProver(ALICE_PROVER), true);
+        assertEq(SuccinctStaking(STAKING).isProver(BOB_PROVER), true);
+        assertEq(SuccinctStaking(STAKING).getProver(ALICE), ALICE_PROVER);
+        assertEq(SuccinctStaking(STAKING).getProver(BOB), BOB_PROVER);
+        assertEq(SuccinctStaking(STAKING).hasProver(ALICE), true);
+        assertEq(SuccinctStaking(STAKING).hasProver(BOB), true);
+    }
+
+    // In this scenario:
+    // - STAKER_1 stakes to ALICE_PROVER, such that ALICE_PROVER is above the minimum stake amount
+    //   to particpate in offchain auctions.
+    // - The REQUESTER (already deposited $PROVE), had a proof fulfilled offchain from ALICE_PROVER.
+    // - Therefor, the VApp update should transfer $PROVE from the VApp REQUESTER's balance to the
+    //   ALICE_PROVER vault. When STAKER_1 unstakes, they should have more $PROVE then the amount
+    //   they staked.
+    function test_E2E() public {
+        // STAKER_1 stakes to ALICE_PROVER
+        _stake(STAKER_1, ALICE_PROVER, STAKER_PROVE_AMOUNT);
+
+        // REQUESTER deposits $PROVE into the VApp
+        vm.prank(REQUESTER);
+        IERC20(PROVE).approve(VAPP, REQUESTER_PROVE_AMOUNT);
+        vm.prank(REQUESTER);
+        SuccinctVApp(VAPP).deposit(REQUESTER, PROVE, REQUESTER_PROVE_AMOUNT);
+    
     }
 }
