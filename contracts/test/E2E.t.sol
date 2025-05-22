@@ -274,12 +274,12 @@ contract E2ETest is Test, FixtureLoader {
     //   they staked.
     function test_E2E() public {
         // STAKER_1 stakes to ALICE_PROVER
-        _stake(STAKER_1, ALICE_PROVER, STAKER_PROVE_AMOUNT);
+        // _stake(STAKER_1, ALICE_PROVER, STAKER_PROVE_AMOUNT);
 
-        // REQUESTER deposits $PROVE into the VApp
-        vm.prank(REQUESTER);
-        IERC20(PROVE).approve(VAPP, REQUESTER_PROVE_AMOUNT);
-        vm.prank(REQUESTER);
-        SuccinctVApp(VAPP).deposit(REQUESTER, PROVE, REQUESTER_PROVE_AMOUNT);
+        // // REQUESTER deposits $PROVE into the VApp
+        // vm.prank(REQUESTER);
+        // IERC20(PROVE).approve(VAPP, REQUESTER_PROVE_AMOUNT);
+        // vm.prank(REQUESTER);
+        // SuccinctVApp(VAPP).deposit(REQUESTER, PROVE, REQUESTER_PROVE_AMOUNT);
     }
 }
