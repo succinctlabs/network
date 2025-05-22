@@ -26,13 +26,13 @@ contract SuccinctProver is ERC4626, IProver {
     using Strings for uint256;
 
     /// @inheritdoc IProver
-    address public override immutable staking;
+    address public immutable override staking;
 
     /// @inheritdoc IProver
-    uint256 public override immutable id;
+    uint256 public immutable override id;
 
     /// @inheritdoc IProver
-    address public override immutable owner;
+    address public immutable override owner;
 
     constructor(address _underlying, address _staking, uint256 _id, address _owner)
         ERC20(

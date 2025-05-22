@@ -130,7 +130,9 @@ contract SuccinctVApp is
         address _prove,
         address _staking,
         address _verifier,
-        bytes32 _vappProgramVKey
+        bytes32 _vappProgramVKey,
+        uint64 _maxActionDelay,
+        uint64 _freezeDuration
     ) external initializer {
         if (
             _owner == address(0) || _prove == address(0) || _staking == address(0)
@@ -146,8 +148,8 @@ contract SuccinctVApp is
         staking = _staking;
         verifier = _verifier;
         vappProgramVKey = _vappProgramVKey;
-        maxActionDelay = 1 days;
-        freezeDuration = 1 days;
+        maxActionDelay = _maxActionDelay;
+        freezeDuration = _freezeDuration;
 
         updateStaking(_staking);
         updateVerifier(_verifier);
