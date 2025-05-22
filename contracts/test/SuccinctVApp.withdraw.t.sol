@@ -309,7 +309,7 @@ contract SuccinctVAppWithdrawTest is SuccinctVAppTest {
 
         // Leaf debug
         address user = 0x4F06869E36F2De69d97e636E52B45F07A91b4fa6;
-        bytes32 leaf = sha256(abi.encodePacked(user, uint256(100)));
+        bytes32 _leaf = sha256(abi.encodePacked(user, uint256(100)));
 
         // Withdraw
         vm.startPrank(user);
