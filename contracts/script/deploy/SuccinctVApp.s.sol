@@ -20,19 +20,21 @@ contract SuccinctVAppScript is BaseScript, FixtureLoader {
         address STAKING = readAddress("STAKING");
         address PROVE = readAddress("PROVE");
         address VERIFIER = SP1_VERIFIER_GATEWAY_GROTH16;
+        uint64 MAX_ACTION_DELAY = readUint64("MAX_ACTION_DELAY");
+        uint64 FREEZE_DURATION = readUint64("FREEZE_DURATION");
 
+        // Load fixture
         SP1ProofFixtureJson memory fixture = loadFixture(vm, Fixture.Groth16);
-        bytes32 vkey = fixture.vkey;
+        bytes32 VKEY = fixture.vkey;
 
         // Deploy contract
         address vappImpl = address(new SuccinctVApp{salt: salt}());
-        SuccinctVApp vapp =
-            SuccinctVApp(payable(address(new ERC1967Proxy{salt: salt}(vappImpl, ""))));
-        vapp.initialize(msg.sender, PROVE, STAKING, VERIFIER, vkey);
-        vapp.addToken(PROVE);
+        address VAPP = address(SuccinctVApp(payable(address(new ERC1967Proxy{salt: salt}(vappImpl, "")))));
+        SuccinctVApp(VAPP).initialize(msg.sender, PROVE, STAKING, VERIFIER, VKEY, MAX_ACTION_DELAY, FREEZE_DURATION);
+        SuccinctVApp(VAPP).addToken(PROVE);
 
         // Write address
-        writeAddress(KEY, address(vapp));
+        writeAddress(KEY, VAPP);
     }
 
     function upgrade() external broadcaster {

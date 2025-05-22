@@ -29,6 +29,10 @@ import {ERC1967Proxy} from "../lib/openzeppelin-contracts/contracts/proxy/ERC196
 contract SuccinctVAppTest is Test, FixtureLoader {
     using stdJson for string;
 
+    // Constants
+    uint64 constant MAX_ACTION_DELAY = 1 days;
+    uint64 constant FREEZE_DURATION = 1 days;
+
     // Fixtures
     SP1ProofFixtureJson public jsonFixture;
     PublicValuesStruct public fixture;
@@ -73,7 +77,15 @@ contract SuccinctVAppTest is Test, FixtureLoader {
         // Deploy vapp
         address vappImpl = address(new SuccinctVApp());
         VAPP = address(new ERC1967Proxy(vappImpl, ""));
-        SuccinctVApp(VAPP).initialize(address(this), PROVE, STAKING, VERIFIER, jsonFixture.vkey);
+        SuccinctVApp(VAPP).initialize(
+            address(this),
+            PROVE,
+            STAKING,
+            VERIFIER,
+            jsonFixture.vkey,
+            MAX_ACTION_DELAY,
+            FREEZE_DURATION
+        );
 
         // Whitelist $PROVE
         SuccinctVApp(VAPP).addToken(PROVE);
@@ -105,7 +117,9 @@ contract SuccinctVAppTest is Test, FixtureLoader {
 
     function test_RevertIf_InitializeInvalid() public {
         vm.expectRevert(abi.encodeWithSignature("InvalidInitialization()"));
-        SuccinctVApp(VAPP).initialize(address(0), PROVE, STAKING, VERIFIER, jsonFixture.vkey);
+        SuccinctVApp(VAPP).initialize(
+            address(0), PROVE, STAKING, VERIFIER, jsonFixture.vkey, 1 days, 1 days
+        );
     }
 
     function test_UpdateStaking() public {
