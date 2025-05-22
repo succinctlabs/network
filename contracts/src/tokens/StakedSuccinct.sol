@@ -19,6 +19,7 @@ string constant SYMBOL = "stPROVE";
 abstract contract StakedSuccinct is ERC20, ERC20Permit, ERC20Votes {
     error NonTransferable();
 
+    /// @dev Only true if in the process of staking or unstaking.
     bool internal transient isStakingOperation;
 
     modifier stakingOperation() {
@@ -37,7 +38,7 @@ abstract contract StakedSuccinct is ERC20, ERC20Permit, ERC20Votes {
         return SYMBOL;
     }
 
-    /// @dev Only can update balances when staking operations are happening. This is equivalent to
+    /// @dev Only can update balances when staking operations are occuring. This is equivalent to
     /// the only staking checks that we have on $iPROVE and $PROVER-N tokens.
     function _update(address from, address to, uint256 value)
         internal

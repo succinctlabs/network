@@ -25,9 +25,14 @@ string constant SYMBOL_PREFIX = "PROVER";
 contract SuccinctProver is ERC4626, IProver {
     using Strings for uint256;
 
-    address internal immutable STAKING;
-    uint256 internal immutable PROVER_ID;
-    address internal immutable OWNER;
+    /// @inheritdoc IProver
+    address public override immutable staking;
+
+    /// @inheritdoc IProver
+    uint256 public override immutable id;
+
+    /// @inheritdoc IProver
+    address public override immutable owner;
 
     constructor(address _underlying, address _staking, uint256 _id, address _owner)
         ERC20(
@@ -36,29 +41,14 @@ contract SuccinctProver is ERC4626, IProver {
         )
         ERC4626(IERC20(_underlying))
     {
-        STAKING = _staking;
-        PROVER_ID = _id;
-        OWNER = _owner;
-    }
-
-    /// @inheritdoc IProver
-    function id() external view override returns (uint256) {
-        return PROVER_ID;
-    }
-
-    /// @inheritdoc IProver
-    function owner() external view override returns (address) {
-        return OWNER;
-    }
-
-    /// @inheritdoc IProver
-    function staking() external view override returns (address) {
-        return STAKING;
+        staking = _staking;
+        id = _id;
+        owner = _owner;
     }
 
     /// @dev Override to prevent transfers of PROVER-N tokens except for stake/unstake
     function _update(address _from, address _to, uint256 _value) internal override(ERC20) {
-        if (msg.sender != STAKING) {
+        if (msg.sender != staking) {
             revert NonTransferable();
         }
 
@@ -67,7 +57,7 @@ contract SuccinctProver is ERC4626, IProver {
 
     /// @dev Override to allow the staking contract to spend $PROVER-N.
     function _spendAllowance(address _owner, address _spender, uint256 _amount) internal override {
-        if (_spender == STAKING) {
+        if (_spender == staking) {
             return;
         }
 
