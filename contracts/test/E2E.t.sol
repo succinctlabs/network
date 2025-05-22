@@ -154,7 +154,7 @@ contract E2ETest is Test, FixtureLoader {
         vm.prank(_staker);
         SuccinctStaking(STAKING).stake(_prover, _amount);
     }
-    
+
     function _completeUnstake(address _staker, uint256 _amount) internal returns (uint256) {
         _requestUnstake(_staker, _amount);
         skip(UNSTAKE_PERIOD);
@@ -170,7 +170,6 @@ contract E2ETest is Test, FixtureLoader {
         vm.prank(_staker);
         return SuccinctStaking(STAKING).finishUnstake();
     }
-
 
     function test_SetUp() public view {
         // Immutable variables
@@ -264,7 +263,7 @@ contract E2ETest is Test, FixtureLoader {
         );
 
         // Step 4: STAKER_1 unstakes and should receive more than they originally staked
-        
+
         uint256 stakerBalanceBeforeUnstake = IERC20(PROVE).balanceOf(STAKER_1);
         uint256 expectedUnstakeAmount = SuccinctStaking(STAKING).staked(STAKER_1);
 
