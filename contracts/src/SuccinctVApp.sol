@@ -74,7 +74,7 @@ contract SuccinctVApp is
     address public verifier;
 
     /// @notice The verification key for the fibonacci program.
-    bytes32 public vappProgramVKey;
+    bytes32 public VAPP_PROGRAM_VKEY;
 
     /// @notice The block number of the last state update
     uint64 public blockNumber;
@@ -150,7 +150,7 @@ contract SuccinctVApp is
         PROVE = _prove;
         STAKING = _staking;
         verifier = _verifier;
-        vappProgramVKey = _vappProgramVKey;
+        VAPP_PROGRAM_VKEY = _vappProgramVKey;
         maxActionDelay = 1 days;
         freezeDuration = 1 days;
 
@@ -195,8 +195,218 @@ contract SuccinctVApp is
     }
 
     /*//////////////////////////////////////////////////////////////
+                                  CORE
+    //////////////////////////////////////////////////////////////*/
+
+    /// @notice Deposit
+    /// @dev Scales the deposit amount by the UNIT factor
+    /// @param account The account to deposit to
+    /// @param token The token to deposit
+    /// @param amount The amount to deposit
+    function deposit(address account, address token, uint256 amount)
+        external
+        nonReentrant
+        returns (uint64 receipt)
+    {
+        if (account == address(0)) revert ZeroAddress();
+        if (!whitelistedTokens[token]) revert TokenNotWhitelisted();
+
+        // Check minimum amount if set (skip check if minimum is 0).
+        uint256 minAmount = minAmounts[token];
+        if (minAmount > 0 && amount < minAmount) {
+            revert MinAmount();
+        }
+
+        // Create the receipt.
+        bytes memory data =
+            abi.encode(DepositAction({account: account, token: token, amount: amount}));
+        receipt = _createReceipt(ActionType.Deposit, data);
+
+        // Update the state.
+        totalDeposits[token] += amount;
+
+        // Transfer the deposit.
+        ERC20(token).safeTransferFrom(msg.sender, address(this), amount);
+    }
+
+    /// @notice Withdraw from the sender's account to a recipient address
+    /// @dev Submit a withdraw request on the contract, can fail if balance is insufficient
+    /// @param to The recipient address to receive the withdrawn funds
+    /// @param token The token to withdraw
+    /// @param amount The amount to withdraw
+    function withdraw(address to, address token, uint256 amount)
+        external
+        nonReentrant
+        returns (uint64 receipt)
+    {
+        if (to == address(0)) revert ZeroAddress();
+        if (!whitelistedTokens[token]) revert TokenNotWhitelisted();
+
+        // Check minimum amount if set (skip check if minimum is 0).
+        uint256 minAmount = minAmounts[token];
+        if (minAmount > 0 && amount < minAmount) {
+            revert MinAmount();
+        }
+
+        // Create the receipt.
+        bytes memory data =
+            abi.encode(WithdrawAction({account: msg.sender, token: token, amount: amount, to: to}));
+        receipt = _createReceipt(ActionType.Withdraw, data);
+    }
+
+    /// @notice Claim a withdrawal
+    /// @dev Anyone can claim a withdrawal for an account
+    /// @param to The address to claim the withdrawal for
+    /// @param token The token to claim
+    function claimWithdrawal(address to, address token)
+        external
+        nonReentrant
+        returns (uint256 amount)
+    {
+        amount = withdrawalClaims[to][token];
+        if (amount == 0) revert NoWithdrawalToClaim();
+
+        // Update the state.
+        pendingWithdrawalClaims[token] -= amount;
+        withdrawalClaims[to][token] = 0;
+
+        // Transfer the withdrawal.
+        ERC20(token).safeTransfer(to, amount);
+
+        emit WithdrawalClaimed(to, token, msg.sender, amount);
+    }
+
+    /// @notice Add a delegated signer for an owner
+    /// @dev Only callable by the prover owner
+    /// @param _signer The delegated signer to add
+    function addDelegatedSigner(address _signer) external returns (uint64 receipt) {
+        if (_signer == address(0)) revert ZeroAddress();
+        if (usedSigners[_signer]) revert InvalidSigner();
+        if (!ISuccinctStaking(STAKING).hasProver(msg.sender)) revert ZeroAddress();
+        if (ISuccinctStaking(STAKING).isProver(_signer)) revert InvalidSigner();
+        if (ISuccinctStaking(STAKING).hasProver(_signer)) revert InvalidSigner();
+
+        // Create the receipt.
+        bytes memory data = abi.encode(AddSignerAction({owner: msg.sender, signer: _signer}));
+        receipt = _createReceipt(ActionType.AddSigner, data);
+
+        // Update the state.
+        usedSigners[_signer] = true;
+        delegatedSigners[msg.sender].push(_signer);
+    }
+
+    /// @notice Remove a delegated signer for an owner
+    /// @dev Only callable by the prover owner
+    /// @param _signer The delegated signer to remove
+    function removeDelegatedSigner(address _signer) external returns (uint64 receipt) {
+        uint256 index = hasDelegatedSigner(msg.sender, _signer);
+        if (index == type(uint256).max) revert InvalidSigner();
+        if (!usedSigners[_signer]) revert InvalidSigner();
+
+        // Create the receipt.
+        bytes memory data = abi.encode(RemoveSignerAction({owner: msg.sender, signer: _signer}));
+        receipt = _createReceipt(ActionType.RemoveSigner, data);
+
+        // Update the state.
+        usedSigners[_signer] = false;
+        delegatedSigners[msg.sender][index] =
+            delegatedSigners[msg.sender][delegatedSigners[msg.sender].length - 1];
+        delegatedSigners[msg.sender].pop();
+    }
+
+    /// @notice The entrypoint for verifying the state transition proof, commits actions and updates the state root
+    /// @dev Reverts if the committed actions are invalid, callable by anyone
+    /// @param _proofBytes The encoded proof
+    /// @param _publicValues The encoded public values
+    function updateState(bytes calldata _publicValues, bytes calldata _proofBytes)
+        public
+        nonReentrant
+        returns (uint64, bytes32, bytes32)
+    {
+        // Verify the proof.
+        ISP1Verifier(verifier).verifyProof(VAPP_PROGRAM_VKEY, _publicValues, _proofBytes);
+        PublicValuesStruct memory publicValues = abi.decode(_publicValues, (PublicValuesStruct));
+        if (publicValues.newRoot == bytes32(0)) revert InvalidRoot();
+
+        // Verify the old root.
+        if (blockNumber != 0 && roots[blockNumber] != publicValues.oldRoot) {
+            revert InvalidOldRoot();
+        }
+
+        // Assert that the timestamp is not in the future and is increasing.
+        if (publicValues.timestamp > block.timestamp) revert InvalidTimestamp();
+        if (blockNumber != 0 && timestamps[blockNumber] > publicValues.timestamp) {
+            revert TimestampInPast();
+        }
+
+        // Update the state root.
+        uint64 _block = ++blockNumber;
+        roots[_block] = publicValues.newRoot;
+        timestamps[_block] = publicValues.timestamp;
+
+        // Commit the actions.
+        _handleActions(publicValues);
+
+        emit Block(_block, publicValues.newRoot, publicValues.oldRoot);
+
+        return (_block, publicValues.newRoot, publicValues.oldRoot);
+    }
+
+    /// @notice Emergency withdraw.
+    /// @dev Anyone can call this function to withdraw their balance after the freeze duration has passed
+    /// @param _token The token to withdraw
+    /// @param _balance The balance to withdraw
+    /// @param _proof The proof of the balance
+    function emergencyWithdraw(address _token, uint256 _balance, bytes32[] calldata _proof)
+        external
+        nonReentrant
+    {
+        if (_proof.length == 0) revert InvalidProof();
+        if (!whitelistedTokens[_token]) revert TokenNotWhitelisted();
+        if (block.timestamp < timestamp() + freezeDuration) revert NotFrozen();
+
+        bytes32 leaf = sha256(abi.encodePacked(msg.sender, _token, _balance));
+        bytes32 _root = root();
+        bool isValid = MerkleProof.verifyCalldata(_proof, _root, leaf, _hashPair);
+        if (!isValid) revert ProofFailed();
+
+        _processWithdraw(msg.sender, _token, _balance);
+
+        emit EmergencyWithdrawal(msg.sender, _token, _balance, _root);
+    }
+
+    /*//////////////////////////////////////////////////////////////
                                  OWNER
     //////////////////////////////////////////////////////////////*/
+
+    /// @notice Updates the vapp program verification key, forks the state root
+    /// @dev Only callable by the owner, executes a state update
+    /// @param _vkey The new vkey
+    /// @param _newOldRoot The old root committed by the new program
+    /// @param _publicValues The encoded public values
+    /// @param _proofBytes The encoded proof
+    function fork(
+        bytes32 _vkey,
+        bytes32 _newOldRoot,
+        bytes calldata _publicValues,
+        bytes calldata _proofBytes
+    ) external onlyOwner returns (uint64, bytes32, bytes32) {
+        // Update the vkey.
+        VAPP_PROGRAM_VKEY = _vkey;
+
+        // Update the root and produce a new block.
+        bytes32 _oldRoot = bytes32(0);
+        uint64 _block = blockNumber;
+        if (_block != 0) {
+            _oldRoot = roots[_block];
+        }
+        roots[++_block] = _newOldRoot;
+
+        emit Block(_block, _newOldRoot, _oldRoot);
+        emit Fork(VAPP_PROGRAM_VKEY, _block, _newOldRoot, _oldRoot);
+
+        return updateState(_publicValues, _proofBytes);
+    }
 
     /// @notice Updates the succinct staking contract address
     /// @dev Only callable by the owner
@@ -213,16 +423,16 @@ contract SuccinctVApp is
     function updateVerifier(address _verifier) public onlyOwner {
         verifier = _verifier;
 
-        emit UpdatedVerifier(verifier);
+        emit UpdatedVerifier(_verifier);
     }
 
     /// @notice Updates the max action delay
     /// @dev Only callable by the owner
-    /// @param _actionDelay The new max action delay
-    function updateActionDelay(uint64 _actionDelay) public onlyOwner {
-        maxActionDelay = _actionDelay;
+    /// @param _maxActionDelay The new max action delay
+    function updateActionDelay(uint64 _maxActionDelay) public onlyOwner {
+        maxActionDelay = _maxActionDelay;
 
-        emit UpdatedMaxActionDelay(maxActionDelay);
+        emit UpdatedMaxActionDelay(_maxActionDelay);
     }
 
     /// @notice Updates the freeze duration
@@ -231,7 +441,7 @@ contract SuccinctVApp is
     function updateFreezeDuration(uint64 _freezeDuration) public onlyOwner {
         freezeDuration = _freezeDuration;
 
-        emit UpdatedFreezeDuration(freezeDuration);
+        emit UpdatedFreezeDuration(_freezeDuration);
     }
 
     /// @notice Adds a token to the whitelist
@@ -269,152 +479,11 @@ contract SuccinctVApp is
         emit MinAmountUpdated(_token, _amount);
     }
 
-    /// @notice Updates the vapp program verification key, forks the state root
-    /// @dev Only callable by the owner, executes a state update
-    /// @param _vkey The new vkey
-    /// @param _newOldRoot The old root committed by the new program
-    /// @param _publicValues The encoded public values
-    /// @param _proofBytes The encoded proof
-    function fork(
-        bytes32 _vkey,
-        bytes32 _newOldRoot,
-        bytes calldata _publicValues,
-        bytes calldata _proofBytes
-    ) external onlyOwner returns (uint64, bytes32, bytes32) {
-        // Update the vkey.
-        vappProgramVKey = _vkey;
-
-        // Update the root and produce a new block.
-        bytes32 _oldRoot = bytes32(0);
-        uint64 _block = blockNumber;
-        if (_block != 0) {
-            _oldRoot = roots[_block];
-        }
-        roots[++_block] = _newOldRoot;
-
-        emit Block(_block, _newOldRoot, _oldRoot);
-        emit Fork(vappProgramVKey, _block, _newOldRoot, _oldRoot);
-
-        return updateState(_publicValues, _proofBytes);
-    }
-
     /*//////////////////////////////////////////////////////////////
-                                  USER
+                                 INTERNAL
     //////////////////////////////////////////////////////////////*/
 
-    /// @notice Deposit
-    /// @dev Scales the deposit amount by the UNIT factor
-    /// @param account The account to deposit to
-    /// @param token The token to deposit
-    /// @param amount The amount to deposit
-    function deposit(address account, address token, uint256 amount)
-        external
-        nonReentrant
-        returns (uint64 receipt)
-    {
-        if (account == address(0)) revert ZeroAddress();
-        if (!whitelistedTokens[token]) revert TokenNotWhitelisted();
-
-        // Check minimum amount if set (skip check if minimum is 0)
-        uint256 minAmount = minAmounts[token];
-        if (minAmount > 0 && amount < minAmount) {
-            revert MinAmount();
-        }
-
-        bytes memory data =
-            abi.encode(DepositAction({account: account, token: token, amount: amount}));
-        receipt = _createReceipt(ActionType.Deposit, data);
-
-        totalDeposits[token] += amount;
-
-        ERC20(token).safeTransferFrom(msg.sender, address(this), amount);
-    }
-
-    /// @notice Withdraw from the sender's account to a recipient address
-    /// @dev Submit a withdraw request on the contract, can fail if balance is insufficient
-    /// @param to The recipient address to receive the withdrawn funds
-    /// @param token The token to withdraw
-    /// @param amount The amount to withdraw
-    function withdraw(address to, address token, uint256 amount)
-        external
-        nonReentrant
-        returns (uint64 receipt)
-    {
-        if (to == address(0)) revert ZeroAddress();
-        if (!whitelistedTokens[token]) revert TokenNotWhitelisted();
-
-        // Check minimum amount if set (skip check if minimum is 0)
-        uint256 minAmount = minAmounts[token];
-        if (minAmount > 0 && amount < minAmount) {
-            revert MinAmount();
-        }
-
-        bytes memory data =
-            abi.encode(WithdrawAction({account: msg.sender, token: token, amount: amount, to: to}));
-        receipt = _createReceipt(ActionType.Withdraw, data);
-    }
-
-    /// @notice Claim a withdrawal
-    /// @dev Anyone can claim a withdrawal for an account
-    /// @param to The address to claim the withdrawal for
-    /// @param token The token to claim
-    function claimWithdrawal(address to, address token)
-        external
-        nonReentrant
-        returns (uint256 amount)
-    {
-        amount = withdrawalClaims[to][token];
-        if (amount == 0) revert NoWithdrawalToClaim();
-
-        // Adjust the balances.
-        pendingWithdrawalClaims[token] -= amount;
-        withdrawalClaims[to][token] = 0;
-
-        // Transfer the withdrawal.
-        ERC20(token).safeTransfer(to, amount);
-
-        emit WithdrawalClaimed(to, token, msg.sender, amount);
-    }
-
-    /// @notice Add a delegated signer for an owner
-    /// @dev Only callable by the prover owner
-    /// @param _signer The delegated signer to add
-    function addDelegatedSigner(address _signer) external returns (uint64 receipt) {
-        if (_signer == address(0)) revert ZeroAddress();
-        if (usedSigners[_signer]) revert InvalidSigner();
-        if (!ISuccinctStaking(STAKING).hasProver(msg.sender)) revert ZeroAddress();
-        if (ISuccinctStaking(STAKING).isProver(_signer)) revert InvalidSigner();
-        if (ISuccinctStaking(STAKING).hasProver(_signer)) revert InvalidSigner();
-
-        bytes memory data = abi.encode(AddSignerAction({owner: msg.sender, signer: _signer}));
-        receipt = _createReceipt(ActionType.AddSigner, data);
-
-        delegatedSigners[msg.sender].push(_signer);
-        usedSigners[_signer] = true;
-    }
-
-    /// @notice Remove a delegated signer for an owner
-    /// @dev Only callable by the prover owner
-    /// @param _signer The delegated signer to remove
-    function removeDelegatedSigner(address _signer) external returns (uint64 receipt) {
-        uint256 index = hasDelegatedSigner(msg.sender, _signer);
-        if (index == type(uint256).max) revert InvalidSigner();
-        if (!usedSigners[_signer]) revert InvalidSigner();
-
-        bytes memory data = abi.encode(RemoveSignerAction({owner: msg.sender, signer: _signer}));
-        receipt = _createReceipt(ActionType.RemoveSigner, data);
-
-        delegatedSigners[msg.sender][index] =
-            delegatedSigners[msg.sender][delegatedSigners[msg.sender].length - 1];
-        delegatedSigners[msg.sender].pop();
-        usedSigners[_signer] = false;
-    }
-
-    /// @notice Creates a receipt for an action
-    /// @dev Internal function to simplify receipt creation
-    /// @param actionType The type of action
-    /// @param data The encoded action data
-    /// @return receipt The receipt ID
+    /// @dev Creates a receipt for an action.
     function _createReceipt(ActionType actionType, bytes memory data)
         internal
         returns (uint64 receipt)
@@ -428,71 +497,6 @@ contract SuccinctVApp is
         });
 
         emit ReceiptPending(receipt, actionType, data);
-    }
-
-    /*//////////////////////////////////////////////////////////////
-                               EMERGENCY
-    //////////////////////////////////////////////////////////////*/
-
-    /// @notice Emergency withdraw.
-    /// @dev Anyone can call this function to withdraw their balance after the freeze duration has passed
-    /// @param _token The token to withdraw
-    /// @param _balance The balance to withdraw
-    /// @param _proof The proof of the balance
-    function emergencyWithdraw(address _token, uint256 _balance, bytes32[] calldata _proof)
-        external
-        nonReentrant
-    {
-        if (_proof.length == 0) revert InvalidProof();
-        if (!whitelistedTokens[_token]) revert TokenNotWhitelisted();
-        if (block.timestamp < timestamp() + freezeDuration) revert NotFrozen();
-
-        bytes32 leaf = sha256(abi.encodePacked(msg.sender, _token, _balance));
-        bytes32 _root = root();
-        bool isValid = MerkleProof.verifyCalldata(_proof, _root, leaf, _hashPair);
-        if (!isValid) revert ProofFailed();
-
-        _processWithdraw(msg.sender, _token, _balance);
-
-        emit EmergencyWithdrawal(msg.sender, _token, _balance, _root);
-    }
-
-    /// @notice The entrypoint for verifying the state transition proof, commits actions and updates the state root
-    /// @dev Reverts if the committed actions are invalid, callable by anyone
-    /// @param _proofBytes The encoded proof
-    /// @param _publicValues The encoded public values
-    function updateState(bytes calldata _publicValues, bytes calldata _proofBytes)
-        public
-        nonReentrant
-        returns (uint64, bytes32, bytes32)
-    {
-        // Verify the proof
-        ISP1Verifier(verifier).verifyProof(vappProgramVKey, _publicValues, _proofBytes);
-        PublicValuesStruct memory publicValues = abi.decode(_publicValues, (PublicValuesStruct));
-        if (publicValues.newRoot == bytes32(0)) revert InvalidRoot();
-
-        // Verify the old root
-        if (blockNumber != 0 && roots[blockNumber] != publicValues.oldRoot) {
-            revert InvalidOldRoot();
-        }
-
-        // Assert that the timestamp is not in the future and is increasing
-        if (publicValues.timestamp > block.timestamp) revert InvalidTimestamp();
-        if (blockNumber != 0 && timestamps[blockNumber] > publicValues.timestamp) {
-            revert TimestampInPast();
-        }
-
-        // Update the state root
-        uint64 _block = ++blockNumber;
-        roots[_block] = publicValues.newRoot;
-        timestamps[_block] = publicValues.timestamp;
-
-        // Commit the actions
-        _handleActions(publicValues);
-
-        emit Block(_block, publicValues.newRoot, publicValues.oldRoot);
-
-        return (_block, publicValues.newRoot, publicValues.oldRoot);
     }
 
     /// @dev Handles committed actions, reverts if the actions are invalid
@@ -657,6 +661,7 @@ contract SuccinctVApp is
     function _processWithdraw(address _to, address _token, uint256 _amount) internal {
         if (!whitelistedTokens[_token]) revert TokenNotWhitelisted();
 
+        // Update the state.
         pendingWithdrawalClaims[_token] += _amount;
         withdrawalClaims[_to][_token] += _amount;
         totalDeposits[_token] -= _amount;
