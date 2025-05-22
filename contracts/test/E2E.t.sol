@@ -15,6 +15,7 @@ import {IERC20Permit} from
 import {IERC4626} from "../lib/openzeppelin-contracts/contracts/interfaces/IERC4626.sol";
 import {FixtureLoader, Fixture, SP1ProofFixtureJson} from "./utils/FixtureLoader.sol";
 import {MockVerifier} from "../src/mocks/MockVerifier.sol";
+import {ISP1Verifier} from "../src/interfaces/ISP1Verifier.sol";
 import {
     PublicValuesStruct,
     ReceiptStatus,
@@ -233,6 +234,20 @@ contract E2ETest is Test, FixtureLoader {
         return vm.sign(_pk, digest);
     }
 
+    function mockCall(bool verified) public {
+        if (verified) {
+            vm.mockCall(
+                VERIFIER, abi.encodeWithSelector(ISP1Verifier.verifyProof.selector), abi.encode()
+            );
+        } else {
+            vm.mockCallRevert(
+                VERIFIER,
+                abi.encodeWithSelector(ISP1Verifier.verifyProof.selector),
+                "Verification failed"
+            );
+        }
+    }
+
     function test_SetUp() public view {
         // Immutable variables
         assertEq(SuccinctStaking(STAKING).vapp(), VAPP);
@@ -273,13 +288,112 @@ contract E2ETest is Test, FixtureLoader {
     //   ALICE_PROVER vault. When STAKER_1 unstakes, they should have more $PROVE then the amount
     //   they staked.
     function test_E2E() public {
-        // STAKER_1 stakes to ALICE_PROVER
-        // _stake(STAKER_1, ALICE_PROVER, STAKER_PROVE_AMOUNT);
+        uint256 stakeAmount = STAKER_PROVE_AMOUNT;
+        uint256 rewardAmount = 5e18; // 5 PROVE tokens as reward (within the 10e18 available in VApp)
 
-        // // REQUESTER deposits $PROVE into the VApp
-        // vm.prank(REQUESTER);
-        // IERC20(PROVE).approve(VAPP, REQUESTER_PROVE_AMOUNT);
-        // vm.prank(REQUESTER);
-        // SuccinctVApp(VAPP).deposit(REQUESTER, PROVE, REQUESTER_PROVE_AMOUNT);
+        // Record initial balances
+        uint256 initialStakerBalance = IERC20(PROVE).balanceOf(STAKER_1);
+        uint256 initialVAppBalance = IERC20(PROVE).balanceOf(VAPP);
+
+        // Verify VApp has enough balance for the reward
+        assertGe(initialVAppBalance, rewardAmount, "VApp should have enough balance for reward");
+
+        // Step 1: STAKER_1 stakes to ALICE_PROVER
+        _stake(STAKER_1, ALICE_PROVER, stakeAmount);
+
+        // Verify staking worked correctly
+        assertEq(SuccinctStaking(STAKING).stakedTo(STAKER_1), ALICE_PROVER);
+        assertEq(SuccinctStaking(STAKING).staked(STAKER_1), stakeAmount);
+        assertEq(SuccinctStaking(STAKING).proverStaked(ALICE_PROVER), stakeAmount);
+        assertEq(IERC20(PROVE).balanceOf(STAKER_1), initialStakerBalance - stakeAmount);
+
+        // Step 2: Simulate offchain proof fulfillment by creating a reward action
+        // The REQUESTER already has deposited $PROVE in the VApp (done in setUp)
+
+        // Prepare reward action for ALICE_PROVER
+        bytes memory rewardData =
+            abi.encode(RewardAction({prover: ALICE_PROVER, amount: rewardAmount}));
+
+        PublicValuesStruct memory publicValues = PublicValuesStruct({
+            actions: new Action[](1),
+            oldRoot: SuccinctVApp(VAPP).root(), // Current root (should be bytes32(0) initially)
+            newRoot: bytes32(uint256(0xbeef)), // New root after reward
+            timestamp: uint64(block.timestamp)
+        });
+
+        publicValues.actions[0] = Action({
+            action: ActionType.Reward,
+            status: ReceiptStatus.Completed,
+            receipt: 1, // Receipt ID for the reward action
+            data: rewardData
+        });
+
+        // Record balances before reward
+        uint256 proverStakedBefore = SuccinctStaking(STAKING).proverStaked(ALICE_PROVER);
+        uint256 vappBalanceBefore = IERC20(PROVE).balanceOf(VAPP);
+
+        // Step 3: Process the reward through VApp state update
+        // Mock the verifier to return true
+        mockCall(true);
+
+        // Execute the state update with reward
+        SuccinctVApp(VAPP).updateState(abi.encode(publicValues), jsonFixture.proof);
+
+        // Verify the reward was processed correctly
+        uint256 proverStakedAfter = SuccinctStaking(STAKING).proverStaked(ALICE_PROVER);
+        assertEq(
+            proverStakedAfter,
+            proverStakedBefore + rewardAmount,
+            "Prover should have received reward"
+        );
+        assertEq(
+            IERC20(PROVE).balanceOf(VAPP),
+            vappBalanceBefore - rewardAmount,
+            "VApp balance should decrease by reward amount"
+        );
+
+        // Step 4: STAKER_1 unstakes and should receive more than they originally staked
+        uint256 stakerBalanceBeforeUnstake = IERC20(PROVE).balanceOf(STAKER_1);
+        uint256 expectedUnstakeAmount = SuccinctStaking(STAKING).staked(STAKER_1);
+
+        // The staker should now have a share of the reward
+        assertGt(expectedUnstakeAmount, stakeAmount, "Staker should have earned rewards");
+
+        // Complete the unstake process
+        uint256 actualUnstakeAmount =
+            _completeUnstake(STAKER_1, SuccinctStaking(STAKING).balanceOf(STAKER_1));
+
+        // Verify final state
+        assertEq(actualUnstakeAmount, expectedUnstakeAmount, "Unstake amount should match expected");
+        assertEq(
+            IERC20(PROVE).balanceOf(STAKER_1),
+            stakerBalanceBeforeUnstake + actualUnstakeAmount,
+            "Staker should receive unstaked amount"
+        );
+        assertGt(
+            IERC20(PROVE).balanceOf(STAKER_1),
+            initialStakerBalance,
+            "Staker should have more PROVE than initially"
+        );
+
+        // Verify staker is no longer staked
+        assertEq(
+            SuccinctStaking(STAKING).stakedTo(STAKER_1),
+            address(0),
+            "Staker should no longer be staked to any prover"
+        );
+        assertEq(
+            SuccinctStaking(STAKING).staked(STAKER_1), 0, "Staker should have no stake remaining"
+        );
+
+        // Calculate and verify the profit
+        uint256 finalBalance = IERC20(PROVE).balanceOf(STAKER_1);
+        uint256 profit = finalBalance - initialStakerBalance;
+
+        // The profit should be a portion of the reward based on the staker's share
+        // Since STAKER_1 is the only staker to ALICE_PROVER, they should get the full reward
+        assertApproxEqAbs(
+            profit, rewardAmount, 1e6, "Staker should receive the full reward as the only staker"
+        );
     }
 }

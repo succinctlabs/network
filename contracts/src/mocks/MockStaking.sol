@@ -95,7 +95,12 @@ contract MockStaking is ISuccinctStaking {
         return 1;
     }
 
-    function unstakeRequests(address _staker) external view override returns (UnstakeClaim[] memory) {
+    function unstakeRequests(address _staker)
+        external
+        view
+        override
+        returns (UnstakeClaim[] memory)
+    {
         return unstakeClaims[_staker];
     }
 
@@ -126,22 +131,21 @@ contract MockStaking is ISuccinctStaking {
         return _amount;
     }
 
-    function permitAndStake(
-        address,
-        address,
-        uint256 _amount,
-        uint256,
-        uint8,
-        bytes32,
-        bytes32
-    ) external pure override returns (uint256) {
+    function permitAndStake(address, address, uint256 _amount, uint256, uint8, bytes32, bytes32)
+        external
+        pure
+        override
+        returns (uint256)
+    {
         // Simple mock implementation - just return the amount for testing
         return _amount;
     }
 
     function requestUnstake(uint256 _stPROVE) external override {
         // Simple mock implementation - just add to unstake claims
-        unstakeClaims[msg.sender].push(UnstakeClaim({stPROVE: _stPROVE, timestamp: block.timestamp}));
+        unstakeClaims[msg.sender].push(
+            UnstakeClaim({stPROVE: _stPROVE, timestamp: block.timestamp})
+        );
     }
 
     function finishUnstake() external pure override returns (uint256) {

@@ -251,6 +251,9 @@ contract SuccinctStaking is
         // will lose their deposit.
         if (proverStaked(_prover) == 0) revert NotStaked();
 
+        // Transfer $PROVE from the VApp to this contract.
+        IERC20(prove).safeTransferFrom(msg.sender, address(this), _PROVE);
+
         // Deposit $PROVE to mint $iPROVE, sending it to this contract.
         uint256 iPROVE = IERC4626(iProve).deposit(_PROVE, address(this));
 
