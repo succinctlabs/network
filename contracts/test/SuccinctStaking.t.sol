@@ -198,7 +198,7 @@ contract SuccinctStakingSetupTests is SuccinctStakingTest {
         // Immutable variables
         assertEq(SuccinctStaking(STAKING).vapp(), VAPP);
         assertEq(SuccinctStaking(STAKING).prove(), PROVE);
-        assertEq(SuccinctStaking(STAKING).intermediateProve(), I_PROVE);
+        assertEq(SuccinctStaking(STAKING).iProve(), I_PROVE);
         assertEq(SuccinctStaking(STAKING).unstakePeriod(), UNSTAKE_PERIOD);
         assertEq(SuccinctStaking(STAKING).slashPeriod(), SLASH_PERIOD);
         assertEq(MockVApp(VAPP).staking(), STAKING);

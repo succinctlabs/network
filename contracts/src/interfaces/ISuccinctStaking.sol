@@ -96,6 +96,12 @@ interface ISuccinctStaking is IProverRegistry {
     /// @notice Returns the minimum amount of time needed between requestSlash() and finishSlash().
     function slashPeriod() external view returns (uint256);
 
+    /// @notice Returns the dispense rate.
+    function dispenseRate() external view returns (uint256);
+
+    /// @notice Returns the last dispense timestamp.
+    function lastDispenseTimestamp() external view returns (uint256);
+
     /// @notice Returns the prover that a staker is staked with.
     /// @dev A staker can only be staked with one prover at a time. To switch provers, they must
     ///      fully unstake from their current prover first.

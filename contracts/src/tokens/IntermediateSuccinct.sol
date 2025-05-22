@@ -21,34 +21,30 @@ string constant SYMBOL = "iPROVE";
 ///      - It can gain underlying from SuccinctStaking.dispense()
 ///      - It is non-transferable outside of deposit/withdraw
 contract IntermediateSuccinct is ERC4626, IIntermediateSuccinct {
-    address internal immutable STAKING;
+    /// @inheritdoc IIntermediateSuccinct
+    address public staking;
 
     constructor(address _underlying, address _staking)
         ERC20(NAME, SYMBOL)
         ERC4626(IERC20(_underlying))
     {
-        STAKING = _staking;
-    }
-
-    /// @inheritdoc IIntermediateSuccinct
-    function staking() external view override returns (address) {
-        return STAKING;
+        staking = _staking;
     }
 
     /// @inheritdoc IIntermediateSuccinct
     function burn(address _from, uint256 _iPROVE) external override returns (uint256) {
-        if (msg.sender != STAKING) {
+        if (msg.sender != staking) {
             revert NonTransferable();
         }
 
         // Burn the $PROVE
-        uint256 PROVE_ = previewRedeem(_iPROVE);
-        ERC20Burnable(asset()).burn(PROVE_);
+        uint256 PROVE = previewRedeem(_iPROVE);
+        ERC20Burnable(asset()).burn(PROVE);
 
         // Burn the $iPROVE
         _burn(_from, _iPROVE);
 
-        return PROVE_;
+        return PROVE;
     }
 
     /// @dev Only the staking contract or the prover can deposit or withdraw. The latter needs
@@ -56,9 +52,9 @@ contract IntermediateSuccinct is ERC4626, IIntermediateSuccinct {
     ///      require transferring it (e.g. PROVER-N.deposit() and PROVER-N.redeem()).
     function _update(address _from, address _to, uint256 _value) internal override(ERC20) {
         bool isDepositOrWithdraw =
-            IProverRegistry(STAKING).isProver(msg.sender) && (_from == STAKING || _to == STAKING);
+            IProverRegistry(staking).isProver(msg.sender) && (_from == staking || _to == staking);
 
-        if (msg.sender != STAKING && !isDepositOrWithdraw) {
+        if (msg.sender != staking && !isDepositOrWithdraw) {
             revert NonTransferable();
         }
 
@@ -67,7 +63,7 @@ contract IntermediateSuccinct is ERC4626, IIntermediateSuccinct {
 
     /// @dev Override to allow the staking contract to spend $iPROVE.
     function _spendAllowance(address _owner, address _spender, uint256 _amount) internal override {
-        if (_spender == STAKING) {
+        if (_spender == staking) {
             return;
         }
 

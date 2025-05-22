@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.28;
 
-import {Create2} from "../lib/openzeppelin-contracts/contracts/utils/Create2.sol";
-import {SuccinctProver} from "./tokens/SuccinctProver.sol";
-import {IERC20} from "../lib/openzeppelin-contracts/contracts/interfaces/IERC20.sol";
-import {IProver} from "./interfaces/IProver.sol";
-import {IProverRegistry} from "./interfaces/IProverRegistry.sol";
+import {SuccinctProver} from "../tokens/SuccinctProver.sol";
+import {Create2} from "../../lib/openzeppelin-contracts/contracts/utils/Create2.sol";
+import {IERC20} from "../../lib/openzeppelin-contracts/contracts/interfaces/IERC20.sol";
+import {IProver} from "../interfaces/IProver.sol";
+import {IProverRegistry} from "../interfaces/IProverRegistry.sol";
 
 /// @title ProverRegistry
 /// @author Succinct Labs
@@ -13,10 +13,15 @@ import {IProverRegistry} from "./interfaces/IProverRegistry.sol";
 /// @dev Because provers are approved to spend $iPROVE, it is important that tracked
 ///      provers are only contracts with `type(SuccinctProver).creationCode`.
 abstract contract ProverRegistry is IProverRegistry {
-    address internal PROVE;
-    address internal I_PROVE;
+    /// @inheritdoc IProverRegistry
+    address public prove;
 
-    uint256 internal numProvers;
+    /// @inheritdoc IProverRegistry
+    address public iProve;
+
+    /// @inheritdoc IProverRegistry
+    uint256 public proverCount;
+
     mapping(address => address) internal ownerToProver;
     mapping(address => bool) internal provers;
 
@@ -28,24 +33,9 @@ abstract contract ProverRegistry is IProverRegistry {
         _;
     }
 
-    function __ProverRegistry_init(address _prove, address _intermediateProve) internal {
-        PROVE = _prove;
-        I_PROVE = _intermediateProve;
-    }
-
-    /// @inheritdoc IProverRegistry
-    function prove() external view override returns (address) {
-        return PROVE;
-    }
-
-    /// @inheritdoc IProverRegistry
-    function intermediateProve() external view override returns (address) {
-        return I_PROVE;
-    }
-
-    /// @inheritdoc IProverRegistry
-    function proverCount() public view override returns (uint256) {
-        return numProvers;
+    function __ProverRegistry_init(address _prove, address _iProve) internal {
+        prove = _prove;
+        iProve = _iProve;
     }
 
     /// @inheritdoc IProverRegistry
@@ -80,13 +70,13 @@ abstract contract ProverRegistry is IProverRegistry {
     /// @dev Uses CREATE2 to deploy an instance of SuccinctProver and adds it to the mapping.
     function _deployProver() internal returns (address) {
         // Ensure that the contract is initialized.
-        if (I_PROVE == address(0)) {
+        if (iProve == address(0)) {
             revert NotInitialized();
         }
 
         // Increment the number of provers.
         unchecked {
-            ++numProvers;
+            ++proverCount;
         }
 
         // Deploy the prover.
@@ -95,7 +85,7 @@ abstract contract ProverRegistry is IProverRegistry {
             bytes32(uint256(uint160(msg.sender))),
             abi.encodePacked(
                 type(SuccinctProver).creationCode,
-                abi.encode(I_PROVE, address(this), numProvers, msg.sender)
+                abi.encode(iProve, address(this), proverCount, msg.sender)
             )
         );
 
@@ -104,7 +94,7 @@ abstract contract ProverRegistry is IProverRegistry {
         provers[prover] = true;
 
         // Approve the prover to transfer $iPROVE to $PROVER-N during stake().
-        IERC20(I_PROVE).approve(prover, type(uint256).max);
+        IERC20(iProve).approve(prover, type(uint256).max);
 
         emit ProverDeploy(prover, msg.sender);
 

@@ -10,7 +10,7 @@ import {ERC1967Proxy} from
 contract SuccinctVAppScript is BaseScript, FixtureLoader {
     string internal constant KEY = "VAPP";
 
-    // Get from the corresponding chain here:
+    // Get from the corresponding chain deployment here:
     // https://github.com/succinctlabs/sp1-contracts/tree/main/contracts/deployments
     address internal SP1_VERIFIER_GATEWAY_GROTH16 = 0x397A5f7f3dBd538f23DE225B51f532c34448dA9B;
 
@@ -18,7 +18,6 @@ contract SuccinctVAppScript is BaseScript, FixtureLoader {
         // Read config
         bytes32 salt = readBytes32("CREATE2_SALT");
         address STAKING = readAddress("STAKING");
-        address USDC = readAddress("USDC");
         address PROVE = readAddress("PROVE");
         address VERIFIER = SP1_VERIFIER_GATEWAY_GROTH16;
 
@@ -29,7 +28,7 @@ contract SuccinctVAppScript is BaseScript, FixtureLoader {
         address vappImpl = address(new SuccinctVApp{salt: salt}());
         SuccinctVApp vapp =
             SuccinctVApp(payable(address(new ERC1967Proxy{salt: salt}(vappImpl, ""))));
-        vapp.initialize(msg.sender, USDC, PROVE, STAKING, VERIFIER, vkey);
+        vapp.initialize(msg.sender, PROVE, STAKING, VERIFIER, vkey);
         vapp.addToken(PROVE);
 
         // Write address

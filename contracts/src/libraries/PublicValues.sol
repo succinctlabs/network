@@ -3,8 +3,8 @@ pragma solidity ^0.8.28;
 
 /// @notice The public values encoded as a struct that can be easily deserialized inside Solidity.
 struct PublicValuesStruct {
-    bytes32 old_root;
-    bytes32 new_root;
+    bytes32 oldRoot;
+    bytes32 newRoot;
     uint64 timestamp;
     Action[] actions;
 }
