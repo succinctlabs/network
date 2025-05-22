@@ -51,6 +51,11 @@ contract SuccinctProver is ERC4626, IProver {
         return OWNER;
     }
 
+    /// @inheritdoc IProver
+    function staking() external view override returns (address) {
+        return STAKING;
+    }
+
     /// @dev Override to prevent transfers of PROVER-N tokens except for stake/unstake
     function _update(address _from, address _to, uint256 _value) internal override(ERC20) {
         if (msg.sender != STAKING) {

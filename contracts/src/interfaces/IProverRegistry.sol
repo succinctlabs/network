@@ -21,7 +21,7 @@ interface IProverRegistry {
     function prove() external view returns (address);
 
     /// @notice The address of the $iPROVE token.
-    function intermediateProve() external view returns (address);
+    function iProve() external view returns (address);
 
     /// @notice The number of provers in the registry.
     function proverCount() external view returns (uint256);

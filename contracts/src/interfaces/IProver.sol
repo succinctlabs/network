@@ -17,4 +17,8 @@ interface IProver {
     ///      to this prover's stakers.
     /// @return The address of the owner.
     function owner() external view returns (address);
+
+    /// @notice Get the staking contract for this prover.
+    /// @return The address of the staking contract.
+    function staking() external view returns (address);
 }

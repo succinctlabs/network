@@ -57,81 +57,74 @@ contract SuccinctVApp is
 {
     using SafeERC20 for ERC20;
 
-    /// @notice The maximum fee value (100% in basis points)
-    uint256 public constant FEE_UNIT = 10000;
+    /// @inheritdoc ISuccinctVApp
+    uint256 public constant override FEE_UNIT = 10000;
 
-    /// @notice The address of the PROVE token
-    address public PROVE;
+    /// @inheritdoc ISuccinctVApp
+    address public override prove;
 
-    /// @notice The address of the succinct staking contract
-    address public STAKING;
+    /// @inheritdoc ISuccinctVApp
+    address public override staking;
 
-    /// @notice The address of the SP1 verifier contract.
-    /// @dev This can either be a specific SP1Verifier for a specific version, or the
-    ///      SP1VerifierGateway which can be used to verify proofs for any version of SP1.
-    ///      For the list of supported verifiers on each chain, see:
-    ///      https://github.com/succinctlabs/sp1-contracts/tree/main/contracts/deployments
-    address public verifier;
+    /// @inheritdoc ISuccinctVApp
+    address public override verifier;
 
-    /// @notice The verification key for the fibonacci program.
-    bytes32 public VAPP_PROGRAM_VKEY;
+    /// @inheritdoc ISuccinctVApp
+    bytes32 public override vappProgramVKey;
 
-    /// @notice The block number of the last state update
-    uint64 public blockNumber;
+    /// @inheritdoc ISuccinctVApp
+    uint64 public override blockNumber;
 
-    /// @notice State root for each block
-    mapping(uint64 => bytes32) public roots;
+    /// @inheritdoc ISuccinctVApp
+    uint64 public override maxActionDelay;
 
-    /// @notice Timestamp for each block
-    mapping(uint64 => uint64) public timestamps;
+    /// @inheritdoc ISuccinctVApp
+    uint64 public override freezeDuration;
 
-    /// @notice The maximum delay for actions to be committed, in seconds
-    uint64 public maxActionDelay;
+    /// @inheritdoc ISuccinctVApp
+    uint64 public override currentReceipt;
 
-    /// @notice How long it takes for the state to be frozen
-    uint64 public freezeDuration;
+    /// @inheritdoc ISuccinctVApp
+    uint64 public override finalizedReceipt;
 
-    /// @notice Mapping of whitelisted tokens
-    mapping(address => bool) public whitelistedTokens;
+    /// @inheritdoc ISuccinctVApp
+    mapping(uint64 => bytes32) public override roots;
 
-    /// @notice The minimum amount for deposit/withdraw operations for each token
-    mapping(address => uint256) public minAmounts;
+    /// @inheritdoc ISuccinctVApp
+    mapping(uint64 => uint64) public override timestamps;
 
-    /// @notice The total deposits for each token on the vapp
-    mapping(address => uint256) public totalDeposits;
+    /// @inheritdoc ISuccinctVApp
+    mapping(address => bool) public override whitelistedTokens;
 
-    /// @notice Tracks the incrementing receipt counter
-    uint64 public currentReceipt;
+    /// @inheritdoc ISuccinctVApp
+    mapping(address => uint256) public override minAmounts;
 
-    /// @notice The receipt of the last finalized deposit
-    uint64 public finalizedReceipt;
+    /// @inheritdoc ISuccinctVApp
+    mapping(address => uint256) public override totalDeposits;
 
-    /// @notice Receipts for pending actions
-    mapping(uint64 => Receipt) public receipts;
+    /// @inheritdoc ISuccinctVApp
+    mapping(uint64 => Receipt) public override receipts;
 
-    /// @notice The total pending withdrawal claims for each token
-    mapping(address => uint256) public pendingWithdrawalClaims;
+    /// @inheritdoc ISuccinctVApp
+    mapping(address => uint256) public override pendingWithdrawalClaims;
 
-    /// @notice The delegated signers for each owner of a prover
-    mapping(address => address[]) public delegatedSigners;
+    /// @inheritdoc ISuccinctVApp
+    mapping(address => bool) public override usedSigners;
 
-    /// @notice The signers that have been used for delegation
-    mapping(address => bool) public usedSigners;
+    /// @inheritdoc ISuccinctVApp
+    mapping(address => mapping(address => uint256)) public override withdrawalClaims;
 
-    /// @notice The claimable withdrawals for each account and token
-    mapping(address => mapping(address => uint256)) public withdrawalClaims;
+    mapping(address => address[]) internal delegatedSigners;
 
     /*//////////////////////////////////////////////////////////////
                               INITIALIZER
     //////////////////////////////////////////////////////////////*/
 
-    /// @notice Constructor
     /// @custom:oz-upgrades-unsafe-allow constructor
     constructor() {
         _disableInitializers();
     }
 
-    /// @notice Initializer
     /// @custom:oz-upgrades-unsafe-allow-initializers
     function initialize(
         address _owner,
@@ -147,10 +140,10 @@ contract SuccinctVApp is
         __ReentrancyGuard_init();
         __Ownable_init(_owner);
 
-        PROVE = _prove;
-        STAKING = _staking;
+        prove = _prove;
+        staking = _staking;
         verifier = _verifier;
-        VAPP_PROGRAM_VKEY = _vappProgramVKey;
+        vappProgramVKey = _vappProgramVKey;
         maxActionDelay = 1 days;
         freezeDuration = 1 days;
 
@@ -162,21 +155,18 @@ contract SuccinctVApp is
         emit Fork(_vappProgramVKey, 0, bytes32(0), bytes32(0));
     }
 
-    /// @notice Returns the state root for the current block.
-    function root() public view returns (bytes32) {
+    /// @inheritdoc ISuccinctVApp
+    function root() public view override returns (bytes32) {
         return roots[blockNumber];
     }
 
-    /// @notice Returns the timestamp for the current block.
-    function timestamp() public view returns (uint64) {
+    /// @inheritdoc ISuccinctVApp
+    function timestamp() public view override returns (uint64) {
         return timestamps[blockNumber];
     }
 
-    /// @notice Returns the index of a delegated signer for an owner
-    /// @param _owner The owner to check
-    /// @param _signer The signer to check
-    /// @return index The index of the signer, returns type(uint256).max if not found
-    function hasDelegatedSigner(address _owner, address _signer) public view returns (uint256) {
+    /// @inheritdoc ISuccinctVApp
+    function hasDelegatedSigner(address _owner, address _signer) public view override returns (uint256) {
         address[] memory signers = delegatedSigners[_owner];
         for (uint256 i = 0; i < signers.length; i++) {
             if (signers[i] == _signer) {
@@ -187,10 +177,8 @@ contract SuccinctVApp is
         return type(uint256).max;
     }
 
-    /// @notice Get the delegated signers for an owner
-    /// @param _owner The owner to get the delegated signers for
-    /// @return The delegated signers
-    function getDelegatedSigners(address _owner) external view returns (address[] memory) {
+    /// @inheritdoc ISuccinctVApp
+    function getDelegatedSigners(address _owner) external view override returns (address[] memory) {
         return delegatedSigners[_owner];
     }
 
@@ -198,13 +186,10 @@ contract SuccinctVApp is
                                   CORE
     //////////////////////////////////////////////////////////////*/
 
-    /// @notice Deposit
-    /// @dev Scales the deposit amount by the UNIT factor
-    /// @param account The account to deposit to
-    /// @param token The token to deposit
-    /// @param amount The amount to deposit
+    /// @inheritdoc ISuccinctVApp
     function deposit(address account, address token, uint256 amount)
         external
+        override
         nonReentrant
         returns (uint64 receipt)
     {
@@ -229,13 +214,10 @@ contract SuccinctVApp is
         ERC20(token).safeTransferFrom(msg.sender, address(this), amount);
     }
 
-    /// @notice Withdraw from the sender's account to a recipient address
-    /// @dev Submit a withdraw request on the contract, can fail if balance is insufficient
-    /// @param to The recipient address to receive the withdrawn funds
-    /// @param token The token to withdraw
-    /// @param amount The amount to withdraw
+    /// @inheritdoc ISuccinctVApp
     function withdraw(address to, address token, uint256 amount)
         external
+        override
         nonReentrant
         returns (uint64 receipt)
     {
@@ -254,12 +236,10 @@ contract SuccinctVApp is
         receipt = _createReceipt(ActionType.Withdraw, data);
     }
 
-    /// @notice Claim a withdrawal
-    /// @dev Anyone can claim a withdrawal for an account
-    /// @param to The address to claim the withdrawal for
-    /// @param token The token to claim
+    /// @inheritdoc ISuccinctVApp
     function claimWithdrawal(address to, address token)
         external
+        override
         nonReentrant
         returns (uint256 amount)
     {
@@ -276,15 +256,13 @@ contract SuccinctVApp is
         emit WithdrawalClaimed(to, token, msg.sender, amount);
     }
 
-    /// @notice Add a delegated signer for an owner
-    /// @dev Only callable by the prover owner
-    /// @param _signer The delegated signer to add
-    function addDelegatedSigner(address _signer) external returns (uint64 receipt) {
+    /// @inheritdoc ISuccinctVApp
+    function addDelegatedSigner(address _signer) external override returns (uint64 receipt) {
         if (_signer == address(0)) revert ZeroAddress();
         if (usedSigners[_signer]) revert InvalidSigner();
-        if (!ISuccinctStaking(STAKING).hasProver(msg.sender)) revert ZeroAddress();
-        if (ISuccinctStaking(STAKING).isProver(_signer)) revert InvalidSigner();
-        if (ISuccinctStaking(STAKING).hasProver(_signer)) revert InvalidSigner();
+        if (!ISuccinctStaking(staking).hasProver(msg.sender)) revert ZeroAddress();
+        if (ISuccinctStaking(staking).isProver(_signer)) revert InvalidSigner();
+        if (ISuccinctStaking(staking).hasProver(_signer)) revert InvalidSigner();
 
         // Create the receipt.
         bytes memory data = abi.encode(AddSignerAction({owner: msg.sender, signer: _signer}));
@@ -295,9 +273,7 @@ contract SuccinctVApp is
         delegatedSigners[msg.sender].push(_signer);
     }
 
-    /// @notice Remove a delegated signer for an owner
-    /// @dev Only callable by the prover owner
-    /// @param _signer The delegated signer to remove
+    /// @inheritdoc ISuccinctVApp
     function removeDelegatedSigner(address _signer) external returns (uint64 receipt) {
         uint256 index = hasDelegatedSigner(msg.sender, _signer);
         if (index == type(uint256).max) revert InvalidSigner();
@@ -314,17 +290,14 @@ contract SuccinctVApp is
         delegatedSigners[msg.sender].pop();
     }
 
-    /// @notice The entrypoint for verifying the state transition proof, commits actions and updates the state root
-    /// @dev Reverts if the committed actions are invalid, callable by anyone
-    /// @param _proofBytes The encoded proof
-    /// @param _publicValues The encoded public values
+    /// @inheritdoc ISuccinctVApp
     function updateState(bytes calldata _publicValues, bytes calldata _proofBytes)
         public
         nonReentrant
         returns (uint64, bytes32, bytes32)
     {
         // Verify the proof.
-        ISP1Verifier(verifier).verifyProof(VAPP_PROGRAM_VKEY, _publicValues, _proofBytes);
+        ISP1Verifier(verifier).verifyProof(vappProgramVKey, _publicValues, _proofBytes);
         PublicValuesStruct memory publicValues = abi.decode(_publicValues, (PublicValuesStruct));
         if (publicValues.newRoot == bytes32(0)) revert InvalidRoot();
 
@@ -352,11 +325,7 @@ contract SuccinctVApp is
         return (_block, publicValues.newRoot, publicValues.oldRoot);
     }
 
-    /// @notice Emergency withdraw.
-    /// @dev Anyone can call this function to withdraw their balance after the freeze duration has passed
-    /// @param _token The token to withdraw
-    /// @param _balance The balance to withdraw
-    /// @param _proof The proof of the balance
+    /// @inheritdoc ISuccinctVApp
     function emergencyWithdraw(address _token, uint256 _balance, bytes32[] calldata _proof)
         external
         nonReentrant
@@ -392,7 +361,7 @@ contract SuccinctVApp is
         bytes calldata _proofBytes
     ) external onlyOwner returns (uint64, bytes32, bytes32) {
         // Update the vkey.
-        VAPP_PROGRAM_VKEY = _vkey;
+        vappProgramVKey = _vkey;
 
         // Update the root and produce a new block.
         bytes32 _oldRoot = bytes32(0);
@@ -403,7 +372,7 @@ contract SuccinctVApp is
         roots[++_block] = _newOldRoot;
 
         emit Block(_block, _newOldRoot, _oldRoot);
-        emit Fork(VAPP_PROGRAM_VKEY, _block, _newOldRoot, _oldRoot);
+        emit Fork(vappProgramVKey, _block, _newOldRoot, _oldRoot);
 
         return updateState(_publicValues, _proofBytes);
     }
@@ -412,7 +381,7 @@ contract SuccinctVApp is
     /// @dev Only callable by the owner
     /// @param _staking The new staking contract address
     function updateStaking(address _staking) public onlyOwner {
-        STAKING = _staking;
+        staking = _staking;
 
         emit UpdatedStaking(_staking);
     }
@@ -601,7 +570,7 @@ contract SuccinctVApp is
     function _slashActions(SlashInternal[] memory _actions) internal {
         for (uint64 i = 0; i < _actions.length; i++) {
             if (_actions[i].action.status == ReceiptStatus.Completed) {
-                ISuccinctStaking(STAKING).requestSlash(
+                ISuccinctStaking(staking).requestSlash(
                     _actions[i].data.prover, _actions[i].data.amount
                 );
 
@@ -617,10 +586,10 @@ contract SuccinctVApp is
         for (uint64 i = 0; i < _actions.length; i++) {
             if (_actions[i].action.status == ReceiptStatus.Completed) {
                 // Approve $PROVE transfer for the staking contract.
-                ERC20(PROVE).approve(_actions[i].data.prover, _actions[i].data.amount);
+                ERC20(prove).approve(_actions[i].data.prover, _actions[i].data.amount);
 
                 // Call reward function on staking contract.
-                ISuccinctStaking(STAKING).reward(_actions[i].data.prover, _actions[i].data.amount);
+                ISuccinctStaking(staking).reward(_actions[i].data.prover, _actions[i].data.amount);
 
                 emit ReceiptCompleted(
                     _actions[i].action.receipt, ActionType.Reward, _actions[i].action.data
@@ -644,7 +613,7 @@ contract SuccinctVApp is
                     uint256 assertedProveBalance = _actions[i].data.proveBalances[j];
 
                     // Check $PROVE token balance.
-                    uint256 actualProveBalance = ERC20(PROVE).balanceOf(prover);
+                    uint256 actualProveBalance = ERC20(prove).balanceOf(prover);
                     if (actualProveBalance != assertedProveBalance) {
                         revert BalanceMismatch();
                     }
