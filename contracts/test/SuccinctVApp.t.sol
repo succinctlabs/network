@@ -3,8 +3,6 @@ pragma solidity ^0.8.28;
 
 import {Test, console} from "../lib/forge-std/src/Test.sol";
 import {stdJson} from "../lib/forge-std/src/StdJson.sol";
-import {FixtureLoader, Fixture, SP1ProofFixtureJson} from "./utils/FixtureLoader.sol";
-import {MockERC20} from "./utils/MockERC20.sol";
 import {SuccinctVApp} from "../src/SuccinctVApp.sol";
 import {ISuccinctVApp} from "../src/interfaces/ISuccinctVApp.sol";
 import {Actions} from "../src/libraries/Actions.sol";
@@ -23,6 +21,8 @@ import {
 import {MockStaking} from "../src/mocks/MockStaking.sol";
 import {MockVerifier} from "../src/mocks/MockVerifier.sol";
 import {ISP1Verifier} from "../src/interfaces/ISP1Verifier.sol";
+import {FixtureLoader, Fixture, SP1ProofFixtureJson} from "./utils/FixtureLoader.sol";
+import {MockERC20} from "./utils/MockERC20.sol";
 import {ERC20} from "../lib/openzeppelin-contracts/contracts/token/ERC20/ERC20.sol";
 import {ERC1967Proxy} from "../lib/openzeppelin-contracts/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 
@@ -74,7 +74,7 @@ contract SuccinctVAppTest is Test, FixtureLoader {
         // Deploy staking
         STAKING = address(new MockStaking(PROVE));
 
-        // Deploy vapp
+        // Deploy VApp
         address vappImpl = address(new SuccinctVApp());
         VAPP = address(new ERC1967Proxy(vappImpl, ""));
         SuccinctVApp(VAPP).initialize(
