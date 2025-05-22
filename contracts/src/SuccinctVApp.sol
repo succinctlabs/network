@@ -64,7 +64,7 @@ contract SuccinctVApp is
     address public PROVE;
 
     /// @notice The address of the succinct staking contract
-    address public staking;
+    address public STAKING;
 
     /// @notice The address of the SP1 verifier contract.
     /// @dev This can either be a specific SP1Verifier for a specific version, or the
@@ -148,7 +148,7 @@ contract SuccinctVApp is
         __Ownable_init(_owner);
 
         PROVE = _prove;
-        staking = _staking;
+        STAKING = _staking;
         verifier = _verifier;
         vappProgramVKey = _vappProgramVKey;
         maxActionDelay = 1 days;
@@ -201,7 +201,7 @@ contract SuccinctVApp is
     /// @dev Only callable by the owner
     /// @param _staking The new staking contract address
     function updateStaking(address _staking) external onlyOwner {
-        staking = _staking;
+        STAKING = _staking;
 
         emit UpdatedStaking(_staking);
     }
@@ -381,9 +381,9 @@ contract SuccinctVApp is
     function addDelegatedSigner(address _signer) external returns (uint64 receipt) {
         if (_signer == address(0)) revert ZeroAddress();
         if (usedSigners[_signer]) revert InvalidSigner();
-        if (!ISuccinctStaking(staking).hasProver(msg.sender)) revert ZeroAddress();
-        if (ISuccinctStaking(staking).isProver(_signer)) revert InvalidSigner();
-        if (ISuccinctStaking(staking).hasProver(_signer)) revert InvalidSigner();
+        if (!ISuccinctStaking(STAKING).hasProver(msg.sender)) revert ZeroAddress();
+        if (ISuccinctStaking(STAKING).isProver(_signer)) revert InvalidSigner();
+        if (ISuccinctStaking(STAKING).hasProver(_signer)) revert InvalidSigner();
 
         bytes memory data = abi.encode(AddSignerAction({owner: msg.sender, signer: _signer}));
         receipt = _createReceipt(ActionType.AddSigner, data);
@@ -596,7 +596,7 @@ contract SuccinctVApp is
     function _slashActions(SlashInternal[] memory _actions) internal {
         for (uint64 i = 0; i < _actions.length; i++) {
             if (_actions[i].action.status == ReceiptStatus.Completed) {
-                ISuccinctStaking(staking).requestSlash(
+                ISuccinctStaking(STAKING).requestSlash(
                     _actions[i].data.prover, _actions[i].data.amount
                 );
 
@@ -615,7 +615,7 @@ contract SuccinctVApp is
                 ERC20(PROVE).approve(_actions[i].data.prover, _actions[i].data.amount);
 
                 // Call reward function on staking contract.
-                ISuccinctStaking(staking).reward(_actions[i].data.prover, _actions[i].data.amount);
+                ISuccinctStaking(STAKING).reward(_actions[i].data.prover, _actions[i].data.amount);
 
                 emit ReceiptCompleted(
                     _actions[i].action.receipt, ActionType.Reward, _actions[i].action.data
