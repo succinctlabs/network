@@ -1,20 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.28;
 
-import {ISP1Verifier} from "./interfaces/ISP1Verifier.sol";
-import {Initializable} from
-    "../lib/openzeppelin-contracts-upgradeable/contracts/proxy/utils/Initializable.sol";
-import {ReentrancyGuardUpgradeable} from
-    "../lib/openzeppelin-contracts-upgradeable/contracts/utils/ReentrancyGuardUpgradeable.sol";
-import {OwnableUpgradeable} from
-    "../lib/openzeppelin-contracts-upgradeable/contracts/access/OwnableUpgradeable.sol";
-import {MerkleProof} from
-    "../lib/openzeppelin-contracts/contracts/utils/cryptography/MerkleProof.sol";
-import {ERC20} from "../lib/openzeppelin-contracts/contracts/token/ERC20/ERC20.sol";
-import {SafeERC20} from "../lib/openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol";
-
-import {ISuccinctVApp} from "./interfaces/ISuccinctVApp.sol";
-import {ISuccinctStaking} from "./interfaces/ISuccinctStaking.sol";
 import {
     Receipt,
     Actions,
@@ -42,6 +28,19 @@ import {
     ProverStateAction,
     FeeUpdateAction
 } from "./libraries/PublicValues.sol";
+import {ISuccinctVApp} from "./interfaces/ISuccinctVApp.sol";
+import {ISuccinctStaking} from "./interfaces/ISuccinctStaking.sol";
+import {ISP1Verifier} from "./interfaces/ISP1Verifier.sol";
+import {Initializable} from
+    "../lib/openzeppelin-contracts-upgradeable/contracts/proxy/utils/Initializable.sol";
+import {ReentrancyGuardUpgradeable} from
+    "../lib/openzeppelin-contracts-upgradeable/contracts/utils/ReentrancyGuardUpgradeable.sol";
+import {OwnableUpgradeable} from
+    "../lib/openzeppelin-contracts-upgradeable/contracts/access/OwnableUpgradeable.sol";
+import {MerkleProof} from
+    "../lib/openzeppelin-contracts/contracts/utils/cryptography/MerkleProof.sol";
+import {ERC20} from "../lib/openzeppelin-contracts/contracts/token/ERC20/ERC20.sol";
+import {SafeERC20} from "../lib/openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol";
 import {UUPSUpgradeable} from
     "../lib/openzeppelin-contracts-upgradeable/contracts/proxy/utils/UUPSUpgradeable.sol";
 
@@ -133,7 +132,10 @@ contract SuccinctVApp is
         address _verifier,
         bytes32 _vappProgramVKey
     ) external initializer {
-        if (_owner == address(0) || _prove == address(0) || _staking == address(0) || _verifier == address(0)) {
+        if (
+            _owner == address(0) || _prove == address(0) || _staking == address(0)
+                || _verifier == address(0)
+        ) {
             revert ZeroAddress();
         }
 
@@ -166,7 +168,12 @@ contract SuccinctVApp is
     }
 
     /// @inheritdoc ISuccinctVApp
-    function hasDelegatedSigner(address _owner, address _signer) public view override returns (uint256) {
+    function hasDelegatedSigner(address _owner, address _signer)
+        public
+        view
+        override
+        returns (uint256)
+    {
         address[] memory signers = delegatedSigners[_owner];
         for (uint256 i = 0; i < signers.length; i++) {
             if (signers[i] == _signer) {
@@ -178,7 +185,12 @@ contract SuccinctVApp is
     }
 
     /// @inheritdoc ISuccinctVApp
-    function getDelegatedSigners(address _owner) external view override returns (address[] memory) {
+    function getDelegatedSigners(address _owner)
+        external
+        view
+        override
+        returns (address[] memory)
+    {
         return delegatedSigners[_owner];
     }
 
@@ -348,18 +360,13 @@ contract SuccinctVApp is
                                  OWNER
     //////////////////////////////////////////////////////////////*/
 
-    /// @notice Updates the vapp program verification key, forks the state root
-    /// @dev Only callable by the owner, executes a state update
-    /// @param _vkey The new vkey
-    /// @param _newOldRoot The old root committed by the new program
-    /// @param _publicValues The encoded public values
-    /// @param _proofBytes The encoded proof
+    /// @inheritdoc ISuccinctVApp
     function fork(
         bytes32 _vkey,
         bytes32 _newOldRoot,
         bytes calldata _publicValues,
         bytes calldata _proofBytes
-    ) external onlyOwner returns (uint64, bytes32, bytes32) {
+    ) external override onlyOwner returns (uint64, bytes32, bytes32) {
         // Update the vkey.
         vappProgramVKey = _vkey;
 
@@ -377,46 +384,36 @@ contract SuccinctVApp is
         return updateState(_publicValues, _proofBytes);
     }
 
-    /// @notice Updates the succinct staking contract address
-    /// @dev Only callable by the owner
-    /// @param _staking The new staking contract address
-    function updateStaking(address _staking) public onlyOwner {
+    /// @inheritdoc ISuccinctVApp
+    function updateStaking(address _staking) public override onlyOwner {
         staking = _staking;
 
         emit UpdatedStaking(_staking);
     }
 
-    /// @notice Updates the verifier address
-    /// @dev Only callable by the owner
-    /// @param _verifier The new verifier address
-    function updateVerifier(address _verifier) public onlyOwner {
+    /// @inheritdoc ISuccinctVApp
+    function updateVerifier(address _verifier) public override onlyOwner {
         verifier = _verifier;
 
         emit UpdatedVerifier(_verifier);
     }
 
-    /// @notice Updates the max action delay
-    /// @dev Only callable by the owner
-    /// @param _maxActionDelay The new max action delay
-    function updateActionDelay(uint64 _maxActionDelay) public onlyOwner {
+    /// @inheritdoc ISuccinctVApp
+    function updateActionDelay(uint64 _maxActionDelay) public override onlyOwner {
         maxActionDelay = _maxActionDelay;
 
         emit UpdatedMaxActionDelay(_maxActionDelay);
     }
 
-    /// @notice Updates the freeze duration
-    /// @dev Only callable by the owner
-    /// @param _freezeDuration The new freeze duration
-    function updateFreezeDuration(uint64 _freezeDuration) public onlyOwner {
+    /// @inheritdoc ISuccinctVApp
+    function updateFreezeDuration(uint64 _freezeDuration) public override onlyOwner {
         freezeDuration = _freezeDuration;
 
         emit UpdatedFreezeDuration(_freezeDuration);
     }
 
-    /// @notice Adds a token to the whitelist
-    /// @dev Only callable by the owner
-    /// @param _token The token address to add
-    function addToken(address _token) external onlyOwner {
+    /// @inheritdoc ISuccinctVApp
+    function addToken(address _token) external override onlyOwner {
         if (_token == address(0)) revert ZeroAddress();
         if (whitelistedTokens[_token]) revert TokenAlreadyWhitelisted();
 
@@ -425,10 +422,8 @@ contract SuccinctVApp is
         emit TokenWhitelist(_token, true);
     }
 
-    /// @notice Removes a token from the whitelist
-    /// @dev Only callable by the owner
-    /// @param _token The token address to remove
-    function removeToken(address _token) external onlyOwner {
+    /// @inheritdoc ISuccinctVApp
+    function removeToken(address _token) external override onlyOwner {
         if (!whitelistedTokens[_token]) revert TokenNotWhitelisted();
 
         whitelistedTokens[_token] = false;
@@ -436,11 +431,8 @@ contract SuccinctVApp is
         emit TokenWhitelist(_token, false);
     }
 
-    /// @notice Sets the minimum amount for a token for deposit/withdraw operations
-    /// @dev Only callable by the owner, if amount is 0, minimum check is skipped
-    /// @param _token The token address
-    /// @param _amount The minimum amount
-    function setMinAmount(address _token, uint256 _amount) external onlyOwner {
+    /// @inheritdoc ISuccinctVApp
+    function setMinAmount(address _token, uint256 _amount) external override onlyOwner {
         if (_token == address(0)) revert ZeroAddress();
 
         minAmounts[_token] = _amount;

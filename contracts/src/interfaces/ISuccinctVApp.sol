@@ -56,8 +56,8 @@ interface ISuccinctVApp {
         address indexed account, address indexed token, uint256 balance, bytes32 root
     );
 
-    error InvalidAmount();
     error ZeroAddress();
+    error InvalidAmount();
     error InvalidRoot();
     error InvalidOldRoot();
     error SweepTransferFailed();
@@ -124,7 +124,10 @@ interface ISuccinctVApp {
     function timestamps(uint64 block) external view returns (uint64);
 
     /// @notice Receipts for pending actions
-    function receipts(uint64 receipt) external view returns (ActionType action, ReceiptStatus status, uint64 timestamp, bytes memory data);
+    function receipts(uint64 receipt)
+        external
+        view
+        returns (ActionType action, ReceiptStatus status, uint64 timestamp, bytes memory data);
 
     /// @notice The total pending withdrawal claims for each token
     function pendingWithdrawalClaims(address token) external view returns (uint256);
@@ -145,7 +148,10 @@ interface ISuccinctVApp {
     /// @param owner The owner to check.
     /// @param signer The signer to check.
     /// @return index The index of the signer, returns type(uint256).max if not found.
-    function hasDelegatedSigner(address owner, address signer) external view returns (uint256 index);
+    function hasDelegatedSigner(address owner, address signer)
+        external
+        view
+        returns (uint256 index);
 
     /// @notice The delegated signers for the owner.
     /// @param owner The owner to get the delegated signers for.
@@ -201,8 +207,58 @@ interface ISuccinctVApp {
 
     /// @notice Emergency withdrawal.
     /// @dev Anyone can call this function to withdraw their balance after the freeze duration has passed.
-    /// @param token The token to withdraw
-    /// @param balance The balance to withdraw
-    /// @param proof The proof for the withdrawal
+    /// @param token The token to withdraw.
+    /// @param balance The balance to withdraw.
+    /// @param proof The proof for the withdrawal.
     function emergencyWithdraw(address token, uint256 balance, bytes32[] calldata proof) external;
+
+    /// @notice Updates the vapp program verification key, forks the state root.
+    /// @dev Only callable by the owner, executes a state update.
+    /// @param vkey The new vkey.
+    /// @param newOldRoot The old root committed by the new program.
+    /// @param publicValues The encoded public values.
+    /// @param proofBytes The encoded proof.
+    /// @return The block number, the new state root, and the old state root.
+    function fork(
+        bytes32 vkey,
+        bytes32 newOldRoot,
+        bytes calldata publicValues,
+        bytes calldata proofBytes
+    ) external returns (uint64, bytes32, bytes32);
+
+    /// @notice Updates the succinct staking contract address.
+    /// @dev Only callable by the owner.
+    /// @param staking The new staking contract address.
+    function updateStaking(address staking) external;
+
+    /// @notice Updates the verifier address.
+    /// @dev Only callable by the owner.
+    /// @param verifier The new verifier address.
+    function updateVerifier(address verifier) external;
+
+    /// @notice Updates the max action delay.
+    /// @dev Only callable by the owner.
+    /// @param maxActionDelay The new max action delay.
+    function updateActionDelay(uint64 maxActionDelay) external;
+
+    /// @notice Updates the freeze duration.
+    /// @dev Only callable by the owner.
+    /// @param freezeDuration The new freeze duration.
+    function updateFreezeDuration(uint64 freezeDuration) external;
+
+    /// @notice Adds a token to the whitelist.
+    /// @dev Only callable by the owner.
+    /// @param token The token to add to the whitelist.
+    function addToken(address token) external;
+
+    /// @notice Removes a token from the whitelist.
+    /// @dev Only callable by the owner.
+    /// @param token The token to remove from the whitelist.
+    function removeToken(address token) external;
+
+    /// @notice Updates the minimum amount for deposit/withdraw operations for each token.
+    /// @dev Only callable by the owner.
+    /// @param token The token to update the minimum amount for.
+    /// @param amount The new minimum amount.
+    function setMinAmount(address token, uint256 amount) external;
 }
