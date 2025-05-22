@@ -140,7 +140,7 @@ contract SuccinctVApp is
         address _verifier,
         bytes32 _vappProgramVKey
     ) external initializer {
-        if (_owner == address(0) || _prove == address(0)) {
+        if (_owner == address(0) || _prove == address(0) || _staking == address(0) || _verifier == address(0)) {
             revert ZeroAddress();
         }
 
@@ -154,11 +154,12 @@ contract SuccinctVApp is
         maxActionDelay = 1 days;
         freezeDuration = 1 days;
 
-        emit UpdatedStaking(_staking);
-        emit UpdatedVerifier(_verifier);
+        updateStaking(_staking);
+        updateVerifier(_verifier);
+        updateActionDelay(maxActionDelay);
+        updateFreezeDuration(freezeDuration);
+
         emit Fork(_vappProgramVKey, 0, bytes32(0), bytes32(0));
-        emit UpdatedMaxActionDelay(maxActionDelay);
-        emit UpdatedFreezeDuration(freezeDuration);
     }
 
     /// @notice Returns the state root for the current block.
@@ -200,7 +201,7 @@ contract SuccinctVApp is
     /// @notice Updates the succinct staking contract address
     /// @dev Only callable by the owner
     /// @param _staking The new staking contract address
-    function updateStaking(address _staking) external onlyOwner {
+    function updateStaking(address _staking) public onlyOwner {
         STAKING = _staking;
 
         emit UpdatedStaking(_staking);
@@ -209,7 +210,7 @@ contract SuccinctVApp is
     /// @notice Updates the verifier address
     /// @dev Only callable by the owner
     /// @param _verifier The new verifier address
-    function updateVerifier(address _verifier) external onlyOwner {
+    function updateVerifier(address _verifier) public onlyOwner {
         verifier = _verifier;
 
         emit UpdatedVerifier(verifier);
@@ -218,7 +219,7 @@ contract SuccinctVApp is
     /// @notice Updates the max action delay
     /// @dev Only callable by the owner
     /// @param _actionDelay The new max action delay
-    function updateActionDelay(uint64 _actionDelay) external onlyOwner {
+    function updateActionDelay(uint64 _actionDelay) public onlyOwner {
         maxActionDelay = _actionDelay;
 
         emit UpdatedMaxActionDelay(maxActionDelay);
@@ -227,7 +228,7 @@ contract SuccinctVApp is
     /// @notice Updates the freeze duration
     /// @dev Only callable by the owner
     /// @param _freezeDuration The new freeze duration
-    function updateFreezeDuration(uint64 _freezeDuration) external onlyOwner {
+    function updateFreezeDuration(uint64 _freezeDuration) public onlyOwner {
         freezeDuration = _freezeDuration;
 
         emit UpdatedFreezeDuration(freezeDuration);
@@ -629,11 +630,9 @@ contract SuccinctVApp is
         for (uint64 i = 0; i < _actions.length; i++) {
             if (_actions[i].action.status == ReceiptStatus.Completed) {
                 // Verify array lengths match.
-                require(
-                    _actions[i].data.provers.length == _actions[i].data.proveBalances.length
-                        && _actions[i].data.provers.length == _actions[i].data.usdcBalances.length,
-                    "Array length mismatch"
-                );
+                if (_actions[i].data.provers.length != _actions[i].data.proveBalances.length) {
+                    revert ArrayLengthMismatch();
+                }
 
                 // Verify each prover's on-chain balance matches the asserted balance.
                 for (uint256 j = 0; j < _actions[i].data.provers.length; j++) {
@@ -642,7 +641,9 @@ contract SuccinctVApp is
 
                     // Check $PROVE token balance.
                     uint256 actualProveBalance = ERC20(PROVE).balanceOf(prover);
-                    require(actualProveBalance == assertedProveBalance, "PROVE balance mismatch");
+                    if (actualProveBalance != assertedProveBalance) {
+                        revert BalanceMismatch();
+                    }
                 }
 
                 emit ReceiptCompleted(

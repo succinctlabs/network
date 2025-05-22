@@ -26,6 +26,12 @@ interface ISuccinctVApp {
     error MinAmount();
     error ETHTransferFailed();
 
+    /// @dev Thrown if the array lengths do not match.
+    error ArrayLengthMismatch();
+
+    /// @dev Thrown if the actual balance does not match the expected balance.
+    error BalanceMismatch();
+
     /*//////////////////////////////////////////////////////////////
                                  OWNER
     //////////////////////////////////////////////////////////////*/
