@@ -23,23 +23,26 @@ import {MockERC20} from "./utils/MockERC20.sol";
 contract SuccinctVAppDepositTest is SuccinctVAppTest {
     function test_Deposit_WhenValid() public {
         uint256 amount = 100e6;
-        MockERC20(PROVE).mint(address(this), amount);
-        MockERC20(PROVE).approve(VAPP, amount);
+        MockERC20(PROVE).mint(REQUESTER_1, amount);
 
-        assertEq(MockERC20(PROVE).balanceOf(address(this)), amount);
+        assertEq(MockERC20(PROVE).balanceOf(REQUESTER_1), amount);
         assertEq(MockERC20(PROVE).balanceOf(VAPP), 0);
         assertEq(SuccinctVApp(VAPP).currentReceipt(), 0);
         (, ReceiptStatus status,,) = SuccinctVApp(VAPP).receipts(1);
         assertEq(uint8(status), uint8(ReceiptStatus.None));
 
+        vm.startPrank(REQUESTER_1);
+        MockERC20(PROVE).approve(VAPP, amount);
+
         // Deposit
         bytes memory data =
-            abi.encode(DepositAction({account: address(this), amount: amount, token: PROVE}));
+            abi.encode(DepositAction({account: REQUESTER_1, amount: amount, token: PROVE}));
         vm.expectEmit(true, true, true, true);
         emit ISuccinctVApp.ReceiptPending(1, ActionType.Deposit, data);
-        SuccinctVApp(VAPP).deposit(address(this), amount);
+        SuccinctVApp(VAPP).deposit(amount);
+        vm.stopPrank();
 
-        assertEq(MockERC20(PROVE).balanceOf(address(this)), 0);
+        assertEq(MockERC20(PROVE).balanceOf(REQUESTER_1), 0);
         assertEq(MockERC20(PROVE).balanceOf(VAPP), amount);
         assertEq(SuccinctVApp(VAPP).currentReceipt(), 1);
         (, status,,) = SuccinctVApp(VAPP).receipts(1);
@@ -126,21 +129,6 @@ contract SuccinctVAppDepositTest is SuccinctVAppTest {
         assertEq(SuccinctVApp(VAPP).finalizedReceipt(), 1);
     }
 
-    function test_RevertDeposit_WhenZeroAddress() public {
-        uint256 amount = 100e6;
-        MockERC20(PROVE).mint(REQUESTER_1, amount);
-
-        vm.startPrank(REQUESTER_1);
-        MockERC20(PROVE).approve(VAPP, amount);
-
-        vm.expectRevert(abi.encodeWithSelector(ISuccinctVApp.ZeroAddress.selector));
-        SuccinctVApp(VAPP).deposit(address(0), amount);
-        vm.stopPrank();
-
-        // Verify no deposit receipt was created
-        assertEq(SuccinctVApp(VAPP).currentReceipt(), 0);
-    }
-
     function test_RevertDeposit_WhenBelowMinimum() public {
         uint256 minAmount = 10e6; // 10 PROVE
         uint256 depositAmount = minAmount / 2; // 5 PROVE - below minimum
@@ -155,7 +143,7 @@ contract SuccinctVAppDepositTest is SuccinctVAppTest {
         MockERC20(PROVE).approve(VAPP, depositAmount);
 
         vm.expectRevert(abi.encodeWithSelector(ISuccinctVApp.TransferBelowMinimum.selector));
-        SuccinctVApp(VAPP).deposit(REQUESTER_1, depositAmount);
+        SuccinctVApp(VAPP).deposit(depositAmount);
         vm.stopPrank();
 
         // Verify no deposit receipt was created

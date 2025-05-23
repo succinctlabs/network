@@ -200,12 +200,12 @@ contract SuccinctVApp is
     //////////////////////////////////////////////////////////////*/
 
     /// @inheritdoc ISuccinctVApp
-    function deposit(address _account, uint256 _amount)
+    function deposit(uint256 _amount)
         external
         override
         returns (uint64 receipt)
     {
-        return _deposit(msg.sender, _account, _amount);
+        return _deposit(msg.sender, _amount);
     }
 
     /// @inheritdoc ISuccinctVApp
@@ -219,7 +219,7 @@ contract SuccinctVApp is
     ) external override returns (uint64 receipt) {
         IERC20Permit(prove).permit(_from, address(this), _amount, _deadline, _v, _r, _s);
 
-        return _deposit(_from, _from, _amount);
+        return _deposit(_from, _amount);
     }
 
     /// @inheritdoc ISuccinctVApp
@@ -403,19 +403,17 @@ contract SuccinctVApp is
     //////////////////////////////////////////////////////////////*/
 
     /// @dev Credits a deposit receipt, transfers $PROVE from the sender to the VApp.
-    function _deposit(address _from, address _account, uint256 _amount)
+    function _deposit(address _from, uint256 _amount)
         internal
         returns (uint64 receipt)
     {
         // Validate.
-        if (_account == address(0)) revert ZeroAddress();
         if (_amount < minimumDeposit) {
             revert TransferBelowMinimum();
         }
 
         // Create the receipt.
-        bytes memory data =
-            abi.encode(DepositAction({account: _account, amount: _amount, token: prove}));
+        bytes memory data = abi.encode(DepositAction({account: _from, amount: _amount, token: prove}));
         receipt = _createReceipt(ActionType.Deposit, data);
 
         // Update the state.

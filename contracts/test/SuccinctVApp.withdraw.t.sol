@@ -29,7 +29,7 @@ contract SuccinctVAppWithdrawTest is SuccinctVAppTest {
         MockERC20(PROVE).mint(REQUESTER_1, amount);
         vm.startPrank(REQUESTER_1);
         MockERC20(PROVE).approve(VAPP, amount);
-        uint64 depositReceipt = SuccinctVApp(VAPP).deposit(REQUESTER_1, amount);
+        uint64 depositReceipt = SuccinctVApp(VAPP).deposit(amount);
         vm.stopPrank();
 
         // Update state after deposit
@@ -130,7 +130,7 @@ contract SuccinctVAppWithdrawTest is SuccinctVAppTest {
         MockERC20(PROVE).mint(REQUESTER_1, amount);
         vm.startPrank(REQUESTER_1);
         MockERC20(PROVE).approve(VAPP, amount);
-        uint64 depositReceipt = SuccinctVApp(VAPP).deposit(REQUESTER_1, amount);
+        uint64 depositReceipt = SuccinctVApp(VAPP).deposit(amount);
         vm.stopPrank();
 
         // Update state after deposit
