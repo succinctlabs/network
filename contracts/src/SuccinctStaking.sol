@@ -465,7 +465,7 @@ contract SuccinctStaking is
 
     /// @dev Set the new dispense rate.
     function _setDispenseRate(uint256 _newRate) internal {
-        emit DispenseRateUpdated(dispenseRate, _newRate);
+        emit DispenseRateUpdate(dispenseRate, _newRate);
 
         dispenseRate = _newRate;
     }

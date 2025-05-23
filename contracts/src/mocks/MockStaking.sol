@@ -195,6 +195,6 @@ contract MockStaking is ISuccinctStaking {
         // Simple mock implementation - just update rate
         uint256 oldRate = dispenseRate;
         dispenseRate = _newRate;
-        emit DispenseRateUpdated(oldRate, _newRate);
+        emit DispenseRateUpdate(oldRate, _newRate);
     }
 }

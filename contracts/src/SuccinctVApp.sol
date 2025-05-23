@@ -81,10 +81,22 @@ contract SuccinctVApp is
     uint64 public override freezeDuration;
 
     /// @inheritdoc ISuccinctVApp
+    uint256 public override minimumDeposit;
+
+    /// @inheritdoc ISuccinctVApp
+    uint256 public override totalDeposits;
+
+    /// @inheritdoc ISuccinctVApp
+    uint256 public override totalPendingWithdrawals;
+
+    /// @inheritdoc ISuccinctVApp
     uint64 public override currentReceipt;
 
     /// @inheritdoc ISuccinctVApp
     uint64 public override finalizedReceipt;
+
+    /// @inheritdoc ISuccinctVApp
+    mapping(address => uint256) public override withdrawalClaims;
 
     /// @inheritdoc ISuccinctVApp
     mapping(uint64 => bytes32) public override roots;
@@ -93,25 +105,10 @@ contract SuccinctVApp is
     mapping(uint64 => uint64) public override timestamps;
 
     /// @inheritdoc ISuccinctVApp
-    mapping(address => bool) public override whitelistedTokens;
-
-    /// @inheritdoc ISuccinctVApp
-    mapping(address => uint256) public override minAmounts;
-
-    /// @inheritdoc ISuccinctVApp
-    mapping(address => uint256) public override totalDeposits;
-
-    /// @inheritdoc ISuccinctVApp
     mapping(uint64 => Receipt) public override receipts;
 
     /// @inheritdoc ISuccinctVApp
-    mapping(address => uint256) public override pendingWithdrawalClaims;
-
-    /// @inheritdoc ISuccinctVApp
     mapping(address => bool) public override usedSigners;
-
-    /// @inheritdoc ISuccinctVApp
-    mapping(address => mapping(address => uint256)) public override withdrawalClaims;
 
     mapping(address => address[]) internal delegatedSigners;
 
@@ -201,77 +198,91 @@ contract SuccinctVApp is
     //////////////////////////////////////////////////////////////*/
 
     /// @inheritdoc ISuccinctVApp
-    function deposit(address account, address token, uint256 amount)
+    function deposit(address _account, uint256 _amount)
         external
         override
         nonReentrant
         returns (uint64 receipt)
     {
-        if (account == address(0)) revert ZeroAddress();
-        if (!whitelistedTokens[token]) revert TokenNotWhitelisted();
+        if (_account == address(0)) revert ZeroAddress();
 
-        // Check minimum amount if set (skip check if minimum is 0).
-        uint256 minAmount = minAmounts[token];
-        if (minAmount > 0 && amount < minAmount) {
+        // Check minimum amount.
+        if (_amount < minimumDeposit) {
             revert DepositBelowMinimum();
         }
 
         // Create the receipt.
         bytes memory data =
-            abi.encode(DepositAction({account: account, token: token, amount: amount}));
+            abi.encode(DepositAction({account: _account, amount: _amount, token: prove}));
         receipt = _createReceipt(ActionType.Deposit, data);
 
         // Update the state.
-        totalDeposits[token] += amount;
+        totalDeposits += _amount;
 
         // Transfer the deposit.
-        ERC20(token).safeTransferFrom(msg.sender, address(this), amount);
+        ERC20(prove).safeTransferFrom(msg.sender, address(this), _amount);
     }
 
     /// @inheritdoc ISuccinctVApp
-    function withdraw(address to, address token, uint256 amount)
+    function withdraw(address _to, uint256 _amount)
         external
         override
         nonReentrant
         returns (uint64 receipt)
     {
-        if (to == address(0)) revert ZeroAddress();
-        if (!whitelistedTokens[token]) revert TokenNotWhitelisted();
+        if (_to == address(0)) revert ZeroAddress();
 
-        // Check minimum amount if set (skip check if minimum is 0).
-        uint256 minAmount = minAmounts[token];
-        if (minAmount > 0 && amount < minAmount) {
+        // Check minimum amount.
+        if (_amount < minimumDeposit) {
             revert DepositBelowMinimum();
         }
 
         // Create the receipt.
-        bytes memory data =
-            abi.encode(WithdrawAction({account: msg.sender, token: token, amount: amount, to: to}));
+        bytes memory data = abi.encode(
+            WithdrawAction({account: msg.sender, amount: _amount, to: _to, token: prove})
+        );
         receipt = _createReceipt(ActionType.Withdraw, data);
     }
 
     /// @inheritdoc ISuccinctVApp
-    function claimWithdrawal(address to, address token)
-        external
-        override
-        nonReentrant
-        returns (uint256 amount)
-    {
-        amount = withdrawalClaims[to][token];
+    function claimWithdrawal(address _to) external override nonReentrant returns (uint256 amount) {
+        amount = withdrawalClaims[_to];
         if (amount == 0) revert NoWithdrawalToClaim();
 
         // Update the state.
-        pendingWithdrawalClaims[token] -= amount;
-        withdrawalClaims[to][token] = 0;
+        totalPendingWithdrawals -= amount;
+        withdrawalClaims[_to] = 0;
 
         // Transfer the withdrawal.
-        ERC20(token).safeTransfer(to, amount);
+        ERC20(prove).safeTransfer(_to, amount);
 
-        emit WithdrawalClaimed(to, token, msg.sender, amount);
+        emit WithdrawalClaimed(_to, msg.sender, amount);
     }
 
     /// @inheritdoc ISuccinctVApp
-    function addDelegatedSigner(address _signer) external override returns (uint64 receipt) {
+    function emergencyWithdraw(uint256 _amount, bytes32[] calldata _proof) external nonReentrant {
+        if (_proof.length == 0) revert InvalidProof();
+        if (block.timestamp < timestamp() + freezeDuration) revert NotFrozen();
+
+        // Check minimum amount.
+        if (_amount < minimumDeposit) {
+            revert DepositBelowMinimum();
+        }
+
+        // Verify the proof.
+        bytes32 leaf = sha256(abi.encodePacked(msg.sender, _amount));
+        bytes32 root_ = root();
+        bool isValid = MerkleProof.verifyCalldata(_proof, root_, leaf, _hashPair);
+        if (!isValid) revert ProofFailed();
+
+        // Process the withdrawal.
+        _processWithdraw(msg.sender, _amount);
+
+        emit EmergencyWithdrawal(msg.sender, _amount, root_);
+    }
+
+    /// @inheritdoc ISuccinctVApp
+    function addDelegatedSigner(address _signer) external returns (uint64 receipt) {
         if (_signer == address(0)) revert ZeroAddress();
         if (usedSigners[_signer]) revert InvalidSigner();
         if (!ISuccinctStaking(staking).hasProver(msg.sender)) revert InvalidSigner();
@@ -339,25 +350,6 @@ contract SuccinctVApp is
         return (_block, publicValues.newRoot, publicValues.oldRoot);
     }
 
-    /// @inheritdoc ISuccinctVApp
-    function emergencyWithdraw(address _token, uint256 _balance, bytes32[] calldata _proof)
-        external
-        nonReentrant
-    {
-        if (_proof.length == 0) revert InvalidProof();
-        if (!whitelistedTokens[_token]) revert TokenNotWhitelisted();
-        if (block.timestamp < timestamp() + freezeDuration) revert NotFrozen();
-
-        bytes32 leaf = sha256(abi.encodePacked(msg.sender, _token, _balance));
-        bytes32 _root = root();
-        bool isValid = MerkleProof.verifyCalldata(_proof, _root, leaf, _hashPair);
-        if (!isValid) revert ProofFailed();
-
-        _processWithdraw(msg.sender, _token, _balance);
-
-        emit EmergencyWithdrawal(msg.sender, _token, _balance, _root);
-    }
-
     /*//////////////////////////////////////////////////////////////
                                  OWNER
     //////////////////////////////////////////////////////////////*/
@@ -407,18 +399,8 @@ contract SuccinctVApp is
     }
 
     /// @inheritdoc ISuccinctVApp
-    function addToken(address _token) external override onlyOwner {
-        _addToken(_token);
-    }
-
-    /// @inheritdoc ISuccinctVApp
-    function removeToken(address _token) external override onlyOwner {
-        _removeToken(_token);
-    }
-
-    /// @inheritdoc ISuccinctVApp
-    function setMinimumDeposit(address _token, uint256 _amount) external override onlyOwner {
-        _setMinimumDeposit(_token, _amount);
+    function setMinimumDeposit(uint256 _amount) external override onlyOwner {
+        _setMinimumDeposit(_amount);
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -426,19 +408,19 @@ contract SuccinctVApp is
     //////////////////////////////////////////////////////////////*/
 
     /// @dev Creates a receipt for an action.
-    function _createReceipt(ActionType actionType, bytes memory data)
+    function _createReceipt(ActionType _actionType, bytes memory _data)
         internal
         returns (uint64 receipt)
     {
         receipt = ++currentReceipt;
         receipts[receipt] = Receipt({
-            action: actionType,
+            action: _actionType,
             status: ReceiptStatus.Pending,
             timestamp: uint64(block.timestamp),
-            data: data
+            data: _data
         });
 
-        emit ReceiptPending(receipt, actionType, data);
+        emit ReceiptPending(receipt, _actionType, _data);
     }
 
     /// @dev Handles committed actions, reverts if the actions are invalid
@@ -499,16 +481,12 @@ contract SuccinctVApp is
 
             // Handle the action status
             if (_actions[i].action.status == ReceiptStatus.Completed) {
-                if (whitelistedTokens[_actions[i].data.token]) {
-                    // Process the withdrawal
-                    _processWithdraw(
-                        _actions[i].data.to, _actions[i].data.token, _actions[i].data.amount
-                    );
+                // Process the withdrawal
+                _processWithdraw(_actions[i].data.to, _actions[i].data.amount);
 
-                    emit ReceiptCompleted(
-                        _actions[i].action.receipt, ActionType.Withdraw, _actions[i].action.data
-                    );
-                }
+                emit ReceiptCompleted(
+                    _actions[i].action.receipt, ActionType.Withdraw, _actions[i].action.data
+                );
             }
         }
     }
@@ -585,7 +563,7 @@ contract SuccinctVApp is
                     address prover = _actions[i].data.provers[j];
                     uint256 assertedProveBalance = _actions[i].data.proveBalances[j];
 
-                    // Check $PROVE token balance.
+                    // Check the $PROVE token balance.
                     uint256 actualProveBalance = ERC20(prove).balanceOf(prover);
                     if (actualProveBalance != assertedProveBalance) {
                         revert BalanceMismatch();
@@ -600,69 +578,46 @@ contract SuccinctVApp is
     }
 
     /// @dev Processes a withdrawal by creating a claim for the amount.
-    function _processWithdraw(address _to, address _token, uint256 _amount) internal {
-        if (!whitelistedTokens[_token]) revert TokenNotWhitelisted();
-
+    function _processWithdraw(address _to, uint256 _amount) internal {
         // Update the state.
-        pendingWithdrawalClaims[_token] += _amount;
-        withdrawalClaims[_to][_token] += _amount;
-        totalDeposits[_token] -= _amount;
+        totalPendingWithdrawals += _amount;
+        withdrawalClaims[_to] += _amount;
+        totalDeposits -= _amount;
     }
 
     /// @dev Updates the staking contract.
     function _updateStaking(address _staking) internal {
         staking = _staking;
 
-        emit UpdatedStaking(_staking);
+        emit StakingUpdate(_staking);
     }
 
     /// @dev Updates the verifier.
     function _updateVerifier(address _verifier) internal {
         verifier = _verifier;
 
-        emit UpdatedVerifier(_verifier);
+        emit VerifierUpdate(_verifier);
     }
 
     /// @dev Updates the action delay.
     function _updateActionDelay(uint64 _maxActionDelay) internal {
         maxActionDelay = _maxActionDelay;
 
-        emit UpdatedMaxActionDelay(_maxActionDelay);
+        emit MaxActionDelayUpdate(_maxActionDelay);
     }
 
     /// @dev Updates the freeze duration.
     function _updateFreezeDuration(uint64 _freezeDuration) internal {
         freezeDuration = _freezeDuration;
 
-        emit UpdatedFreezeDuration(_freezeDuration);
+        emit FreezeDurationUpdate(_freezeDuration);
     }
 
-    /// @dev Adds a token to the whitelist.
-    function _addToken(address _token) internal {
-        if (_token == address(0)) revert ZeroAddress();
-        if (whitelistedTokens[_token]) revert TokenAlreadyWhitelisted();
+    /// @dev Sets the minimum amount for deposit/withdraw operations.
+    function _setMinimumDeposit(uint256 _amount) internal {
+        minimumDeposit = _amount;
 
-        whitelistedTokens[_token] = true;
-
-        emit TokenWhitelist(_token, true);
-    }
-
-    /// @dev Removes a token from the whitelist.
-    function _removeToken(address _token) internal {
-        if (!whitelistedTokens[_token]) revert TokenNotWhitelisted();
-
-        whitelistedTokens[_token] = false;
-
-        emit TokenWhitelist(_token, false);
-    }
-
-    /// @dev Sets the minimum amount for a token.
-    function _setMinimumDeposit(address _token, uint256 _amount) internal {
-        if (_token == address(0)) revert ZeroAddress();
-
-        minAmounts[_token] = _amount;
-
-        emit DepositBelowMinimumUpdated(_token, _amount);
+        emit MinimumDepositUpdate(_amount);
     }
 
     /// @dev Handles fee update actions.

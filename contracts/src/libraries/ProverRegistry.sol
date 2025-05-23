@@ -14,13 +14,13 @@ import {IProverRegistry} from "../interfaces/IProverRegistry.sol";
 ///      provers are only contracts with `type(SuccinctProver).creationCode`.
 abstract contract ProverRegistry is IProverRegistry {
     /// @inheritdoc IProverRegistry
-    address public prove;
+    address public override prove;
 
     /// @inheritdoc IProverRegistry
-    address public iProve;
+    address public override iProve;
 
     /// @inheritdoc IProverRegistry
-    uint256 public proverCount;
+    uint256 public override proverCount;
 
     mapping(address => address) internal ownerToProver;
     mapping(address => bool) internal provers;
