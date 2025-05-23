@@ -13,6 +13,7 @@ import {IERC20} from "../lib/openzeppelin-contracts/contracts/interfaces/IERC20.
 import {IERC20Permit} from
     "../lib/openzeppelin-contracts/contracts/token/ERC20/extensions/IERC20Permit.sol";
 import {IERC4626} from "../lib/openzeppelin-contracts/contracts/interfaces/IERC4626.sol";
+import {FixtureLoader, Fixture, SP1ProofFixtureJson} from "./utils/FixtureLoader.sol";
 
 // Sets up the SuccinctStaking protocol for testing and exposes some useful helper functions.
 contract SuccinctStakingTest is Test {
@@ -152,11 +153,6 @@ contract SuccinctStakingTest is Test {
     function _finishSlash(address _prover, uint256 _index) internal {
         vm.prank(OWNER);
         SuccinctStaking(STAKING).finishSlash(_prover, _index);
-    }
-
-    function _claimReward(address _staker) internal {
-        // vm.prank(_staker);
-        // SuccinctStaking(STAKING).claimReward();
     }
 
     function _dispense(uint256 _amount) internal {

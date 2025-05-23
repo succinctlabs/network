@@ -151,10 +151,10 @@ contract SuccinctVApp is
         maxActionDelay = _maxActionDelay;
         freezeDuration = _freezeDuration;
 
-        updateStaking(_staking);
-        updateVerifier(_verifier);
-        updateActionDelay(maxActionDelay);
-        updateFreezeDuration(freezeDuration);
+        _updateStaking(_staking);
+        _updateVerifier(_verifier);
+        _updateActionDelay(_maxActionDelay);
+        _updateFreezeDuration(_freezeDuration);
 
         emit Fork(_vappProgramVKey, 0, bytes32(0), bytes32(0));
     }
@@ -213,7 +213,7 @@ contract SuccinctVApp is
         // Check minimum amount if set (skip check if minimum is 0).
         uint256 minAmount = minAmounts[token];
         if (minAmount > 0 && amount < minAmount) {
-            revert MinAmount();
+            revert DepositBelowMinimum();
         }
 
         // Create the receipt.
@@ -241,7 +241,7 @@ contract SuccinctVApp is
         // Check minimum amount if set (skip check if minimum is 0).
         uint256 minAmount = minAmounts[token];
         if (minAmount > 0 && amount < minAmount) {
-            revert MinAmount();
+            revert DepositBelowMinimum();
         }
 
         // Create the receipt.
@@ -274,7 +274,7 @@ contract SuccinctVApp is
     function addDelegatedSigner(address _signer) external override returns (uint64 receipt) {
         if (_signer == address(0)) revert ZeroAddress();
         if (usedSigners[_signer]) revert InvalidSigner();
-        if (!ISuccinctStaking(staking).hasProver(msg.sender)) revert ZeroAddress();
+        if (!ISuccinctStaking(staking).hasProver(msg.sender)) revert InvalidSigner();
         if (ISuccinctStaking(staking).isProver(_signer)) revert InvalidSigner();
         if (ISuccinctStaking(staking).hasProver(_signer)) revert InvalidSigner();
 
@@ -387,59 +387,38 @@ contract SuccinctVApp is
     }
 
     /// @inheritdoc ISuccinctVApp
-    function updateStaking(address _staking) public override onlyOwner {
-        staking = _staking;
-
-        emit UpdatedStaking(_staking);
+    function updateStaking(address _staking) external override onlyOwner {
+        _updateStaking(_staking);
     }
 
     /// @inheritdoc ISuccinctVApp
-    function updateVerifier(address _verifier) public override onlyOwner {
-        verifier = _verifier;
-
-        emit UpdatedVerifier(_verifier);
+    function updateVerifier(address _verifier) external override onlyOwner {
+        _updateVerifier(_verifier);
     }
 
     /// @inheritdoc ISuccinctVApp
-    function updateActionDelay(uint64 _maxActionDelay) public override onlyOwner {
-        maxActionDelay = _maxActionDelay;
-
-        emit UpdatedMaxActionDelay(_maxActionDelay);
+    function updateActionDelay(uint64 _maxActionDelay) external override onlyOwner {
+        _updateActionDelay(_maxActionDelay);
     }
 
     /// @inheritdoc ISuccinctVApp
-    function updateFreezeDuration(uint64 _freezeDuration) public override onlyOwner {
-        freezeDuration = _freezeDuration;
-
-        emit UpdatedFreezeDuration(_freezeDuration);
+    function updateFreezeDuration(uint64 _freezeDuration) external override onlyOwner {
+        _updateFreezeDuration(_freezeDuration);
     }
 
     /// @inheritdoc ISuccinctVApp
     function addToken(address _token) external override onlyOwner {
-        if (_token == address(0)) revert ZeroAddress();
-        if (whitelistedTokens[_token]) revert TokenAlreadyWhitelisted();
-
-        whitelistedTokens[_token] = true;
-
-        emit TokenWhitelist(_token, true);
+        _addToken(_token);
     }
 
     /// @inheritdoc ISuccinctVApp
     function removeToken(address _token) external override onlyOwner {
-        if (!whitelistedTokens[_token]) revert TokenNotWhitelisted();
-
-        whitelistedTokens[_token] = false;
-
-        emit TokenWhitelist(_token, false);
+        _removeToken(_token);
     }
 
     /// @inheritdoc ISuccinctVApp
-    function setMinAmount(address _token, uint256 _amount) external override onlyOwner {
-        if (_token == address(0)) revert ZeroAddress();
-
-        minAmounts[_token] = _amount;
-
-        emit MinAmountUpdated(_token, _amount);
+    function setMinimumDeposit(address _token, uint256 _amount) external override onlyOwner {
+        _setMinimumDeposit(_token, _amount);
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -579,8 +558,8 @@ contract SuccinctVApp is
     function _rewardActions(RewardInternal[] memory _actions) internal {
         for (uint64 i = 0; i < _actions.length; i++) {
             if (_actions[i].action.status == ReceiptStatus.Completed) {
-                // Approve $PROVE transfer for the staking contract.
-                ERC20(prove).approve(_actions[i].data.prover, _actions[i].data.amount);
+                // Transfer $PROVE from VApp to staking contract.
+                ERC20(prove).safeTransfer(staking, _actions[i].data.amount);
 
                 // Call reward function on staking contract.
                 ISuccinctStaking(staking).reward(_actions[i].data.prover, _actions[i].data.amount);
@@ -628,6 +607,62 @@ contract SuccinctVApp is
         pendingWithdrawalClaims[_token] += _amount;
         withdrawalClaims[_to][_token] += _amount;
         totalDeposits[_token] -= _amount;
+    }
+
+    /// @dev Updates the staking contract.
+    function _updateStaking(address _staking) internal {
+        staking = _staking;
+
+        emit UpdatedStaking(_staking);
+    }
+
+    /// @dev Updates the verifier.
+    function _updateVerifier(address _verifier) internal {
+        verifier = _verifier;
+
+        emit UpdatedVerifier(_verifier);
+    }
+
+    /// @dev Updates the action delay.
+    function _updateActionDelay(uint64 _maxActionDelay) internal {
+        maxActionDelay = _maxActionDelay;
+
+        emit UpdatedMaxActionDelay(_maxActionDelay);
+    }
+
+    /// @dev Updates the freeze duration.
+    function _updateFreezeDuration(uint64 _freezeDuration) internal {
+        freezeDuration = _freezeDuration;
+
+        emit UpdatedFreezeDuration(_freezeDuration);
+    }
+
+    /// @dev Adds a token to the whitelist.
+    function _addToken(address _token) internal {
+        if (_token == address(0)) revert ZeroAddress();
+        if (whitelistedTokens[_token]) revert TokenAlreadyWhitelisted();
+
+        whitelistedTokens[_token] = true;
+
+        emit TokenWhitelist(_token, true);
+    }
+
+    /// @dev Removes a token from the whitelist.
+    function _removeToken(address _token) internal {
+        if (!whitelistedTokens[_token]) revert TokenNotWhitelisted();
+
+        whitelistedTokens[_token] = false;
+
+        emit TokenWhitelist(_token, false);
+    }
+
+    /// @dev Sets the minimum amount for a token.
+    function _setMinimumDeposit(address _token, uint256 _amount) internal {
+        if (_token == address(0)) revert ZeroAddress();
+
+        minAmounts[_token] = _amount;
+
+        emit DepositBelowMinimumUpdated(_token, _amount);
     }
 
     /// @dev Handles fee update actions.
