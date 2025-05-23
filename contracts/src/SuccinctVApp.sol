@@ -81,20 +81,20 @@ contract SuccinctVApp is
     uint64 public override freezeDuration;
 
     /// @inheritdoc ISuccinctVApp
+    uint256 public override minimumDeposit;
+
+    /// @inheritdoc ISuccinctVApp
+    uint256 public override totalDeposits;
+
+    /// @inheritdoc ISuccinctVApp
+    uint256 public override totalPendingWithdrawals;
+
+    /// @inheritdoc ISuccinctVApp
     uint64 public override currentReceipt;
 
     /// @inheritdoc ISuccinctVApp
     uint64 public override finalizedReceipt;
-
-    /// @inheritdoc ISuccinctVApp
-    uint256 public override minimumDeposit;
-
-    /// @inheritdoc ISuccinctVApp
-    uint256 public override totalDeposit;
-
-    /// @inheritdoc ISuccinctVApp
-    uint256 public override pendingWithdrawalClaims;
-
+    
     /// @inheritdoc ISuccinctVApp
     mapping(address => uint256) public override withdrawalClaims;
 
@@ -198,29 +198,29 @@ contract SuccinctVApp is
     //////////////////////////////////////////////////////////////*/
 
     /// @inheritdoc ISuccinctVApp
-    function deposit(address account, uint256 amount)
+    function deposit(address _account, uint256 _amount)
         external
         override
         nonReentrant
         returns (uint64 receipt)
     {
-        if (account == address(0)) revert ZeroAddress();
+        if (_account == address(0)) revert ZeroAddress();
 
         // Check minimum amount if set (skip check if minimum is 0).
-        if (minimumDeposit > 0 && amount < minimumDeposit) {
+        if (minimumDeposit > 0 && _amount < minimumDeposit) {
             revert DepositBelowMinimum();
         }
 
         // Create the receipt.
         bytes memory data =
-            abi.encode(DepositAction({account: account, amount: amount}));
+            abi.encode(DepositAction({account: _account, amount: _amount, token: prove}));
         receipt = _createReceipt(ActionType.Deposit, data);
 
         // Update the state.
-        totalDeposit += amount;
+        totalDeposits += _amount;
 
         // Transfer the deposit.
-        ERC20(prove).safeTransferFrom(msg.sender, address(this), amount);
+        ERC20(prove).safeTransferFrom(msg.sender, address(this), _amount);
     }
 
     /// @inheritdoc ISuccinctVApp
@@ -239,7 +239,7 @@ contract SuccinctVApp is
 
         // Create the receipt.
         bytes memory data =
-            abi.encode(WithdrawAction({account: msg.sender, amount: _amount, to: _to}));
+            abi.encode(WithdrawAction({account: msg.sender, amount: _amount, to: _to, token: prove}));
         receipt = _createReceipt(ActionType.Withdraw, data);
     }
 
@@ -254,7 +254,7 @@ contract SuccinctVApp is
         if (amount == 0) revert NoWithdrawalToClaim();
 
         // Update the state.
-        pendingWithdrawalClaims -= amount;
+        totalPendingWithdrawals -= amount;
         withdrawalClaims[_to] = 0;
 
         // Transfer the withdrawal.
@@ -538,7 +538,7 @@ contract SuccinctVApp is
     function _rewardActions(RewardInternal[] memory _actions) internal {
         for (uint64 i = 0; i < _actions.length; i++) {
             if (_actions[i].action.status == ReceiptStatus.Completed) {
-                // Transfer $PROVE from VApp to staking contract.
+                // Transfprove from VApp to staking contract.
                 ERC20(prove).safeTransfer(staking, _actions[i].data.amount);
 
                 // Call reward function on staking contract.
@@ -565,7 +565,7 @@ contract SuccinctVApp is
                     address prover = _actions[i].data.provers[j];
                     uint256 assertedProveBalance = _actions[i].data.proveBalances[j];
 
-                    // Check $PROVE token balance.
+                    // Cheprove token balance.
                     uint256 actualProveBalance = ERC20(prove).balanceOf(prover);
                     if (actualProveBalance != assertedProveBalance) {
                         revert BalanceMismatch();
@@ -582,9 +582,9 @@ contract SuccinctVApp is
     /// @dev Processes a withdrawal by creating a claim for the amount.
     function _processWithdraw(address _to, uint256 _amount) internal {
         // Update the state.
-        pendingWithdrawalClaims += _amount;
+        totalPendingWithdrawals += _amount;
         withdrawalClaims[_to] += _amount;
-        totalDeposit -= _amount;
+        totalDeposits -= _amount;
     }
 
     /// @dev Updates the staking contract.

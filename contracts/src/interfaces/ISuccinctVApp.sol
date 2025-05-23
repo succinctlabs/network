@@ -90,14 +90,23 @@ interface ISuccinctVApp {
     /// @notice The maximum delay for actions to be committed, in seconds.
     function maxActionDelay() external view returns (uint64);
 
-    /// @notice How long it takes for the state to be frozen.
+    /// @notice How long it takes for the state to be consideredfrozen.
     function freezeDuration() external view returns (uint64);
 
     /// @notice The minimum amount for deposit/withdraw operations.
     function minimumDeposit() external view returns (uint256);
 
     /// @notice The total deposits for the vApp.
-    function totalDeposit() external view returns (uint256);
+    function totalDeposits() external view returns (uint256);
+
+    /// @notice The total pending withdrawal claims for each token
+    function totalPendingWithdrawals() external view returns (uint256);
+
+    /// @notice The state root for the current block.
+    function root() external view returns (bytes32);
+
+    /// @notice The timestamp for the current block.
+    function timestamp() external view returns (uint64);
 
     /// @notice Tracks the incrementing receipt counter.
     function currentReceipt() external view returns (uint64);
@@ -111,17 +120,9 @@ interface ISuccinctVApp {
     /// @notice Timestamp for each block.
     function timestamps(uint64 block) external view returns (uint64);
 
-    /// @notice The state root for the current block.
-    function root() external view returns (bytes32);
-
-    /// @notice The timestamp for the current block.
-    function timestamp() external view returns (uint64);
-
-    /// @notice The total pending withdrawal claims for each token
-    function pendingWithdrawalClaims() external view returns (uint256);
-
     /// @notice The claimable withdrawals for each account and token
     function withdrawalClaims(address account) external view returns (uint256);
+
     /// @notice Receipts for pending actions
     function receipts(uint64 receipt)
         external

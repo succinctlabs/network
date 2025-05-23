@@ -33,7 +33,8 @@ contract SuccinctVAppDepositTest is SuccinctVAppTest {
         assertEq(uint8(status), uint8(ReceiptStatus.None));
 
         // Deposit
-        bytes memory data = abi.encode(DepositAction({account: address(this), amount: amount}));
+        bytes memory data =
+            abi.encode(DepositAction({account: address(this), amount: amount, token: PROVE}));
         vm.expectEmit(true, true, true, true);
         emit ISuccinctVApp.ReceiptPending(1, ActionType.Deposit, data);
         SuccinctVApp(VAPP).deposit(address(this), amount);

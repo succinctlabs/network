@@ -124,11 +124,6 @@ contract SuccinctVAppOwnerTest is SuccinctVAppTest {
         assertEq(SuccinctVApp(VAPP).minimumDeposit(), 0);
     }
 
-    function test_RevertSetMinimumDeposit_WhenZeroAddress() public {
-        vm.expectRevert(abi.encodeWithSelector(ISuccinctVApp.ZeroAddress.selector));
-        SuccinctVApp(VAPP).setMinimumDeposit(10e6);
-    }
-
     function test_RevertSetMinimumDeposit_WhenNotOwner() public {
         vm.expectRevert(
             abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, REQUESTER_1)
