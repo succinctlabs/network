@@ -94,7 +94,7 @@ contract SuccinctVApp is
 
     /// @inheritdoc ISuccinctVApp
     uint64 public override finalizedReceipt;
-    
+
     /// @inheritdoc ISuccinctVApp
     mapping(address => uint256) public override withdrawalClaims;
 
@@ -238,18 +238,14 @@ contract SuccinctVApp is
         }
 
         // Create the receipt.
-        bytes memory data =
-            abi.encode(WithdrawAction({account: msg.sender, amount: _amount, to: _to, token: prove}));
+        bytes memory data = abi.encode(
+            WithdrawAction({account: msg.sender, amount: _amount, to: _to, token: prove})
+        );
         receipt = _createReceipt(ActionType.Withdraw, data);
     }
 
     /// @inheritdoc ISuccinctVApp
-    function claimWithdrawal(address _to)
-        external
-        override
-        nonReentrant
-        returns (uint256 amount)
-    {
+    function claimWithdrawal(address _to) external override nonReentrant returns (uint256 amount) {
         amount = withdrawalClaims[_to];
         if (amount == 0) revert NoWithdrawalToClaim();
 
@@ -263,11 +259,8 @@ contract SuccinctVApp is
         emit WithdrawalClaimed(_to, msg.sender, amount);
     }
 
-     /// @inheritdoc ISuccinctVApp
-    function emergencyWithdraw(uint256 _amount, bytes32[] calldata _proof)
-        external
-        nonReentrant
-    {
+    /// @inheritdoc ISuccinctVApp
+    function emergencyWithdraw(uint256 _amount, bytes32[] calldata _proof) external nonReentrant {
         if (_proof.length == 0) revert InvalidProof();
         if (block.timestamp < timestamp() + freezeDuration) revert NotFrozen();
 
@@ -489,9 +482,7 @@ contract SuccinctVApp is
             // Handle the action status
             if (_actions[i].action.status == ReceiptStatus.Completed) {
                 // Process the withdrawal
-                _processWithdraw(
-                    _actions[i].data.to, _actions[i].data.amount
-                );
+                _processWithdraw(_actions[i].data.to, _actions[i].data.amount);
 
                 emit ReceiptCompleted(
                     _actions[i].action.receipt, ActionType.Withdraw, _actions[i].action.data
@@ -545,7 +536,7 @@ contract SuccinctVApp is
     function _rewardActions(RewardInternal[] memory _actions) internal {
         for (uint64 i = 0; i < _actions.length; i++) {
             if (_actions[i].action.status == ReceiptStatus.Completed) {
-                // Transfprove from VApp to staking contract.
+                // Transfer $PROVE from VApp to staking contract.
                 ERC20(prove).safeTransfer(staking, _actions[i].data.amount);
 
                 // Call reward function on staking contract.
@@ -572,7 +563,7 @@ contract SuccinctVApp is
                     address prover = _actions[i].data.provers[j];
                     uint256 assertedProveBalance = _actions[i].data.proveBalances[j];
 
-                    // Check the token balance.
+                    // Check the $PROVE token balance.
                     uint256 actualProveBalance = ERC20(prove).balanceOf(prover);
                     if (actualProveBalance != assertedProveBalance) {
                         revert BalanceMismatch();

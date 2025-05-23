@@ -47,8 +47,8 @@ struct DepositAction {
 /// @notice The action data for a withdraw.
 struct WithdrawAction {
     address account;
-    address token; // TODO: Remove, only PROVE is supported
     address to;
+    address token; // TODO: Remove, only PROVE is supported
     uint256 amount;
 }
 
