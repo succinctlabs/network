@@ -33,11 +33,10 @@ contract SuccinctVAppDepositTest is SuccinctVAppTest {
         assertEq(uint8(status), uint8(ReceiptStatus.None));
 
         // Deposit
-        bytes memory data =
-            abi.encode(DepositAction({account: address(this), token: PROVE, amount: amount}));
+        bytes memory data = abi.encode(DepositAction({account: address(this), amount: amount}));
         vm.expectEmit(true, true, true, true);
         emit ISuccinctVApp.ReceiptPending(1, ActionType.Deposit, data);
-        SuccinctVApp(VAPP).deposit(address(this), PROVE, amount);
+        SuccinctVApp(VAPP).deposit(address(this), amount);
 
         assertEq(MockERC20(PROVE).balanceOf(address(this)), 0);
         assertEq(MockERC20(PROVE).balanceOf(address(VAPP)), amount);
@@ -84,25 +83,7 @@ contract SuccinctVAppDepositTest is SuccinctVAppTest {
         MockERC20(PROVE).approve(address(VAPP), amount);
 
         vm.expectRevert(abi.encodeWithSelector(ISuccinctVApp.ZeroAddress.selector));
-        SuccinctVApp(VAPP).deposit(address(0), PROVE, amount);
-        vm.stopPrank();
-
-        // Verify no deposit receipt was created
-        assertEq(SuccinctVApp(VAPP).currentReceipt(), 0);
-    }
-
-    function test_RevertDeposit_WhenNonWhitelistedToken() public {
-        // Create a new token that isn't whitelisted
-        MockERC20 nonWhitelistedToken = new MockERC20("TEST", "TEST", 18);
-        uint256 amount = 100e6; // 100 tokens
-
-        nonWhitelistedToken.mint(REQUESTER_1, amount);
-
-        vm.startPrank(REQUESTER_1);
-        nonWhitelistedToken.approve(address(VAPP), amount);
-
-        vm.expectRevert(abi.encodeWithSelector(ISuccinctVApp.TokenNotWhitelisted.selector));
-        SuccinctVApp(VAPP).deposit(REQUESTER_1, address(nonWhitelistedToken), amount);
+        SuccinctVApp(VAPP).deposit(address(0), amount);
         vm.stopPrank();
 
         // Verify no deposit receipt was created
@@ -114,7 +95,7 @@ contract SuccinctVAppDepositTest is SuccinctVAppTest {
         uint256 depositAmount = minAmount / 2; // 5 PROVE - below minimum
 
         // Set minimum amount
-        SuccinctVApp(VAPP).setMinimumDeposit(PROVE, minAmount);
+        SuccinctVApp(VAPP).setMinimumDeposit(minAmount);
 
         // Try to deposit below minimum
         MockERC20(PROVE).mint(REQUESTER_1, depositAmount);
@@ -123,7 +104,7 @@ contract SuccinctVAppDepositTest is SuccinctVAppTest {
         MockERC20(PROVE).approve(address(VAPP), depositAmount);
 
         vm.expectRevert(abi.encodeWithSelector(ISuccinctVApp.DepositBelowMinimum.selector));
-        SuccinctVApp(VAPP).deposit(REQUESTER_1, PROVE, depositAmount);
+        SuccinctVApp(VAPP).deposit(REQUESTER_1, depositAmount);
         vm.stopPrank();
 
         // Verify no deposit receipt was created

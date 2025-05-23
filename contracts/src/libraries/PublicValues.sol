@@ -40,7 +40,6 @@ enum ReceiptStatus {
 /// @notice The action data for a deposit.
 struct DepositAction {
     address account;
-    address token;
     uint256 amount;
 }
 
@@ -48,7 +47,6 @@ struct DepositAction {
 struct WithdrawAction {
     address account;
     address to;
-    address token;
     uint256 amount;
 }
 
@@ -80,7 +78,6 @@ struct RewardAction {
 struct ProverStateAction {
     address[] provers;
     uint256[] proveBalances;
-    uint256[] usdcBalances;
 }
 
 /// @notice The action data for fee updates.

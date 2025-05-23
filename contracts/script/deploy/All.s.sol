@@ -67,7 +67,6 @@ contract AllScript is BaseScript, FixtureLoader {
         SuccinctVApp(VAPP).initialize(
             msg.sender, PROVE, STAKING, VERIFIER, VKEY, MAX_ACTION_DELAY, FREEZE_DURATION
         );
-        SuccinctVApp(VAPP).addToken(PROVE);
 
         return VAPP;
     }

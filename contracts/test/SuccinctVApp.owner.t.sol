@@ -97,103 +97,36 @@ contract SuccinctVAppOwnerTest is SuccinctVAppTest {
         SuccinctVApp(VAPP).updateFreezeDuration(3 days);
     }
 
-    function test_AddToken_WhenValid() public {
-        address token = address(99);
-
-        vm.expectEmit(true, true, true, true);
-        emit ISuccinctVApp.TokenWhitelist(token, true);
-        SuccinctVApp(VAPP).addToken(token);
-
-        assertTrue(SuccinctVApp(VAPP).whitelistedTokens(token));
-    }
-
-    function test_RevertAddToken_WhenNotOwner() public {
-        vm.expectRevert(
-            abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, REQUESTER_1)
-        );
-        vm.prank(REQUESTER_1);
-        SuccinctVApp(VAPP).addToken(address(99));
-    }
-
-    function test_RevertAddToken_WhenZeroAddress() public {
-        vm.expectRevert(abi.encodeWithSelector(ISuccinctVApp.ZeroAddress.selector));
-        vm.prank(OWNER);
-        SuccinctVApp(VAPP).addToken(address(0));
-    }
-
-    function test_RevertAddToken_WhenAlreadyWhitelisted() public {
-        address token = address(99);
-        vm.prank(OWNER);
-        SuccinctVApp(VAPP).addToken(token);
-
-        vm.expectRevert(abi.encodeWithSelector(ISuccinctVApp.TokenAlreadyWhitelisted.selector));
-        vm.prank(OWNER);
-        SuccinctVApp(VAPP).addToken(token);
-    }
-
-    function test_RemoveToken_WhenValid() public {
-        address token = address(99);
-        vm.prank(OWNER);
-        SuccinctVApp(VAPP).addToken(token);
-
-        vm.expectEmit(true, true, true, true);
-        emit ISuccinctVApp.TokenWhitelist(token, false);
-        vm.prank(OWNER);
-        SuccinctVApp(VAPP).removeToken(token);
-
-        assertFalse(SuccinctVApp(VAPP).whitelistedTokens(token));
-    }
-
-    function test_RevertRemoveToken_WhenNotOwner() public {
-        address token = address(99);
-        SuccinctVApp(VAPP).addToken(token);
-
-        vm.expectRevert(
-            abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, REQUESTER_1)
-        );
-        vm.prank(REQUESTER_1);
-        SuccinctVApp(VAPP).removeToken(token);
-    }
-
-    function test_RevertRemoveToken_WhenNotWhitelisted() public {
-        address token = address(99);
-
-        vm.expectRevert(abi.encodeWithSelector(ISuccinctVApp.TokenNotWhitelisted.selector));
-        vm.prank(OWNER);
-        SuccinctVApp(VAPP).removeToken(token);
-    }
-
     function test_SetDepositBelowMinimum_WhenValid() public {
-        address token = PROVE;
         uint256 minAmount = 10e6; // 10 PROVE
 
         vm.expectEmit(true, true, true, true);
-        emit ISuccinctVApp.DepositBelowMinimumUpdated(token, minAmount);
+        emit ISuccinctVApp.MinimumDepositUpdated(minAmount);
         vm.prank(OWNER);
-        SuccinctVApp(VAPP).setMinimumDeposit(token, minAmount);
+        SuccinctVApp(VAPP).setMinimumDeposit(minAmount);
 
-        assertEq(SuccinctVApp(VAPP).minAmounts(token), minAmount);
+        assertEq(SuccinctVApp(VAPP).minimumDeposit(), minAmount);
 
         // Update to a different value
         uint256 newDepositBelowMinimum = 20e6; // 20 PROVE
 
         vm.expectEmit(true, true, true, true);
-        emit ISuccinctVApp.DepositBelowMinimumUpdated(token, newDepositBelowMinimum);
-        SuccinctVApp(VAPP).setMinimumDeposit(token, newDepositBelowMinimum);
+        emit ISuccinctVApp.MinimumDepositUpdated(newDepositBelowMinimum);
+        SuccinctVApp(VAPP).setMinimumDeposit(newDepositBelowMinimum);
 
-        assertEq(SuccinctVApp(VAPP).minAmounts(token), newDepositBelowMinimum);
+        assertEq(SuccinctVApp(VAPP).minimumDeposit(), newDepositBelowMinimum);
 
         // Set to zero to disable minimum check
         vm.expectEmit(true, true, true, true);
-        emit ISuccinctVApp.DepositBelowMinimumUpdated(token, 0);
-        SuccinctVApp(VAPP).setMinimumDeposit(token, 0);
+        emit ISuccinctVApp.MinimumDepositUpdated(0);
+        SuccinctVApp(VAPP).setMinimumDeposit(0);
 
-        assertEq(SuccinctVApp(VAPP).minAmounts(token), 0);
+        assertEq(SuccinctVApp(VAPP).minimumDeposit(), 0);
     }
 
     function test_RevertSetMinimumDeposit_WhenZeroAddress() public {
         vm.expectRevert(abi.encodeWithSelector(ISuccinctVApp.ZeroAddress.selector));
-        SuccinctVApp(VAPP).setMinimumDeposit(address(0), 10e6);
+        SuccinctVApp(VAPP).setMinimumDeposit(10e6);
     }
 
     function test_RevertSetMinimumDeposit_WhenNotOwner() public {
@@ -201,6 +134,6 @@ contract SuccinctVAppOwnerTest is SuccinctVAppTest {
             abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, REQUESTER_1)
         );
         vm.prank(REQUESTER_1);
-        SuccinctVApp(VAPP).setMinimumDeposit(PROVE, 10e6);
+        SuccinctVApp(VAPP).setMinimumDeposit(10e6);
     }
 }

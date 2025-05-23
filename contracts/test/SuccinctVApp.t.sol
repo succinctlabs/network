@@ -85,10 +85,6 @@ contract SuccinctVAppTest is Test, FixtureLoader {
         SuccinctVApp(VAPP).initialize(
             OWNER, PROVE, STAKING, VERIFIER, jsonFixture.vkey, MAX_ACTION_DELAY, FREEZE_DURATION
         );
-
-        // Whitelist $PROVE
-        vm.prank(OWNER);
-        SuccinctVApp(VAPP).addToken(PROVE);
     }
 
     function mockCall(bool verified) public {

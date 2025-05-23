@@ -106,18 +106,16 @@ library Actions {
         uint256 feeUpdateLength;
     }
 
-    /// @dev Decode actions
-    /// @param actions The actions to decode
-    /// @return decoded The decoded actions
-    function decode(Action[] memory actions)
+    /// @dev Decode actions.
+    function decode(Action[] memory _actions)
         internal
         pure
         returns (ActionsInternal memory decoded)
     {
         // Build the action arrays
         DecodeData memory data;
-        for (uint64 i = 0; i < actions.length; i++) {
-            ActionType actionType = actions[i].action;
+        for (uint64 i = 0; i < _actions.length; i++) {
+            ActionType actionType = _actions[i].action;
             if (actionType == ActionType.Deposit) {
                 data.depositLength++;
             } else if (actionType == ActionType.Withdraw) {
@@ -157,8 +155,8 @@ library Actions {
         data.rewardLength = 0;
         data.proverStateLength = 0;
         data.feeUpdateLength = 0;
-        for (uint64 i = 0; i < actions.length; i++) {
-            Action memory action = actions[i];
+        for (uint64 i = 0; i < _actions.length; i++) {
+            Action memory action = _actions[i];
 
             if (action.receipt != 0) {
                 decoded.lastReceipt = action.receipt;
@@ -214,61 +212,57 @@ library Actions {
         }
     }
 
-    /// @dev Validates the actions
-    /// @param receipts The receipts
-    /// @param actions The actions
-    /// @param finalizedReceipt The last finalized receipt
-    /// @param currentReceipt The current receipt
-    /// @param timestamp The current timestamp
-    /// @param maxActionDelay The maximum action delay
+    /// @dev Validates the actions.
     function validate(
-        mapping(uint64 => Receipt) storage receipts,
-        Action[] memory actions,
-        uint64 finalizedReceipt,
-        uint64 currentReceipt,
-        uint64 timestamp,
-        uint64 maxActionDelay
+        mapping(uint64 => Receipt) storage _receipts,
+        Action[] memory _actions,
+        uint64 _finalizedReceipt,
+        uint64 _currentReceipt,
+        uint64 _timestamp,
+        uint64 _maxActionDelay
     ) internal view {
         // Ensure that the receipts exist and correspond to the matching action
-        for (uint64 i = 0; i < actions.length; i++) {
+        for (uint64 i = 0; i < _actions.length; i++) {
             // Only validate actions that have a corresponding receipt
-            if (hasReceipt(actions[i])) {
-                Receipt memory receipt = receipts[++finalizedReceipt];
+            if (hasReceipt(_actions[i])) {
+                Receipt memory receipt = _receipts[++_finalizedReceipt];
 
-                if (actions[i].receipt != finalizedReceipt) {
-                    revert InvalidReceipt(actions[i].action, actions[i].receipt, finalizedReceipt);
+                if (_actions[i].receipt != _finalizedReceipt) {
+                    revert InvalidReceipt(
+                        _actions[i].action, _actions[i].receipt, _finalizedReceipt
+                    );
                 }
 
                 if (receipt.status != ReceiptStatus.Pending) {
                     revert InvalidReceiptStatus(
-                        actions[i].action, actions[i].receipt, receipt.status
+                        _actions[i].action, _actions[i].receipt, receipt.status
                     );
                 }
 
                 if (
-                    actions[i].status != ReceiptStatus.Completed
-                        && actions[i].status != ReceiptStatus.Failed
+                    _actions[i].status != ReceiptStatus.Completed
+                        && _actions[i].status != ReceiptStatus.Failed
                 ) {
                     revert InvalidActionStatus(
-                        actions[i].action, actions[i].receipt, actions[i].status
+                        _actions[i].action, _actions[i].receipt, _actions[i].status
                     );
                 }
 
-                if (actions[i].action == ActionType.Deposit) {
-                    _deposit(actions[i], receipt);
-                } else if (actions[i].action == ActionType.Withdraw) {
-                    _withdraw(actions[i], receipt);
-                } else if (actions[i].action == ActionType.AddSigner) {
+                if (_actions[i].action == ActionType.Deposit) {
+                    _deposit(_actions[i], receipt);
+                } else if (_actions[i].action == ActionType.Withdraw) {
+                    _withdraw(_actions[i], receipt);
+                } else if (_actions[i].action == ActionType.AddSigner) {
                     // Skip validations
-                } else if (actions[i].action == ActionType.RemoveSigner) {
+                } else if (_actions[i].action == ActionType.RemoveSigner) {
                     // Skip validations
-                } else if (actions[i].action == ActionType.Slash) {
+                } else if (_actions[i].action == ActionType.Slash) {
                     // Skip validations
-                } else if (actions[i].action == ActionType.Reward) {
+                } else if (_actions[i].action == ActionType.Reward) {
                     // Skip validations
-                } else if (actions[i].action == ActionType.ProverState) {
+                } else if (_actions[i].action == ActionType.ProverState) {
                     // Skip validations
-                } else if (actions[i].action == ActionType.FeeUpdate) {
+                } else if (_actions[i].action == ActionType.FeeUpdate) {
                     // Skip validations
                 } else {
                     revert InvalidAction();
@@ -276,42 +270,38 @@ library Actions {
             }
         }
 
-        if (finalizedReceipt < currentReceipt) {
-            Receipt memory receipt = receipts[++finalizedReceipt];
-            if (receipt.timestamp + maxActionDelay < timestamp) {
-                revert MissingActions(ActionType.Deposit, finalizedReceipt);
+        if (_finalizedReceipt < _currentReceipt) {
+            Receipt memory receipt = _receipts[++_finalizedReceipt];
+            if (receipt.timestamp + _maxActionDelay < _timestamp) {
+                revert MissingActions(ActionType.Deposit, _finalizedReceipt);
             }
         }
     }
 
-    /// @dev Returns true if the action type has a corresponding receipt
-    /// @param action The action
-    /// @return True if the action type has a corresponding receipt
-    function hasReceipt(Action memory action) internal pure returns (bool) {
-        if (action.action == ActionType.Deposit) {
+    /// @dev Returns true if the action type has a corresponding receipt.
+    function hasReceipt(Action memory _action) internal pure returns (bool) {
+        if (_action.action == ActionType.Deposit) {
             return true;
-        } else if (action.action == ActionType.Withdraw) {
-            return action.receipt != 0;
-        } else if (action.action == ActionType.AddSigner) {
+        } else if (_action.action == ActionType.Withdraw) {
+            return _action.receipt != 0;
+        } else if (_action.action == ActionType.AddSigner) {
             return true;
-        } else if (action.action == ActionType.RemoveSigner) {
+        } else if (_action.action == ActionType.RemoveSigner) {
             return true;
-        } else if (action.action == ActionType.Slash) {
+        } else if (_action.action == ActionType.Slash) {
             return false;
-        } else if (action.action == ActionType.Reward) {
+        } else if (_action.action == ActionType.Reward) {
             return false;
-        } else if (action.action == ActionType.ProverState) {
+        } else if (_action.action == ActionType.ProverState) {
             return false;
-        } else if (action.action == ActionType.FeeUpdate) {
+        } else if (_action.action == ActionType.FeeUpdate) {
             return false;
         }
 
         return false;
     }
 
-    /// @dev Validates a deposit action
-    /// @param action The action
-    /// @param receipt The receipt
+    /// @dev Validates a deposit action, reverting if the action does not match the receipt.
     function _deposit(Action memory action, Receipt memory receipt) internal pure {
         DepositAction memory deposit = abi.decode(action.data, (DepositAction));
         DepositAction memory depositReceipt = abi.decode(receipt.data, (DepositAction));
@@ -319,25 +309,17 @@ library Actions {
         if (deposit.account != depositReceipt.account) {
             revert ActionMismatch(ActionType.Deposit, action.receipt);
         }
-        if (deposit.token != depositReceipt.token) {
-            revert ActionMismatch(ActionType.Deposit, action.receipt);
-        }
         if (deposit.amount != depositReceipt.amount) {
             revert ActionMismatch(ActionType.Deposit, action.receipt);
         }
     }
 
-    /// @dev Validates a withdraw action
-    /// @param action The action
-    /// @param receipt The receipt
+    /// @dev Validates a withdraw action, reverting if the action does not match the receipt.
     function _withdraw(Action memory action, Receipt memory receipt) internal pure {
         WithdrawAction memory withdraw = abi.decode(action.data, (WithdrawAction));
         WithdrawAction memory withdrawReceipt = abi.decode(receipt.data, (WithdrawAction));
 
         if (withdraw.account != withdrawReceipt.account) {
-            revert ActionMismatch(ActionType.Withdraw, action.receipt);
-        }
-        if (withdraw.token != withdrawReceipt.token) {
             revert ActionMismatch(ActionType.Withdraw, action.receipt);
         }
         if (withdraw.amount != withdrawReceipt.amount) {

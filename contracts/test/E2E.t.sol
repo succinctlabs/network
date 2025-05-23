@@ -113,8 +113,6 @@ contract E2ETest is Test, FixtureLoader {
         SuccinctVApp(VAPP).initialize(
             OWNER, PROVE, STAKING, VERIFIER, jsonFixture.vkey, MAX_ACTION_DELAY, FREEZE_DURATION
         );
-        vm.prank(OWNER);
-        SuccinctVApp(VAPP).addToken(PROVE);
 
         // Initialize Staking
         vm.prank(OWNER);
@@ -132,7 +130,7 @@ contract E2ETest is Test, FixtureLoader {
         vm.prank(REQUESTER);
         IERC20(PROVE).approve(VAPP, REQUESTER_PROVE_AMOUNT);
         vm.prank(REQUESTER);
-        SuccinctVApp(VAPP).deposit(REQUESTER, PROVE, REQUESTER_PROVE_AMOUNT);
+        SuccinctVApp(VAPP).deposit(REQUESTER, REQUESTER_PROVE_AMOUNT);
 
         // Create the provers
         vm.prank(ALICE);
