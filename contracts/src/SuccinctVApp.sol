@@ -205,7 +205,7 @@ contract SuccinctVApp is
         override
         returns (uint64 receipt)
     {
-        return _deposit(_account, _amount);
+        return _deposit(msg.sender, _account, _amount);
     }
 
     /// @inheritdoc ISuccinctVApp
@@ -219,7 +219,7 @@ contract SuccinctVApp is
     ) external override returns (uint64 receipt) {
         IERC20Permit(prove).permit(_from, address(this), _amount, _deadline, _v, _r, _s);
 
-        return _deposit(_from, _amount);
+        return _deposit(_from, _from, _amount);
     }
 
     /// @inheritdoc ISuccinctVApp
@@ -403,7 +403,10 @@ contract SuccinctVApp is
     //////////////////////////////////////////////////////////////*/
 
     /// @dev Credits a deposit receipt, transfers $PROVE from the sender to the VApp.
-    function _deposit(address _account, uint256 _amount) internal returns (uint64 receipt) {
+    function _deposit(address _from, address _account, uint256 _amount)
+        internal
+        returns (uint64 receipt)
+    {
         // Validate.
         if (_account == address(0)) revert ZeroAddress();
         if (_amount < minimumDeposit) {
@@ -419,7 +422,7 @@ contract SuccinctVApp is
         totalDeposits += _amount;
 
         // Transfer $PROVE from the sender to the VApp.
-        ERC20(prove).safeTransferFrom(msg.sender, address(this), _amount);
+        ERC20(prove).safeTransferFrom(_from, address(this), _amount);
     }
 
     /// @dev Creates a receipt for an action.

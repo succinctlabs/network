@@ -120,7 +120,7 @@ contract SuccinctVAppTest is Test, FixtureLoader {
 
         // Construct the permit digest
         bytes32 structHash =
-            keccak256(abi.encode(PERMIT_TYPEHASH, _owner, STAKING, _amount, nonce, _deadline));
+            keccak256(abi.encode(PERMIT_TYPEHASH, _owner, VAPP, _amount, nonce, _deadline));
         bytes32 digest = keccak256(
             abi.encodePacked("\x19\x01", IERC20Permit(PROVE).DOMAIN_SEPARATOR(), structHash)
         );

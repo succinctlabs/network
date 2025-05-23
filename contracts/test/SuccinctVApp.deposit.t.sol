@@ -80,7 +80,13 @@ contract SuccinctVAppDepositTest is SuccinctVAppTest {
         uint256 amount = 100e6;
         MockERC20(PROVE).mint(REQUESTER_1, amount);
 
-        (uint8 v, bytes32 r, bytes32 s) = _signPermit(REQUESTER_1_PK, REQUESTER_1, amount, block.timestamp + 1 days);
+        // Deposit
+        (uint8 v, bytes32 r, bytes32 s) =
+            _signPermit(REQUESTER_1_PK, REQUESTER_1, amount, block.timestamp + 1 days);
+        bytes memory data =
+            abi.encode(DepositAction({account: REQUESTER_1, amount: amount, token: PROVE}));
+        vm.expectEmit(true, true, true, true);
+        emit ISuccinctVApp.ReceiptPending(1, ActionType.Deposit, data);
         SuccinctVApp(VAPP).permitAndDeposit(REQUESTER_1, amount, block.timestamp + 1 days, v, r, s);
 
         assertEq(MockERC20(PROVE).balanceOf(REQUESTER_1), 0);
@@ -90,12 +96,34 @@ contract SuccinctVAppDepositTest is SuccinctVAppTest {
         assertEq(uint8(status), uint8(ReceiptStatus.Pending));
 
         // Update state with deposit action
-        // PublicValuesStruct memory publicValues = PublicValuesStruct({
-        //     actions: new Action[](1),
-        //     oldRoot: bytes32(0),
-        //     newRoot: bytes32(uint256(1)),
-        //     timestamp: uint64(block.timestamp)
-        // });
+        PublicValuesStruct memory publicValues = PublicValuesStruct({
+            actions: new Action[](1),
+            oldRoot: bytes32(0),
+            newRoot: bytes32(uint256(1)),
+            timestamp: uint64(block.timestamp)
+        });
+        publicValues.actions[0] = Action({
+            action: ActionType.Deposit,
+            status: ReceiptStatus.Completed,
+            receipt: 1,
+            data: data
+        });
+
+        mockCall(true);
+
+        vm.expectEmit(true, true, true, true);
+        emit ISuccinctVApp.ReceiptCompleted(1, ActionType.Deposit, data);
+        vm.expectEmit(true, true, true, true);
+        emit ISuccinctVApp.Block(1, publicValues.newRoot, publicValues.oldRoot);
+
+        SuccinctVApp(VAPP).updateState(abi.encode(publicValues), jsonFixture.proof);
+
+        // Verify receipt status updated
+        (, status,,) = SuccinctVApp(VAPP).receipts(1);
+        assertEq(uint8(status), uint8(ReceiptStatus.Completed));
+
+        // Verify finalizedReceipt updated
+        assertEq(SuccinctVApp(VAPP).finalizedReceipt(), 1);
     }
 
     function test_RevertDeposit_WhenZeroAddress() public {
