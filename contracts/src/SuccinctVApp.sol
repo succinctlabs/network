@@ -565,8 +565,8 @@ contract SuccinctVApp is
                 ERC20(prove).safeTransfer(owner, ownerReward);
 
                 // Process the staker reward.
-                ERC20(prove).safeTransfer(staking, _actions[i].data.amount);
-                ISuccinctStaking(staking).reward(_actions[i].data.prover, _actions[i].data.amount);
+                ERC20(prove).safeTransfer(staking, stakerReward);
+                ISuccinctStaking(staking).reward(_actions[i].data.prover, stakerReward);
 
                 emit ReceiptCompleted(
                     _actions[i].action.receipt, ActionType.Reward, _actions[i].action.data

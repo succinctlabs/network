@@ -34,6 +34,7 @@ import {ERC1967Proxy} from "../lib/openzeppelin-contracts/contracts/proxy/ERC196
 // Tests the entire protocol end-to-end.
 contract E2ETest is Test, FixtureLoader {
     // Constants
+    uint256 public constant FEE_UNIT = 10000;
     uint256 public constant STAKING_PROVE_AMOUNT = 1000e18;
     uint256 public constant REQUESTER_PROVE_AMOUNT = 10e18;
     uint256 public constant STAKER_PROVE_AMOUNT = 10e18;
@@ -250,9 +251,10 @@ contract E2ETest is Test, FixtureLoader {
 
         // Verify the reward was processed correctly
         uint256 proverStakedAfter = SuccinctStaking(STAKING).proverStaked(ALICE_PROVER);
+        uint256 expectedProverStaked = proverStakedBefore + (rewardAmount * STAKER_FEE_BIPS / FEE_UNIT);
         assertEq(
             proverStakedAfter,
-            proverStakedBefore + rewardAmount,
+            expectedProverStaked,
             "Prover should have received reward"
         );
         assertEq(
