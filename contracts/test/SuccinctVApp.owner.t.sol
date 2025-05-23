@@ -25,7 +25,7 @@ contract SuccinctVAppOwnerTest is SuccinctVAppTest {
         address newStaking = address(1);
 
         vm.expectEmit(true, true, true, true);
-        emit ISuccinctVApp.UpdatedStaking(newStaking);
+        emit ISuccinctVApp.StakingUpdate(newStaking);
         vm.prank(OWNER);
         SuccinctVApp(VAPP).updateStaking(newStaking);
 
@@ -44,7 +44,7 @@ contract SuccinctVAppOwnerTest is SuccinctVAppTest {
         address newVerifier = address(1);
 
         vm.expectEmit(true, true, true, true);
-        emit ISuccinctVApp.UpdatedVerifier(newVerifier);
+        emit ISuccinctVApp.VerifierUpdate(newVerifier);
         vm.prank(OWNER);
         SuccinctVApp(VAPP).updateVerifier(newVerifier);
 
@@ -63,7 +63,7 @@ contract SuccinctVAppOwnerTest is SuccinctVAppTest {
         uint64 newDelay = 2 days;
 
         vm.expectEmit(true, true, true, true);
-        emit ISuccinctVApp.UpdatedMaxActionDelay(newDelay);
+        emit ISuccinctVApp.MaxActionDelayUpdate(newDelay);
         vm.prank(OWNER);
         SuccinctVApp(VAPP).updateActionDelay(newDelay);
 
@@ -82,7 +82,7 @@ contract SuccinctVAppOwnerTest is SuccinctVAppTest {
         uint64 newDuration = 3 days;
 
         vm.expectEmit(true, true, true, true);
-        emit ISuccinctVApp.UpdatedFreezeDuration(newDuration);
+        emit ISuccinctVApp.FreezeDurationUpdate(newDuration);
         vm.prank(OWNER);
         SuccinctVApp(VAPP).updateFreezeDuration(newDuration);
 
@@ -101,7 +101,7 @@ contract SuccinctVAppOwnerTest is SuccinctVAppTest {
         uint256 minAmount = 10e6; // 10 PROVE
 
         vm.expectEmit(true, true, true, true);
-        emit ISuccinctVApp.MinimumDepositUpdated(minAmount);
+        emit ISuccinctVApp.MinimumDepositUpdate(minAmount);
         vm.prank(OWNER);
         SuccinctVApp(VAPP).setMinimumDeposit(minAmount);
 
@@ -111,14 +111,14 @@ contract SuccinctVAppOwnerTest is SuccinctVAppTest {
         uint256 newDepositBelowMinimum = 20e6; // 20 PROVE
 
         vm.expectEmit(true, true, true, true);
-        emit ISuccinctVApp.MinimumDepositUpdated(newDepositBelowMinimum);
+        emit ISuccinctVApp.MinimumDepositUpdate(newDepositBelowMinimum);
         SuccinctVApp(VAPP).setMinimumDeposit(newDepositBelowMinimum);
 
         assertEq(SuccinctVApp(VAPP).minimumDeposit(), newDepositBelowMinimum);
 
         // Set to zero to disable minimum check
         vm.expectEmit(true, true, true, true);
-        emit ISuccinctVApp.MinimumDepositUpdated(0);
+        emit ISuccinctVApp.MinimumDepositUpdate(0);
         SuccinctVApp(VAPP).setMinimumDeposit(0);
 
         assertEq(SuccinctVApp(VAPP).minimumDeposit(), 0);

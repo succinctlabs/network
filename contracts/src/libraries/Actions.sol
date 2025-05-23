@@ -86,12 +86,22 @@ struct FeeUpdateInternal {
 
 /// @notice Library for handling actions
 library Actions {
-    /// @notice Errors
+    /// @dev Thrown when an invalid action is encountered.
     error InvalidAction();
+
+    /// @dev Thrown when the actions are missing.
     error MissingActions(ActionType actionType, uint64 receipt);
+
+    /// @dev Thrown when the action does not match the receipt.
     error ActionMismatch(ActionType actionType, uint64 receipt);
+
+    /// @dev Thrown when the receipt is invalid.
     error InvalidReceipt(ActionType actionType, uint64 expected, uint64 actual);
+
+    /// @dev Thrown when the receipt status is invalid.
     error InvalidReceiptStatus(ActionType actionType, uint64 receipt, ReceiptStatus status);
+
+    /// @dev Thrown when the action status is invalid.
     error InvalidActionStatus(ActionType actionType, uint64 receipt, ReceiptStatus status);
 
     /// @notice Memory for decoding actions
@@ -302,31 +312,31 @@ library Actions {
     }
 
     /// @dev Validates a deposit action, reverting if the action does not match the receipt.
-    function _deposit(Action memory action, Receipt memory receipt) internal pure {
-        DepositAction memory deposit = abi.decode(action.data, (DepositAction));
-        DepositAction memory depositReceipt = abi.decode(receipt.data, (DepositAction));
+    function _deposit(Action memory _action, Receipt memory _receipt) internal pure {
+        DepositAction memory deposit = abi.decode(_action.data, (DepositAction));
+        DepositAction memory depositReceipt = abi.decode(_receipt.data, (DepositAction));
 
         if (deposit.account != depositReceipt.account) {
-            revert ActionMismatch(ActionType.Deposit, action.receipt);
+            revert ActionMismatch(ActionType.Deposit, _action.receipt);
         }
         if (deposit.amount != depositReceipt.amount) {
-            revert ActionMismatch(ActionType.Deposit, action.receipt);
+            revert ActionMismatch(ActionType.Deposit, _action.receipt);
         }
     }
 
     /// @dev Validates a withdraw action, reverting if the action does not match the receipt.
-    function _withdraw(Action memory action, Receipt memory receipt) internal pure {
-        WithdrawAction memory withdraw = abi.decode(action.data, (WithdrawAction));
-        WithdrawAction memory withdrawReceipt = abi.decode(receipt.data, (WithdrawAction));
+    function _withdraw(Action memory _action, Receipt memory _receipt) internal pure {
+        WithdrawAction memory withdraw = abi.decode(_action.data, (WithdrawAction));
+        WithdrawAction memory withdrawReceipt = abi.decode(_receipt.data, (WithdrawAction));
 
         if (withdraw.account != withdrawReceipt.account) {
-            revert ActionMismatch(ActionType.Withdraw, action.receipt);
+            revert ActionMismatch(ActionType.Withdraw, _action.receipt);
         }
         if (withdraw.amount != withdrawReceipt.amount) {
-            revert ActionMismatch(ActionType.Withdraw, action.receipt);
+            revert ActionMismatch(ActionType.Withdraw, _action.receipt);
         }
         if (withdraw.to != withdrawReceipt.to) {
-            revert ActionMismatch(ActionType.Withdraw, action.receipt);
+            revert ActionMismatch(ActionType.Withdraw, _action.receipt);
         }
     }
 }

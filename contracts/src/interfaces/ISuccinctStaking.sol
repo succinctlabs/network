@@ -81,7 +81,7 @@ interface ISuccinctStaking is IProverRegistry {
     error AmountExceedsAvailableDispense();
 
     /// @dev Emitted when the dispense rate is updated.
-    event DispenseRateUpdated(uint256 oldRate, uint256 newRate);
+    event DispenseRateUpdate(uint256 oldRate, uint256 newRate);
 
     /// @notice Returns the address of the VApp.
     /// @dev The VApp is responsible for triggering rewards and slashing.

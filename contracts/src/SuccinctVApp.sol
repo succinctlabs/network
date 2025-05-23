@@ -206,8 +206,8 @@ contract SuccinctVApp is
     {
         if (_account == address(0)) revert ZeroAddress();
 
-        // Check minimum amount if set (skip check if minimum is 0).
-        if (minimumDeposit > 0 && _amount < minimumDeposit) {
+        // Check minimum amount.
+        if (_amount < minimumDeposit) {
             revert DepositBelowMinimum();
         }
 
@@ -232,8 +232,8 @@ contract SuccinctVApp is
     {
         if (_to == address(0)) revert ZeroAddress();
 
-        // Check minimum amount if set (skip check if minimum is 0).
-        if (minimumDeposit > 0 && _amount < minimumDeposit) {
+        // Check minimum amount.
+        if (_amount < minimumDeposit) {
             revert DepositBelowMinimum();
         }
 
@@ -261,6 +261,31 @@ contract SuccinctVApp is
         ERC20(prove).safeTransfer(_to, amount);
 
         emit WithdrawalClaimed(_to, msg.sender, amount);
+    }
+
+     /// @inheritdoc ISuccinctVApp
+    function emergencyWithdraw(uint256 _amount, bytes32[] calldata _proof)
+        external
+        nonReentrant
+    {
+        if (_proof.length == 0) revert InvalidProof();
+        if (block.timestamp < timestamp() + freezeDuration) revert NotFrozen();
+
+        // Check minimum amount.
+        if (_amount < minimumDeposit) {
+            revert DepositBelowMinimum();
+        }
+
+        // Verify the proof.
+        bytes32 leaf = sha256(abi.encodePacked(msg.sender, _amount));
+        bytes32 root_ = root();
+        bool isValid = MerkleProof.verifyCalldata(_proof, root_, leaf, _hashPair);
+        if (!isValid) revert ProofFailed();
+
+        // Process the withdrawal.
+        _processWithdraw(msg.sender, _amount);
+
+        emit EmergencyWithdrawal(msg.sender, _amount, root_);
     }
 
     /// @inheritdoc ISuccinctVApp
@@ -330,24 +355,6 @@ contract SuccinctVApp is
         emit Block(_block, publicValues.newRoot, publicValues.oldRoot);
 
         return (_block, publicValues.newRoot, publicValues.oldRoot);
-    }
-
-    /// @inheritdoc ISuccinctVApp
-    function emergencyWithdraw(uint256 _amount, bytes32[] calldata _proof)
-        external
-        nonReentrant
-    {
-        if (_proof.length == 0) revert InvalidProof();
-        if (block.timestamp < timestamp() + freezeDuration) revert NotFrozen();
-
-        bytes32 leaf = sha256(abi.encodePacked(msg.sender, _amount));
-        bytes32 root_ = root();
-        bool isValid = MerkleProof.verifyCalldata(_proof, root_, leaf, _hashPair);
-        if (!isValid) revert ProofFailed();
-
-        _processWithdraw(msg.sender, _amount);
-
-        emit EmergencyWithdrawal(msg.sender, _amount, root_);
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -565,7 +572,7 @@ contract SuccinctVApp is
                     address prover = _actions[i].data.provers[j];
                     uint256 assertedProveBalance = _actions[i].data.proveBalances[j];
 
-                    // Cheprove token balance.
+                    // Check the token balance.
                     uint256 actualProveBalance = ERC20(prove).balanceOf(prover);
                     if (actualProveBalance != assertedProveBalance) {
                         revert BalanceMismatch();
@@ -591,35 +598,35 @@ contract SuccinctVApp is
     function _updateStaking(address _staking) internal {
         staking = _staking;
 
-        emit UpdatedStaking(_staking);
+        emit StakingUpdate(_staking);
     }
 
     /// @dev Updates the verifier.
     function _updateVerifier(address _verifier) internal {
         verifier = _verifier;
 
-        emit UpdatedVerifier(_verifier);
+        emit VerifierUpdate(_verifier);
     }
 
     /// @dev Updates the action delay.
     function _updateActionDelay(uint64 _maxActionDelay) internal {
         maxActionDelay = _maxActionDelay;
 
-        emit UpdatedMaxActionDelay(_maxActionDelay);
+        emit MaxActionDelayUpdate(_maxActionDelay);
     }
 
     /// @dev Updates the freeze duration.
     function _updateFreezeDuration(uint64 _freezeDuration) internal {
         freezeDuration = _freezeDuration;
 
-        emit UpdatedFreezeDuration(_freezeDuration);
+        emit FreezeDurationUpdate(_freezeDuration);
     }
 
     /// @dev Sets the minimum amount for deposit/withdraw operations.
     function _setMinimumDeposit(uint256 _amount) internal {
         minimumDeposit = _amount;
 
-        emit MinimumDepositUpdated(_amount);
+        emit MinimumDepositUpdate(_amount);
     }
 
     /// @dev Handles fee update actions.

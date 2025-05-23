@@ -6,19 +6,19 @@ import {ReceiptStatus} from "../libraries/Actions.sol";
 
 interface ISuccinctVApp {
     /// @notice The staking address was updated.
-    event UpdatedStaking(address indexed staking);
+    event StakingUpdate(address indexed staking);
 
     /// @notice The verifier address was updated.
-    event UpdatedVerifier(address indexed verifier);
+    event VerifierUpdate(address indexed verifier);
 
     /// @notice The max action delay was updated.
-    event UpdatedMaxActionDelay(uint64 indexed actionDelay);
+    event MaxActionDelayUpdate(uint64 indexed actionDelay);
 
     /// @notice The freeze duration was updated.
-    event UpdatedFreezeDuration(uint64 indexed freezeDuration);
+    event FreezeDurationUpdate(uint64 indexed freezeDuration);
 
     /// @notice The minimum deposit was updated.
-    event MinimumDepositUpdated(uint256 amount);
+    event MinimumDepositUpdate(uint256 amount);
 
     /// @notice The program was forked.
     event Fork(
@@ -49,20 +49,49 @@ interface ISuccinctVApp {
     /// @dev Thrown if the actual balance does not match the expected balance.
     error BalanceMismatch();
 
+    /// @dev Thrown when an address parameter is zero.
     error ZeroAddress();
+
+    /// @dev Thrown when an amount parameter is invalid.
     error InvalidAmount();
+
+    /// @dev Thrown when a root parameter is invalid.
     error InvalidRoot();
+
+    /// @dev Thrown when an old root parameter is invalid.
     error InvalidOldRoot();
+
+    /// @dev Thrown when a sweep transfer fails.
     error SweepTransferFailed();
+
+    /// @dev Thrown when there is no withdrawal to claim.
     error NoWithdrawalToClaim();
+
+    /// @dev Thrown when a claim transfer fails.
     error ClaimTransferFailed();
+
+    /// @dev Thrown when an invalid vkey is encountered.
     error InvalidVkey();
+
+    /// @dev Thrown when the state is not frozen.
     error NotFrozen();
+
+    /// @dev Thrown when an invalid proof is encountered.
     error InvalidProof();
+
+    /// @dev Thrown when an invalid timestamp is encountered.
     error InvalidTimestamp();
+
+    /// @dev Thrown when a timestamp is in the past.
     error TimestampInPast();
+
+    /// @dev Thrown when a proof fails.
     error ProofFailed();
+
+    /// @dev Thrown when an invalid signer is encountered.
     error InvalidSigner();
+
+    /// @dev Thrown when a deposit or withdrawal is below the minimum.
     error DepositBelowMinimum();
 
     /// @notice The maximum fee value (100% in basis points).
