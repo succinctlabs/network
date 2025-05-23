@@ -215,6 +215,7 @@ contract E2ETest is Test, FixtureLoader {
         uint256 rewardAmount = 5e18; // 5 PROVE tokens as reward (within the 10e18 available in VApp)
 
         uint256 initialStakerBalance = IERC20(PROVE).balanceOf(STAKER_1);
+        uint256 initialAliceBalance = IERC20(PROVE).balanceOf(ALICE);
 
         // Step 1: STAKER_1 stakes to ALICE_PROVER
         // STAKER_1 has already deposited $PROVE to ALICE_PROVER (done in setUp)
@@ -249,26 +250,33 @@ contract E2ETest is Test, FixtureLoader {
         // Execute the state update with reward
         SuccinctVApp(VAPP).updateState(abi.encode(publicValues), jsonFixture.proof);
 
+        // Calculate expected rewards based on fee splitting
+        uint256 expectedStakerReward = (rewardAmount * STAKER_FEE_BIPS) / FEE_UNIT; // 10% to stakers
+        uint256 expectedOwnerReward = rewardAmount - expectedStakerReward; // 90% to prover owner
+
         // Verify the reward was processed correctly
-        uint256 proverStakedAfter = SuccinctStaking(STAKING).proverStaked(ALICE_PROVER);
-        uint256 expectedProverStaked = proverStakedBefore + (rewardAmount * STAKER_FEE_BIPS / FEE_UNIT);
         assertEq(
-            proverStakedAfter,
-            expectedProverStaked,
-            "Prover should have received reward"
+            SuccinctStaking(STAKING).proverStaked(ALICE_PROVER),
+            proverStakedBefore + expectedStakerReward,
+            "Prover should have received staker portion of reward"
         );
         assertEq(
             IERC20(PROVE).balanceOf(VAPP),
             vappBalanceBefore - rewardAmount,
-            "VApp balance should decrease by reward amount"
+            "VApp balance should decrease by full reward amount"
+        );
+
+        // Verify prover owner received their portion of the reward
+        assertEq(
+            IERC20(PROVE).balanceOf(ALICE),
+            initialAliceBalance + expectedOwnerReward,
+            "Prover owner should receive their portion of the reward"
         );
 
         // Step 4: STAKER_1 unstakes and should receive more than they originally staked
 
-        uint256 stakerBalanceBeforeUnstake = IERC20(PROVE).balanceOf(STAKER_1);
+        // The staker should now have a share of the staker reward
         uint256 expectedUnstakeAmount = SuccinctStaking(STAKING).staked(STAKER_1);
-
-        // The staker should now have a share of the reward
         assertGt(expectedUnstakeAmount, stakeAmount, "Staker should have earned rewards");
 
         // Complete the unstake process
@@ -277,16 +285,6 @@ contract E2ETest is Test, FixtureLoader {
 
         // Verify final state
         assertEq(actualUnstakeAmount, expectedUnstakeAmount, "Unstake amount should match expected");
-        assertEq(
-            IERC20(PROVE).balanceOf(STAKER_1),
-            stakerBalanceBeforeUnstake + actualUnstakeAmount,
-            "Staker should receive unstaked amount"
-        );
-        assertGt(
-            IERC20(PROVE).balanceOf(STAKER_1),
-            initialStakerBalance,
-            "Staker should have more PROVE than initially"
-        );
 
         // Verify staker is no longer staked
         assertEq(
@@ -298,14 +296,33 @@ contract E2ETest is Test, FixtureLoader {
             SuccinctStaking(STAKING).staked(STAKER_1), 0, "Staker should have no stake remaining"
         );
 
-        // Calculate and verify the profit
-        uint256 finalBalance = IERC20(PROVE).balanceOf(STAKER_1);
-        uint256 profit = finalBalance - initialStakerBalance - stakeAmount;
+        // Calculate and verify the profit for both staker and prover owner
+        uint256 stakerProfit =
+            IERC20(PROVE).balanceOf(STAKER_1) - initialStakerBalance - stakeAmount;
+        uint256 aliceProfit = IERC20(PROVE).balanceOf(ALICE) - initialAliceBalance;
 
-        // The profit should be a portion of the reward based on the staker's share
-        // Since STAKER_1 is the only staker to ALICE_PROVER, they should get the full reward
+        // The staker profit should be the staker portion of the reward (10%)
+        // Since STAKER_1 is the only staker to ALICE_PROVER, they should get the full staker reward
         assertApproxEqAbs(
-            profit, rewardAmount, 1e6, "Staker should receive the full reward as the only staker"
+            stakerProfit,
+            expectedStakerReward,
+            1e6,
+            "Staker should receive their portion of the reward"
+        );
+
+        // The prover owner should receive their portion of the reward (90%)
+        assertEq(
+            aliceProfit,
+            expectedOwnerReward,
+            "Prover owner should receive their portion of the reward"
+        );
+
+        // Verify the total rewards distributed equals the original reward amount
+        assertApproxEqAbs(
+            stakerProfit + aliceProfit,
+            rewardAmount,
+            1e6,
+            "Total distributed rewards should equal original reward"
         );
     }
 
