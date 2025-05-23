@@ -24,6 +24,7 @@ contract SuccinctStakingTest is Test {
     uint256 public constant UNSTAKE_PERIOD = 21 days;
     uint256 public constant SLASH_PERIOD = 7 days;
     uint256 public constant DISPENSE_RATE = 1268391679; // ~4% yearly
+    uint256 public constant STAKER_FEE_BIPS = 1000; // 10%
 
     // EOAs
     address public OWNER;
@@ -90,9 +91,9 @@ contract SuccinctStakingTest is Test {
 
         // Create the provers
         vm.prank(ALICE);
-        ALICE_PROVER = SuccinctStaking(STAKING).createProver();
+        ALICE_PROVER = SuccinctStaking(STAKING).createProver(STAKER_FEE_BIPS);
         vm.prank(BOB);
-        BOB_PROVER = SuccinctStaking(STAKING).createProver();
+        BOB_PROVER = SuccinctStaking(STAKING).createProver(STAKER_FEE_BIPS);
 
         // Mint some $PROVE for the stakers
         deal(PROVE, STAKER_1, STAKER_PROVE_AMOUNT);

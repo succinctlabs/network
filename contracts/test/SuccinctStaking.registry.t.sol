@@ -12,7 +12,7 @@ contract SuccinctStakingRegistryTests is SuccinctStakingTest {
         address proverOwner = makeAddr("PROVER_OWNER");
 
         vm.prank(proverOwner);
-        address prover = SuccinctStaking(STAKING).createProver();
+        address prover = SuccinctStaking(STAKING).createProver(STAKER_FEE_BIPS);
 
         assertEq(IProver(prover).owner(), proverOwner);
         assertEq(IProver(prover).id(), 3);
@@ -24,10 +24,10 @@ contract SuccinctStakingRegistryTests is SuccinctStakingTest {
         address proverOwner = makeAddr("PROVER_OWNER");
 
         vm.prank(proverOwner);
-        SuccinctStaking(STAKING).createProver();
+        SuccinctStaking(STAKING).createProver(STAKER_FEE_BIPS);
 
         vm.expectRevert(abi.encodeWithSelector(IProverRegistry.ProverAlreadyExists.selector));
         vm.prank(proverOwner);
-        SuccinctStaking(STAKING).createProver();
+        SuccinctStaking(STAKING).createProver(STAKER_FEE_BIPS);
     }
 }
