@@ -43,6 +43,8 @@ import {ERC20} from "../lib/openzeppelin-contracts/contracts/token/ERC20/ERC20.s
 import {SafeERC20} from "../lib/openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol";
 import {UUPSUpgradeable} from
     "../lib/openzeppelin-contracts-upgradeable/contracts/proxy/utils/UUPSUpgradeable.sol";
+import {IERC20Permit} from
+    "../lib/openzeppelin-contracts/contracts/token/ERC20/extensions/IERC20Permit.sol";
 
 /// @title SuccinctVApp
 /// @author Succinct Labs
@@ -201,40 +203,31 @@ contract SuccinctVApp is
     function deposit(address _account, uint256 _amount)
         external
         override
-        nonReentrant
         returns (uint64 receipt)
     {
-        if (_account == address(0)) revert ZeroAddress();
-
-        // Check minimum amount.
-        if (_amount < minimumDeposit) {
-            revert DepositBelowMinimum();
-        }
-
-        // Create the receipt.
-        bytes memory data =
-            abi.encode(DepositAction({account: _account, amount: _amount, token: prove}));
-        receipt = _createReceipt(ActionType.Deposit, data);
-
-        // Update the state.
-        totalDeposits += _amount;
-
-        // Transfer the deposit.
-        ERC20(prove).safeTransferFrom(msg.sender, address(this), _amount);
+        return _deposit(_account, _amount);
     }
 
     /// @inheritdoc ISuccinctVApp
-    function withdraw(address _to, uint256 _amount)
-        external
-        override
-        nonReentrant
-        returns (uint64 receipt)
-    {
-        if (_to == address(0)) revert ZeroAddress();
+    function permitAndDeposit(
+        address _from,
+        uint256 _amount,
+        uint256 _deadline,
+        uint8 _v,
+        bytes32 _r,
+        bytes32 _s
+    ) external override returns (uint64 receipt) {
+        IERC20Permit(prove).permit(_from, address(this), _amount, _deadline, _v, _r, _s);
 
-        // Check minimum amount.
+        return _deposit(_from, _amount);
+    }
+
+    /// @inheritdoc ISuccinctVApp
+    function withdraw(address _to, uint256 _amount) external override returns (uint64 receipt) {
+        // Validate.
+        if (_to == address(0)) revert ZeroAddress();
         if (_amount < minimumDeposit) {
-            revert DepositBelowMinimum();
+            revert TransferBelowMinimum();
         }
 
         // Create the receipt.
@@ -245,7 +238,8 @@ contract SuccinctVApp is
     }
 
     /// @inheritdoc ISuccinctVApp
-    function claimWithdrawal(address _to) external override nonReentrant returns (uint256 amount) {
+    function claimWithdrawal(address _to) external override returns (uint256 amount) {
+        // Validate.
         amount = withdrawalClaims[_to];
         if (amount == 0) revert NoWithdrawalToClaim();
 
@@ -260,13 +254,12 @@ contract SuccinctVApp is
     }
 
     /// @inheritdoc ISuccinctVApp
-    function emergencyWithdraw(uint256 _amount, bytes32[] calldata _proof) external nonReentrant {
+    function emergencyWithdraw(uint256 _amount, bytes32[] calldata _proof) external {
+        // Validate.
         if (_proof.length == 0) revert InvalidProof();
         if (block.timestamp < timestamp() + freezeDuration) revert NotFrozen();
-
-        // Check minimum amount.
         if (_amount < minimumDeposit) {
-            revert DepositBelowMinimum();
+            revert TransferBelowMinimum();
         }
 
         // Verify the proof.
@@ -283,6 +276,7 @@ contract SuccinctVApp is
 
     /// @inheritdoc ISuccinctVApp
     function addDelegatedSigner(address _signer) external returns (uint64 receipt) {
+        // Validate.
         if (_signer == address(0)) revert ZeroAddress();
         if (usedSigners[_signer]) revert InvalidSigner();
         if (!ISuccinctStaking(staking).hasProver(msg.sender)) revert InvalidSigner();
@@ -300,6 +294,7 @@ contract SuccinctVApp is
 
     /// @inheritdoc ISuccinctVApp
     function removeDelegatedSigner(address _signer) external returns (uint64 receipt) {
+        // Validate.
         uint256 index = hasDelegatedSigner(msg.sender, _signer);
         if (index == type(uint256).max) revert InvalidSigner();
         if (!usedSigners[_signer]) revert InvalidSigner();
@@ -407,6 +402,26 @@ contract SuccinctVApp is
                                  INTERNAL
     //////////////////////////////////////////////////////////////*/
 
+    /// @dev Credits a deposit receipt, transfers $PROVE from the sender to the VApp.
+    function _deposit(address _account, uint256 _amount) internal returns (uint64 receipt) {
+        // Validate.
+        if (_account == address(0)) revert ZeroAddress();
+        if (_amount < minimumDeposit) {
+            revert TransferBelowMinimum();
+        }
+
+        // Create the receipt.
+        bytes memory data =
+            abi.encode(DepositAction({account: _account, amount: _amount, token: prove}));
+        receipt = _createReceipt(ActionType.Deposit, data);
+
+        // Update the state.
+        totalDeposits += _amount;
+
+        // Transfer $PROVE from the sender to the VApp.
+        ERC20(prove).safeTransferFrom(msg.sender, address(this), _amount);
+    }
+
     /// @dev Creates a receipt for an action.
     function _createReceipt(ActionType _actionType, bytes memory _data)
         internal
@@ -425,19 +440,19 @@ contract SuccinctVApp is
 
     /// @dev Handles committed actions, reverts if the actions are invalid
     function _handleActions(PublicValuesStruct memory _publicValues) internal {
-        // Validate the actions
-        uint64 _timestamp = uint64(block.timestamp);
-        uint64 _actionDelay = maxActionDelay;
+        // Validate the actions.
+        uint64 timestamp_ = uint64(block.timestamp);
+        uint64 actionDelay_ = maxActionDelay;
         Actions.validate(
             receipts,
             _publicValues.actions,
             finalizedReceipt,
             currentReceipt,
-            _timestamp,
-            _actionDelay
+            timestamp_,
+            actionDelay_
         );
 
-        // Execute the actions
+        // Execute the actions.
         ActionsInternal memory decoded = Actions.decode(_publicValues.actions);
         _depositActions(decoded.deposits);
         _withdrawActions(decoded.withdrawals);

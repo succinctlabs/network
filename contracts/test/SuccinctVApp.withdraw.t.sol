@@ -28,7 +28,7 @@ contract SuccinctVAppWithdrawTest is SuccinctVAppTest {
         // Deposit
         MockERC20(PROVE).mint(REQUESTER_1, amount);
         vm.startPrank(REQUESTER_1);
-        MockERC20(PROVE).approve(address(VAPP), amount);
+        MockERC20(PROVE).approve(VAPP, amount);
         uint64 depositReceipt = SuccinctVApp(VAPP).deposit(REQUESTER_1, amount);
         vm.stopPrank();
 
@@ -129,7 +129,7 @@ contract SuccinctVAppWithdrawTest is SuccinctVAppTest {
         // Deposit
         MockERC20(PROVE).mint(REQUESTER_1, amount);
         vm.startPrank(REQUESTER_1);
-        MockERC20(PROVE).approve(address(VAPP), amount);
+        MockERC20(PROVE).approve(VAPP, amount);
         uint64 depositReceipt = SuccinctVApp(VAPP).deposit(REQUESTER_1, amount);
         vm.stopPrank();
 
@@ -254,7 +254,7 @@ contract SuccinctVAppWithdrawTest is SuccinctVAppTest {
 
         // Try to withdraw below minimum
         vm.startPrank(REQUESTER_1);
-        vm.expectRevert(abi.encodeWithSelector(ISuccinctVApp.DepositBelowMinimum.selector));
+        vm.expectRevert(abi.encodeWithSelector(ISuccinctVApp.TransferBelowMinimum.selector));
         SuccinctVApp(VAPP).withdraw(REQUESTER_1, withdrawAmount);
         vm.stopPrank();
 
@@ -275,7 +275,7 @@ contract SuccinctVAppWithdrawTest is SuccinctVAppTest {
     //         vm.etch(testUsdc, PROVE.code);
     //     }
     //     MockERC20(testUsdc).mint(address(this), 100);
-    //     MockERC20(testUsdc).approve(address(VAPP), 100);
+    //     MockERC20(testUsdc).approve(VAPP, 100);
     //     SuccinctVApp(VAPP).deposit(address(this), 100);
 
     //     // The merkle tree

@@ -26,6 +26,8 @@ import {MockERC20} from "./utils/MockERC20.sol";
 import {ERC1967Proxy} from "../lib/openzeppelin-contracts/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import {Initializable} from "../lib/openzeppelin-contracts/contracts/proxy/utils/Initializable.sol";
 import {ISuccinctVApp} from "../src/interfaces/ISuccinctVApp.sol";
+import {IERC20Permit} from
+    "../lib/openzeppelin-contracts/contracts/token/ERC20/extensions/IERC20Permit.sol";
 
 contract SuccinctVAppTest is Test, FixtureLoader {
     using stdJson for string;
@@ -41,8 +43,11 @@ contract SuccinctVAppTest is Test, FixtureLoader {
     // EOAs
     address OWNER;
     address REQUESTER_1;
+    uint256 REQUESTER_1_PK;
     address REQUESTER_2;
+    uint256 REQUESTER_2_PK;
     address REQUESTER_3;
+    uint256 REQUESTER_3_PK;
 
     // Contracts
     address public VERIFIER;
@@ -66,9 +71,9 @@ contract SuccinctVAppTest is Test, FixtureLoader {
         OWNER = address(this);
 
         // Create requesters
-        REQUESTER_1 = makeAddr("REQUESTER_1");
-        REQUESTER_2 = makeAddr("REQUESTER_2");
-        REQUESTER_3 = makeAddr("REQUESTER_3");
+        (REQUESTER_1, REQUESTER_1_PK) = makeAddrAndKey("REQUESTER_1");
+        (REQUESTER_2, REQUESTER_2_PK) = makeAddrAndKey("REQUESTER_2");
+        (REQUESTER_3, REQUESTER_3_PK) = makeAddrAndKey("REQUESTER_3");
 
         // Deploy verifier
         VERIFIER = address(new MockVerifier());
@@ -101,6 +106,31 @@ contract SuccinctVAppTest is Test, FixtureLoader {
         }
     }
 
+    function _signPermit(uint256 _pk, address _owner, uint256 _amount, uint256 _deadline)
+        internal
+        view
+        returns (uint8 v, bytes32 r, bytes32 s)
+    {
+        bytes32 PERMIT_TYPEHASH = keccak256(
+            "Permit(address owner,address spender,uint256 value,uint256 nonce,uint256 deadline)"
+        );
+
+        // Get the current nonce for the owner
+        uint256 nonce = IERC20Permit(PROVE).nonces(_owner);
+
+        // Construct the permit digest
+        bytes32 structHash =
+            keccak256(abi.encode(PERMIT_TYPEHASH, _owner, STAKING, _amount, nonce, _deadline));
+        bytes32 digest = keccak256(
+            abi.encodePacked("\x19\x01", IERC20Permit(PROVE).DOMAIN_SEPARATOR(), structHash)
+        );
+
+        // Sign the digest
+        return vm.sign(_pk, digest);
+    }
+}
+
+contract SuccinctVAppSetupTests is SuccinctVAppTest {
     function test_SetUp() public view {
         assertEq(SuccinctVApp(VAPP).owner(), OWNER);
         assertEq(SuccinctVApp(VAPP).prove(), PROVE);

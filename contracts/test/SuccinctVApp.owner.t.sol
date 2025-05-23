@@ -97,7 +97,7 @@ contract SuccinctVAppOwnerTest is SuccinctVAppTest {
         SuccinctVApp(VAPP).updateFreezeDuration(3 days);
     }
 
-    function test_SetDepositBelowMinimum_WhenValid() public {
+    function test_SetTransferBelowMinimum_WhenValid() public {
         uint256 minAmount = 10e6; // 10 PROVE
 
         vm.expectEmit(true, true, true, true);
@@ -108,13 +108,13 @@ contract SuccinctVAppOwnerTest is SuccinctVAppTest {
         assertEq(SuccinctVApp(VAPP).minimumDeposit(), minAmount);
 
         // Update to a different value
-        uint256 newDepositBelowMinimum = 20e6; // 20 PROVE
+        uint256 newTransferBelowMinimum = 20e6; // 20 PROVE
 
         vm.expectEmit(true, true, true, true);
-        emit ISuccinctVApp.MinimumDepositUpdate(newDepositBelowMinimum);
-        SuccinctVApp(VAPP).setMinimumDeposit(newDepositBelowMinimum);
+        emit ISuccinctVApp.MinimumDepositUpdate(newTransferBelowMinimum);
+        SuccinctVApp(VAPP).setMinimumDeposit(newTransferBelowMinimum);
 
-        assertEq(SuccinctVApp(VAPP).minimumDeposit(), newDepositBelowMinimum);
+        assertEq(SuccinctVApp(VAPP).minimumDeposit(), newTransferBelowMinimum);
 
         // Set to zero to disable minimum check
         vm.expectEmit(true, true, true, true);
