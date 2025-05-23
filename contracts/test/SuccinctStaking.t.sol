@@ -13,7 +13,6 @@ import {IERC20} from "../lib/openzeppelin-contracts/contracts/interfaces/IERC20.
 import {IERC20Permit} from
     "../lib/openzeppelin-contracts/contracts/token/ERC20/extensions/IERC20Permit.sol";
 import {IERC4626} from "../lib/openzeppelin-contracts/contracts/interfaces/IERC4626.sol";
-import {FixtureLoader, Fixture, SP1ProofFixtureJson} from "./utils/FixtureLoader.sol";
 
 // Sets up the SuccinctStaking protocol for testing and exposes some useful helper functions.
 contract SuccinctStakingTest is Test {

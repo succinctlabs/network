@@ -5,21 +5,6 @@ import {ActionType} from "../libraries/PublicValues.sol";
 import {ReceiptStatus} from "../libraries/Actions.sol";
 
 interface ISuccinctVApp {
-    /// @notice The staking address was updated.
-    event StakingUpdate(address indexed staking);
-
-    /// @notice The verifier address was updated.
-    event VerifierUpdate(address indexed verifier);
-
-    /// @notice The max action delay was updated.
-    event MaxActionDelayUpdate(uint64 indexed actionDelay);
-
-    /// @notice The freeze duration was updated.
-    event FreezeDurationUpdate(uint64 indexed freezeDuration);
-
-    /// @notice The minimum deposit was updated.
-    event MinimumDepositUpdate(uint256 amount);
-
     /// @notice The program was forked.
     event Fork(
         bytes32 indexed vkey, uint64 indexed block, bytes32 indexed newRoot, bytes32 oldRoot
@@ -42,6 +27,21 @@ interface ISuccinctVApp {
 
     /// @notice Emergency withdrawal event
     event EmergencyWithdrawal(address indexed account, uint256 balance, bytes32 root);
+
+    /// @notice The staking address was updated.
+    event StakingUpdate(address indexed staking);
+
+    /// @notice The verifier address was updated.
+    event VerifierUpdate(address indexed verifier);
+
+    /// @notice The max action delay was updated.
+    event MaxActionDelayUpdate(uint64 indexed actionDelay);
+
+    /// @notice The freeze duration was updated.
+    event FreezeDurationUpdate(uint64 indexed freezeDuration);
+
+    /// @notice The minimum deposit was updated.
+    event MinimumDepositUpdate(uint256 amount);
 
     /// @dev Thrown if the array lengths do not match.
     error ArrayLengthMismatch();
@@ -92,7 +92,7 @@ interface ISuccinctVApp {
     error InvalidSigner();
 
     /// @dev Thrown when a deposit or withdrawal is below the minimum.
-    error DepositBelowMinimum();
+    error TransferBelowMinimum();
 
     /// @notice The maximum fee value (100% in basis points).
     function FEE_UNIT() external view returns (uint256);
@@ -100,7 +100,7 @@ interface ISuccinctVApp {
     /// @notice The address of the $PROVE token.
     function prove() external view returns (address);
 
-    /// @notice The address of the uccinct staking contract.
+    /// @notice The address of the Succinct staking contract.
     function staking() external view returns (address);
 
     /// @notice The address of the SP1 verifier contract.
@@ -175,26 +175,43 @@ interface ISuccinctVApp {
     /// @notice The signers that have been used for delegation
     function usedSigners(address signer) external view returns (bool);
 
-    /// @notice Deposit funds into the vApp.
-    /// @dev Scales the deposit amount by the UNIT factor
-    /// @param account The account to deposit funds for.
-    /// @param amount The amount to deposit.
+    /// @notice Deposit funds into the vApp, must have already approved the contract as a spender.
+    /// @param amount The amount of $PROVE to deposit.
     /// @return receipt The receipt for the deposit.
-    function deposit(address account, uint256 amount) external returns (uint64 receipt);
+    function deposit(uint256 amount) external returns (uint64 receipt);
 
-    /// @notice Request to withdraw funds from the vApp.
+    /// @notice Approve and deposit $PROVE in a single call using a permit signature.
+    /// @dev Assumes $PROVE implements permit (https://eips.ethereum.org/EIPS/eip-2612).
+    /// @param from The address to spend the $PROVE from. Must correspond to the signer of the permit
+    /// signature.
+    /// @param amount The amount of $PROVE to spend for the deposit.
+    /// @param deadline The deadline for the permit signature.
+    /// @param v The v component of the permit signature.
+    /// @param r The r component of the permit signature.
+    /// @param s The s component of the permit signature.
+    /// @return receipt The receipt for the deposit.
+    function permitAndDeposit(
+        address from,
+        uint256 amount,
+        uint256 deadline,
+        uint8 v,
+        bytes32 r,
+        bytes32 s
+    ) external returns (uint64 receipt);
+
+    /// @notice Request to withdraw funds from the contract.
     /// @dev Can fail if balance is insufficient.
     /// @param to The address to withdraw funds to.
     /// @param amount The amount to withdraw.
     /// @return receipt The receipt for the withdrawal.
     function withdraw(address to, uint256 amount) external returns (uint64 receipt);
 
-    /// @notice Claim a pending withdrawal.
+    /// @notice Claim a pending withdrawal from the contract.
     /// @param to The address to claim the withdrawal to.
     /// @return amount The amount claimed.
     function claimWithdrawal(address to) external returns (uint256 amount);
 
-    /// @notice Emergency withdrawal.
+    /// @notice Emergency withdrawal from the contract.
     /// @dev Anyone can call this function to withdraw their balance after the freeze duration has passed.
     /// @param balance The balance to withdraw.
     /// @param proof The proof for the withdrawal.

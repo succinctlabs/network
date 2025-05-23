@@ -130,7 +130,7 @@ contract E2ETest is Test, FixtureLoader {
         vm.prank(REQUESTER);
         IERC20(PROVE).approve(VAPP, REQUESTER_PROVE_AMOUNT);
         vm.prank(REQUESTER);
-        SuccinctVApp(VAPP).deposit(REQUESTER, REQUESTER_PROVE_AMOUNT);
+        SuccinctVApp(VAPP).deposit(REQUESTER_PROVE_AMOUNT);
 
         // Create the provers
         vm.prank(ALICE);

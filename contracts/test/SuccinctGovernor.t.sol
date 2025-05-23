@@ -36,7 +36,7 @@ contract SuccinctGovernorTest is SuccinctStakingTest {
 
         // Alice $PROVER makes a proposal.
         address[] memory targets = new address[](1);
-        targets[0] = address(VAPP);
+        targets[0] = VAPP;
         uint256[] memory values = new uint256[](1);
         values[0] = 0;
         bytes[] memory calldatas = new bytes[](1);
