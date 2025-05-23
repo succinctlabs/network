@@ -49,6 +49,8 @@ interface IProverRegistry {
     /// @notice Create a new prover.
     /// @dev The caller becomes the owner of the new prover. Only one prover can be created per
     ///      owner.
+    /// @param stakerFeeBips The reward percentage in basis points (one-hundredth of a percent) that
+    ///        goes to the prover's stakers. This cannot be changed after the prover is created.
     /// @return The address of the new prover.
-    function createProver() external returns (address);
+    function createProver(uint256 stakerFeeBips) external returns (address);
 }
