@@ -55,6 +55,7 @@ contract AllScript is BaseScript, FixtureLoader {
         address VERIFIER = SP1_VERIFIER_GATEWAY_GROTH16;
         uint64 MAX_ACTION_DELAY = readUint64("MAX_ACTION_DELAY");
         uint64 FREEZE_DURATION = readUint64("FREEZE_DURATION");
+        uint256 PROTOCOL_FEE_BIPS = readUint256("PROTOCOL_FEE_BIPS");
 
         // Load fixture
         SP1ProofFixtureJson memory fixture = loadFixture(vm, Fixture.Groth16);
@@ -65,7 +66,7 @@ contract AllScript is BaseScript, FixtureLoader {
         address VAPP =
             address(SuccinctVApp(payable(address(new ERC1967Proxy{salt: salt}(vappImpl, "")))));
         SuccinctVApp(VAPP).initialize(
-            msg.sender, PROVE, STAKING, VERIFIER, VKEY, MAX_ACTION_DELAY, FREEZE_DURATION
+            msg.sender, PROVE, STAKING, VERIFIER, VKEY, MAX_ACTION_DELAY, FREEZE_DURATION, PROTOCOL_FEE_BIPS
         );
 
         return VAPP;

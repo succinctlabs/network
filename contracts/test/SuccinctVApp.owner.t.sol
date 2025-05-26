@@ -131,4 +131,23 @@ contract SuccinctVAppOwnerTest is SuccinctVAppTest {
         vm.prank(REQUESTER_1);
         SuccinctVApp(VAPP).setMinimumDeposit(10e6);
     }
+
+    function test_SetProtocolFeeBips_WhenValid() public {
+        uint256 newProtocolFeeBips = PROTOCOL_FEE_BIPS + 1; // 10%
+
+        vm.expectEmit(true, true, true, true);
+        emit ISuccinctVApp.ProtocolFeeBipsUpdate(newProtocolFeeBips);
+        vm.prank(OWNER);
+        SuccinctVApp(VAPP).setProtocolFeeBips(newProtocolFeeBips);
+
+        assertEq(SuccinctVApp(VAPP).protocolFeeBips(), newProtocolFeeBips);
+    }
+
+    function test_RevertSetProtocolFeeBips_WhenNotOwner() public {
+        vm.expectRevert(
+            abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, REQUESTER_1)
+        );
+        vm.prank(REQUESTER_1);
+        SuccinctVApp(VAPP).setProtocolFeeBips(1000);
+    }
 }

@@ -87,6 +87,9 @@ contract SuccinctVApp is
     uint256 public override minimumDeposit;
 
     /// @inheritdoc ISuccinctVApp
+    uint256 public override protocolFeeBips;
+
+    /// @inheritdoc ISuccinctVApp
     uint256 public override totalDeposits;
 
     /// @inheritdoc ISuccinctVApp
@@ -132,7 +135,8 @@ contract SuccinctVApp is
         address _verifier,
         bytes32 _vappProgramVKey,
         uint64 _maxActionDelay,
-        uint64 _freezeDuration
+        uint64 _freezeDuration,
+        uint256 _protocolFeeBips
     ) external initializer {
         if (
             _owner == address(0) || _prove == address(0) || _staking == address(0)
@@ -150,11 +154,13 @@ contract SuccinctVApp is
         vappProgramVKey = _vappProgramVKey;
         maxActionDelay = _maxActionDelay;
         freezeDuration = _freezeDuration;
+        protocolFeeBips = _protocolFeeBips;
 
         _updateStaking(_staking);
         _updateVerifier(_verifier);
         _updateActionDelay(_maxActionDelay);
         _updateFreezeDuration(_freezeDuration);
+        _setProtocolFeeBips(_protocolFeeBips);
 
         emit Fork(_vappProgramVKey, 0, bytes32(0), bytes32(0));
     }
@@ -397,6 +403,11 @@ contract SuccinctVApp is
     /// @inheritdoc ISuccinctVApp
     function setMinimumDeposit(uint256 _amount) external override onlyOwner {
         _setMinimumDeposit(_amount);
+    }
+
+    /// @inheritdoc ISuccinctVApp
+    function setProtocolFeeBips(uint256 _protocolFeeBips) external override onlyOwner {
+        _setProtocolFeeBips(_protocolFeeBips);
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -644,6 +655,13 @@ contract SuccinctVApp is
         minimumDeposit = _amount;
 
         emit MinimumDepositUpdate(_amount);
+    }
+
+    /// @dev Sets the protocol fee in basis points.
+    function _setProtocolFeeBips(uint256 _protocolFeeBips) internal {
+        protocolFeeBips = _protocolFeeBips;
+
+        emit ProtocolFeeBipsUpdate(_protocolFeeBips);
     }
 
     /// @dev Handles fee update actions.

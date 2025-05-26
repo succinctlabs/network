@@ -43,6 +43,9 @@ interface ISuccinctVApp {
     /// @notice The minimum deposit was updated.
     event MinimumDepositUpdate(uint256 amount);
 
+    /// @notice The protocol fee was updated.
+    event ProtocolFeeBipsUpdate(uint256 protocolFeeBips);
+
     /// @dev Thrown if the array lengths do not match.
     error ArrayLengthMismatch();
 
@@ -124,6 +127,9 @@ interface ISuccinctVApp {
 
     /// @notice The minimum amount for deposit/withdraw operations.
     function minimumDeposit() external view returns (uint256);
+
+    /// @notice The protocol fee in basis points.
+    function protocolFeeBips() external view returns (uint256);
 
     /// @notice The total deposits for the vApp.
     function totalDeposits() external view returns (uint256);
@@ -275,4 +281,9 @@ interface ISuccinctVApp {
     /// @dev Only callable by the owner.
     /// @param amount The new minimum amount.
     function setMinimumDeposit(uint256 amount) external;
+
+    /// @notice Updates the protocol fee in basis points.
+    /// @dev Only callable by the owner.
+    /// @param protocolFeeBips The new protocol fee in basis points.
+    function setProtocolFeeBips(uint256 protocolFeeBips) external;
 }
