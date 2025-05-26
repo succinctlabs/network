@@ -3,7 +3,6 @@ pragma solidity ^0.8.28;
 
 import {SuccinctStakingTest} from "./SuccinctStaking.t.sol";
 import {SuccinctStaking} from "../src/SuccinctStaking.sol";
-import {IProverRegistry} from "../src/interfaces/IProverRegistry.sol";
 import {MockVApp} from "../src/mocks/MockVApp.sol";
 import {IERC20} from "../lib/openzeppelin-contracts/contracts/interfaces/IERC20.sol";
 import {ISuccinctStaking} from "../src/interfaces/ISuccinctStaking.sol";
@@ -18,6 +17,7 @@ contract SuccinctStakingRewardTests is SuccinctStakingTest {
         uint256 staker2Staked;
     }
 
+    /// @dev For stack-too-deep workaround
     function _takeSnapshot() internal view returns (BalanceSnapshot memory) {
         return BalanceSnapshot({
             staker1Balance: IERC20(PROVE).balanceOf(STAKER_1),
