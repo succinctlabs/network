@@ -17,7 +17,8 @@ contract SuccinctProverScript is BaseScript {
         uint256 STAKER_FEE_BIPS = 1000; // 10%
 
         // Deploy contract
-        SuccinctProver deployed = new SuccinctProver{salt: salt}(I_PROVE, STAKING, OWNER, ID, STAKER_FEE_BIPS);
+        SuccinctProver deployed =
+            new SuccinctProver{salt: salt}(I_PROVE, STAKING, OWNER, ID, STAKER_FEE_BIPS);
 
         // Write address
         writeAddress(KEY, address(deployed));
