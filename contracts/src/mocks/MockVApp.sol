@@ -59,6 +59,7 @@ contract Bridge {
 contract MockVApp is Bridge {
     using SafeERC20 for IERC20;
 
+    uint256 internal constant FEE_UNIT = 10000;
     address internal immutable STAKING;
 
     constructor(address _staking, address _prove) Bridge(_prove) {
@@ -85,12 +86,6 @@ contract MockVApp is Bridge {
         // Process the staker reward.
         IERC20(PROVE).safeTransfer(STAKING, stakerReward);
         ISuccinctStaking(STAKING).reward(_prover, stakerReward);
-    }
-
-    function processSlash(address _prover, uint256 _amount) external returns (uint256) {
-
-        // Now call reward (no need for approval as STAKING already has the tokens)
-        ISuccinctStaking(STAKING).reward(_prover, _amount);
     }
 
     function processSlash(address _prover, uint256 _amount) external returns (uint256) {
