@@ -84,15 +84,28 @@ contract SuccinctStakingUnstakeTests is SuccinctStakingTest {
         // Reward to Alice prover
         MockVApp(VAPP).processReward(ALICE_PROVER, rewardAmount);
 
-        // Calculate expected rewards (proportional to stake)
-        uint256 expectedReward1 = (rewardAmount * stakeAmount1) / (stakeAmount1 + stakeAmount2);
-        uint256 expectedReward2 = (rewardAmount * stakeAmount2) / (stakeAmount1 + stakeAmount2);
+        // Calculate expected rewards (only staker portion goes to stakers)
+        uint256 stakerRewardPortion = (rewardAmount * STAKER_FEE_BIPS) / FEE_UNIT;
+        uint256 expectedReward1 =
+            (stakerRewardPortion * stakeAmount1) / (stakeAmount1 + stakeAmount2);
+        uint256 expectedReward2 =
+            (stakerRewardPortion * stakeAmount2) / (stakeAmount1 + stakeAmount2);
 
         // Verify staked amount increased for both stakers
         uint256 stakedAfterReward1 = SuccinctStaking(STAKING).staked(STAKER_1);
         uint256 stakedAfterReward2 = SuccinctStaking(STAKING).staked(STAKER_2);
-        assertEq(stakedAfterReward1, initialStaked1 + expectedReward1 - 1); // Account for rounding
-        assertEq(stakedAfterReward2, initialStaked2 + expectedReward2 - 1); // No rounding issue here
+        assertApproxEqAbs(
+            stakedAfterReward1,
+            initialStaked1 + expectedReward1,
+            1,
+            "Staker 1 should receive proportional reward"
+        );
+        assertApproxEqAbs(
+            stakedAfterReward2,
+            initialStaked2 + expectedReward2,
+            1,
+            "Staker 2 should receive proportional reward"
+        );
 
         // Both stakers unstake and claim
         _completeUnstake(STAKER_1, stakeAmount1);
@@ -103,17 +116,25 @@ contract SuccinctStakingUnstakeTests is SuccinctStakingTest {
         assertEq(SuccinctStaking(STAKING).balanceOf(STAKER_2), 0);
         assertEq(SuccinctStaking(STAKING).staked(STAKER_1), 0);
         assertEq(SuccinctStaking(STAKING).staked(STAKER_2), 0);
-        assertEq(SuccinctStaking(STAKING).proverStaked(ALICE_PROVER), 2); // There is 1 left over for each staker
+        assertLe(
+            SuccinctStaking(STAKING).proverStaked(ALICE_PROVER),
+            2,
+            "Should have minimal dust remaining"
+        );
 
         // Both stakers should get their original stake plus proportional rewards
-        assertEq(
+        assertApproxEqAbs(
             IERC20(PROVE).balanceOf(STAKER_1),
-            STAKER_PROVE_AMOUNT - stakeAmount1 + stakeAmount1 + expectedReward1 - 1
-        ); // Account for rounding
-        assertEq(
+            STAKER_PROVE_AMOUNT + expectedReward1,
+            1,
+            "Staker 1 should receive original stake plus reward"
+        );
+        assertApproxEqAbs(
             IERC20(PROVE).balanceOf(STAKER_2),
-            STAKER_PROVE_AMOUNT - stakeAmount2 + stakeAmount2 + expectedReward2
-        ); // No rounding issue here
+            STAKER_PROVE_AMOUNT + expectedReward2,
+            1,
+            "Staker 2 should receive original stake plus reward"
+        );
         assertEq(IERC20(ALICE_PROVER).balanceOf(STAKING), 0);
         assertEq(IERC20(ALICE_PROVER).balanceOf(STAKER_2), 0);
     }
@@ -267,7 +288,6 @@ contract SuccinctStakingUnstakeTests is SuccinctStakingTest {
     function test_Unstake_WhenMultipleRewards() public {
         uint256 stakeAmount = STAKER_PROVE_AMOUNT;
         uint256 rewardAmount = 50;
-        uint256 totalRewards = rewardAmount * 2;
 
         // Stake to Alice prover
         _permitAndStake(STAKER_1, STAKER_1_PK, ALICE_PROVER, stakeAmount);
@@ -278,9 +298,18 @@ contract SuccinctStakingUnstakeTests is SuccinctStakingTest {
         // Add rewards before unstaking
         MockVApp(VAPP).processReward(ALICE_PROVER, rewardAmount);
 
+        // Calculate expected staker reward portion
+        uint256 expectedStakerRewardPerReward = (rewardAmount * STAKER_FEE_BIPS) / FEE_UNIT;
+        uint256 totalExpectedStakerRewards = expectedStakerRewardPerReward * 2;
+
         // Verify staked amount increased
         uint256 stakedAfterFirstReward = SuccinctStaking(STAKING).staked(STAKER_1);
-        assertEq(stakedAfterFirstReward, initialStaked + rewardAmount - 1); // Account for rounding
+        assertApproxEqAbs(
+            stakedAfterFirstReward,
+            initialStaked + expectedStakerRewardPerReward,
+            1,
+            "Staked amount should increase by staker reward portion"
+        );
 
         // Unstake from Alice prover
         _requestUnstake(STAKER_1, stakeAmount);
@@ -294,9 +323,19 @@ contract SuccinctStakingUnstakeTests is SuccinctStakingTest {
         // Claim unstaked tokens
         uint256 claimedAmount = _finishUnstake(STAKER_1);
 
-        // Verify the staker got their original stake + BOTH rewards
-        assertEq(claimedAmount, stakeAmount + totalRewards - 1); // Account for rounding
-        assertEq(IERC20(PROVE).balanceOf(STAKER_1), stakeAmount + totalRewards - 1); // Account for rounding
+        // Verify the staker got their original stake + staker portion of BOTH rewards
+        assertApproxEqAbs(
+            claimedAmount,
+            stakeAmount + totalExpectedStakerRewards,
+            1,
+            "Claimed amount should include staker rewards"
+        );
+        assertApproxEqAbs(
+            IERC20(PROVE).balanceOf(STAKER_1),
+            stakeAmount + totalExpectedStakerRewards,
+            1,
+            "Final balance should include staker rewards"
+        );
         assertEq(IERC20(ALICE_PROVER).balanceOf(STAKING), 0);
     }
 

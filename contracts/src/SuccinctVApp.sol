@@ -31,6 +31,7 @@ import {
 import {ISuccinctVApp} from "./interfaces/ISuccinctVApp.sol";
 import {ISuccinctStaking} from "./interfaces/ISuccinctStaking.sol";
 import {ISP1Verifier} from "./interfaces/ISP1Verifier.sol";
+import {IProver} from "./interfaces/IProver.sol";
 import {Initializable} from
     "../lib/openzeppelin-contracts-upgradeable/contracts/proxy/utils/Initializable.sol";
 import {ReentrancyGuardUpgradeable} from
@@ -48,7 +49,7 @@ import {IERC20Permit} from
 
 /// @title SuccinctVApp
 /// @author Succinct Labs
-/// @notice Settlement layer for the vApp, processes deposits and withdrawals resulting from state transitions.
+/// @notice Settlement layer for the vApp, processes actions resulting from state transitions.
 contract SuccinctVApp is
     Initializable,
     ReentrancyGuardUpgradeable,
@@ -158,6 +159,10 @@ contract SuccinctVApp is
         emit Fork(_vappProgramVKey, 0, bytes32(0), bytes32(0));
     }
 
+    /*//////////////////////////////////////////////////////////////
+                                 VIEW
+    //////////////////////////////////////////////////////////////*/
+
     /// @inheritdoc ISuccinctVApp
     function root() public view override returns (bytes32) {
         return roots[blockNumber];
@@ -200,11 +205,7 @@ contract SuccinctVApp is
     //////////////////////////////////////////////////////////////*/
 
     /// @inheritdoc ISuccinctVApp
-    function deposit(uint256 _amount)
-        external
-        override
-        returns (uint64 receipt)
-    {
+    function deposit(uint256 _amount) external override returns (uint64 receipt) {
         return _deposit(msg.sender, _amount);
     }
 
@@ -403,17 +404,15 @@ contract SuccinctVApp is
     //////////////////////////////////////////////////////////////*/
 
     /// @dev Credits a deposit receipt, transfers $PROVE from the sender to the VApp.
-    function _deposit(address _from, uint256 _amount)
-        internal
-        returns (uint64 receipt)
-    {
+    function _deposit(address _from, uint256 _amount) internal returns (uint64 receipt) {
         // Validate.
         if (_amount < minimumDeposit) {
             revert TransferBelowMinimum();
         }
 
         // Create the receipt.
-        bytes memory data = abi.encode(DepositAction({account: _from, amount: _amount, token: prove}));
+        bytes memory data =
+            abi.encode(DepositAction({account: _from, amount: _amount, token: prove}));
         receipt = _createReceipt(ActionType.Deposit, data);
 
         // Update the state.
@@ -552,11 +551,22 @@ contract SuccinctVApp is
     function _rewardActions(RewardInternal[] memory _actions) internal {
         for (uint64 i = 0; i < _actions.length; i++) {
             if (_actions[i].action.status == ReceiptStatus.Completed) {
-                // Transfer $PROVE from VApp to staking contract.
-                ERC20(prove).safeTransfer(staking, _actions[i].data.amount);
+                // Calculate the prover's staker reward.
+                uint256 stakerReward = _actions[i].data.amount
+                    * IProver(_actions[i].data.prover).stakerFeeBips() / FEE_UNIT;
 
-                // Call reward function on staking contract.
-                ISuccinctStaking(staking).reward(_actions[i].data.prover, _actions[i].data.amount);
+                // Get the prover's owner.
+                address owner = IProver(_actions[i].data.prover).owner();
+
+                // Calculate the owner's reward.
+                uint256 ownerReward = _actions[i].data.amount - stakerReward;
+
+                // Process the owner reward.
+                ERC20(prove).safeTransfer(owner, ownerReward);
+
+                // Process the staker reward.
+                ERC20(prove).safeTransfer(staking, stakerReward);
+                ISuccinctStaking(staking).reward(_actions[i].data.prover, stakerReward);
 
                 emit ReceiptCompleted(
                     _actions[i].action.receipt, ActionType.Reward, _actions[i].action.data

@@ -29,12 +29,21 @@ contract SuccinctProver is ERC4626, IProver {
     address public immutable override staking;
 
     /// @inheritdoc IProver
+    address public immutable override owner;
+
+    /// @inheritdoc IProver
     uint256 public immutable override id;
 
     /// @inheritdoc IProver
-    address public immutable override owner;
+    uint256 public immutable override stakerFeeBips;
 
-    constructor(address _underlying, address _staking, uint256 _id, address _owner)
+    constructor(
+        address _underlying,
+        address _staking,
+        address _owner,
+        uint256 _id,
+        uint256 _stakerFeeBips
+    )
         ERC20(
             string.concat(NAME_PREFIX, "-", _id.toString()),
             string.concat(SYMBOL_PREFIX, "-", _id.toString())
@@ -42,8 +51,9 @@ contract SuccinctProver is ERC4626, IProver {
         ERC4626(IERC20(_underlying))
     {
         staking = _staking;
-        id = _id;
         owner = _owner;
+        id = _id;
+        stakerFeeBips = _stakerFeeBips;
     }
 
     /// @dev Override to prevent transfers of PROVER-N tokens except for stake/unstake

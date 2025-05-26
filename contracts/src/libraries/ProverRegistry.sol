@@ -59,16 +59,16 @@ abstract contract ProverRegistry is IProverRegistry {
     }
 
     /// @inheritdoc IProverRegistry
-    function createProver() external override returns (address) {
+    function createProver(uint256 _stakerFeeBips) external override returns (address) {
         if (hasProver(msg.sender)) {
             revert ProverAlreadyExists();
         }
 
-        return _deployProver();
+        return _deployProver(_stakerFeeBips);
     }
 
     /// @dev Uses CREATE2 to deploy an instance of SuccinctProver and adds it to the mapping.
-    function _deployProver() internal returns (address) {
+    function _deployProver(uint256 _stakerFeeBips) internal returns (address) {
         // Ensure that the contract is initialized.
         if (iProve == address(0)) {
             revert NotInitialized();
@@ -85,7 +85,7 @@ abstract contract ProverRegistry is IProverRegistry {
             bytes32(uint256(uint160(msg.sender))),
             abi.encodePacked(
                 type(SuccinctProver).creationCode,
-                abi.encode(iProve, address(this), proverCount, msg.sender)
+                abi.encode(iProve, address(this), msg.sender, proverCount, _stakerFeeBips)
             )
         );
 

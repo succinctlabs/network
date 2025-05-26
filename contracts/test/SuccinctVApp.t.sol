@@ -35,6 +35,7 @@ contract SuccinctVAppTest is Test, FixtureLoader {
     // Constants
     uint64 constant MAX_ACTION_DELAY = 1 days;
     uint64 constant FREEZE_DURATION = 1 days;
+    uint256 constant FEE_UNIT = 10000;
 
     // Fixtures
     SP1ProofFixtureJson public jsonFixture;
@@ -42,6 +43,7 @@ contract SuccinctVAppTest is Test, FixtureLoader {
 
     // EOAs
     address OWNER;
+    address ALICE;
     address REQUESTER_1;
     uint256 REQUESTER_1_PK;
     address REQUESTER_2;
@@ -69,6 +71,7 @@ contract SuccinctVAppTest is Test, FixtureLoader {
         // Create owner
         // OWNER = makeAddr("OWNER");
         OWNER = address(this);
+        ALICE = makeAddr("ALICE");
 
         // Create requesters
         (REQUESTER_1, REQUESTER_1_PK) = makeAddrAndKey("REQUESTER_1");

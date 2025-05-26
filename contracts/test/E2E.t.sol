@@ -34,6 +34,7 @@ import {ERC1967Proxy} from "../lib/openzeppelin-contracts/contracts/proxy/ERC196
 // Tests the entire protocol end-to-end.
 contract E2ETest is Test, FixtureLoader {
     // Constants
+    uint256 public constant FEE_UNIT = 10000;
     uint256 public constant STAKING_PROVE_AMOUNT = 1000e18;
     uint256 public constant REQUESTER_PROVE_AMOUNT = 10e18;
     uint256 public constant STAKER_PROVE_AMOUNT = 10e18;
@@ -41,6 +42,7 @@ contract E2ETest is Test, FixtureLoader {
     uint256 public constant UNSTAKE_PERIOD = 21 days;
     uint256 public constant SLASH_PERIOD = 7 days;
     uint256 public constant DISPENSE_RATE = 1268391679; // ~4% yearly
+    uint256 public constant STAKER_FEE_BIPS = 1000; // 10%
     uint64 public constant MAX_ACTION_DELAY = 1 days;
     uint64 public constant FREEZE_DURATION = 1 days;
 
@@ -134,9 +136,9 @@ contract E2ETest is Test, FixtureLoader {
 
         // Create the provers
         vm.prank(ALICE);
-        ALICE_PROVER = SuccinctStaking(STAKING).createProver();
+        ALICE_PROVER = SuccinctStaking(STAKING).createProver(STAKER_FEE_BIPS);
         vm.prank(BOB);
-        BOB_PROVER = SuccinctStaking(STAKING).createProver();
+        BOB_PROVER = SuccinctStaking(STAKING).createProver(STAKER_FEE_BIPS);
 
         // Mint some $PROVE for the stakers
         deal(PROVE, STAKER_1, STAKER_PROVE_AMOUNT);
@@ -243,21 +245,31 @@ contract E2ETest is Test, FixtureLoader {
         // Record balances before reward
         uint256 proverStakedBefore = SuccinctStaking(STAKING).proverStaked(ALICE_PROVER);
         uint256 vappBalanceBefore = IERC20(PROVE).balanceOf(VAPP);
+        uint256 proverOwnerBalanceBefore = IERC20(PROVE).balanceOf(ALICE);
 
         // Execute the state update with reward
         SuccinctVApp(VAPP).updateState(abi.encode(publicValues), jsonFixture.proof);
+
+        // Calculate expected reward splits
+        uint256 expectedStakerReward = (rewardAmount * STAKER_FEE_BIPS) / FEE_UNIT;
+        uint256 expectedProverOwnerReward = rewardAmount - expectedStakerReward;
 
         // Verify the reward was processed correctly
         uint256 proverStakedAfter = SuccinctStaking(STAKING).proverStaked(ALICE_PROVER);
         assertEq(
             proverStakedAfter,
-            proverStakedBefore + rewardAmount,
-            "Prover should have received reward"
+            proverStakedBefore + expectedStakerReward,
+            "Prover should have received staker portion of reward"
         );
         assertEq(
             IERC20(PROVE).balanceOf(VAPP),
             vappBalanceBefore - rewardAmount,
             "VApp balance should decrease by reward amount"
+        );
+        assertEq(
+            IERC20(PROVE).balanceOf(ALICE),
+            proverOwnerBalanceBefore + expectedProverOwnerReward,
+            "Prover owner should have received their portion of reward"
         );
 
         // Step 4: STAKER_1 unstakes and should receive more than they originally staked
@@ -299,10 +311,13 @@ contract E2ETest is Test, FixtureLoader {
         uint256 finalBalance = IERC20(PROVE).balanceOf(STAKER_1);
         uint256 profit = finalBalance - initialStakerBalance - stakeAmount;
 
-        // The profit should be a portion of the reward based on the staker's share
-        // Since STAKER_1 is the only staker to ALICE_PROVER, they should get the full reward
+        // The profit should be the staker portion of the reward
+        // Since STAKER_1 is the only staker to ALICE_PROVER, they should get the full staker reward
         assertApproxEqAbs(
-            profit, rewardAmount, 1e6, "Staker should receive the full reward as the only staker"
+            profit,
+            expectedStakerReward,
+            1e6,
+            "Staker should receive the staker portion of the reward"
         );
     }
 

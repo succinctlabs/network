@@ -24,6 +24,8 @@ contract SuccinctStakingTest is Test {
     uint256 public constant UNSTAKE_PERIOD = 21 days;
     uint256 public constant SLASH_PERIOD = 7 days;
     uint256 public constant DISPENSE_RATE = 1268391679; // ~4% yearly
+    uint256 public constant STAKER_FEE_BIPS = 1000; // 10%
+    uint256 public constant FEE_UNIT = 10000; // 100%
 
     // EOAs
     address public OWNER;
@@ -90,13 +92,30 @@ contract SuccinctStakingTest is Test {
 
         // Create the provers
         vm.prank(ALICE);
-        ALICE_PROVER = SuccinctStaking(STAKING).createProver();
+        ALICE_PROVER = SuccinctStaking(STAKING).createProver(STAKER_FEE_BIPS);
         vm.prank(BOB);
-        BOB_PROVER = SuccinctStaking(STAKING).createProver();
+        BOB_PROVER = SuccinctStaking(STAKING).createProver(STAKER_FEE_BIPS);
 
         // Mint some $PROVE for the stakers
         deal(PROVE, STAKER_1, STAKER_PROVE_AMOUNT);
         deal(PROVE, STAKER_2, STAKER_PROVE_AMOUNT);
+    }
+
+    function _calculateStakerReward(uint256 _totalReward) internal pure returns (uint256) {
+        return _totalReward * STAKER_FEE_BIPS / FEE_UNIT;
+    }
+
+    function _calculateOwnerReward(uint256 _totalReward) internal pure returns (uint256) {
+        return _totalReward - _calculateStakerReward(_totalReward);
+    }
+
+    function _calculateRewardSplit(uint256 _totalReward)
+        internal
+        pure
+        returns (uint256 stakerReward, uint256 ownerReward)
+    {
+        stakerReward = _calculateStakerReward(_totalReward);
+        ownerReward = _totalReward - stakerReward;
     }
 
     function _stake(address _staker, address _prover, uint256 _amount) internal {

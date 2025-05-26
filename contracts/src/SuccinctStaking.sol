@@ -57,6 +57,10 @@ contract SuccinctStaking is
         _;
     }
 
+    /*//////////////////////////////////////////////////////////////
+                              INITIALIZER
+    //////////////////////////////////////////////////////////////*/
+
     /// @dev This contract only has an owner so it can be initialized by the owner later. This is done because
     ///      other contracts (e.g. VAPP) need a reference to this contract, and this contract needs a
     ///      reference to it. So we deploy this first, then initialize it later.
@@ -87,6 +91,10 @@ contract SuccinctStaking is
         // Approve the $iPROVE contract to transfer $PROVE to $iPROVE during stake().
         IERC20(prove).approve(iProve, type(uint256).max);
     }
+
+    /*//////////////////////////////////////////////////////////////
+                                 VIEW
+    //////////////////////////////////////////////////////////////*/
 
     /// @inheritdoc ISuccinctStaking
     function stakedTo(address _staker) external view override returns (address) {
@@ -155,6 +163,10 @@ contract SuccinctStaking is
         uint256 elapsedTime = block.timestamp - lastDispenseTimestamp;
         return elapsedTime * dispenseRate;
     }
+
+    /*//////////////////////////////////////////////////////////////
+                                 CORE
+    //////////////////////////////////////////////////////////////*/
 
     /// @inheritdoc ISuccinctStaking
     function stake(address _prover, uint256 _amount)
@@ -235,6 +247,10 @@ contract SuccinctStaking is
         }
     }
 
+    /*//////////////////////////////////////////////////////////////
+                                 VAPP
+    //////////////////////////////////////////////////////////////*/
+
     /// @inheritdoc ISuccinctStaking
     function reward(address _prover, uint256 _PROVE)
         external
@@ -283,6 +299,10 @@ contract SuccinctStaking is
 
         emit SlashRequest(_prover, _iPROVE, index);
     }
+
+    /*//////////////////////////////////////////////////////////////
+                                 OWNER
+    //////////////////////////////////////////////////////////////*/
 
     /// @inheritdoc ISuccinctStaking
     function cancelSlash(address _prover, uint256 _index)
@@ -356,6 +376,10 @@ contract SuccinctStaking is
     function setDispenseRate(uint256 _newRate) external override onlyOwner {
         _setDispenseRate(_newRate);
     }
+
+    /*//////////////////////////////////////////////////////////////
+                                 INTERNAL
+    //////////////////////////////////////////////////////////////*/
 
     /// @dev Deposit $PROVE into the staking contract, minting $iPROVE, then depositing $iPROVE
     ///      into the prover to mint $PROVER-N, then minting $stPROVE to the staker (because

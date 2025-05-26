@@ -57,8 +57,7 @@ contract MockStaking is ISuccinctStaking {
         return ownerToProver[_owner];
     }
 
-    function createProver() external override returns (address) {
-        // Simple mock implementation - just return msg.sender
+    function createProver(uint256) external override returns (address) {
         proverToOwner[msg.sender] = msg.sender;
         ownerToProver[msg.sender] = msg.sender;
         proverCounter++;
@@ -91,7 +90,6 @@ contract MockStaking is ISuccinctStaking {
     }
 
     function proverStaked(address) public pure override returns (uint256) {
-        // Simple mock implementation - just return 1 for testing
         return 1;
     }
 
@@ -109,22 +107,18 @@ contract MockStaking is ISuccinctStaking {
     }
 
     function unstakePending(address) external pure override returns (uint256) {
-        // Simple mock implementation - just return 0 for testing
         return 0;
     }
 
     function previewRedeem(address, uint256) public pure override returns (uint256 amount) {
-        // Simple mock implementation - just return the same amount for testing
         return amount;
     }
 
     function maxDispense() public pure override returns (uint256) {
-        // Simple mock implementation - just return 0 for testing
         return 0;
     }
 
     function stake(address _prover, uint256 _amount) external override returns (uint256) {
-        // Simple mock implementation - just transfer tokens and update balances
         IERC20(PROVE).transferFrom(msg.sender, address(this), _amount);
         proverVaultBalances[_prover][msg.sender] += _amount;
         stakerToProver[msg.sender] = _prover;
@@ -137,39 +131,33 @@ contract MockStaking is ISuccinctStaking {
         override
         returns (uint256)
     {
-        // Simple mock implementation - just return the amount for testing
         return _amount;
     }
 
     function requestUnstake(uint256 _stPROVE) external override {
-        // Simple mock implementation - just add to unstake claims
         unstakeClaims[msg.sender].push(
             UnstakeClaim({stPROVE: _stPROVE, timestamp: block.timestamp})
         );
     }
 
     function finishUnstake() external pure override returns (uint256) {
-        // Simple mock implementation - just return 0 for testing
         return 0;
     }
 
     function reward(address _prover, uint256 _amount) external override {
         // Verify caller is VApp
         require(msg.sender == vapp, "Not authorized");
-        // Simple mock implementation - just transfer tokens
         IERC20(PROVE).transferFrom(msg.sender, _prover, _amount);
         emit Reward(_prover, _amount);
     }
 
     function requestSlash(address _prover, uint256 _iPROVE) external override returns (uint256) {
-        // Simple mock implementation - just add to slash claims
         uint256 index = slashClaims[_prover].length;
         slashClaims[_prover].push(SlashClaim({iPROVE: _iPROVE, timestamp: block.timestamp}));
         return index;
     }
 
     function cancelSlash(address _prover, uint256 _index) external override {
-        // Simple mock implementation - just remove from slash claims
         if (_index != slashClaims[_prover].length - 1) {
             slashClaims[_prover][_index] = slashClaims[_prover][slashClaims[_prover].length - 1];
         }
@@ -177,7 +165,6 @@ contract MockStaking is ISuccinctStaking {
     }
 
     function finishSlash(address _prover, uint256 _index) external override returns (uint256) {
-        // Simple mock implementation - just return the iPROVE amount
         uint256 iPROVE = slashClaims[_prover][_index].iPROVE;
         if (_index != slashClaims[_prover].length - 1) {
             slashClaims[_prover][_index] = slashClaims[_prover][slashClaims[_prover].length - 1];
@@ -187,12 +174,10 @@ contract MockStaking is ISuccinctStaking {
     }
 
     function dispense(uint256 _amount) external override {
-        // Simple mock implementation - just emit event
         emit Dispense(_amount);
     }
 
     function setDispenseRate(uint256 _newRate) external override {
-        // Simple mock implementation - just update rate
         uint256 oldRate = dispenseRate;
         dispenseRate = _newRate;
         emit DispenseRateUpdate(oldRate, _newRate);

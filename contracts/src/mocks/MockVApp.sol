@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.28;
 
+import {IProver} from "../interfaces/IProver.sol";
 import {ISuccinctStaking} from "../interfaces/ISuccinctStaking.sol";
 import {SafeERC20} from "../../lib/openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol";
 import {IERC20} from "../../lib/openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
@@ -58,6 +59,7 @@ contract Bridge {
 contract MockVApp is Bridge {
     using SafeERC20 for IERC20;
 
+    uint256 internal constant FEE_UNIT = 10000;
     address internal immutable STAKING;
 
     constructor(address _staking, address _prove) Bridge(_prove) {
@@ -69,11 +71,21 @@ contract MockVApp is Bridge {
     }
 
     function processReward(address _prover, uint256 _amount) external {
-        // Transfer PROVE from VApp to STAKING first
-        IERC20(PROVE).safeTransfer(STAKING, _amount);
+        // Calculate the prover's staker reward.
+        uint256 stakerReward = _amount * IProver(_prover).stakerFeeBips() / FEE_UNIT;
 
-        // Now call reward (no need for approval as STAKING already has the tokens)
-        ISuccinctStaking(STAKING).reward(_prover, _amount);
+        // Get the prover's owner.
+        address owner = IProver(_prover).owner();
+
+        // Calculate the owner's reward.
+        uint256 ownerReward = _amount - stakerReward;
+
+        // Process the owner reward.
+        IERC20(PROVE).safeTransfer(owner, ownerReward);
+
+        // Process the staker reward.
+        IERC20(PROVE).safeTransfer(STAKING, stakerReward);
+        ISuccinctStaking(STAKING).reward(_prover, stakerReward);
     }
 
     function processSlash(address _prover, uint256 _amount) external returns (uint256) {
