@@ -92,6 +92,20 @@ contract SuccinctStakingUnstakeTests is SuccinctStakingTest {
         uint256 expectedReward2 =
             (expectedStakerReward * stakeAmount2) / (stakeAmount1 + stakeAmount2);
 
+        // Verify protocol fee was transferred to FEE_VAULT
+        assertEq(
+            IERC20(PROVE).balanceOf(FEE_VAULT),
+            expectedProtocolFee,
+            "Protocol fee should be transferred to FEE_VAULT"
+        );
+
+        // Verify owner reward was transferred to prover owner (ALICE)
+        assertEq(
+            IERC20(PROVE).balanceOf(ALICE),
+            expectedOwnerReward,
+            "Owner reward should be transferred to prover owner"
+        );
+
         // Verify staked amount increased for both stakers
         uint256 stakedAfterReward1 = SuccinctStaking(STAKING).staked(STAKER_1);
         uint256 stakedAfterReward2 = SuccinctStaking(STAKING).staked(STAKER_2);

@@ -79,14 +79,7 @@ contract MockVApp is Bridge {
     /// @dev We still maintain the same fee splitting logic as the real VApp.
     function processReward(address _prover, uint256 _amount) external {
         // Use the shared FeeCalculator library to process the reward
-        FeeCalculator.processReward(
-            _prover,
-            _amount,
-            PROTOCOL_FEE_BIPS,
-            PROVE,
-            FEE_VAULT,
-            STAKING
-        );
+        FeeCalculator.processReward(_prover, _amount, PROTOCOL_FEE_BIPS, PROVE, FEE_VAULT, STAKING);
     }
 
     function processSlash(address _prover, uint256 _amount) external returns (uint256) {
