@@ -108,17 +108,20 @@ contract SuccinctStakingTest is Test {
     }
 
     function _calculateStakerReward(uint256 _totalReward) internal pure returns (uint256) {
-        (, uint256 stakerReward,) = FeeCalculator.calculateFeeSplit(_totalReward, PROTOCOL_FEE_BIPS, STAKER_FEE_BIPS);
+        (, uint256 stakerReward,) =
+            FeeCalculator.calculateFeeSplit(_totalReward, PROTOCOL_FEE_BIPS, STAKER_FEE_BIPS);
         return stakerReward;
     }
 
     function _calculateOwnerReward(uint256 _totalReward) internal pure returns (uint256) {
-        (,, uint256 ownerReward) = FeeCalculator.calculateFeeSplit(_totalReward, PROTOCOL_FEE_BIPS, STAKER_FEE_BIPS);
+        (,, uint256 ownerReward) =
+            FeeCalculator.calculateFeeSplit(_totalReward, PROTOCOL_FEE_BIPS, STAKER_FEE_BIPS);
         return ownerReward;
     }
 
     function _calculateProtocolFee(uint256 _totalReward) internal pure returns (uint256) {
-        (uint256 protocolFee,,) = FeeCalculator.calculateFeeSplit(_totalReward, PROTOCOL_FEE_BIPS, STAKER_FEE_BIPS);
+        (uint256 protocolFee,,) =
+            FeeCalculator.calculateFeeSplit(_totalReward, PROTOCOL_FEE_BIPS, STAKER_FEE_BIPS);
         return protocolFee;
     }
 
@@ -127,7 +130,8 @@ contract SuccinctStakingTest is Test {
         pure
         returns (uint256 stakerReward, uint256 ownerReward)
     {
-        (, stakerReward, ownerReward) = FeeCalculator.calculateFeeSplit(_totalReward, PROTOCOL_FEE_BIPS, STAKER_FEE_BIPS);
+        (, stakerReward, ownerReward) =
+            FeeCalculator.calculateFeeSplit(_totalReward, PROTOCOL_FEE_BIPS, STAKER_FEE_BIPS);
     }
 
     function _calculateFullRewardSplit(uint256 _totalReward)
@@ -135,7 +139,8 @@ contract SuccinctStakingTest is Test {
         pure
         returns (uint256 protocolFee, uint256 stakerReward, uint256 ownerReward)
     {
-        (protocolFee, stakerReward, ownerReward) = FeeCalculator.calculateFeeSplit(_totalReward, PROTOCOL_FEE_BIPS, STAKER_FEE_BIPS);
+        (protocolFee, stakerReward, ownerReward) =
+            FeeCalculator.calculateFeeSplit(_totalReward, PROTOCOL_FEE_BIPS, STAKER_FEE_BIPS);
     }
 
     function _stake(address _staker, address _prover, uint256 _amount) internal {

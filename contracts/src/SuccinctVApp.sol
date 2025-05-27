@@ -570,7 +570,6 @@ contract SuccinctVApp is
     function _rewardActions(RewardInternal[] memory _actions) internal {
         for (uint64 i = 0; i < _actions.length; i++) {
             if (_actions[i].action.status == ReceiptStatus.Completed) {
-                // Use the shared FeeCalculator library to process the reward
                 FeeCalculator.processReward(
                     _actions[i].data.prover,
                     _actions[i].data.amount,
