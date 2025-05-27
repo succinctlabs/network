@@ -47,6 +47,42 @@ contract E2ETest is Test, FixtureLoader {
     uint256 public constant STAKER_FEE_BIPS = 1000; // 10%
     uint256 public constant PROTOCOL_FEE_BIPS = 300; // 3%
 
+    /// @dev For stack-too-deep workaround
+    struct BalanceSnapshot {
+        uint256 initialStakerBalance;
+        uint256 proverStakedBefore;
+        uint256 vappBalanceBefore;
+        uint256 proverOwnerBalanceBefore;
+        uint256 stakerBalanceBeforeUnstake;
+        uint256 expectedUnstakeAmount;
+        uint256 finalBalance;
+    }
+
+    /// @dev For stack-too-deep workaround
+    function _takeSnapshot(bool isInitial) internal view returns (BalanceSnapshot memory) {
+        if (isInitial) {
+            return BalanceSnapshot({
+                initialStakerBalance: IERC20(PROVE).balanceOf(STAKER_1),
+                proverStakedBefore: SuccinctStaking(STAKING).proverStaked(ALICE_PROVER),
+                vappBalanceBefore: IERC20(PROVE).balanceOf(VAPP),
+                proverOwnerBalanceBefore: IERC20(PROVE).balanceOf(ALICE),
+                stakerBalanceBeforeUnstake: 0,
+                expectedUnstakeAmount: 0,
+                finalBalance: 0
+            });
+        } else {
+            return BalanceSnapshot({
+                initialStakerBalance: 0,
+                proverStakedBefore: 0,
+                vappBalanceBefore: 0,
+                proverOwnerBalanceBefore: 0,
+                stakerBalanceBeforeUnstake: IERC20(PROVE).balanceOf(STAKER_1),
+                expectedUnstakeAmount: SuccinctStaking(STAKING).staked(STAKER_1),
+                finalBalance: 0
+            });
+        }
+    }
+
     // Fixtures
     SP1ProofFixtureJson public jsonFixture;
     PublicValuesStruct public fixture;
@@ -212,18 +248,10 @@ contract E2ETest is Test, FixtureLoader {
     //   ALICE_PROVER vault. When STAKER_1 unstakes, they should have more $PROVE then the amount
     //   they staked.
     function test_E2E() public {
-        uint256 stakeAmount = STAKER_PROVE_AMOUNT;
         uint256 rewardAmount = 5e18; // 5 PROVE tokens as reward (within the 10e18 available in VApp)
-
-        uint256 initialStakerBalance = IERC20(PROVE).balanceOf(STAKER_1);
-
-        // Step 1: STAKER_1 stakes to ALICE_PROVER
-        // STAKER_1 has already deposited $PROVE to ALICE_PROVER (done in setUp)
-
-        // Step 2: Simulate offchain proof fulfillment by creating a reward action
-        // The REQUESTER already has deposited $PROVE in the VApp (done in setUp)
-
-        // Step 3: Process the reward through VApp state update
+        
+        // Take initial snapshot
+        BalanceSnapshot memory snapshot = _takeSnapshot(true);
 
         // Prepare reward action for ALICE_PROVER
         bytes memory rewardData =
@@ -243,58 +271,53 @@ contract E2ETest is Test, FixtureLoader {
             data: rewardData
         });
 
-        // Record balances before reward
-        uint256 proverStakedBefore = SuccinctStaking(STAKING).proverStaked(ALICE_PROVER);
-        uint256 vappBalanceBefore = IERC20(PROVE).balanceOf(VAPP);
-        uint256 proverOwnerBalanceBefore = IERC20(PROVE).balanceOf(ALICE);
-
         // Execute the state update with reward
         SuccinctVApp(VAPP).updateState(abi.encode(publicValues), jsonFixture.proof);
 
         // Calculate expected reward splits
-        uint256 expectedStakerReward = (rewardAmount * STAKER_FEE_BIPS) / FEE_UNIT;
-        uint256 expectedProverOwnerReward = rewardAmount - expectedStakerReward;
+        uint256 protocolFee = (rewardAmount * PROTOCOL_FEE_BIPS) / FEE_UNIT;
+        uint256 remainingAfterProtocol = rewardAmount - protocolFee;
+        uint256 expectedStakerReward = (remainingAfterProtocol * STAKER_FEE_BIPS) / FEE_UNIT;
+        uint256 expectedProverOwnerReward = remainingAfterProtocol - expectedStakerReward;
 
         // Verify the reward was processed correctly
         uint256 proverStakedAfter = SuccinctStaking(STAKING).proverStaked(ALICE_PROVER);
         assertEq(
             proverStakedAfter,
-            proverStakedBefore + expectedStakerReward,
+            snapshot.proverStakedBefore + expectedStakerReward,
             "Prover should have received staker portion of reward"
         );
         assertEq(
             IERC20(PROVE).balanceOf(VAPP),
-            vappBalanceBefore - rewardAmount,
-            "VApp balance should decrease by reward amount"
+            snapshot.vappBalanceBefore - rewardAmount + protocolFee,
+            "VApp balance should decrease by reward amount minus protocol fee"
         );
         assertEq(
             IERC20(PROVE).balanceOf(ALICE),
-            proverOwnerBalanceBefore + expectedProverOwnerReward,
+            snapshot.proverOwnerBalanceBefore + expectedProverOwnerReward,
             "Prover owner should have received their portion of reward"
         );
 
-        // Step 4: STAKER_1 unstakes and should receive more than they originally staked
-
-        uint256 stakerBalanceBeforeUnstake = IERC20(PROVE).balanceOf(STAKER_1);
-        uint256 expectedUnstakeAmount = SuccinctStaking(STAKING).staked(STAKER_1);
+        // Take snapshot before unstake
+        BalanceSnapshot memory unstakeSnapshot = _takeSnapshot(false);
 
         // The staker should now have a share of the reward
-        assertGt(expectedUnstakeAmount, stakeAmount, "Staker should have earned rewards");
+        assertGt(unstakeSnapshot.expectedUnstakeAmount, STAKER_PROVE_AMOUNT, "Staker should have earned rewards");
 
         // Complete the unstake process
         uint256 actualUnstakeAmount =
             _completeUnstake(STAKER_1, SuccinctStaking(STAKING).balanceOf(STAKER_1));
 
         // Verify final state
-        assertEq(actualUnstakeAmount, expectedUnstakeAmount, "Unstake amount should match expected");
+        assertEq(actualUnstakeAmount, unstakeSnapshot.expectedUnstakeAmount, "Unstake amount should match expected");
         assertEq(
             IERC20(PROVE).balanceOf(STAKER_1),
-            stakerBalanceBeforeUnstake + actualUnstakeAmount,
+            unstakeSnapshot.stakerBalanceBeforeUnstake + actualUnstakeAmount,
             "Staker should receive unstaked amount"
         );
         assertGt(
             IERC20(PROVE).balanceOf(STAKER_1),
-            initialStakerBalance,
+            snapshot.initialStakerBalance,
             "Staker should have more PROVE than initially"
         );
 
@@ -310,7 +333,7 @@ contract E2ETest is Test, FixtureLoader {
 
         // Calculate and verify the profit
         uint256 finalBalance = IERC20(PROVE).balanceOf(STAKER_1);
-        uint256 profit = finalBalance - initialStakerBalance - stakeAmount;
+        uint256 profit = finalBalance - snapshot.initialStakerBalance - STAKER_PROVE_AMOUNT;
 
         // The profit should be the staker portion of the reward
         // Since STAKER_1 is the only staker to ALICE_PROVER, they should get the full staker reward

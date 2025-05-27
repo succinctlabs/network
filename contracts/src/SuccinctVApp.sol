@@ -562,22 +562,34 @@ contract SuccinctVApp is
     function _rewardActions(RewardInternal[] memory _actions) internal {
         for (uint64 i = 0; i < _actions.length; i++) {
             if (_actions[i].action.status == ReceiptStatus.Completed) {
-                // Calculate the prover's staker reward.
-                uint256 stakerReward = _actions[i].data.amount
-                    * IProver(_actions[i].data.prover).stakerFeeBips() / FEE_UNIT;
+                uint256 totalAmount = _actions[i].data.amount;
+                uint256 remainingAmount = totalAmount;
 
-                // Get the prover's owner.
-                address owner = IProver(_actions[i].data.prover).owner();
+                // Step 1: Calculate and process protocol fee (if any)
+                uint256 protocolFee = 0;
+                if (protocolFeeBips > 0) {
+                    protocolFee = totalAmount * protocolFeeBips / FEE_UNIT;
+                    remainingAmount -= protocolFee;
+                    // Protocol fee stays in the contract (VApp)
+                }
 
-                // Calculate the owner's reward.
-                uint256 ownerReward = _actions[i].data.amount - stakerReward;
+                // Step 2: Calculate and process staker reward (if any)
+                uint256 stakerReward = 0;
+                uint256 stakerFeeBips = IProver(_actions[i].data.prover).stakerFeeBips();
+                if (stakerFeeBips > 0) {
+                    stakerReward = remainingAmount * stakerFeeBips / FEE_UNIT;
+                    remainingAmount -= stakerReward;
 
-                // Process the owner reward.
-                ERC20(prove).safeTransfer(owner, ownerReward);
+                    // Process the staker reward.
+                    ERC20(prove).safeTransfer(staking, stakerReward);
+                    ISuccinctStaking(staking).reward(_actions[i].data.prover, stakerReward);
+                }
 
-                // Process the staker reward.
-                ERC20(prove).safeTransfer(staking, stakerReward);
-                ISuccinctStaking(staking).reward(_actions[i].data.prover, stakerReward);
+                // Step 3: Process the prover owner reward (remainder)
+                if (remainingAmount > 0) {
+                    address owner = IProver(_actions[i].data.prover).owner();
+                    ERC20(prove).safeTransfer(owner, remainingAmount);
+                }
 
                 emit ReceiptCompleted(
                     _actions[i].action.receipt, ActionType.Reward, _actions[i].action.data

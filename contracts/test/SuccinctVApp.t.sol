@@ -33,10 +33,10 @@ contract SuccinctVAppTest is Test, FixtureLoader {
     using stdJson for string;
 
     // Constants
+    uint256 constant FEE_UNIT = 10000;
     uint64 constant MAX_ACTION_DELAY = 1 days;
     uint64 constant FREEZE_DURATION = 1 days;
-    uint256 constant FEE_UNIT = 10000;
-    uint256 constant PROTOCOL_FEE_BIPS = 500; // 5%
+    uint256 constant PROTOCOL_FEE_BIPS = 30; // 0.3%
 
     // Fixtures
     SP1ProofFixtureJson public jsonFixture;
@@ -92,7 +92,14 @@ contract SuccinctVAppTest is Test, FixtureLoader {
         address vappImpl = address(new SuccinctVApp());
         VAPP = address(new ERC1967Proxy(vappImpl, ""));
         SuccinctVApp(VAPP).initialize(
-            OWNER, PROVE, STAKING, VERIFIER, jsonFixture.vkey, MAX_ACTION_DELAY, FREEZE_DURATION, PROTOCOL_FEE_BIPS
+            OWNER,
+            PROVE,
+            STAKING,
+            VERIFIER,
+            jsonFixture.vkey,
+            MAX_ACTION_DELAY,
+            FREEZE_DURATION,
+            PROTOCOL_FEE_BIPS
         );
     }
 

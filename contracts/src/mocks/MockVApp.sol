@@ -61,31 +61,50 @@ contract MockVApp is Bridge {
 
     uint256 internal constant FEE_UNIT = 10000;
     address internal immutable STAKING;
+    uint256 public protocolFeeBips;
 
     constructor(address _staking, address _prove) Bridge(_prove) {
         STAKING = _staking;
+        protocolFeeBips = 0; // Default to no protocol fee
     }
 
     function staking() external view returns (address) {
         return STAKING;
     }
 
+    function setProtocolFeeBips(uint256 _protocolFeeBips) external {
+        protocolFeeBips = _protocolFeeBips;
+    }
+
     function processReward(address _prover, uint256 _amount) external {
-        // Calculate the prover's staker reward.
-        uint256 stakerReward = _amount * IProver(_prover).stakerFeeBips() / FEE_UNIT;
+        uint256 totalAmount = _amount;
+        uint256 remainingAmount = totalAmount;
 
-        // Get the prover's owner.
-        address owner = IProver(_prover).owner();
+        // Step 1: Calculate and process protocol fee (if any)
+        uint256 protocolFee = 0;
+        if (protocolFeeBips > 0) {
+            protocolFee = totalAmount * protocolFeeBips / FEE_UNIT;
+            remainingAmount -= protocolFee;
+            // Protocol fee stays in the contract (MockVApp)
+        }
 
-        // Calculate the owner's reward.
-        uint256 ownerReward = _amount - stakerReward;
+        // Step 2: Calculate and process staker reward (if any)
+        uint256 stakerReward = 0;
+        uint256 stakerFeeBips = IProver(_prover).stakerFeeBips();
+        if (stakerFeeBips > 0) {
+            stakerReward = remainingAmount * stakerFeeBips / FEE_UNIT;
+            remainingAmount -= stakerReward;
 
-        // Process the owner reward.
-        IERC20(PROVE).safeTransfer(owner, ownerReward);
+            // Process the staker reward.
+            IERC20(PROVE).safeTransfer(STAKING, stakerReward);
+            ISuccinctStaking(STAKING).reward(_prover, stakerReward);
+        }
 
-        // Process the staker reward.
-        IERC20(PROVE).safeTransfer(STAKING, stakerReward);
-        ISuccinctStaking(STAKING).reward(_prover, stakerReward);
+        // Step 3: Process the prover owner reward (remainder)
+        if (remainingAmount > 0) {
+            address owner = IProver(_prover).owner();
+            IERC20(PROVE).safeTransfer(owner, remainingAmount);
+        }
     }
 
     function processSlash(address _prover, uint256 _amount) external returns (uint256) {

@@ -50,8 +50,13 @@ contract SuccinctVAppRewardTest is SuccinctVAppTest {
         // Set up approval from VAPP to STAKING for staker reward portion only
         // VApp will transfer owner reward directly, and staker reward to staking
         uint256 stakerFeeBips = IProver(prover).stakerFeeBips();
-        uint256 stakerReward = (rewardAmount * stakerFeeBips) / 10000;
-        uint256 ownerReward = rewardAmount - stakerReward;
+        uint256 protocolFeeBips = SuccinctVApp(VAPP).protocolFeeBips();
+        
+        // Calculate rewards with protocol fee logic
+        uint256 protocolFee = (rewardAmount * protocolFeeBips) / 10000;
+        uint256 remainingAfterProtocol = rewardAmount - protocolFee;
+        uint256 stakerReward = (remainingAfterProtocol * stakerFeeBips) / 10000;
+        uint256 ownerReward = remainingAfterProtocol - stakerReward;
 
         vm.prank(VAPP);
         MockERC20(PROVE).approve(STAKING, stakerReward);
@@ -82,17 +87,13 @@ contract SuccinctVAppRewardTest is SuccinctVAppTest {
             1 // Expected number of calls
         );
 
-        // Expect PROVE tokens to be transferred from VAPP to ALICE (owner reward)
-        vm.expectEmit(true, true, false, true);
-        emit IERC20.Transfer(VAPP, ALICE, ownerReward);
-
         // Expect PROVE tokens to be transferred from VAPP to STAKING (staker reward)
         vm.expectEmit(true, true, false, true);
         emit IERC20.Transfer(VAPP, STAKING, stakerReward);
 
-        // Expect PROVE tokens to be transferred from VAPP to prover (via STAKING contract)
+        // Expect PROVE tokens to be transferred from VAPP to ALICE (owner reward)
         vm.expectEmit(true, true, false, true);
-        emit IERC20.Transfer(VAPP, prover, stakerReward);
+        emit IERC20.Transfer(VAPP, ALICE, ownerReward);
 
         // Expect ReceiptCompleted event for the reward
         vm.expectEmit(true, true, true, true);
@@ -107,10 +108,9 @@ contract SuccinctVAppRewardTest is SuccinctVAppTest {
         SuccinctVApp(VAPP).updateState(abi.encode(publicValues), jsonFixture.proof);
 
         // Assert final state
-        // Note: MockStaking transfers the full staker reward amount to the prover,
-        // so VApp loses: ownerReward + stakerReward + stakerReward = 90 + 10 + 10 = 110 PROVE
+        // VApp transfers out: ownerReward + stakerReward, keeps protocolFee
         assertEq(
-            MockERC20(PROVE).balanceOf(VAPP), vappInitialBalance - ownerReward - (stakerReward * 2)
+            MockERC20(PROVE).balanceOf(VAPP), vappInitialBalance - ownerReward - stakerReward
         );
         assertEq(SuccinctVApp(VAPP).finalizedReceipt(), 1);
         assertEq(SuccinctVApp(VAPP).blockNumber(), expectedBlockNumber);
@@ -123,43 +123,43 @@ contract SuccinctVAppRewardTest is SuccinctVAppTest {
         assertEq(IProver(prover).stakerFeeBips(), 1000, "Prover staker fee should be 10%");
 
         // Verify the fee splitting worked correctly:
-        // VApp should split rewards: 90% to prover owner (ALICE), 10% to stakers (via prover contract)
+        // VApp should split rewards: remainder to prover owner (ALICE), staker portion to staking contract
 
-        // Assert ALICE (prover owner) received 90% of the reward
+        // Assert ALICE (prover owner) received the owner reward portion
         assertEq(
             MockERC20(PROVE).balanceOf(ALICE),
             initialAliceBalance + ownerReward,
-            "Prover owner (ALICE) should receive 90% of the reward"
+            "Prover owner (ALICE) should receive the owner reward portion"
         );
 
-        // Assert prover contract received 10% of the reward (staker portion via MockStaking)
+        // Assert prover contract balance remains unchanged (staker rewards go to staking contract)
         assertEq(
             MockERC20(PROVE).balanceOf(prover),
-            initialProverBalance + stakerReward,
-            "Prover contract should receive 10% of the reward (staker portion)"
+            initialProverBalance,
+            "Prover contract balance should remain unchanged"
         );
 
         // Verify the math
         assertEq(
             ownerReward,
-            (rewardAmount * (10000 - stakerFeeBips)) / 10000,
+            (remainingAfterProtocol * (10000 - stakerFeeBips)) / 10000,
             "Owner reward should be calculated correctly"
         );
         assertEq(
             stakerReward,
-            (rewardAmount * stakerFeeBips) / 10000,
+            (remainingAfterProtocol * stakerFeeBips) / 10000,
             "Staker reward should be calculated correctly"
         );
-        assertEq(ownerReward + stakerReward, rewardAmount, "Rewards should sum to total");
+        assertEq(ownerReward + stakerReward, remainingAfterProtocol, "Rewards should sum to remaining after protocol fee");
 
         // After reward distribution:
-        // - ownerReward goes to ALICE (prover owner fee)
-        // - stakerReward goes to MockStaking (staker fee)
-        // - stakerReward goes to SuccinctProver (MockStaking transfers full amount to prover)
-        // So VApp should have vappInitialBalance - ownerReward - stakerReward - stakerReward remaining
+        // - protocolFee stays in VApp
+        // - ownerReward goes to ALICE (prover owner)
+        // - stakerReward goes to MockStaking (for distribution to stakers)
+        // So VApp should have vappInitialBalance - ownerReward - stakerReward remaining
         assertEq(
             MockERC20(PROVE).balanceOf(address(VAPP)),
-            vappInitialBalance - ownerReward - (stakerReward * 2)
+            vappInitialBalance - ownerReward - stakerReward
         );
     }
 }

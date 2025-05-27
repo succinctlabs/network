@@ -66,7 +66,14 @@ contract AllScript is BaseScript, FixtureLoader {
         address VAPP =
             address(SuccinctVApp(payable(address(new ERC1967Proxy{salt: salt}(vappImpl, "")))));
         SuccinctVApp(VAPP).initialize(
-            msg.sender, PROVE, STAKING, VERIFIER, VKEY, MAX_ACTION_DELAY, FREEZE_DURATION, PROTOCOL_FEE_BIPS
+            msg.sender,
+            PROVE,
+            STAKING,
+            VERIFIER,
+            VKEY,
+            MAX_ACTION_DELAY,
+            FREEZE_DURATION,
+            PROTOCOL_FEE_BIPS
         );
 
         return VAPP;
