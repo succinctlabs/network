@@ -100,9 +100,6 @@ interface ISuccinctVApp {
     /// @dev Thrown when a deposit or withdrawal is below the minimum.
     error TransferBelowMinimum();
 
-    /// @notice The maximum fee value (100% in basis points).
-    function FEE_UNIT() external view returns (uint256);
-
     /// @notice The address of the $PROVE token.
     function prove() external view returns (address);
 

@@ -14,6 +14,7 @@ import {
     ProverStateInternal,
     FeeUpdateInternal
 } from "./libraries/Actions.sol";
+import {FeeCalculator} from "./libraries/FeeCalculator.sol";
 import {
     PublicValuesStruct,
     ReceiptStatus,
@@ -58,9 +59,6 @@ contract SuccinctVApp is
     ISuccinctVApp
 {
     using SafeERC20 for ERC20;
-
-    /// @inheritdoc ISuccinctVApp
-    uint256 public constant override FEE_UNIT = 10000;
 
     /// @inheritdoc ISuccinctVApp
     address public override prove;
@@ -572,35 +570,15 @@ contract SuccinctVApp is
     function _rewardActions(RewardInternal[] memory _actions) internal {
         for (uint64 i = 0; i < _actions.length; i++) {
             if (_actions[i].action.status == ReceiptStatus.Completed) {
-                uint256 totalAmount = _actions[i].data.amount;
-                uint256 remainingAmount = totalAmount;
-
-                // Step 1: Calculate and process protocol fee (if any)
-                uint256 protocolFee = 0;
-                if (protocolFeeBips > 0) {
-                    protocolFee = totalAmount * protocolFeeBips / FEE_UNIT;
-                    remainingAmount -= protocolFee;
-                    // Transfer protocol fee to FEE_VAULT
-                    ERC20(prove).safeTransfer(feeVault, protocolFee);
-                }
-
-                // Step 2: Calculate and process staker reward (if any)
-                uint256 stakerReward = 0;
-                uint256 stakerFeeBips = IProver(_actions[i].data.prover).stakerFeeBips();
-                if (stakerFeeBips > 0) {
-                    stakerReward = remainingAmount * stakerFeeBips / FEE_UNIT;
-                    remainingAmount -= stakerReward;
-
-                    // Process the staker reward.
-                    ERC20(prove).safeTransfer(staking, stakerReward);
-                    ISuccinctStaking(staking).reward(_actions[i].data.prover, stakerReward);
-                }
-
-                // Step 3: Process the prover owner reward (remainder)
-                if (remainingAmount > 0) {
-                    address owner = IProver(_actions[i].data.prover).owner();
-                    ERC20(prove).safeTransfer(owner, remainingAmount);
-                }
+                // Use the shared FeeCalculator library to process the reward
+                FeeCalculator.processReward(
+                    _actions[i].data.prover,
+                    _actions[i].data.amount,
+                    protocolFeeBips,
+                    prove,
+                    feeVault,
+                    staking
+                );
 
                 emit ReceiptCompleted(
                     _actions[i].action.receipt, ActionType.Reward, _actions[i].action.data

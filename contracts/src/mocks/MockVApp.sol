@@ -3,6 +3,7 @@ pragma solidity ^0.8.28;
 
 import {IProver} from "../interfaces/IProver.sol";
 import {ISuccinctStaking} from "../interfaces/ISuccinctStaking.sol";
+import {FeeCalculator} from "../libraries/FeeCalculator.sol";
 import {SafeERC20} from "../../lib/openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol";
 import {IERC20} from "../../lib/openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
 import {IERC20Permit} from
@@ -59,7 +60,6 @@ contract Bridge {
 contract MockVApp is Bridge {
     using SafeERC20 for IERC20;
 
-    uint256 internal constant FEE_UNIT = 10000;
     address internal immutable STAKING;
     address internal immutable FEE_VAULT;
     uint256 internal immutable PROTOCOL_FEE_BIPS;
@@ -78,34 +78,15 @@ contract MockVApp is Bridge {
 
     /// @dev We still maintain the same fee splitting logic as the real VApp.
     function processReward(address _prover, uint256 _amount) external {
-        uint256 totalAmount = _amount;
-        uint256 remainingAmount = totalAmount;
-
-        // Step 1: Calculate and process protocol fee (if any).
-        uint256 protocolFee = 0;
-        if (PROTOCOL_FEE_BIPS > 0) {
-            protocolFee = totalAmount * PROTOCOL_FEE_BIPS / FEE_UNIT;
-            remainingAmount -= protocolFee;
-            IERC20(PROVE).safeTransfer(FEE_VAULT, protocolFee);
-        }
-
-        // Step 2: Calculate and process staker reward (if any).
-        uint256 stakerReward = 0;
-        uint256 stakerFeeBips = IProver(_prover).stakerFeeBips();
-        if (stakerFeeBips > 0) {
-            stakerReward = remainingAmount * stakerFeeBips / FEE_UNIT;
-            remainingAmount -= stakerReward;
-
-            // Process the staker reward.
-            IERC20(PROVE).safeTransfer(STAKING, stakerReward);
-            ISuccinctStaking(STAKING).reward(_prover, stakerReward);
-        }
-
-        // Step 3: Process the prover owner reward (remainder)
-        if (remainingAmount > 0) {
-            address owner = IProver(_prover).owner();
-            IERC20(PROVE).safeTransfer(owner, remainingAmount);
-        }
+        // Use the shared FeeCalculator library to process the reward
+        FeeCalculator.processReward(
+            _prover,
+            _amount,
+            PROTOCOL_FEE_BIPS,
+            PROVE,
+            FEE_VAULT,
+            STAKING
+        );
     }
 
     function processSlash(address _prover, uint256 _amount) external returns (uint256) {

@@ -8,6 +8,7 @@ import {IntermediateSuccinct} from "../src/tokens/IntermediateSuccinct.sol";
 import {IProver} from "../src/interfaces/IProver.sol";
 import {IIntermediateSuccinct} from "../src/interfaces/IIntermediateSuccinct.sol";
 import {MockVApp} from "../src/mocks/MockVApp.sol";
+import {FeeCalculator} from "../src/libraries/FeeCalculator.sol";
 import {ERC20} from "../lib/openzeppelin-contracts/contracts/token/ERC20/ERC20.sol";
 import {IERC20} from "../lib/openzeppelin-contracts/contracts/interfaces/IERC20.sol";
 import {IERC20Permit} from
@@ -107,26 +108,18 @@ contract SuccinctStakingTest is Test {
     }
 
     function _calculateStakerReward(uint256 _totalReward) internal pure returns (uint256) {
-        // First deduct protocol fee
-        uint256 protocolFee = _totalReward * PROTOCOL_FEE_BIPS / FEE_UNIT;
-        uint256 remainingAfterProtocol = _totalReward - protocolFee;
-
-        // Then calculate staker reward from remaining amount
-        return remainingAfterProtocol * STAKER_FEE_BIPS / FEE_UNIT;
+        (, uint256 stakerReward,) = FeeCalculator.calculateFeeSplit(_totalReward, PROTOCOL_FEE_BIPS, STAKER_FEE_BIPS);
+        return stakerReward;
     }
 
     function _calculateOwnerReward(uint256 _totalReward) internal pure returns (uint256) {
-        // First deduct protocol fee
-        uint256 protocolFee = _totalReward * PROTOCOL_FEE_BIPS / FEE_UNIT;
-        uint256 remainingAfterProtocol = _totalReward - protocolFee;
-
-        // Owner gets remainder after staker fee
-        uint256 stakerReward = remainingAfterProtocol * STAKER_FEE_BIPS / FEE_UNIT;
-        return remainingAfterProtocol - stakerReward;
+        (,, uint256 ownerReward) = FeeCalculator.calculateFeeSplit(_totalReward, PROTOCOL_FEE_BIPS, STAKER_FEE_BIPS);
+        return ownerReward;
     }
 
     function _calculateProtocolFee(uint256 _totalReward) internal pure returns (uint256) {
-        return _totalReward * PROTOCOL_FEE_BIPS / FEE_UNIT;
+        (uint256 protocolFee,,) = FeeCalculator.calculateFeeSplit(_totalReward, PROTOCOL_FEE_BIPS, STAKER_FEE_BIPS);
+        return protocolFee;
     }
 
     function _calculateRewardSplit(uint256 _totalReward)
@@ -134,13 +127,7 @@ contract SuccinctStakingTest is Test {
         pure
         returns (uint256 stakerReward, uint256 ownerReward)
     {
-        // First deduct protocol fee
-        uint256 protocolFee = _totalReward * PROTOCOL_FEE_BIPS / FEE_UNIT;
-        uint256 remainingAfterProtocol = _totalReward - protocolFee;
-
-        // Then split remaining between staker and owner
-        stakerReward = remainingAfterProtocol * STAKER_FEE_BIPS / FEE_UNIT;
-        ownerReward = remainingAfterProtocol - stakerReward;
+        (, stakerReward, ownerReward) = FeeCalculator.calculateFeeSplit(_totalReward, PROTOCOL_FEE_BIPS, STAKER_FEE_BIPS);
     }
 
     function _calculateFullRewardSplit(uint256 _totalReward)
@@ -148,10 +135,7 @@ contract SuccinctStakingTest is Test {
         pure
         returns (uint256 protocolFee, uint256 stakerReward, uint256 ownerReward)
     {
-        protocolFee = _totalReward * PROTOCOL_FEE_BIPS / FEE_UNIT;
-        uint256 remainingAfterProtocol = _totalReward - protocolFee;
-        stakerReward = remainingAfterProtocol * STAKER_FEE_BIPS / FEE_UNIT;
-        ownerReward = remainingAfterProtocol - stakerReward;
+        (protocolFee, stakerReward, ownerReward) = FeeCalculator.calculateFeeSplit(_totalReward, PROTOCOL_FEE_BIPS, STAKER_FEE_BIPS);
     }
 
     function _stake(address _staker, address _prover, uint256 _amount) internal {
