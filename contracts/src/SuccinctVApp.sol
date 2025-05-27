@@ -14,6 +14,7 @@ import {
     ProverStateInternal,
     FeeUpdateInternal
 } from "./libraries/Actions.sol";
+import {FeeCalculator} from "./libraries/FeeCalculator.sol";
 import {
     PublicValuesStruct,
     ReceiptStatus,
@@ -31,7 +32,6 @@ import {
 import {ISuccinctVApp} from "./interfaces/ISuccinctVApp.sol";
 import {ISuccinctStaking} from "./interfaces/ISuccinctStaking.sol";
 import {ISP1Verifier} from "./interfaces/ISP1Verifier.sol";
-import {IProver} from "./interfaces/IProver.sol";
 import {Initializable} from
     "../lib/openzeppelin-contracts-upgradeable/contracts/proxy/utils/Initializable.sol";
 import {ReentrancyGuardUpgradeable} from
@@ -60,9 +60,6 @@ contract SuccinctVApp is
     using SafeERC20 for ERC20;
 
     /// @inheritdoc ISuccinctVApp
-    uint256 public constant override FEE_UNIT = 10000;
-
-    /// @inheritdoc ISuccinctVApp
     address public override prove;
 
     /// @inheritdoc ISuccinctVApp
@@ -70,6 +67,9 @@ contract SuccinctVApp is
 
     /// @inheritdoc ISuccinctVApp
     address public override verifier;
+
+    /// @inheritdoc ISuccinctVApp
+    address public override feeVault;
 
     /// @inheritdoc ISuccinctVApp
     bytes32 public override vappProgramVKey;
@@ -85,6 +85,9 @@ contract SuccinctVApp is
 
     /// @inheritdoc ISuccinctVApp
     uint256 public override minimumDeposit;
+
+    /// @inheritdoc ISuccinctVApp
+    uint256 public override protocolFeeBips;
 
     /// @inheritdoc ISuccinctVApp
     uint256 public override totalDeposits;
@@ -130,13 +133,15 @@ contract SuccinctVApp is
         address _prove,
         address _staking,
         address _verifier,
+        address _feeVault,
         bytes32 _vappProgramVKey,
         uint64 _maxActionDelay,
-        uint64 _freezeDuration
+        uint64 _freezeDuration,
+        uint256 _protocolFeeBips
     ) external initializer {
         if (
             _owner == address(0) || _prove == address(0) || _staking == address(0)
-                || _verifier == address(0)
+                || _verifier == address(0) || _feeVault == address(0)
         ) {
             revert ZeroAddress();
         }
@@ -147,14 +152,18 @@ contract SuccinctVApp is
         prove = _prove;
         staking = _staking;
         verifier = _verifier;
+        feeVault = _feeVault;
         vappProgramVKey = _vappProgramVKey;
         maxActionDelay = _maxActionDelay;
         freezeDuration = _freezeDuration;
+        protocolFeeBips = _protocolFeeBips;
 
         _updateStaking(_staking);
         _updateVerifier(_verifier);
+        _updateFeeVault(_feeVault);
         _updateActionDelay(_maxActionDelay);
         _updateFreezeDuration(_freezeDuration);
+        _setProtocolFeeBips(_protocolFeeBips);
 
         emit Fork(_vappProgramVKey, 0, bytes32(0), bytes32(0));
     }
@@ -385,6 +394,11 @@ contract SuccinctVApp is
     }
 
     /// @inheritdoc ISuccinctVApp
+    function updateFeeVault(address _feeVault) external override onlyOwner {
+        _updateFeeVault(_feeVault);
+    }
+
+    /// @inheritdoc ISuccinctVApp
     function updateActionDelay(uint64 _maxActionDelay) external override onlyOwner {
         _updateActionDelay(_maxActionDelay);
     }
@@ -397,6 +411,11 @@ contract SuccinctVApp is
     /// @inheritdoc ISuccinctVApp
     function setMinimumDeposit(uint256 _amount) external override onlyOwner {
         _setMinimumDeposit(_amount);
+    }
+
+    /// @inheritdoc ISuccinctVApp
+    function setProtocolFeeBips(uint256 _protocolFeeBips) external override onlyOwner {
+        _setProtocolFeeBips(_protocolFeeBips);
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -551,22 +570,14 @@ contract SuccinctVApp is
     function _rewardActions(RewardInternal[] memory _actions) internal {
         for (uint64 i = 0; i < _actions.length; i++) {
             if (_actions[i].action.status == ReceiptStatus.Completed) {
-                // Calculate the prover's staker reward.
-                uint256 stakerReward = _actions[i].data.amount
-                    * IProver(_actions[i].data.prover).stakerFeeBips() / FEE_UNIT;
-
-                // Get the prover's owner.
-                address owner = IProver(_actions[i].data.prover).owner();
-
-                // Calculate the owner's reward.
-                uint256 ownerReward = _actions[i].data.amount - stakerReward;
-
-                // Process the owner reward.
-                ERC20(prove).safeTransfer(owner, ownerReward);
-
-                // Process the staker reward.
-                ERC20(prove).safeTransfer(staking, stakerReward);
-                ISuccinctStaking(staking).reward(_actions[i].data.prover, stakerReward);
+                FeeCalculator.processReward(
+                    _actions[i].data.prover,
+                    _actions[i].data.amount,
+                    protocolFeeBips,
+                    prove,
+                    feeVault,
+                    staking
+                );
 
                 emit ReceiptCompleted(
                     _actions[i].action.receipt, ActionType.Reward, _actions[i].action.data
@@ -625,6 +636,13 @@ contract SuccinctVApp is
         emit VerifierUpdate(_verifier);
     }
 
+    /// @dev Updates the fee vault.
+    function _updateFeeVault(address _feeVault) internal {
+        feeVault = _feeVault;
+
+        emit FeeVaultUpdate(_feeVault);
+    }
+
     /// @dev Updates the action delay.
     function _updateActionDelay(uint64 _maxActionDelay) internal {
         maxActionDelay = _maxActionDelay;
@@ -644,6 +662,13 @@ contract SuccinctVApp is
         minimumDeposit = _amount;
 
         emit MinimumDepositUpdate(_amount);
+    }
+
+    /// @dev Sets the protocol fee in basis points.
+    function _setProtocolFeeBips(uint256 _protocolFeeBips) internal {
+        protocolFeeBips = _protocolFeeBips;
+
+        emit ProtocolFeeBipsUpdate(_protocolFeeBips);
     }
 
     /// @dev Handles fee update actions.

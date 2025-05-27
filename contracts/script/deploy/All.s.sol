@@ -33,7 +33,7 @@ contract AllScript is BaseScript, FixtureLoader {
         address I_PROVE = address(new IntermediateSuccinct{salt: salt}(PROVE, STAKING));
         address GOVERNOR = address(new SuccinctGovernor{salt: salt}(I_PROVE));
 
-        // Initialize contracts
+        // Initialize staking contract
         SuccinctStaking(STAKING).initialize(
             VAPP, PROVE, I_PROVE, MIN_STAKE_AMOUNT, UNSTAKE_PERIOD, SLASH_PERIOD, DISPENSE_RATE
         );
@@ -46,15 +46,17 @@ contract AllScript is BaseScript, FixtureLoader {
         writeAddress("GOVERNOR", GOVERNOR);
     }
 
-    /// @dev This helper is mostly to avoid stack-too-deep.
+    /// @dev This is a stack-too-deep workaround.
     function _deployVAppAsProxy(bytes32 salt, address PROVE, address STAKING)
         internal
         returns (address)
     {
         // Read config
         address VERIFIER = SP1_VERIFIER_GATEWAY_GROTH16;
+        address FEE_VAULT = readAddress("FEE_VAULT");
         uint64 MAX_ACTION_DELAY = readUint64("MAX_ACTION_DELAY");
         uint64 FREEZE_DURATION = readUint64("FREEZE_DURATION");
+        uint256 PROTOCOL_FEE_BIPS = readUint256("PROTOCOL_FEE_BIPS");
 
         // Load fixture
         SP1ProofFixtureJson memory fixture = loadFixture(vm, Fixture.Groth16);
@@ -65,7 +67,15 @@ contract AllScript is BaseScript, FixtureLoader {
         address VAPP =
             address(SuccinctVApp(payable(address(new ERC1967Proxy{salt: salt}(vappImpl, "")))));
         SuccinctVApp(VAPP).initialize(
-            msg.sender, PROVE, STAKING, VERIFIER, VKEY, MAX_ACTION_DELAY, FREEZE_DURATION
+            msg.sender,
+            PROVE,
+            STAKING,
+            FEE_VAULT,
+            VERIFIER,
+            VKEY,
+            MAX_ACTION_DELAY,
+            FREEZE_DURATION,
+            PROTOCOL_FEE_BIPS
         );
 
         return VAPP;

@@ -147,7 +147,9 @@ contract MockStaking is ISuccinctStaking {
     function reward(address _prover, uint256 _amount) external override {
         // Verify caller is VApp
         require(msg.sender == vapp, "Not authorized");
-        IERC20(PROVE).transferFrom(msg.sender, _prover, _amount);
+        // Note: The VApp has already transferred the staker reward amount to this contract
+        // In a real staking contract, this would distribute rewards to stakers
+        // For the mock, we just emit the event to indicate the reward was processed
         emit Reward(_prover, _amount);
     }
 

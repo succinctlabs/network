@@ -3,6 +3,7 @@ pragma solidity ^0.8.28;
 
 import {IProver} from "../interfaces/IProver.sol";
 import {ISuccinctStaking} from "../interfaces/ISuccinctStaking.sol";
+import {FeeCalculator} from "../libraries/FeeCalculator.sol";
 import {SafeERC20} from "../../lib/openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol";
 import {IERC20} from "../../lib/openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
 import {IERC20Permit} from
@@ -59,33 +60,25 @@ contract Bridge {
 contract MockVApp is Bridge {
     using SafeERC20 for IERC20;
 
-    uint256 internal constant FEE_UNIT = 10000;
     address internal immutable STAKING;
+    address internal immutable FEE_VAULT;
+    uint256 internal immutable PROTOCOL_FEE_BIPS;
 
-    constructor(address _staking, address _prove) Bridge(_prove) {
+    constructor(address _staking, address _prove, address _feeVault, uint256 _protocolFeeBips)
+        Bridge(_prove)
+    {
         STAKING = _staking;
+        FEE_VAULT = _feeVault;
+        PROTOCOL_FEE_BIPS = _protocolFeeBips;
     }
 
     function staking() external view returns (address) {
         return STAKING;
     }
 
+    /// @dev We still maintain the same fee splitting logic as the real VApp.
     function processReward(address _prover, uint256 _amount) external {
-        // Calculate the prover's staker reward.
-        uint256 stakerReward = _amount * IProver(_prover).stakerFeeBips() / FEE_UNIT;
-
-        // Get the prover's owner.
-        address owner = IProver(_prover).owner();
-
-        // Calculate the owner's reward.
-        uint256 ownerReward = _amount - stakerReward;
-
-        // Process the owner reward.
-        IERC20(PROVE).safeTransfer(owner, ownerReward);
-
-        // Process the staker reward.
-        IERC20(PROVE).safeTransfer(STAKING, stakerReward);
-        ISuccinctStaking(STAKING).reward(_prover, stakerReward);
+        FeeCalculator.processReward(_prover, _amount, PROTOCOL_FEE_BIPS, PROVE, FEE_VAULT, STAKING);
     }
 
     function processSlash(address _prover, uint256 _amount) external returns (uint256) {

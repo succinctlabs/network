@@ -34,6 +34,9 @@ interface ISuccinctVApp {
     /// @notice The verifier address was updated.
     event VerifierUpdate(address indexed verifier);
 
+    /// @notice The fee vault was updated.
+    event FeeVaultUpdate(address indexed feeVault);
+
     /// @notice The max action delay was updated.
     event MaxActionDelayUpdate(uint64 indexed actionDelay);
 
@@ -42,6 +45,9 @@ interface ISuccinctVApp {
 
     /// @notice The minimum deposit was updated.
     event MinimumDepositUpdate(uint256 amount);
+
+    /// @notice The protocol fee was updated.
+    event ProtocolFeeBipsUpdate(uint256 protocolFeeBips);
 
     /// @dev Thrown if the array lengths do not match.
     error ArrayLengthMismatch();
@@ -94,9 +100,6 @@ interface ISuccinctVApp {
     /// @dev Thrown when a deposit or withdrawal is below the minimum.
     error TransferBelowMinimum();
 
-    /// @notice The maximum fee value (100% in basis points).
-    function FEE_UNIT() external view returns (uint256);
-
     /// @notice The address of the $PROVE token.
     function prove() external view returns (address);
 
@@ -109,6 +112,9 @@ interface ISuccinctVApp {
     ///      For the list of supported verifiers on each chain, see:
     ///      https://github.com/succinctlabs/sp1-contracts/tree/main/contracts/deployments
     function verifier() external view returns (address);
+
+    /// @notice The address of the fee vault, where protocol fees are sent.
+    function feeVault() external view returns (address);
 
     /// @notice The verification key for the vApp program.
     function vappProgramVKey() external view returns (bytes32);
@@ -124,6 +130,9 @@ interface ISuccinctVApp {
 
     /// @notice The minimum amount for deposit/withdraw operations.
     function minimumDeposit() external view returns (uint256);
+
+    /// @notice The protocol fee in basis points.
+    function protocolFeeBips() external view returns (uint256);
 
     /// @notice The total deposits for the vApp.
     function totalDeposits() external view returns (uint256);
@@ -261,6 +270,11 @@ interface ISuccinctVApp {
     /// @param verifier The new verifier address.
     function updateVerifier(address verifier) external;
 
+    /// @notice Updates the fee vault address.
+    /// @dev Only callable by the owner.
+    /// @param feeVault The new fee vault address.
+    function updateFeeVault(address feeVault) external;
+
     /// @notice Updates the max action delay.
     /// @dev Only callable by the owner.
     /// @param maxActionDelay The new max action delay.
@@ -275,4 +289,9 @@ interface ISuccinctVApp {
     /// @dev Only callable by the owner.
     /// @param amount The new minimum amount.
     function setMinimumDeposit(uint256 amount) external;
+
+    /// @notice Updates the protocol fee in basis points.
+    /// @dev Only callable by the owner.
+    /// @param protocolFeeBips The new protocol fee in basis points.
+    function setProtocolFeeBips(uint256 protocolFeeBips) external;
 }

@@ -8,6 +8,7 @@ import {IntermediateSuccinct} from "../src/tokens/IntermediateSuccinct.sol";
 import {IProver} from "../src/interfaces/IProver.sol";
 import {IIntermediateSuccinct} from "../src/interfaces/IIntermediateSuccinct.sol";
 import {MockVApp} from "../src/mocks/MockVApp.sol";
+import {FeeCalculator} from "../src/libraries/FeeCalculator.sol";
 import {ERC20} from "../lib/openzeppelin-contracts/contracts/token/ERC20/ERC20.sol";
 import {IERC20} from "../lib/openzeppelin-contracts/contracts/interfaces/IERC20.sol";
 import {IERC20Permit} from
@@ -26,6 +27,7 @@ contract SuccinctStakingTest is Test {
     uint256 public constant DISPENSE_RATE = 1268391679; // ~4% yearly
     uint256 public constant STAKER_FEE_BIPS = 1000; // 10%
     uint256 public constant FEE_UNIT = 10000; // 100%
+    uint256 public constant PROTOCOL_FEE_BIPS = 30; // 0.3%
 
     // EOAs
     address public OWNER;
@@ -38,6 +40,7 @@ contract SuccinctStakingTest is Test {
     address public BOB;
 
     // Contracts
+    address public FEE_VAULT;
     address public STAKING;
     address public VAPP;
     address public PROVE;
@@ -60,6 +63,9 @@ contract SuccinctStakingTest is Test {
         ALICE = makeAddr("ALICE");
         BOB = makeAddr("BOB");
 
+        // Deploy fee vault (just an EOA for testing)
+        FEE_VAULT = makeAddr("FEE_VAULT");
+
         // Deploy Succinct Staking
         STAKING = address(new SuccinctStaking(OWNER));
 
@@ -70,7 +76,7 @@ contract SuccinctStakingTest is Test {
         I_PROVE = address(new IntermediateSuccinct(PROVE, STAKING));
 
         // Deploy VAPP
-        VAPP = address(new MockVApp(STAKING, PROVE));
+        VAPP = address(new MockVApp(STAKING, PROVE, FEE_VAULT, PROTOCOL_FEE_BIPS));
 
         // Initialize Succinct Staking
         vm.prank(OWNER);
@@ -102,11 +108,21 @@ contract SuccinctStakingTest is Test {
     }
 
     function _calculateStakerReward(uint256 _totalReward) internal pure returns (uint256) {
-        return _totalReward * STAKER_FEE_BIPS / FEE_UNIT;
+        (, uint256 stakerReward,) =
+            FeeCalculator.calculateFeeSplit(_totalReward, PROTOCOL_FEE_BIPS, STAKER_FEE_BIPS);
+        return stakerReward;
     }
 
     function _calculateOwnerReward(uint256 _totalReward) internal pure returns (uint256) {
-        return _totalReward - _calculateStakerReward(_totalReward);
+        (,, uint256 ownerReward) =
+            FeeCalculator.calculateFeeSplit(_totalReward, PROTOCOL_FEE_BIPS, STAKER_FEE_BIPS);
+        return ownerReward;
+    }
+
+    function _calculateProtocolFee(uint256 _totalReward) internal pure returns (uint256) {
+        (uint256 protocolFee,,) =
+            FeeCalculator.calculateFeeSplit(_totalReward, PROTOCOL_FEE_BIPS, STAKER_FEE_BIPS);
+        return protocolFee;
     }
 
     function _calculateRewardSplit(uint256 _totalReward)
@@ -114,8 +130,17 @@ contract SuccinctStakingTest is Test {
         pure
         returns (uint256 stakerReward, uint256 ownerReward)
     {
-        stakerReward = _calculateStakerReward(_totalReward);
-        ownerReward = _totalReward - stakerReward;
+        (, stakerReward, ownerReward) =
+            FeeCalculator.calculateFeeSplit(_totalReward, PROTOCOL_FEE_BIPS, STAKER_FEE_BIPS);
+    }
+
+    function _calculateFullRewardSplit(uint256 _totalReward)
+        internal
+        pure
+        returns (uint256 protocolFee, uint256 stakerReward, uint256 ownerReward)
+    {
+        (protocolFee, stakerReward, ownerReward) =
+            FeeCalculator.calculateFeeSplit(_totalReward, PROTOCOL_FEE_BIPS, STAKER_FEE_BIPS);
     }
 
     function _stake(address _staker, address _prover, uint256 _amount) internal {
