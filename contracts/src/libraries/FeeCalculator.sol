@@ -7,13 +7,13 @@ import {SafeERC20} from "../../lib/openzeppelin-contracts/contracts/token/ERC20/
 import {IERC20} from "../../lib/openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
 
 /// @title FeeCalculator
-/// @notice Library for calculating and distributing fees in the Succinct protocol
+/// @notice Library for calculating and distributing fees for rewards.
 library FeeCalculator {
     using SafeERC20 for IERC20;
 
     uint256 internal constant FEE_UNIT = 10000;
 
-    /// @notice Calculates the fee split for a reward amount
+    /// @notice Calculates the fee split for a reward amount.
     /// @param _totalAmount The total reward amount
     /// @param _protocolFeeBips The protocol fee in basis points
     /// @param _stakerFeeBips The staker fee in basis points
@@ -36,7 +36,7 @@ library FeeCalculator {
         ownerReward = remainingAfterProtocol - stakerReward;
     }
 
-    /// @notice Processes a reward by calculating fees and distributing tokens
+    /// @notice Processes a reward by calculating fees and distributing tokens.
     /// @param _prover The prover address
     /// @param _totalAmount The total reward amount
     /// @param _protocolFeeBips The protocol fee in basis points
@@ -53,7 +53,7 @@ library FeeCalculator {
     ) internal {
         uint256 stakerFeeBips = IProver(_prover).stakerFeeBips();
         
-        // Calculate fee split
+        // Calculate fee split.
         (uint256 protocolFee, uint256 stakerReward, uint256 ownerReward) = 
             calculateFeeSplit(_totalAmount, _protocolFeeBips, stakerFeeBips);
 

@@ -32,7 +32,6 @@ import {
 import {ISuccinctVApp} from "./interfaces/ISuccinctVApp.sol";
 import {ISuccinctStaking} from "./interfaces/ISuccinctStaking.sol";
 import {ISP1Verifier} from "./interfaces/ISP1Verifier.sol";
-import {IProver} from "./interfaces/IProver.sol";
 import {Initializable} from
     "../lib/openzeppelin-contracts-upgradeable/contracts/proxy/utils/Initializable.sol";
 import {ReentrancyGuardUpgradeable} from
@@ -71,6 +70,7 @@ contract SuccinctVApp is
 
     /// @inheritdoc ISuccinctVApp
     address public override feeVault;
+
     /// @inheritdoc ISuccinctVApp
     bytes32 public override vappProgramVKey;
 
