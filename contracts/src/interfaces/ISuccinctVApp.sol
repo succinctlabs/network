@@ -34,6 +34,9 @@ interface ISuccinctVApp {
     /// @notice The verifier address was updated.
     event VerifierUpdate(address indexed verifier);
 
+    /// @notice The fee vault was updated.
+    event FeeVaultUpdate(address indexed feeVault);
+
     /// @notice The max action delay was updated.
     event MaxActionDelayUpdate(uint64 indexed actionDelay);
 
@@ -112,6 +115,9 @@ interface ISuccinctVApp {
     ///      For the list of supported verifiers on each chain, see:
     ///      https://github.com/succinctlabs/sp1-contracts/tree/main/contracts/deployments
     function verifier() external view returns (address);
+
+    /// @notice The address of the fee vault, where protocol fees are sent.
+    function feeVault() external view returns (address);
 
     /// @notice The verification key for the vApp program.
     function vappProgramVKey() external view returns (bytes32);
@@ -266,6 +272,11 @@ interface ISuccinctVApp {
     /// @dev Only callable by the owner.
     /// @param verifier The new verifier address.
     function updateVerifier(address verifier) external;
+
+    /// @notice Updates the fee vault address.
+    /// @dev Only callable by the owner.
+    /// @param feeVault The new fee vault address.
+    function updateFeeVault(address feeVault) external;
 
     /// @notice Updates the max action delay.
     /// @dev Only callable by the owner.

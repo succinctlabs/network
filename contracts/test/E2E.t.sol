@@ -45,7 +45,7 @@ contract E2ETest is Test, FixtureLoader {
     uint64 public constant MAX_ACTION_DELAY = 1 days;
     uint64 public constant FREEZE_DURATION = 1 days;
     uint256 public constant STAKER_FEE_BIPS = 1000; // 10%
-    uint256 public constant PROTOCOL_FEE_BIPS = 300; // 3%
+    uint256 public constant PROTOCOL_FEE_BIPS = 30; // 0.3%
 
     // Fixtures
     SP1ProofFixtureJson public jsonFixture;
@@ -62,6 +62,7 @@ contract E2ETest is Test, FixtureLoader {
     address public BOB;
 
     // Contracts
+    address public FEE_VAULT;
     address public VERIFIER;
     address public STAKING;
     address public VAPP;
@@ -96,6 +97,9 @@ contract E2ETest is Test, FixtureLoader {
             fixture.actions.push(_fixture.actions[i]);
         }
 
+        // Deploy fee vault (just an EOA for testing)
+        FEE_VAULT = makeAddr("FEE_VAULT");
+
         // Deploy Staking
         STAKING = address(new SuccinctStaking(OWNER));
 
@@ -114,7 +118,7 @@ contract E2ETest is Test, FixtureLoader {
 
         // Initialize VApp
         SuccinctVApp(VAPP).initialize(
-            OWNER, PROVE, STAKING, VERIFIER, jsonFixture.vkey, MAX_ACTION_DELAY, FREEZE_DURATION, PROTOCOL_FEE_BIPS
+            OWNER, PROVE, STAKING, VERIFIER, FEE_VAULT, jsonFixture.vkey, MAX_ACTION_DELAY, FREEZE_DURATION, PROTOCOL_FEE_BIPS
         );
 
         // Initialize Staking

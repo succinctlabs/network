@@ -72,6 +72,8 @@ contract SuccinctVApp is
     address public override verifier;
 
     /// @inheritdoc ISuccinctVApp
+    address public override feeVault;
+    /// @inheritdoc ISuccinctVApp
     bytes32 public override vappProgramVKey;
 
     /// @inheritdoc ISuccinctVApp
@@ -133,6 +135,7 @@ contract SuccinctVApp is
         address _prove,
         address _staking,
         address _verifier,
+        address _feeVault,
         bytes32 _vappProgramVKey,
         uint64 _maxActionDelay,
         uint64 _freezeDuration,
@@ -140,7 +143,7 @@ contract SuccinctVApp is
     ) external initializer {
         if (
             _owner == address(0) || _prove == address(0) || _staking == address(0)
-                || _verifier == address(0)
+                || _verifier == address(0) || _feeVault == address(0)
         ) {
             revert ZeroAddress();
         }
@@ -151,6 +154,7 @@ contract SuccinctVApp is
         prove = _prove;
         staking = _staking;
         verifier = _verifier;
+        feeVault = _feeVault;
         vappProgramVKey = _vappProgramVKey;
         maxActionDelay = _maxActionDelay;
         freezeDuration = _freezeDuration;
@@ -158,6 +162,7 @@ contract SuccinctVApp is
 
         _updateStaking(_staking);
         _updateVerifier(_verifier);
+        _updateFeeVault(_feeVault);
         _updateActionDelay(_maxActionDelay);
         _updateFreezeDuration(_freezeDuration);
         _setProtocolFeeBips(_protocolFeeBips);
@@ -388,6 +393,11 @@ contract SuccinctVApp is
     /// @inheritdoc ISuccinctVApp
     function updateVerifier(address _verifier) external override onlyOwner {
         _updateVerifier(_verifier);
+    }
+
+    /// @inheritdoc ISuccinctVApp
+    function updateFeeVault(address _feeVault) external override onlyOwner {
+        _updateFeeVault(_feeVault);
     }
 
     /// @inheritdoc ISuccinctVApp
@@ -646,6 +656,13 @@ contract SuccinctVApp is
         verifier = _verifier;
 
         emit VerifierUpdate(_verifier);
+    }
+
+    /// @dev Updates the fee vault.
+    function _updateFeeVault(address _feeVault) internal {
+        feeVault = _feeVault;
+
+        emit FeeVaultUpdate(_feeVault);
     }
 
     /// @dev Updates the action delay.

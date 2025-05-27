@@ -54,6 +54,7 @@ contract SuccinctVAppTest is Test, FixtureLoader {
 
     // Contracts
     address public VERIFIER;
+    address public FEE_VAULT;
     address public PROVE;
     address public VAPP;
     address public STAKING;
@@ -82,6 +83,9 @@ contract SuccinctVAppTest is Test, FixtureLoader {
         // Deploy verifier
         VERIFIER = address(new MockVerifier());
 
+        // Deploy fee vault (just an EOA for testing)
+        FEE_VAULT = makeAddr("FEE_VAULT");
+
         // Deploy tokens
         PROVE = address(new MockERC20("Succinct", "PROVE", 18));
 
@@ -96,6 +100,7 @@ contract SuccinctVAppTest is Test, FixtureLoader {
             PROVE,
             STAKING,
             VERIFIER,
+            FEE_VAULT,
             jsonFixture.vkey,
             MAX_ACTION_DELAY,
             FREEZE_DURATION,
@@ -147,6 +152,7 @@ contract SuccinctVAppSetupTests is SuccinctVAppTest {
         assertEq(SuccinctVApp(VAPP).prove(), PROVE);
         assertEq(SuccinctVApp(VAPP).staking(), STAKING);
         assertEq(SuccinctVApp(VAPP).verifier(), VERIFIER);
+        assertEq(SuccinctVApp(VAPP).feeVault(), FEE_VAULT);
         assertEq(SuccinctVApp(VAPP).vappProgramVKey(), jsonFixture.vkey);
         assertEq(SuccinctVApp(VAPP).maxActionDelay(), 1 days);
         assertEq(SuccinctVApp(VAPP).protocolFeeBips(), PROTOCOL_FEE_BIPS);
@@ -156,7 +162,7 @@ contract SuccinctVAppSetupTests is SuccinctVAppTest {
     function test_RevertInitialized_WhenInvalidInitialization() public {
         vm.expectRevert(abi.encodeWithSelector(Initializable.InvalidInitialization.selector));
         SuccinctVApp(VAPP).initialize(
-            OWNER, PROVE, STAKING, VERIFIER, jsonFixture.vkey, 1 days, 1 days, PROTOCOL_FEE_BIPS
+            OWNER, PROVE, STAKING, VERIFIER, FEE_VAULT, jsonFixture.vkey, 1 days, 1 days, PROTOCOL_FEE_BIPS
         );
     }
 }

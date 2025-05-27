@@ -61,34 +61,32 @@ contract MockVApp is Bridge {
 
     uint256 internal constant FEE_UNIT = 10000;
     address internal immutable STAKING;
-    uint256 public protocolFeeBips;
+    address internal immutable FEE_VAULT;
+    uint256 internal immutable PROTOCOL_FEE_BIPS;
 
-    constructor(address _staking, address _prove) Bridge(_prove) {
+    constructor(address _staking, address _prove, address _feeVault, uint256 _protocolFeeBips) Bridge(_prove) {
         STAKING = _staking;
-        protocolFeeBips = 0; // Default to no protocol fee
+        FEE_VAULT = _feeVault;
+        PROTOCOL_FEE_BIPS = _protocolFeeBips;
     }
 
     function staking() external view returns (address) {
         return STAKING;
     }
 
-    function setProtocolFeeBips(uint256 _protocolFeeBips) external {
-        protocolFeeBips = _protocolFeeBips;
-    }
-
+    /// @dev We still maintain the same fee splitting logic as the real VApp.
     function processReward(address _prover, uint256 _amount) external {
         uint256 totalAmount = _amount;
         uint256 remainingAmount = totalAmount;
 
-        // Step 1: Calculate and process protocol fee (if any)
+        // Step 1: Calculate and process protocol fee (if any).
         uint256 protocolFee = 0;
-        if (protocolFeeBips > 0) {
-            protocolFee = totalAmount * protocolFeeBips / FEE_UNIT;
+        if (PROTOCOL_FEE_BIPS > 0) {
+            protocolFee = totalAmount * PROTOCOL_FEE_BIPS / FEE_UNIT;
             remainingAmount -= protocolFee;
-            // Protocol fee stays in the contract (MockVApp)
         }
 
-        // Step 2: Calculate and process staker reward (if any)
+        // Step 2: Calculate and process staker reward (if any).
         uint256 stakerReward = 0;
         uint256 stakerFeeBips = IProver(_prover).stakerFeeBips();
         if (stakerFeeBips > 0) {

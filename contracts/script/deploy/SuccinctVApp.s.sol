@@ -20,6 +20,7 @@ contract SuccinctVAppScript is BaseScript, FixtureLoader {
         address STAKING = readAddress("STAKING");
         address PROVE = readAddress("PROVE");
         address VERIFIER = SP1_VERIFIER_GATEWAY_GROTH16;
+        address FEE_VAULT = readAddress("FEE_VAULT");
         uint64 MAX_ACTION_DELAY = readUint64("MAX_ACTION_DELAY");
         uint64 FREEZE_DURATION = readUint64("FREEZE_DURATION");
         uint256 PROTOCOL_FEE_BIPS = readUint256("PROTOCOL_FEE_BIPS");
@@ -37,6 +38,7 @@ contract SuccinctVAppScript is BaseScript, FixtureLoader {
             PROVE,
             STAKING,
             VERIFIER,
+            FEE_VAULT,
             VKEY,
             MAX_ACTION_DELAY,
             FREEZE_DURATION,
