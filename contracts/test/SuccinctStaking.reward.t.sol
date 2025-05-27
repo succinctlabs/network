@@ -16,6 +16,8 @@ contract SuccinctStakingRewardTests is SuccinctStakingTest {
         uint256 bobBalance;
         uint256 staker1Staked;
         uint256 staker2Staked;
+        uint256 feeVaultBalance;
+        uint256 vappBalance;
     }
 
     function _takeSnapshot() internal view returns (BalanceSnapshot memory) {
@@ -25,7 +27,9 @@ contract SuccinctStakingRewardTests is SuccinctStakingTest {
             aliceBalance: IERC20(PROVE).balanceOf(ALICE),
             bobBalance: IERC20(PROVE).balanceOf(BOB),
             staker1Staked: SuccinctStaking(STAKING).staked(STAKER_1),
-            staker2Staked: SuccinctStaking(STAKING).staked(STAKER_2)
+            staker2Staked: SuccinctStaking(STAKING).staked(STAKER_2),
+            feeVaultBalance: IERC20(PROVE).balanceOf(FEE_VAULT),
+            vappBalance: IERC20(PROVE).balanceOf(VAPP)
         });
     }
 
@@ -39,9 +43,9 @@ contract SuccinctStakingRewardTests is SuccinctStakingTest {
 
         BalanceSnapshot memory before = _takeSnapshot();
 
-        // Calculate expected reward split
-        (uint256 expectedStakerReward, uint256 expectedOwnerReward) =
-            _calculateRewardSplit(rewardAmount);
+        // Calculate expected reward split including protocol fee
+        (uint256 expectedProtocolFee, uint256 expectedStakerReward, uint256 expectedOwnerReward) =
+            _calculateFullRewardSplit(rewardAmount);
 
         // Reward the prover
         MockVApp(VAPP).processReward(ALICE_PROVER, rewardAmount);
@@ -54,6 +58,9 @@ contract SuccinctStakingRewardTests is SuccinctStakingTest {
 
         // Check that Alice (prover owner) received her portion of the reward
         assertEq(IERC20(PROVE).balanceOf(ALICE), before.aliceBalance + expectedOwnerReward);
+
+        // Check that protocol fee was transferred to FEE_VAULT
+        assertEq(IERC20(PROVE).balanceOf(FEE_VAULT), before.feeVaultBalance + expectedProtocolFee);
 
         // Staker should have the reward, but should still be staked
         assertEq(IERC20(PROVE).balanceOf(STAKER_1), 0);
@@ -73,9 +80,9 @@ contract SuccinctStakingRewardTests is SuccinctStakingTest {
 
         BalanceSnapshot memory before = _takeSnapshot();
 
-        // Calculate expected reward split
-        (uint256 expectedStakerReward, uint256 expectedOwnerReward) =
-            _calculateRewardSplit(rewardAmount);
+        // Calculate expected reward split including protocol fee
+        (uint256 expectedProtocolFee, uint256 expectedStakerReward, uint256 expectedOwnerReward) =
+            _calculateFullRewardSplit(rewardAmount);
 
         // Reward the prover
         MockVApp(VAPP).processReward(ALICE_PROVER, rewardAmount);
@@ -88,6 +95,9 @@ contract SuccinctStakingRewardTests is SuccinctStakingTest {
 
         // Check that Alice (prover owner) received her portion of the reward
         assertEq(IERC20(PROVE).balanceOf(ALICE), before.aliceBalance + expectedOwnerReward);
+
+        // Check that protocol fee was transferred to FEE_VAULT
+        assertEq(IERC20(PROVE).balanceOf(FEE_VAULT), before.feeVaultBalance + expectedProtocolFee);
 
         // Complete unstake process
         _completeUnstake(STAKER_1, stakeAmount);
@@ -111,9 +121,9 @@ contract SuccinctStakingRewardTests is SuccinctStakingTest {
 
         BalanceSnapshot memory before = _takeSnapshot();
 
-        // Calculate expected reward split
-        (uint256 expectedStakerReward, uint256 expectedOwnerReward) =
-            _calculateRewardSplit(rewardAmount);
+        // Calculate expected reward split including protocol fee
+        (uint256 expectedProtocolFee, uint256 expectedStakerReward, uint256 expectedOwnerReward) =
+            _calculateFullRewardSplit(rewardAmount);
 
         // Reward the prover
         MockVApp(VAPP).processReward(ALICE_PROVER, rewardAmount);
@@ -126,6 +136,9 @@ contract SuccinctStakingRewardTests is SuccinctStakingTest {
 
         // Check that Alice (prover owner) received her portion of the reward
         assertEq(IERC20(PROVE).balanceOf(ALICE), before.aliceBalance + expectedOwnerReward);
+
+        // Check that protocol fee was transferred to FEE_VAULT
+        assertEq(IERC20(PROVE).balanceOf(FEE_VAULT), before.feeVaultBalance + expectedProtocolFee);
 
         // Complete partial unstake process
         _completeUnstake(STAKER_1, unstakeAmount);
@@ -154,9 +167,9 @@ contract SuccinctStakingRewardTests is SuccinctStakingTest {
 
         BalanceSnapshot memory before = _takeSnapshot();
 
-        // Calculate expected reward split
-        (uint256 expectedStakerReward, uint256 expectedOwnerReward) =
-            _calculateRewardSplit(rewardAmount);
+        // Calculate expected reward split including protocol fee
+        (uint256 expectedProtocolFee, uint256 expectedStakerReward, uint256 expectedOwnerReward) =
+            _calculateFullRewardSplit(rewardAmount);
 
         // Reward only to Alice prover
         MockVApp(VAPP).processReward(ALICE_PROVER, rewardAmount);
@@ -170,6 +183,9 @@ contract SuccinctStakingRewardTests is SuccinctStakingTest {
 
         // Check that Alice (prover owner) received her portion of the reward
         assertEq(IERC20(PROVE).balanceOf(ALICE), before.aliceBalance + expectedOwnerReward);
+
+        // Check that protocol fee was transferred to FEE_VAULT
+        assertEq(IERC20(PROVE).balanceOf(FEE_VAULT), before.feeVaultBalance + expectedProtocolFee);
 
         // Complete unstake process for both stakers
         _completeUnstake(STAKER_1, stakeAmount1);
@@ -196,9 +212,9 @@ contract SuccinctStakingRewardTests is SuccinctStakingTest {
 
         BalanceSnapshot memory beforeReward = _takeSnapshot();
 
-        // Calculate expected reward split
-        (uint256 expectedStakerReward, uint256 expectedOwnerReward) =
-            _calculateRewardSplit(rewardAmount);
+        // Calculate expected reward split including protocol fee
+        (uint256 expectedProtocolFee, uint256 expectedStakerReward, uint256 expectedOwnerReward) =
+            _calculateFullRewardSplit(rewardAmount);
 
         // Reward to Alice prover
         MockVApp(VAPP).processReward(ALICE_PROVER, rewardAmount);
@@ -211,6 +227,11 @@ contract SuccinctStakingRewardTests is SuccinctStakingTest {
 
         // Check that Alice (prover owner) received her portion of the reward
         assertEq(IERC20(PROVE).balanceOf(ALICE), beforeReward.aliceBalance + expectedOwnerReward);
+
+        // Check that protocol fee was transferred to FEE_VAULT
+        assertEq(
+            IERC20(PROVE).balanceOf(FEE_VAULT), beforeReward.feeVaultBalance + expectedProtocolFee
+        );
 
         // Staker 2 to Alice prover
         _permitAndStake(STAKER_2, STAKER_2_PK, ALICE_PROVER, stakeAmount2);
@@ -245,15 +266,18 @@ contract SuccinctStakingRewardTests is SuccinctStakingTest {
 
         BalanceSnapshot memory before = _takeSnapshot();
 
-        // Calculate expected reward split
-        (uint256 expectedStakerReward, uint256 expectedOwnerReward) =
-            _calculateRewardSplit(rewardAmount);
+        // Calculate expected reward split including protocol fee
+        (uint256 expectedProtocolFee, uint256 expectedStakerReward, uint256 expectedOwnerReward) =
+            _calculateFullRewardSplit(rewardAmount);
 
         // Reward to Alice prover
         MockVApp(VAPP).processReward(ALICE_PROVER, rewardAmount);
 
         // Check that Alice (prover owner) received her portion of the reward
         assertEq(IERC20(PROVE).balanceOf(ALICE), before.aliceBalance + expectedOwnerReward);
+
+        // Check that protocol fee was transferred to FEE_VAULT
+        assertEq(IERC20(PROVE).balanceOf(FEE_VAULT), before.feeVaultBalance + expectedProtocolFee);
 
         // Unstake
         uint256 staked1 = SuccinctStaking(STAKING).balanceOf(STAKER_1);
@@ -293,11 +317,11 @@ contract SuccinctStakingRewardTests is SuccinctStakingTest {
 
         BalanceSnapshot memory before = _takeSnapshot();
 
-        // Calculate expected reward splits
-        (uint256 expectedStakerReward1, uint256 expectedOwnerReward1) =
-            _calculateRewardSplit(rewardAmount1);
-        (uint256 expectedStakerReward2, uint256 expectedOwnerReward2) =
-            _calculateRewardSplit(rewardAmount2);
+        // Calculate expected reward splits including protocol fees
+        (uint256 expectedProtocolFee1, uint256 expectedStakerReward1, uint256 expectedOwnerReward1)
+        = _calculateFullRewardSplit(rewardAmount1);
+        (uint256 expectedProtocolFee2, uint256 expectedStakerReward2, uint256 expectedOwnerReward2)
+        = _calculateFullRewardSplit(rewardAmount2);
 
         // Reward both provers
         MockVApp(VAPP).processReward(ALICE_PROVER, rewardAmount1);
@@ -316,6 +340,12 @@ contract SuccinctStakingRewardTests is SuccinctStakingTest {
         // Check that prover owners received their portions of the rewards
         assertEq(IERC20(PROVE).balanceOf(ALICE), before.aliceBalance + expectedOwnerReward1);
         assertEq(IERC20(PROVE).balanceOf(BOB), before.bobBalance + expectedOwnerReward2);
+
+        // Check that protocol fees were transferred to FEE_VAULT
+        assertEq(
+            IERC20(PROVE).balanceOf(FEE_VAULT),
+            before.feeVaultBalance + expectedProtocolFee1 + expectedProtocolFee2
+        );
 
         // Complete unstake process for both stakers
         _completeUnstake(STAKER_1, SuccinctStaking(STAKING).balanceOf(STAKER_1));

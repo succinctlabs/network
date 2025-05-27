@@ -162,7 +162,15 @@ contract SuccinctVAppSetupTests is SuccinctVAppTest {
     function test_RevertInitialized_WhenInvalidInitialization() public {
         vm.expectRevert(abi.encodeWithSelector(Initializable.InvalidInitialization.selector));
         SuccinctVApp(VAPP).initialize(
-            OWNER, PROVE, STAKING, VERIFIER, FEE_VAULT, jsonFixture.vkey, 1 days, 1 days, PROTOCOL_FEE_BIPS
+            OWNER,
+            PROVE,
+            STAKING,
+            VERIFIER,
+            FEE_VAULT,
+            jsonFixture.vkey,
+            1 days,
+            1 days,
+            PROTOCOL_FEE_BIPS
         );
     }
 }

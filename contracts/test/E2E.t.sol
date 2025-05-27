@@ -118,7 +118,15 @@ contract E2ETest is Test, FixtureLoader {
 
         // Initialize VApp
         SuccinctVApp(VAPP).initialize(
-            OWNER, PROVE, STAKING, VERIFIER, FEE_VAULT, jsonFixture.vkey, MAX_ACTION_DELAY, FREEZE_DURATION, PROTOCOL_FEE_BIPS
+            OWNER,
+            PROVE,
+            STAKING,
+            VERIFIER,
+            FEE_VAULT,
+            jsonFixture.vkey,
+            MAX_ACTION_DELAY,
+            FREEZE_DURATION,
+            PROTOCOL_FEE_BIPS
         );
 
         // Initialize Staking
@@ -252,7 +260,7 @@ contract E2ETest is Test, FixtureLoader {
     //   they staked.
     function test_E2E() public {
         uint256 rewardAmount = 5e18; // 5 PROVE tokens as reward (within the 10e18 available in VApp)
-        
+
         // Take initial snapshot
         BalanceSnapshot memory snapshot = _takeSnapshot(true);
 
@@ -305,14 +313,22 @@ contract E2ETest is Test, FixtureLoader {
         BalanceSnapshot memory unstakeSnapshot = _takeSnapshot(false);
 
         // The staker should now have a share of the reward
-        assertGt(unstakeSnapshot.expectedUnstakeAmount, STAKER_PROVE_AMOUNT, "Staker should have earned rewards");
+        assertGt(
+            unstakeSnapshot.expectedUnstakeAmount,
+            STAKER_PROVE_AMOUNT,
+            "Staker should have earned rewards"
+        );
 
         // Complete the unstake process
         uint256 actualUnstakeAmount =
             _completeUnstake(STAKER_1, SuccinctStaking(STAKING).balanceOf(STAKER_1));
 
         // Verify final state
-        assertEq(actualUnstakeAmount, unstakeSnapshot.expectedUnstakeAmount, "Unstake amount should match expected");
+        assertEq(
+            actualUnstakeAmount,
+            unstakeSnapshot.expectedUnstakeAmount,
+            "Unstake amount should match expected"
+        );
         assertEq(
             IERC20(PROVE).balanceOf(STAKER_1),
             unstakeSnapshot.stakerBalanceBeforeUnstake + actualUnstakeAmount,

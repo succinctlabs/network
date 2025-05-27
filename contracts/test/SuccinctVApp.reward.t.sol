@@ -46,7 +46,7 @@ contract SuccinctVAppRewardTest is SuccinctVAppTest {
 
     function test_Reward_WhenValid() public {
         RewardTestData memory data;
-        
+
         data.prover = address(new SuccinctProver(PROVE, STAKING, ALICE, 1, 1000));
         data.vappInitialBalance = 1000e18; // 1000 PROVE tokens
         data.rewardAmount = 100e18 / 2; // Reward half of VApp's balance
@@ -117,7 +117,9 @@ contract SuccinctVAppRewardTest is SuccinctVAppTest {
         // Expect Block event
         data.expectedBlockNumber = SuccinctVApp(VAPP).blockNumber() + 1;
         vm.expectEmit(true, true, true, true);
-        emit ISuccinctVApp.Block(data.expectedBlockNumber, publicValues.newRoot, publicValues.oldRoot);
+        emit ISuccinctVApp.Block(
+            data.expectedBlockNumber, publicValues.newRoot, publicValues.oldRoot
+        );
 
         // Perform the state update
         SuccinctVApp(VAPP).updateState(abi.encode(publicValues), jsonFixture.proof);
@@ -125,7 +127,8 @@ contract SuccinctVAppRewardTest is SuccinctVAppTest {
         // Assert final state
         // VApp transfers out: ownerReward + stakerReward, keeps protocolFee
         assertEq(
-            MockERC20(PROVE).balanceOf(VAPP), data.vappInitialBalance - data.ownerReward - data.stakerReward
+            MockERC20(PROVE).balanceOf(VAPP),
+            data.vappInitialBalance - data.ownerReward - data.stakerReward
         );
         assertEq(SuccinctVApp(VAPP).finalizedReceipt(), 1);
         assertEq(SuccinctVApp(VAPP).blockNumber(), data.expectedBlockNumber);
@@ -165,7 +168,11 @@ contract SuccinctVAppRewardTest is SuccinctVAppTest {
             (data.remainingAfterProtocol * data.stakerFeeBips) / 10000,
             "Staker reward should be calculated correctly"
         );
-        assertEq(data.ownerReward + data.stakerReward, data.remainingAfterProtocol, "Rewards should sum to remaining after protocol fee");
+        assertEq(
+            data.ownerReward + data.stakerReward,
+            data.remainingAfterProtocol,
+            "Rewards should sum to remaining after protocol fee"
+        );
 
         // After reward distribution:
         // - protocolFee stays in VApp

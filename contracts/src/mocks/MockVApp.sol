@@ -64,7 +64,9 @@ contract MockVApp is Bridge {
     address internal immutable FEE_VAULT;
     uint256 internal immutable PROTOCOL_FEE_BIPS;
 
-    constructor(address _staking, address _prove, address _feeVault, uint256 _protocolFeeBips) Bridge(_prove) {
+    constructor(address _staking, address _prove, address _feeVault, uint256 _protocolFeeBips)
+        Bridge(_prove)
+    {
         STAKING = _staking;
         FEE_VAULT = _feeVault;
         PROTOCOL_FEE_BIPS = _protocolFeeBips;
@@ -84,6 +86,7 @@ contract MockVApp is Bridge {
         if (PROTOCOL_FEE_BIPS > 0) {
             protocolFee = totalAmount * PROTOCOL_FEE_BIPS / FEE_UNIT;
             remainingAmount -= protocolFee;
+            IERC20(PROVE).safeTransfer(FEE_VAULT, protocolFee);
         }
 
         // Step 2: Calculate and process staker reward (if any).

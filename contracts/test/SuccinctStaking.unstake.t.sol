@@ -84,12 +84,13 @@ contract SuccinctStakingUnstakeTests is SuccinctStakingTest {
         // Reward to Alice prover
         MockVApp(VAPP).processReward(ALICE_PROVER, rewardAmount);
 
-        // Calculate expected rewards (only staker portion goes to stakers)
-        uint256 stakerRewardPortion = (rewardAmount * STAKER_FEE_BIPS) / FEE_UNIT;
+        // Calculate expected rewards (only staker portion goes to stakers, after protocol fee)
+        (uint256 expectedProtocolFee, uint256 expectedStakerReward, uint256 expectedOwnerReward) =
+            _calculateFullRewardSplit(rewardAmount);
         uint256 expectedReward1 =
-            (stakerRewardPortion * stakeAmount1) / (stakeAmount1 + stakeAmount2);
+            (expectedStakerReward * stakeAmount1) / (stakeAmount1 + stakeAmount2);
         uint256 expectedReward2 =
-            (stakerRewardPortion * stakeAmount2) / (stakeAmount1 + stakeAmount2);
+            (expectedStakerReward * stakeAmount2) / (stakeAmount1 + stakeAmount2);
 
         // Verify staked amount increased for both stakers
         uint256 stakedAfterReward1 = SuccinctStaking(STAKING).staked(STAKER_1);

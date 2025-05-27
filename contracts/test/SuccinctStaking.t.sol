@@ -27,7 +27,7 @@ contract SuccinctStakingTest is Test {
     uint256 public constant STAKER_FEE_BIPS = 1000; // 10%
     uint256 public constant FEE_UNIT = 10000; // 100%
     uint256 public constant PROTOCOL_FEE_BIPS = 30; // 0.3%
-    
+
     // EOAs
     address public OWNER;
     address public REQUESTER;
@@ -107,11 +107,26 @@ contract SuccinctStakingTest is Test {
     }
 
     function _calculateStakerReward(uint256 _totalReward) internal pure returns (uint256) {
-        return _totalReward * STAKER_FEE_BIPS / FEE_UNIT;
+        // First deduct protocol fee
+        uint256 protocolFee = _totalReward * PROTOCOL_FEE_BIPS / FEE_UNIT;
+        uint256 remainingAfterProtocol = _totalReward - protocolFee;
+
+        // Then calculate staker reward from remaining amount
+        return remainingAfterProtocol * STAKER_FEE_BIPS / FEE_UNIT;
     }
 
     function _calculateOwnerReward(uint256 _totalReward) internal pure returns (uint256) {
-        return _totalReward - _calculateStakerReward(_totalReward);
+        // First deduct protocol fee
+        uint256 protocolFee = _totalReward * PROTOCOL_FEE_BIPS / FEE_UNIT;
+        uint256 remainingAfterProtocol = _totalReward - protocolFee;
+
+        // Owner gets remainder after staker fee
+        uint256 stakerReward = remainingAfterProtocol * STAKER_FEE_BIPS / FEE_UNIT;
+        return remainingAfterProtocol - stakerReward;
+    }
+
+    function _calculateProtocolFee(uint256 _totalReward) internal pure returns (uint256) {
+        return _totalReward * PROTOCOL_FEE_BIPS / FEE_UNIT;
     }
 
     function _calculateRewardSplit(uint256 _totalReward)
@@ -119,8 +134,24 @@ contract SuccinctStakingTest is Test {
         pure
         returns (uint256 stakerReward, uint256 ownerReward)
     {
-        stakerReward = _calculateStakerReward(_totalReward);
-        ownerReward = _totalReward - stakerReward;
+        // First deduct protocol fee
+        uint256 protocolFee = _totalReward * PROTOCOL_FEE_BIPS / FEE_UNIT;
+        uint256 remainingAfterProtocol = _totalReward - protocolFee;
+
+        // Then split remaining between staker and owner
+        stakerReward = remainingAfterProtocol * STAKER_FEE_BIPS / FEE_UNIT;
+        ownerReward = remainingAfterProtocol - stakerReward;
+    }
+
+    function _calculateFullRewardSplit(uint256 _totalReward)
+        internal
+        pure
+        returns (uint256 protocolFee, uint256 stakerReward, uint256 ownerReward)
+    {
+        protocolFee = _totalReward * PROTOCOL_FEE_BIPS / FEE_UNIT;
+        uint256 remainingAfterProtocol = _totalReward - protocolFee;
+        stakerReward = remainingAfterProtocol * STAKER_FEE_BIPS / FEE_UNIT;
+        ownerReward = remainingAfterProtocol - stakerReward;
     }
 
     function _stake(address _staker, address _prover, uint256 _amount) internal {
