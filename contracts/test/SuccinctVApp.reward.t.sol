@@ -27,42 +27,56 @@ import {SuccinctProver} from "../src/tokens/SuccinctProver.sol";
 import {IProver} from "../src/interfaces/IProver.sol";
 
 contract SuccinctVAppRewardTest is SuccinctVAppTest {
+    struct RewardTestData {
+        address prover;
+        uint256 vappInitialBalance;
+        uint256 rewardAmount;
+        uint256 initialProverBalance;
+        uint256 initialAliceBalance;
+        uint256 stakerFeeBips;
+        uint256 protocolFeeBips;
+        uint256 protocolFee;
+        uint256 remainingAfterProtocol;
+        uint256 stakerReward;
+        uint256 ownerReward;
+        bytes rewardData;
+        uint64 expectedBlockNumber;
+    }
+
     function test_Reward_WhenValid() public {
-        address prover = address(new SuccinctProver(PROVE, STAKING, ALICE, 1, 1000));
+        RewardTestData memory data;
+        
+        data.prover = address(new SuccinctProver(PROVE, STAKING, ALICE, 1, 1000));
+        data.vappInitialBalance = 1000e18; // 1000 PROVE tokens
+        data.rewardAmount = 100e18 / 2; // Reward half of VApp's balance
 
         // Give the VAPP some initial balance (simulates some existing deposits) so that it can reward
-        uint256 vappInitialBalance = 1000e18; // 1000 PROVE tokens
-        MockERC20(PROVE).mint(VAPP, vappInitialBalance);
-
-        uint256 rewardAmount = 100e18 / 2; // Reward half of VApp's balance
+        MockERC20(PROVE).mint(VAPP, data.vappInitialBalance);
 
         // Record initial balances
-        uint256 initialProverBalance = IERC20(PROVE).balanceOf(prover);
-        uint256 initialAliceBalance = IERC20(PROVE).balanceOf(ALICE);
+        data.initialProverBalance = IERC20(PROVE).balanceOf(data.prover);
+        data.initialAliceBalance = IERC20(PROVE).balanceOf(ALICE);
 
         // Verify VApp has the tokens
-        assertEq(MockERC20(PROVE).balanceOf(VAPP), vappInitialBalance);
-        assertEq(MockERC20(PROVE).balanceOf(prover), 0);
+        assertEq(MockERC20(PROVE).balanceOf(VAPP), data.vappInitialBalance);
+        assertEq(MockERC20(PROVE).balanceOf(data.prover), 0);
 
         // Set VAPP address in MockStaking
         MockStaking(STAKING).setVApp(VAPP);
 
-        // Set up approval from VAPP to STAKING for staker reward portion only
-        // VApp will transfer owner reward directly, and staker reward to staking
-        uint256 stakerFeeBips = IProver(prover).stakerFeeBips();
-        uint256 protocolFeeBips = SuccinctVApp(VAPP).protocolFeeBips();
-        
         // Calculate rewards with protocol fee logic
-        uint256 protocolFee = (rewardAmount * protocolFeeBips) / 10000;
-        uint256 remainingAfterProtocol = rewardAmount - protocolFee;
-        uint256 stakerReward = (remainingAfterProtocol * stakerFeeBips) / 10000;
-        uint256 ownerReward = remainingAfterProtocol - stakerReward;
+        data.stakerFeeBips = IProver(data.prover).stakerFeeBips();
+        data.protocolFeeBips = SuccinctVApp(VAPP).protocolFeeBips();
+        data.protocolFee = (data.rewardAmount * data.protocolFeeBips) / 10000;
+        data.remainingAfterProtocol = data.rewardAmount - data.protocolFee;
+        data.stakerReward = (data.remainingAfterProtocol * data.stakerFeeBips) / 10000;
+        data.ownerReward = data.remainingAfterProtocol - data.stakerReward;
 
         vm.prank(VAPP);
-        MockERC20(PROVE).approve(STAKING, stakerReward);
+        MockERC20(PROVE).approve(STAKING, data.stakerReward);
 
         // Prepare PublicValues for updateState
-        bytes memory rewardData = abi.encode(RewardAction({prover: prover, amount: rewardAmount}));
+        data.rewardData = abi.encode(RewardAction({prover: data.prover, amount: data.rewardAmount}));
 
         PublicValuesStruct memory publicValues = PublicValuesStruct({
             actions: new Action[](1),
@@ -74,7 +88,7 @@ contract SuccinctVAppRewardTest is SuccinctVAppTest {
             action: ActionType.Reward,
             status: ReceiptStatus.Completed,
             receipt: 1, // Rewards don't create pending receipts, this is an ID for the completed action
-            data: rewardData
+            data: data.rewardData
         });
 
         // Mock verifier call
@@ -83,26 +97,26 @@ contract SuccinctVAppRewardTest is SuccinctVAppTest {
         // Expect VAPP to call STAKING.reward(prover, stakerReward) - only the staker portion
         vm.expectCall(
             STAKING,
-            abi.encodeWithSelector(ISuccinctStaking.reward.selector, prover, stakerReward),
+            abi.encodeWithSelector(ISuccinctStaking.reward.selector, data.prover, data.stakerReward),
             1 // Expected number of calls
         );
 
         // Expect PROVE tokens to be transferred from VAPP to STAKING (staker reward)
         vm.expectEmit(true, true, false, true);
-        emit IERC20.Transfer(VAPP, STAKING, stakerReward);
+        emit IERC20.Transfer(VAPP, STAKING, data.stakerReward);
 
         // Expect PROVE tokens to be transferred from VAPP to ALICE (owner reward)
         vm.expectEmit(true, true, false, true);
-        emit IERC20.Transfer(VAPP, ALICE, ownerReward);
+        emit IERC20.Transfer(VAPP, ALICE, data.ownerReward);
 
         // Expect ReceiptCompleted event for the reward
         vm.expectEmit(true, true, true, true);
-        emit ISuccinctVApp.ReceiptCompleted(1, ActionType.Reward, rewardData);
+        emit ISuccinctVApp.ReceiptCompleted(1, ActionType.Reward, data.rewardData);
 
         // Expect Block event
-        uint64 expectedBlockNumber = SuccinctVApp(VAPP).blockNumber() + 1;
+        data.expectedBlockNumber = SuccinctVApp(VAPP).blockNumber() + 1;
         vm.expectEmit(true, true, true, true);
-        emit ISuccinctVApp.Block(expectedBlockNumber, publicValues.newRoot, publicValues.oldRoot);
+        emit ISuccinctVApp.Block(data.expectedBlockNumber, publicValues.newRoot, publicValues.oldRoot);
 
         // Perform the state update
         SuccinctVApp(VAPP).updateState(abi.encode(publicValues), jsonFixture.proof);
@@ -110,17 +124,17 @@ contract SuccinctVAppRewardTest is SuccinctVAppTest {
         // Assert final state
         // VApp transfers out: ownerReward + stakerReward, keeps protocolFee
         assertEq(
-            MockERC20(PROVE).balanceOf(VAPP), vappInitialBalance - ownerReward - stakerReward
+            MockERC20(PROVE).balanceOf(VAPP), data.vappInitialBalance - data.ownerReward - data.stakerReward
         );
         assertEq(SuccinctVApp(VAPP).finalizedReceipt(), 1);
-        assertEq(SuccinctVApp(VAPP).blockNumber(), expectedBlockNumber);
+        assertEq(SuccinctVApp(VAPP).blockNumber(), data.expectedBlockNumber);
         assertEq(SuccinctVApp(VAPP).root(), publicValues.newRoot);
         assertEq(SuccinctVApp(VAPP).timestamp(), publicValues.timestamp);
 
         // Verify prover properties
-        assertEq(IProver(prover).owner(), ALICE, "Prover owner should be ALICE");
-        assertEq(IProver(prover).staking(), STAKING, "Prover staking should be set correctly");
-        assertEq(IProver(prover).stakerFeeBips(), 1000, "Prover staker fee should be 10%");
+        assertEq(IProver(data.prover).owner(), ALICE, "Prover owner should be ALICE");
+        assertEq(IProver(data.prover).staking(), STAKING, "Prover staking should be set correctly");
+        assertEq(IProver(data.prover).stakerFeeBips(), 1000, "Prover staker fee should be 10%");
 
         // Verify the fee splitting worked correctly:
         // VApp should split rewards: remainder to prover owner (ALICE), staker portion to staking contract
@@ -128,29 +142,29 @@ contract SuccinctVAppRewardTest is SuccinctVAppTest {
         // Assert ALICE (prover owner) received the owner reward portion
         assertEq(
             MockERC20(PROVE).balanceOf(ALICE),
-            initialAliceBalance + ownerReward,
+            data.initialAliceBalance + data.ownerReward,
             "Prover owner (ALICE) should receive the owner reward portion"
         );
 
         // Assert prover contract balance remains unchanged (staker rewards go to staking contract)
         assertEq(
-            MockERC20(PROVE).balanceOf(prover),
-            initialProverBalance,
+            MockERC20(PROVE).balanceOf(data.prover),
+            data.initialProverBalance,
             "Prover contract balance should remain unchanged"
         );
 
         // Verify the math
         assertEq(
-            ownerReward,
-            (remainingAfterProtocol * (10000 - stakerFeeBips)) / 10000,
+            data.ownerReward,
+            (data.remainingAfterProtocol * (10000 - data.stakerFeeBips)) / 10000,
             "Owner reward should be calculated correctly"
         );
         assertEq(
-            stakerReward,
-            (remainingAfterProtocol * stakerFeeBips) / 10000,
+            data.stakerReward,
+            (data.remainingAfterProtocol * data.stakerFeeBips) / 10000,
             "Staker reward should be calculated correctly"
         );
-        assertEq(ownerReward + stakerReward, remainingAfterProtocol, "Rewards should sum to remaining after protocol fee");
+        assertEq(data.ownerReward + data.stakerReward, data.remainingAfterProtocol, "Rewards should sum to remaining after protocol fee");
 
         // After reward distribution:
         // - protocolFee stays in VApp
@@ -159,7 +173,7 @@ contract SuccinctVAppRewardTest is SuccinctVAppTest {
         // So VApp should have vappInitialBalance - ownerReward - stakerReward remaining
         assertEq(
             MockERC20(PROVE).balanceOf(address(VAPP)),
-            vappInitialBalance - ownerReward - stakerReward
+            data.vappInitialBalance - data.ownerReward - data.stakerReward
         );
     }
 }
