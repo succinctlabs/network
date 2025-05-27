@@ -31,7 +31,7 @@ import {
 
 import {ERC1967Proxy} from "../lib/openzeppelin-contracts/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 
-// Tests the entire protocol end-to-end.
+// Tests the entire protocol end-to-end, using realistic values for parameters.
 contract E2ETest is Test, FixtureLoader {
     // Constants
     uint256 public constant FEE_UNIT = 10000;
@@ -46,42 +46,6 @@ contract E2ETest is Test, FixtureLoader {
     uint64 public constant FREEZE_DURATION = 1 days;
     uint256 public constant STAKER_FEE_BIPS = 1000; // 10%
     uint256 public constant PROTOCOL_FEE_BIPS = 300; // 3%
-
-    /// @dev For stack-too-deep workaround
-    struct BalanceSnapshot {
-        uint256 initialStakerBalance;
-        uint256 proverStakedBefore;
-        uint256 vappBalanceBefore;
-        uint256 proverOwnerBalanceBefore;
-        uint256 stakerBalanceBeforeUnstake;
-        uint256 expectedUnstakeAmount;
-        uint256 finalBalance;
-    }
-
-    /// @dev For stack-too-deep workaround
-    function _takeSnapshot(bool isInitial) internal view returns (BalanceSnapshot memory) {
-        if (isInitial) {
-            return BalanceSnapshot({
-                initialStakerBalance: IERC20(PROVE).balanceOf(STAKER_1),
-                proverStakedBefore: SuccinctStaking(STAKING).proverStaked(ALICE_PROVER),
-                vappBalanceBefore: IERC20(PROVE).balanceOf(VAPP),
-                proverOwnerBalanceBefore: IERC20(PROVE).balanceOf(ALICE),
-                stakerBalanceBeforeUnstake: 0,
-                expectedUnstakeAmount: 0,
-                finalBalance: 0
-            });
-        } else {
-            return BalanceSnapshot({
-                initialStakerBalance: 0,
-                proverStakedBefore: 0,
-                vappBalanceBefore: 0,
-                proverOwnerBalanceBefore: 0,
-                stakerBalanceBeforeUnstake: IERC20(PROVE).balanceOf(STAKER_1),
-                expectedUnstakeAmount: SuccinctStaking(STAKING).staked(STAKER_1),
-                finalBalance: 0
-            });
-        }
-    }
 
     // Fixtures
     SP1ProofFixtureJson public jsonFixture;
@@ -183,6 +147,41 @@ contract E2ETest is Test, FixtureLoader {
 
         // Staker 1 stakes $PROVE to ALICE_PROVER
         _stake(STAKER_1, ALICE_PROVER, STAKER_PROVE_AMOUNT);
+    }
+
+    /// @dev For stack-too-deep workaround
+    struct BalanceSnapshot {
+        uint256 initialStakerBalance;
+        uint256 proverStakedBefore;
+        uint256 vappBalanceBefore;
+        uint256 proverOwnerBalanceBefore;
+        uint256 stakerBalanceBeforeUnstake;
+        uint256 expectedUnstakeAmount;
+        uint256 finalBalance;
+    }
+
+    function _takeSnapshot(bool isInitial) internal view returns (BalanceSnapshot memory) {
+        if (isInitial) {
+            return BalanceSnapshot({
+                initialStakerBalance: IERC20(PROVE).balanceOf(STAKER_1),
+                proverStakedBefore: SuccinctStaking(STAKING).proverStaked(ALICE_PROVER),
+                vappBalanceBefore: IERC20(PROVE).balanceOf(VAPP),
+                proverOwnerBalanceBefore: IERC20(PROVE).balanceOf(ALICE),
+                stakerBalanceBeforeUnstake: 0,
+                expectedUnstakeAmount: 0,
+                finalBalance: 0
+            });
+        } else {
+            return BalanceSnapshot({
+                initialStakerBalance: 0,
+                proverStakedBefore: 0,
+                vappBalanceBefore: 0,
+                proverOwnerBalanceBefore: 0,
+                stakerBalanceBeforeUnstake: IERC20(PROVE).balanceOf(STAKER_1),
+                expectedUnstakeAmount: SuccinctStaking(STAKING).staked(STAKER_1),
+                finalBalance: 0
+            });
+        }
     }
 
     function _stake(address _staker, address _prover, uint256 _amount) internal {

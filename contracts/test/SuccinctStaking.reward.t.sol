@@ -8,6 +8,7 @@ import {IERC20} from "../lib/openzeppelin-contracts/contracts/interfaces/IERC20.
 import {ISuccinctStaking} from "../src/interfaces/ISuccinctStaking.sol";
 
 contract SuccinctStakingRewardTests is SuccinctStakingTest {
+    /// @dev For stack-too-deep workaround
     struct BalanceSnapshot {
         uint256 staker1Balance;
         uint256 staker2Balance;
@@ -17,7 +18,6 @@ contract SuccinctStakingRewardTests is SuccinctStakingTest {
         uint256 staker2Staked;
     }
 
-    /// @dev For stack-too-deep workaround
     function _takeSnapshot() internal view returns (BalanceSnapshot memory) {
         return BalanceSnapshot({
             staker1Balance: IERC20(PROVE).balanceOf(STAKER_1),

@@ -27,6 +27,7 @@ import {SuccinctProver} from "../src/tokens/SuccinctProver.sol";
 import {IProver} from "../src/interfaces/IProver.sol";
 
 contract SuccinctVAppRewardTest is SuccinctVAppTest {
+    /// @dev For stack-too-deep workaround
     struct RewardTestData {
         address prover;
         uint256 vappInitialBalance;
