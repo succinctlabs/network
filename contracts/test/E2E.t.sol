@@ -300,8 +300,8 @@ contract E2ETest is Test, FixtureLoader {
         );
         assertEq(
             IERC20(PROVE).balanceOf(VAPP),
-            snapshot.vappBalanceBefore - rewardAmount + protocolFee,
-            "VApp balance should decrease by reward amount minus protocol fee"
+            snapshot.vappBalanceBefore - rewardAmount,
+            "VApp balance should decrease by full reward amount (protocol fee is transferred out)"
         );
         assertEq(
             IERC20(PROVE).balanceOf(ALICE),

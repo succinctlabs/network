@@ -36,7 +36,7 @@ contract SuccinctVAppRewardTest is SuccinctVAppTest {
         uint256 initialAliceBalance;
         uint256 stakerFeeBips;
         uint256 protocolFeeBips;
-        uint256 protocolFee;
+        uint256 protocolReward;
         uint256 remainingAfterProtocol;
         uint256 stakerReward;
         uint256 ownerReward;
@@ -68,8 +68,8 @@ contract SuccinctVAppRewardTest is SuccinctVAppTest {
         // Calculate rewards with protocol fee logic
         data.stakerFeeBips = IProver(data.prover).stakerFeeBips();
         data.protocolFeeBips = SuccinctVApp(VAPP).protocolFeeBips();
-        data.protocolFee = (data.rewardAmount * data.protocolFeeBips) / 10000;
-        data.remainingAfterProtocol = data.rewardAmount - data.protocolFee;
+        data.protocolReward = (data.rewardAmount * data.protocolFeeBips) / 10000;
+        data.remainingAfterProtocol = data.rewardAmount - data.protocolReward;
         data.stakerReward = (data.remainingAfterProtocol * data.stakerFeeBips) / 10000;
         data.ownerReward = data.remainingAfterProtocol - data.stakerReward;
 
@@ -102,6 +102,10 @@ contract SuccinctVAppRewardTest is SuccinctVAppTest {
             1 // Expected number of calls
         );
 
+        // Expect PROVE tokens to be transferred from VAPP to FEE_VAULT (protocol fee)
+        vm.expectEmit(true, true, false, true);
+        emit IERC20.Transfer(VAPP, FEE_VAULT, data.protocolReward);
+
         // Expect PROVE tokens to be transferred from VAPP to STAKING (staker reward)
         vm.expectEmit(true, true, false, true);
         emit IERC20.Transfer(VAPP, STAKING, data.stakerReward);
@@ -125,10 +129,10 @@ contract SuccinctVAppRewardTest is SuccinctVAppTest {
         SuccinctVApp(VAPP).updateState(abi.encode(publicValues), jsonFixture.proof);
 
         // Assert final state
-        // VApp transfers out: ownerReward + stakerReward, keeps protocolFee
+        // VApp transfers out: protocolReward + ownerReward + stakerReward
         assertEq(
             MockERC20(PROVE).balanceOf(VAPP),
-            data.vappInitialBalance - data.ownerReward - data.stakerReward
+            data.vappInitialBalance - data.protocolReward - data.ownerReward - data.stakerReward
         );
         assertEq(SuccinctVApp(VAPP).finalizedReceipt(), 1);
         assertEq(SuccinctVApp(VAPP).blockNumber(), data.expectedBlockNumber);
@@ -175,13 +179,13 @@ contract SuccinctVAppRewardTest is SuccinctVAppTest {
         );
 
         // After reward distribution:
-        // - protocolFee stays in VApp
+        // - protocolReward goes to FEE_VAULT
         // - ownerReward goes to ALICE (prover owner)
-        // - stakerReward goes to MockStaking (for distribution to stakers)
-        // So VApp should have vappInitialBalance - ownerReward - stakerReward remaining
+        // - stakerReward goes to STAKING (for distribution to stakers)
+        // So VApp should have vappInitialBalance - protocolReward - ownerReward - stakerReward remaining
         assertEq(
-            MockERC20(PROVE).balanceOf(address(VAPP)),
-            data.vappInitialBalance - data.ownerReward - data.stakerReward
+            MockERC20(PROVE).balanceOf(VAPP),
+            data.vappInitialBalance - data.protocolReward - data.ownerReward - data.stakerReward
         );
     }
 }

@@ -580,7 +580,8 @@ contract SuccinctVApp is
                 if (protocolFeeBips > 0) {
                     protocolFee = totalAmount * protocolFeeBips / FEE_UNIT;
                     remainingAmount -= protocolFee;
-                    // Protocol fee stays in the contract (VApp)
+                    // Transfer protocol fee to FEE_VAULT
+                    ERC20(prove).safeTransfer(feeVault, protocolFee);
                 }
 
                 // Step 2: Calculate and process staker reward (if any)
