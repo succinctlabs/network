@@ -43,6 +43,9 @@ interface ISuccinctVApp {
     /// @notice Emitted when the protocol fee was updated.
     event ProtocolFeeBipsUpdate(uint256 oldProtocolFeeBips, uint256 newProtocolFeeBips);
 
+    /// @dev Thrown when the caller is not the staking contract.
+    error NotStaking();
+
     /// @dev Thrown if the actual balance does not match the expected balance.
     error BalanceMismatch();
 
@@ -213,6 +216,13 @@ interface ISuccinctVApp {
     /// @param signer The signer to add.
     /// @return receipt The receipt for the add signer action.
     function addDelegatedSigner(address signer) external returns (uint64 receipt);
+
+    /// @notice Add a delegated signer for a prover owner.
+    /// @dev Must be called by the staking contract.
+    /// @param owner The owner to add the signer for.
+    /// @param signer The signer to add.
+    /// @return receipt The receipt for the add signer action.
+    function addDelegatedSignerForProver(address owner, address signer) external returns (uint64 receipt);
 
     /// @notice Remove a delegated signer.
     /// @param signer The signer to remove.

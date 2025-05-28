@@ -266,7 +266,7 @@ contract SuccinctStaking is
         // Deposit $PROVE to mint $iPROVE, sending it to this contract.
         uint256 iPROVE = IERC4626(iProve).deposit(_PROVE, address(this));
 
-        // Transfer the $iPROVE to the $PROVER-N vault.
+        // Transfer the $iPROVE from this contract to the prover vault.
         IERC20(iProve).safeTransfer(_prover, iPROVE);
 
         emit Reward(_prover, _PROVE);

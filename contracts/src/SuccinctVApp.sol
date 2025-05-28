@@ -108,6 +108,12 @@ contract SuccinctVApp is
 
     mapping(address => address[]) internal delegatedSigners;
 
+    /// @dev Modifier to ensure that the caller is the staking contract.
+    modifier onlyStaking() {
+        if (msg.sender != staking) revert NotStaking();
+        _;
+    }
+
     /*//////////////////////////////////////////////////////////////
                               INITIALIZER
     //////////////////////////////////////////////////////////////*/
@@ -242,20 +248,29 @@ contract SuccinctVApp is
 
     /// @inheritdoc ISuccinctVApp
     function addDelegatedSigner(address _signer) external returns (uint64 receipt) {
+        return _addDelegatedSigner(msg.sender, _signer);
+    }
+
+    /// @inheritdoc ISuccinctVApp
+    function addDelegatedSignerForProver(address _owner, address _signer) external onlyStaking returns (uint64 receipt) {
+        return _addDelegatedSigner(_owner, _signer);
+    }
+
+    function _addDelegatedSigner(address _owner, address _signer) internal returns (uint64 receipt) {
         // Validate.
         if (_signer == address(0)) revert ZeroAddress();
         if (usedSigners[_signer]) revert InvalidSigner();
-        if (!ISuccinctStaking(staking).hasProver(msg.sender)) revert InvalidSigner();
+        if (!ISuccinctStaking(staking).hasProver(_owner)) revert InvalidSigner();
         if (ISuccinctStaking(staking).isProver(_signer)) revert InvalidSigner();
         if (ISuccinctStaking(staking).hasProver(_signer)) revert InvalidSigner();
 
         // Create the receipt.
-        bytes memory data = abi.encode(AddSignerAction({owner: msg.sender, signer: _signer}));
+        bytes memory data = abi.encode(AddSignerAction({owner: _owner, signer: _signer}));
         receipt = _createReceipt(ActionType.AddSigner, data);
 
         // Update the state.
         usedSigners[_signer] = true;
-        delegatedSigners[msg.sender].push(_signer);
+        delegatedSigners[_owner].push(_signer);
     }
 
     /// @inheritdoc ISuccinctVApp
