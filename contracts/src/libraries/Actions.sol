@@ -8,11 +8,7 @@ import {
     DepositAction,
     WithdrawAction,
     AddSignerAction,
-    RemoveSignerAction,
-    SlashAction,
-    RewardAction,
-    ProverStateAction,
-    FeeUpdateAction
+    RemoveSignerAction
 } from "./PublicValues.sol";
 
 /// @notice A receipt for an action
@@ -25,15 +21,11 @@ struct Receipt {
 
 /// @notice Internal decoded actions
 struct ActionsInternal {
+    uint64 lastReceipt;
     DepositInternal[] deposits;
     WithdrawInternal[] withdrawals;
     AddSignerInternal[] addSigners;
     RemoveSignerInternal[] removeSigners;
-    SlashInternal[] slashes;
-    RewardInternal[] rewards;
-    ProverStateInternal[] proverStates;
-    FeeUpdateInternal[] feeUpdates;
-    uint64 lastReceipt;
 }
 
 /// @notice Internal deposit action
@@ -58,30 +50,6 @@ struct AddSignerInternal {
 struct RemoveSignerInternal {
     Action action;
     RemoveSignerAction data;
-}
-
-/// @notice Internal slash action
-struct SlashInternal {
-    Action action;
-    SlashAction data;
-}
-
-/// @notice Internal reward action
-struct RewardInternal {
-    Action action;
-    RewardAction data;
-}
-
-/// @notice Internal prover state action
-struct ProverStateInternal {
-    Action action;
-    ProverStateAction data;
-}
-
-/// @notice Internal fee update action
-struct FeeUpdateInternal {
-    Action action;
-    FeeUpdateAction data;
 }
 
 /// @notice Library for handling actions
@@ -134,14 +102,6 @@ library Actions {
                 data.addSignerLength++;
             } else if (actionType == ActionType.RemoveSigner) {
                 data.removeSignerLength++;
-            } else if (actionType == ActionType.Slash) {
-                data.slashLength++;
-            } else if (actionType == ActionType.Reward) {
-                data.rewardLength++;
-            } else if (actionType == ActionType.ProverState) {
-                data.proverStateLength++;
-            } else if (actionType == ActionType.FeeUpdate) {
-                data.feeUpdateLength++;
             } else {
                 revert InvalidAction();
             }
@@ -151,20 +111,13 @@ library Actions {
         decoded.withdrawals = new WithdrawInternal[](data.withdrawLength);
         decoded.addSigners = new AddSignerInternal[](data.addSignerLength);
         decoded.removeSigners = new RemoveSignerInternal[](data.removeSignerLength);
-        decoded.slashes = new SlashInternal[](data.slashLength);
-        decoded.rewards = new RewardInternal[](data.rewardLength);
-        decoded.proverStates = new ProverStateInternal[](data.proverStateLength);
-        decoded.feeUpdates = new FeeUpdateInternal[](data.feeUpdateLength);
 
         // Decode the actions
         data.depositLength = 0;
         data.withdrawLength = 0;
         data.addSignerLength = 0;
         data.removeSignerLength = 0;
-        data.slashLength = 0;
-        data.rewardLength = 0;
-        data.proverStateLength = 0;
-        data.feeUpdateLength = 0;
+
         for (uint64 i = 0; i < _actions.length; i++) {
             Action memory action = _actions[i];
 
@@ -196,26 +149,6 @@ library Actions {
                     data: abi.decode(action.data, (RemoveSignerAction))
                 });
                 decoded.removeSigners[data.removeSignerLength++] = removeSigner;
-            } else if (action.action == ActionType.Slash) {
-                SlashInternal memory slash =
-                    SlashInternal({action: action, data: abi.decode(action.data, (SlashAction))});
-                decoded.slashes[data.slashLength++] = slash;
-            } else if (action.action == ActionType.Reward) {
-                RewardInternal memory reward =
-                    RewardInternal({action: action, data: abi.decode(action.data, (RewardAction))});
-                decoded.rewards[data.rewardLength++] = reward;
-            } else if (action.action == ActionType.ProverState) {
-                ProverStateInternal memory proverState = ProverStateInternal({
-                    action: action,
-                    data: abi.decode(action.data, (ProverStateAction))
-                });
-                decoded.proverStates[data.proverStateLength++] = proverState;
-            } else if (action.action == ActionType.FeeUpdate) {
-                FeeUpdateInternal memory feeUpdate = FeeUpdateInternal({
-                    action: action,
-                    data: abi.decode(action.data, (FeeUpdateAction))
-                });
-                decoded.feeUpdates[data.feeUpdateLength++] = feeUpdate;
             } else {
                 revert InvalidAction();
             }
@@ -259,20 +192,12 @@ library Actions {
                 }
 
                 if (_actions[i].action == ActionType.Deposit) {
-                    _deposit(_actions[i], receipt);
+                    _validateDeposit(_actions[i], receipt);
                 } else if (_actions[i].action == ActionType.Withdraw) {
-                    _withdraw(_actions[i], receipt);
+                    _validateWithdraw(_actions[i], receipt);
                 } else if (_actions[i].action == ActionType.AddSigner) {
                     // Skip validations
                 } else if (_actions[i].action == ActionType.RemoveSigner) {
-                    // Skip validations
-                } else if (_actions[i].action == ActionType.Slash) {
-                    // Skip validations
-                } else if (_actions[i].action == ActionType.Reward) {
-                    // Skip validations
-                } else if (_actions[i].action == ActionType.ProverState) {
-                    // Skip validations
-                } else if (_actions[i].action == ActionType.FeeUpdate) {
                     // Skip validations
                 } else {
                     revert InvalidAction();
@@ -298,21 +223,13 @@ library Actions {
             return true;
         } else if (_action.action == ActionType.RemoveSigner) {
             return true;
-        } else if (_action.action == ActionType.Slash) {
-            return false;
-        } else if (_action.action == ActionType.Reward) {
-            return false;
-        } else if (_action.action == ActionType.ProverState) {
-            return false;
-        } else if (_action.action == ActionType.FeeUpdate) {
-            return false;
         }
 
         return false;
     }
 
     /// @dev Validates a deposit action, reverting if the action does not match the receipt.
-    function _deposit(Action memory _action, Receipt memory _receipt) internal pure {
+    function _validateDeposit(Action memory _action, Receipt memory _receipt) internal pure {
         DepositAction memory deposit = abi.decode(_action.data, (DepositAction));
         DepositAction memory depositReceipt = abi.decode(_receipt.data, (DepositAction));
 
@@ -325,7 +242,7 @@ library Actions {
     }
 
     /// @dev Validates a withdraw action, reverting if the action does not match the receipt.
-    function _withdraw(Action memory _action, Receipt memory _receipt) internal pure {
+    function _validateWithdraw(Action memory _action, Receipt memory _receipt) internal pure {
         WithdrawAction memory withdraw = abi.decode(_action.data, (WithdrawAction));
         WithdrawAction memory withdrawReceipt = abi.decode(_receipt.data, (WithdrawAction));
 

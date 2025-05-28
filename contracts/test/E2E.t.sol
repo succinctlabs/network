@@ -24,9 +24,7 @@ import {
     DepositAction,
     WithdrawAction,
     AddSignerAction,
-    RemoveSignerAction,
-    SlashAction,
-    RewardAction
+    RemoveSignerAction
 } from "../src/libraries/PublicValues.sol";
 
 import {ERC1967Proxy} from "../lib/openzeppelin-contracts/contracts/proxy/ERC1967/ERC1967Proxy.sol";
@@ -250,169 +248,170 @@ contract E2ETest is Test, FixtureLoader {
         assertEq(SuccinctStaking(STAKING).hasProver(ALICE), true);
         assertEq(SuccinctStaking(STAKING).hasProver(BOB), true);
     }
-
-    // In this scenario:
-    // - STAKER_1 stakes to ALICE_PROVER, such that ALICE_PROVER is above the minimum stake amount
-    //   to particpate in offchain auctions.
-    // - The REQUESTER (already deposited $PROVE), had a proof fulfilled offchain from ALICE_PROVER.
-    // - Therefor, the VApp update should transfer $PROVE from the VApp REQUESTER's balance to the
-    //   ALICE_PROVER vault. When STAKER_1 unstakes, they should have more $PROVE then the amount
-    //   they staked.
-    function test_E2E() public {
-        uint256 rewardAmount = 5e18; // 5 PROVE tokens as reward (within the 10e18 available in VApp)
-
-        // Take initial snapshot
-        BalanceSnapshot memory snapshot = _takeSnapshot(true);
-
-        // Prepare reward action for ALICE_PROVER
-        bytes memory rewardData =
-            abi.encode(RewardAction({prover: ALICE_PROVER, amount: rewardAmount}));
-
-        PublicValuesStruct memory publicValues = PublicValuesStruct({
-            actions: new Action[](1),
-            oldRoot: SuccinctVApp(VAPP).root(), // Current root (should be bytes32(0) initially)
-            newRoot: bytes32(uint256(0xbeef)), // New root after reward
-            timestamp: uint64(block.timestamp)
-        });
-
-        publicValues.actions[0] = Action({
-            action: ActionType.Reward,
-            status: ReceiptStatus.Completed,
-            receipt: 1, // Receipt ID for the reward action
-            data: rewardData
-        });
-
-        // Execute the state update with reward
-        SuccinctVApp(VAPP).updateState(abi.encode(publicValues), jsonFixture.proof);
-
-        // Calculate expected reward splits
-        uint256 protocolFee = (rewardAmount * PROTOCOL_FEE_BIPS) / FEE_UNIT;
-        uint256 remainingAfterProtocol = rewardAmount - protocolFee;
-        uint256 expectedStakerReward = (remainingAfterProtocol * STAKER_FEE_BIPS) / FEE_UNIT;
-        uint256 expectedProverOwnerReward = remainingAfterProtocol - expectedStakerReward;
-
-        // Verify the reward was processed correctly
-        uint256 proverStakedAfter = SuccinctStaking(STAKING).proverStaked(ALICE_PROVER);
-        assertEq(
-            proverStakedAfter,
-            snapshot.proverStakedBefore + expectedStakerReward,
-            "Prover should have received staker portion of reward"
-        );
-        assertEq(
-            IERC20(PROVE).balanceOf(VAPP),
-            snapshot.vappBalanceBefore - rewardAmount,
-            "VApp balance should decrease by full reward amount (protocol fee is transferred out)"
-        );
-        assertEq(
-            IERC20(PROVE).balanceOf(ALICE),
-            snapshot.proverOwnerBalanceBefore + expectedProverOwnerReward,
-            "Prover owner should have received their portion of reward"
-        );
-
-        // Take snapshot before unstake
-        BalanceSnapshot memory unstakeSnapshot = _takeSnapshot(false);
-
-        // The staker should now have a share of the reward
-        assertGt(
-            unstakeSnapshot.expectedUnstakeAmount,
-            STAKER_PROVE_AMOUNT,
-            "Staker should have earned rewards"
-        );
-
-        // Complete the unstake process
-        uint256 actualUnstakeAmount =
-            _completeUnstake(STAKER_1, SuccinctStaking(STAKING).balanceOf(STAKER_1));
-
-        // Verify final state
-        assertEq(
-            actualUnstakeAmount,
-            unstakeSnapshot.expectedUnstakeAmount,
-            "Unstake amount should match expected"
-        );
-        assertEq(
-            IERC20(PROVE).balanceOf(STAKER_1),
-            unstakeSnapshot.stakerBalanceBeforeUnstake + actualUnstakeAmount,
-            "Staker should receive unstaked amount"
-        );
-        assertGt(
-            IERC20(PROVE).balanceOf(STAKER_1),
-            snapshot.initialStakerBalance,
-            "Staker should have more PROVE than initially"
-        );
-
-        // Verify staker is no longer staked
-        assertEq(
-            SuccinctStaking(STAKING).stakedTo(STAKER_1),
-            address(0),
-            "Staker should no longer be staked to any prover"
-        );
-        assertEq(
-            SuccinctStaking(STAKING).staked(STAKER_1), 0, "Staker should have no stake remaining"
-        );
-
-        // Calculate and verify the profit
-        uint256 finalBalance = IERC20(PROVE).balanceOf(STAKER_1);
-        uint256 profit = finalBalance - snapshot.initialStakerBalance - STAKER_PROVE_AMOUNT;
-
-        // The profit should be the staker portion of the reward
-        // Since STAKER_1 is the only staker to ALICE_PROVER, they should get the full staker reward
-        assertApproxEqAbs(
-            profit,
-            expectedStakerReward,
-            1e6,
-            "Staker should receive the staker portion of the reward"
-        );
-    }
-
-    function test_GasReward() public {
-        // Prepare reward action for ALICE_PROVER
-        uint256 rewardAmount = 5e18;
-        bytes memory rewardData =
-            abi.encode(RewardAction({prover: ALICE_PROVER, amount: rewardAmount}));
-
-        PublicValuesStruct memory publicValues = PublicValuesStruct({
-            actions: new Action[](1),
-            oldRoot: SuccinctVApp(VAPP).root(),
-            newRoot: bytes32(uint256(0xbeef)),
-            timestamp: uint64(block.timestamp)
-        });
-        publicValues.actions[0] = Action({
-            action: ActionType.Reward,
-            status: ReceiptStatus.Completed,
-            receipt: 1, // Receipt ID for the reward action
-            data: rewardData
-        });
-
-        // Execute the state update with reward
-        SuccinctVApp(VAPP).updateState(abi.encode(publicValues), jsonFixture.proof);
-    }
-
-    function test_GasReward_WhenTwoRewards() public {
-        // Prepare reward action for ALICE_PROVER
-        uint256 rewardAmount = 5e18;
-        bytes memory rewardData =
-            abi.encode(RewardAction({prover: ALICE_PROVER, amount: rewardAmount}));
-
-        PublicValuesStruct memory publicValues = PublicValuesStruct({
-            actions: new Action[](2),
-            oldRoot: SuccinctVApp(VAPP).root(),
-            newRoot: bytes32(uint256(0xbeef)),
-            timestamp: uint64(block.timestamp)
-        });
-        publicValues.actions[0] = Action({
-            action: ActionType.Reward,
-            status: ReceiptStatus.Completed,
-            receipt: 1, // Receipt ID for the reward action
-            data: rewardData
-        });
-        publicValues.actions[1] = Action({
-            action: ActionType.Reward,
-            status: ReceiptStatus.Completed,
-            receipt: 2, // Receipt ID for the reward action
-            data: rewardData
-        });
-
-        // Execute the state update with reward
-        SuccinctVApp(VAPP).updateState(abi.encode(publicValues), jsonFixture.proof);
-    }
 }
+
+//     // In this scenario:
+//     // - STAKER_1 stakes to ALICE_PROVER, such that ALICE_PROVER is above the minimum stake amount
+//     //   to particpate in offchain auctions.
+//     // - The REQUESTER (already deposited $PROVE), had a proof fulfilled offchain from ALICE_PROVER.
+//     // - Therefor, the VApp update should transfer $PROVE from the VApp REQUESTER's balance to the
+//     //   ALICE_PROVER vault. When STAKER_1 unstakes, they should have more $PROVE then the amount
+//     //   they staked.
+//     function test_E2E() public {
+//         uint256 rewardAmount = 5e18; // 5 PROVE tokens as reward (within the 10e18 available in VApp)
+
+//         // Take initial snapshot
+//         BalanceSnapshot memory snapshot = _takeSnapshot(true);
+
+//         // Prepare reward action for ALICE_PROVER
+//         bytes memory rewardData =
+//             abi.encode(RewardAction({prover: ALICE_PROVER, amount: rewardAmount}));
+
+//         PublicValuesStruct memory publicValues = PublicValuesStruct({
+//             actions: new Action[](1),
+//             oldRoot: SuccinctVApp(VAPP).root(), // Current root (should be bytes32(0) initially)
+//             newRoot: bytes32(uint256(0xbeef)), // New root after reward
+//             timestamp: uint64(block.timestamp)
+//         });
+
+//         publicValues.actions[0] = Action({
+//             action: ActionType.Reward,
+//             status: ReceiptStatus.Completed,
+//             receipt: 1, // Receipt ID for the reward action
+//             data: rewardData
+//         });
+
+//         // Execute the state update with reward
+//         SuccinctVApp(VAPP).updateState(abi.encode(publicValues), jsonFixture.proof);
+
+//         // Calculate expected reward splits
+//         uint256 protocolFee = (rewardAmount * PROTOCOL_FEE_BIPS) / FEE_UNIT;
+//         uint256 remainingAfterProtocol = rewardAmount - protocolFee;
+//         uint256 expectedStakerReward = (remainingAfterProtocol * STAKER_FEE_BIPS) / FEE_UNIT;
+//         uint256 expectedProverOwnerReward = remainingAfterProtocol - expectedStakerReward;
+
+//         // Verify the reward was processed correctly
+//         uint256 proverStakedAfter = SuccinctStaking(STAKING).proverStaked(ALICE_PROVER);
+//         assertEq(
+//             proverStakedAfter,
+//             snapshot.proverStakedBefore + expectedStakerReward,
+//             "Prover should have received staker portion of reward"
+//         );
+//         assertEq(
+//             IERC20(PROVE).balanceOf(VAPP),
+//             snapshot.vappBalanceBefore - rewardAmount,
+//             "VApp balance should decrease by full reward amount (protocol fee is transferred out)"
+//         );
+//         assertEq(
+//             IERC20(PROVE).balanceOf(ALICE),
+//             snapshot.proverOwnerBalanceBefore + expectedProverOwnerReward,
+//             "Prover owner should have received their portion of reward"
+//         );
+
+//         // Take snapshot before unstake
+//         BalanceSnapshot memory unstakeSnapshot = _takeSnapshot(false);
+
+//         // The staker should now have a share of the reward
+//         assertGt(
+//             unstakeSnapshot.expectedUnstakeAmount,
+//             STAKER_PROVE_AMOUNT,
+//             "Staker should have earned rewards"
+//         );
+
+//         // Complete the unstake process
+//         uint256 actualUnstakeAmount =
+//             _completeUnstake(STAKER_1, SuccinctStaking(STAKING).balanceOf(STAKER_1));
+
+//         // Verify final state
+//         assertEq(
+//             actualUnstakeAmount,
+//             unstakeSnapshot.expectedUnstakeAmount,
+//             "Unstake amount should match expected"
+//         );
+//         assertEq(
+//             IERC20(PROVE).balanceOf(STAKER_1),
+//             unstakeSnapshot.stakerBalanceBeforeUnstake + actualUnstakeAmount,
+//             "Staker should receive unstaked amount"
+//         );
+//         assertGt(
+//             IERC20(PROVE).balanceOf(STAKER_1),
+//             snapshot.initialStakerBalance,
+//             "Staker should have more PROVE than initially"
+//         );
+
+//         // Verify staker is no longer staked
+//         assertEq(
+//             SuccinctStaking(STAKING).stakedTo(STAKER_1),
+//             address(0),
+//             "Staker should no longer be staked to any prover"
+//         );
+//         assertEq(
+//             SuccinctStaking(STAKING).staked(STAKER_1), 0, "Staker should have no stake remaining"
+//         );
+
+//         // Calculate and verify the profit
+//         uint256 finalBalance = IERC20(PROVE).balanceOf(STAKER_1);
+//         uint256 profit = finalBalance - snapshot.initialStakerBalance - STAKER_PROVE_AMOUNT;
+
+//         // The profit should be the staker portion of the reward
+//         // Since STAKER_1 is the only staker to ALICE_PROVER, they should get the full staker reward
+//         assertApproxEqAbs(
+//             profit,
+//             expectedStakerReward,
+//             1e6,
+//             "Staker should receive the staker portion of the reward"
+//         );
+//     }
+
+//     function test_GasReward() public {
+//         // Prepare reward action for ALICE_PROVER
+//         uint256 rewardAmount = 5e18;
+//         bytes memory rewardData =
+//             abi.encode(RewardAction({prover: ALICE_PROVER, amount: rewardAmount}));
+
+//         PublicValuesStruct memory publicValues = PublicValuesStruct({
+//             actions: new Action[](1),
+//             oldRoot: SuccinctVApp(VAPP).root(),
+//             newRoot: bytes32(uint256(0xbeef)),
+//             timestamp: uint64(block.timestamp)
+//         });
+//         publicValues.actions[0] = Action({
+//             action: ActionType.Reward,
+//             status: ReceiptStatus.Completed,
+//             receipt: 1, // Receipt ID for the reward action
+//             data: rewardData
+//         });
+
+//         // Execute the state update with reward
+//         SuccinctVApp(VAPP).updateState(abi.encode(publicValues), jsonFixture.proof);
+//     }
+
+//     function test_GasReward_WhenTwoRewards() public {
+//         // Prepare reward action for ALICE_PROVER
+//         uint256 rewardAmount = 5e18;
+//         bytes memory rewardData =
+//             abi.encode(RewardAction({prover: ALICE_PROVER, amount: rewardAmount}));
+
+//         PublicValuesStruct memory publicValues = PublicValuesStruct({
+//             actions: new Action[](2),
+//             oldRoot: SuccinctVApp(VAPP).root(),
+//             newRoot: bytes32(uint256(0xbeef)),
+//             timestamp: uint64(block.timestamp)
+//         });
+//         publicValues.actions[0] = Action({
+//             action: ActionType.Reward,
+//             status: ReceiptStatus.Completed,
+//             receipt: 1, // Receipt ID for the reward action
+//             data: rewardData
+//         });
+//         publicValues.actions[1] = Action({
+//             action: ActionType.Reward,
+//             status: ReceiptStatus.Completed,
+//             receipt: 2, // Receipt ID for the reward action
+//             data: rewardData
+//         });
+
+//         // Execute the state update with reward
+//         SuccinctVApp(VAPP).updateState(abi.encode(publicValues), jsonFixture.proof);
+//     }
+// }

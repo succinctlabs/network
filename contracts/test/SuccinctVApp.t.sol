@@ -14,9 +14,7 @@ import {
     DepositAction,
     WithdrawAction,
     AddSignerAction,
-    RemoveSignerAction,
-    SlashAction,
-    RewardAction
+    RemoveSignerAction
 } from "../src/libraries/PublicValues.sol";
 import {MockStaking} from "../src/mocks/MockStaking.sol";
 import {MockVerifier} from "../src/mocks/MockVerifier.sol";
