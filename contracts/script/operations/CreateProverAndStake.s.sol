@@ -13,30 +13,30 @@ contract CreateProverAndStakeScript is BaseScript {
         address STAKING = readAddress("STAKING");
         address PROVE = readAddress("PROVE");
         uint256 STAKER_FEE_BIPS = 1000; // 10%
-		uint256 STAKE_AMOUNT = 10e18;
+        uint256 STAKE_AMOUNT = 10e18;
 
-		// Ensure not already a prover owner
-		if (SuccinctStaking(STAKING).hasProver(msg.sender)) {
-			revert("Already a prover owner");
-		}
+        // Ensure not already a prover owner
+        if (SuccinctStaking(STAKING).hasProver(msg.sender)) {
+            revert("Already a prover owner");
+        }
 
-		// Ensure not already staked
-		if (SuccinctStaking(STAKING).balanceOf(msg.sender) > 0) {
-			revert("Already staked");
-		}
+        // Ensure not already staked
+        if (SuccinctStaking(STAKING).balanceOf(msg.sender) > 0) {
+            revert("Already staked");
+        }
 
         // Create prover
-		address prover = SuccinctStaking(STAKING).createProver(STAKER_FEE_BIPS);
+        address prover = SuccinctStaking(STAKING).createProver(STAKER_FEE_BIPS);
 
 
-		// Check if needs to approve PROVE
-		if (IERC20(PROVE).allowance(msg.sender, STAKING) < STAKE_AMOUNT) {
-			IERC20(PROVE).approve(STAKING, STAKE_AMOUNT);
-		}
+        // Check if needs to approve PROVE
+        if (IERC20(PROVE).allowance(msg.sender, STAKING) < STAKE_AMOUNT) {
+            IERC20(PROVE).approve(STAKING, STAKE_AMOUNT);
+        }
 
-		// Stake
-		SuccinctStaking(STAKING).stake(prover, STAKE_AMOUNT);
-		
+        // Stake
+        SuccinctStaking(STAKING).stake(prover, STAKE_AMOUNT);
+        
         // Write address
         writeAddress(KEY, prover);
     }
