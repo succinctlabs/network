@@ -43,6 +43,7 @@ To build and test the contracts, run:
 cd contracts
 forge test
 ```
+
 ## Documentation
 
 We maintain extensive documentation on the protocol and how to get started with the prover node [here](https://docs.succinct.xyz/docs/network/introduction).

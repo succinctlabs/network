@@ -31,7 +31,7 @@ library FeeCalculator {
 
         // Step 2: Calculate staker reward from remaining amount.
         stakerReward = (remainingAfterProtocol * _stakerFeeBips) / FEE_UNIT;
-        
+
         // Step 3: Owner gets the remainder.
         ownerReward = remainingAfterProtocol - stakerReward;
     }
@@ -52,9 +52,9 @@ library FeeCalculator {
         address _staking
     ) internal {
         uint256 stakerFeeBips = IProver(_prover).stakerFeeBips();
-        
+
         // Calculate fee split.
-        (uint256 protocolFee, uint256 stakerReward, uint256 ownerReward) = 
+        (uint256 protocolFee, uint256 stakerReward, uint256 ownerReward) =
             calculateFeeSplit(_totalAmount, _protocolFeeBips, stakerFeeBips);
 
         // Step 1: Transfer protocol fee to fee vault (if any).
@@ -74,4 +74,4 @@ library FeeCalculator {
             IERC20(_prove).safeTransfer(owner, ownerReward);
         }
     }
-} 
+}
