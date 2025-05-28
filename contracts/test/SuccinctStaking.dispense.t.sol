@@ -193,7 +193,7 @@ contract SuccinctStakingDispenseTests is SuccinctStakingTest {
         // Change the dispense rate (double it)
         uint256 newRate = DISPENSE_RATE * 2;
         vm.prank(OWNER);
-        SuccinctStaking(STAKING).setDispenseRate(newRate);
+        SuccinctStaking(STAKING).updateDispenseRate(newRate);
 
         // Wait for more time to accumulate with the new rate
         uint256 additionalWaitTime = 2 days;
@@ -272,11 +272,11 @@ contract SuccinctStakingDispenseTests is SuccinctStakingTest {
         // Non-owner cannot set rate
         vm.prank(ALICE);
         vm.expectRevert(abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, ALICE));
-        SuccinctStaking(STAKING).setDispenseRate(newRate);
+        SuccinctStaking(STAKING).updateDispenseRate(newRate);
 
         // Owner can set rate
         vm.prank(OWNER);
-        SuccinctStaking(STAKING).setDispenseRate(newRate);
+        SuccinctStaking(STAKING).updateDispenseRate(newRate);
 
         // Wait some time
         uint256 waitTime = 1 days;
@@ -291,6 +291,6 @@ contract SuccinctStakingDispenseTests is SuccinctStakingTest {
         uint256 newRate = 0;
         vm.prank(ALICE);
         vm.expectRevert(abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, ALICE));
-        SuccinctStaking(STAKING).setDispenseRate(newRate);
+        SuccinctStaking(STAKING).updateDispenseRate(newRate);
     }
 }

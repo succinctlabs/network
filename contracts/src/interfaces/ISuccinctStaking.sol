@@ -4,7 +4,7 @@ pragma solidity ^0.8.28;
 import {IProverRegistry} from "./IProverRegistry.sol";
 
 interface ISuccinctStaking is IProverRegistry {
-    /// @dev Represents a claim for unstaking some amount of $PROVE.
+    /// @dev Represents a claim for unstaking some amount of $stPROVE.
     struct UnstakeClaim {
         uint256 stPROVE;
         uint256 timestamp;
@@ -25,7 +25,7 @@ interface ISuccinctStaking is IProverRegistry {
         uint256 stPROVE
     );
 
-    /// @dev Emitted when a staker requests to unstake $PROVE from a prover.
+    /// @dev Emitted when a staker requests to unstake $stPROVE from a prover.
     event UnstakeRequest(address indexed staker, address indexed prover, uint256 stPROVE);
 
     /// @dev Emitted when a staker unstakes from a prover.
@@ -51,6 +51,9 @@ interface ISuccinctStaking is IProverRegistry {
 
     /// @dev Emitted when stakers are dispensed $PROVE.
     event Dispense(uint256 PROVE);
+
+    /// @dev Emitted when the dispense rate is updated.
+    event DispenseRateUpdate(uint256 oldRate, uint256 newRate);
 
     /// @dev Thrown if the staker has insufficient balance to unstake, or if attempting to slash
     ///      more than the prover has.
@@ -80,67 +83,60 @@ interface ISuccinctStaking is IProverRegistry {
     /// @dev Thrown if the specified dispense amount exceeds the maximum dispense amount.
     error AmountExceedsAvailableDispense();
 
-    /// @dev Emitted when the dispense rate is updated.
-    event DispenseRateUpdate(uint256 oldRate, uint256 newRate);
-
-    /// @notice Returns the address of the VApp.
-    /// @dev The VApp is responsible for triggering rewards and slashing.
-    function vapp() external view returns (address);
-
-    /// @notice Returns the minimum amount of $PROVE that needs to be staked.
+    /// @notice The minimum amount of $PROVE that needs to be staked.
     function minStakeAmount() external view returns (uint256);
 
-    /// @notice Returns the minimum amount of time needed between requestUnstake() and finishUnstake().
+    /// @notice The minimum amount of time needed between requestUnstake() and finishUnstake().
     function unstakePeriod() external view returns (uint256);
 
-    /// @notice Returns the minimum amount of time needed between requestSlash() and finishSlash().
+    /// @notice The minimum amount of time needed between requestSlash() and finishSlash().
     function slashPeriod() external view returns (uint256);
 
-    /// @notice Returns the dispense rate.
+    /// @notice The dispense rate.
     function dispenseRate() external view returns (uint256);
 
-    /// @notice Returns the last dispense timestamp.
+    /// @notice The last dispense timestamp.
     function lastDispenseTimestamp() external view returns (uint256);
 
-    /// @notice Returns the prover that a staker is staked with.
+    /// @notice The prover that a staker is staked with.
     /// @dev A staker can only be staked with one prover at a time. To switch provers, they must
     ///      fully unstake from their current prover first.
     /// @param staker The address of the staker
     /// @return The address of the prover
     function stakedTo(address staker) external view returns (address);
 
-    /// @notice Returns the amount of $PROVE that a staker has staked to their prover.
+    /// @notice The amount of $PROVE that a staker has staked to their prover.
     /// @param staker The address of the staker
     /// @return The amount of $PROVE
     function staked(address staker) external view returns (uint256);
 
-    /// @notice Returns the amount of $PROVE that a prover has staked to them.
+    /// @notice The amount of $PROVE that a prover has staked to them.
     /// @param prover The address of the prover
     /// @return The amount of $PROVE
     function proverStaked(address prover) external view returns (uint256);
 
-    /// @notice Returns the unstake requests for a staker.
+    /// @notice The unstake requests for a staker.
     /// @param staker The address of the staker
     /// @return The unstake requests
     function unstakeRequests(address staker) external view returns (UnstakeClaim[] memory);
 
-    /// @notice Returns the slash requests for a prover.
+    /// @notice The slash requests for a prover.
     /// @param prover The address of the prover
     /// @return The slash requests
     function slashRequests(address prover) external view returns (SlashClaim[] memory);
 
-    /// @notice Returns the amount of $PROVE that a staker would recieve with their pending unstake request.
+    /// @notice The amount of $PROVE that a staker would recieve with their pending unstake request.
     /// @param staker The address of the staker
     /// @return The amount of $PROVE
     function unstakePending(address staker) external view returns (uint256);
 
-    /// @notice Returns the amount of $PROVE that a staker would recieve if they unstaked from a prover.
+    /// @notice The amount of $PROVE that a staker would recieve if they unstaked from a prover.
     /// @param prover The address of the prover
     /// @param amount The amount of $stPROVE to unstake
     /// @return The amount of $PROVE
     function previewRedeem(address prover, uint256 amount) external view returns (uint256);
 
-    /// @notice Returns the maximum amount of $PROVE that can be dispensed currently.
+    /// @notice The maximum amount of $PROVE that can be dispensed currently.
     /// @return The maximum amount of $PROVE
     function maxDispense() external view returns (uint256);
 
@@ -222,5 +218,5 @@ interface ISuccinctStaking is IProverRegistry {
 
     /// @notice Updates the dispense rate. Only callable by the owner.
     /// @param newRate The new dispense rate.
-    function setDispenseRate(uint256 newRate) external;
+    function updateDispenseRate(uint256 newRate) external;
 }

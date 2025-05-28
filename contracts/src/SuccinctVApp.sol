@@ -41,7 +41,8 @@ import {IERC20Permit} from
 
 /// @title SuccinctVApp
 /// @author Succinct Labs
-/// @notice Settlement layer for the vApp, processes actions resulting from state transitions.
+/// @notice Settlement layer for the Succinct Prover Network.
+/// @dev Processes actions resulting from state transitions.
 contract SuccinctVApp is
     Initializable,
     ReentrancyGuardUpgradeable,
@@ -73,7 +74,7 @@ contract SuccinctVApp is
     uint64 public override maxActionDelay;
 
     /// @inheritdoc ISuccinctVApp
-    uint256 public override minimumDeposit;
+    uint256 public override minDepositAmount;
 
     /// @inheritdoc ISuccinctVApp
     uint256 public override protocolFeeBips;
@@ -106,6 +107,12 @@ contract SuccinctVApp is
     mapping(address => bool) public override usedSigners;
 
     mapping(address => address[]) internal delegatedSigners;
+
+    /// @dev Modifier to ensure that the caller is the staking contract.
+    modifier onlyStaking() {
+        if (msg.sender != staking) revert NotStaking();
+        _;
+    }
 
     /*//////////////////////////////////////////////////////////////
                               INITIALIZER
@@ -149,7 +156,7 @@ contract SuccinctVApp is
         _updateVerifier(_verifier);
         _updateFeeVault(_feeVault);
         _updateActionDelay(_maxActionDelay);
-        _setProtocolFeeBips(_protocolFeeBips);
+        _updateProtocolFeeBips(_protocolFeeBips);
 
         emit Fork(_vappProgramVKey, 0, bytes32(0), bytes32(0));
     }
@@ -241,20 +248,29 @@ contract SuccinctVApp is
 
     /// @inheritdoc ISuccinctVApp
     function addDelegatedSigner(address _signer) external returns (uint64 receipt) {
+        return _addDelegatedSigner(msg.sender, _signer);
+    }
+
+    /// @inheritdoc ISuccinctVApp
+    function addDelegatedSignerForProver(address _owner, address _signer) external onlyStaking returns (uint64 receipt) {
+        return _addDelegatedSigner(_owner, _signer);
+    }
+
+    function _addDelegatedSigner(address _owner, address _signer) internal returns (uint64 receipt) {
         // Validate.
         if (_signer == address(0)) revert ZeroAddress();
         if (usedSigners[_signer]) revert InvalidSigner();
-        if (!ISuccinctStaking(staking).hasProver(msg.sender)) revert InvalidSigner();
+        if (!ISuccinctStaking(staking).hasProver(_owner)) revert InvalidSigner();
         if (ISuccinctStaking(staking).isProver(_signer)) revert InvalidSigner();
         if (ISuccinctStaking(staking).hasProver(_signer)) revert InvalidSigner();
 
         // Create the receipt.
-        bytes memory data = abi.encode(AddSignerAction({owner: msg.sender, signer: _signer}));
+        bytes memory data = abi.encode(AddSignerAction({owner: _owner, signer: _signer}));
         receipt = _createReceipt(ActionType.AddSigner, data);
 
         // Update the state.
         usedSigners[_signer] = true;
-        delegatedSigners[msg.sender].push(_signer);
+        delegatedSigners[_owner].push(_signer);
     }
 
     /// @inheritdoc ISuccinctVApp
@@ -359,13 +375,13 @@ contract SuccinctVApp is
     }
 
     /// @inheritdoc ISuccinctVApp
-    function setMinimumDeposit(uint256 _amount) external override onlyOwner {
-        _setMinimumDeposit(_amount);
+    function updateMinDepositAmount(uint256 _amount) external override onlyOwner {
+        _updateMinDepositAmount(_amount);
     }
 
     /// @inheritdoc ISuccinctVApp
-    function setProtocolFeeBips(uint256 _protocolFeeBips) external override onlyOwner {
-        _setProtocolFeeBips(_protocolFeeBips);
+    function updateProtocolFeeBips(uint256 _protocolFeeBips) external override onlyOwner {
+        _updateProtocolFeeBips(_protocolFeeBips);
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -375,7 +391,7 @@ contract SuccinctVApp is
     /// @dev Credits a deposit receipt and transfers $PROVE from the sender to the VApp.
     function _deposit(address _from, uint256 _amount) internal returns (uint64 receipt) {
         // Validate.
-        if (_amount < minimumDeposit) {
+        if (_amount < minDepositAmount) {
             revert TransferBelowMinimum();
         }
 
@@ -395,7 +411,7 @@ contract SuccinctVApp is
     function _withdraw(address _from, address _to, uint256 _amount) internal returns (uint64 receipt) {
         // Validate.
         if (_to == address(0)) revert ZeroAddress();
-        if (_amount < minimumDeposit) {
+        if (_amount < minDepositAmount) {
             revert TransferBelowMinimum();
         }
 
@@ -520,44 +536,44 @@ contract SuccinctVApp is
 
     /// @dev Updates the staking contract.
     function _updateStaking(address _staking) internal {
-        staking = _staking;
+        emit StakingUpdate(staking, _staking);
 
-        emit StakingUpdate(_staking);
+        staking = _staking;
     }
 
     /// @dev Updates the verifier.
     function _updateVerifier(address _verifier) internal {
-        verifier = _verifier;
+        emit VerifierUpdate(verifier, _verifier);
 
-        emit VerifierUpdate(_verifier);
+        verifier = _verifier;
     }
 
     /// @dev Updates the fee vault.
     function _updateFeeVault(address _feeVault) internal {
-        feeVault = _feeVault;
+        emit FeeVaultUpdate(feeVault, _feeVault);
 
-        emit FeeVaultUpdate(_feeVault);
+        feeVault = _feeVault;
     }
 
     /// @dev Updates the action delay.
     function _updateActionDelay(uint64 _maxActionDelay) internal {
+        emit MaxActionDelayUpdate(maxActionDelay, _maxActionDelay);
+
         maxActionDelay = _maxActionDelay;
-
-        emit MaxActionDelayUpdate(_maxActionDelay);
     }
 
-    /// @dev Sets the minimum amount for deposit/withdraw operations.
-    function _setMinimumDeposit(uint256 _amount) internal {
-        minimumDeposit = _amount;
+    /// @dev Updates the minimum amount for deposit/withdraw operations.
+    function _updateMinDepositAmount(uint256 _amount) internal {
+        emit MinDepositAmountUpdate(minDepositAmount, _amount);
 
-        emit MinimumDepositUpdate(_amount);
+        minDepositAmount = _amount;
     }
 
-    /// @dev Sets the protocol fee in basis points.
-    function _setProtocolFeeBips(uint256 _protocolFeeBips) internal {
+    /// @dev Updates the protocol fee in basis points.
+    function _updateProtocolFeeBips(uint256 _protocolFeeBips) internal {
+        emit ProtocolFeeBipsUpdate(protocolFeeBips, _protocolFeeBips);
+
         protocolFeeBips = _protocolFeeBips;
-
-        emit ProtocolFeeBipsUpdate(_protocolFeeBips);
     }
 
     /// @dev Authorizes an ERC1967 proxy upgrade to a new implementation contract.

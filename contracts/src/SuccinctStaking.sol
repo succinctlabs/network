@@ -27,9 +27,6 @@ contract SuccinctStaking is
     using SafeERC20 for IERC20;
 
     /// @inheritdoc ISuccinctStaking
-    address public override vapp;
-
-    /// @inheritdoc ISuccinctStaking
     uint256 public override minStakeAmount;
 
     /// @inheritdoc ISuccinctStaking
@@ -78,14 +75,13 @@ contract SuccinctStaking is
         uint256 _dispenseRate
     ) external onlyOwner initializer {
         // Setup the initial state.
-        __ProverRegistry_init(_prove, _intermediateProve);
-        vapp = _vApp;
+        __ProverRegistry_init(_vApp, _prove, _intermediateProve);
         minStakeAmount = _minStakeAmount;
         unstakePeriod = _unstakePeriod;
         slashPeriod = _slashPeriod;
 
         // Setup the dispense rate.
-        _setDispenseRate(_dispenseRate);
+        _updateDispenseRate(_dispenseRate);
         lastDispenseTimestamp = block.timestamp;
 
         // Approve the $iPROVE contract to transfer $PROVE to $iPROVE during stake().
@@ -270,7 +266,7 @@ contract SuccinctStaking is
         // Deposit $PROVE to mint $iPROVE, sending it to this contract.
         uint256 iPROVE = IERC4626(iProve).deposit(_PROVE, address(this));
 
-        // Transfer the $iPROVE to the $PROVER-N vault.
+        // Transfer the $iPROVE from this contract to the prover vault.
         IERC20(iProve).safeTransfer(_prover, iPROVE);
 
         emit Reward(_prover, _PROVE);
@@ -373,8 +369,8 @@ contract SuccinctStaking is
     }
 
     /// @inheritdoc ISuccinctStaking
-    function setDispenseRate(uint256 _newRate) external override onlyOwner {
-        _setDispenseRate(_newRate);
+    function updateDispenseRate(uint256 _rate) external override onlyOwner {
+        _updateDispenseRate(_rate);
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -488,9 +484,9 @@ contract SuccinctStaking is
     }
 
     /// @dev Set the new dispense rate.
-    function _setDispenseRate(uint256 _newRate) internal {
-        emit DispenseRateUpdate(dispenseRate, _newRate);
+    function _updateDispenseRate(uint256 _dispenseRate) internal {
+        emit DispenseRateUpdate(dispenseRate, _dispenseRate);
 
-        dispenseRate = _newRate;
+        dispenseRate = _dispenseRate;
     }
 }

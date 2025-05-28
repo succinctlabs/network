@@ -179,7 +179,7 @@ contract MockStaking is ISuccinctStaking {
         emit Dispense(_amount);
     }
 
-    function setDispenseRate(uint256 _newRate) external override {
+    function updateDispenseRate(uint256 _newRate) external override {
         uint256 oldRate = dispenseRate;
         dispenseRate = _newRate;
         emit DispenseRateUpdate(oldRate, _newRate);

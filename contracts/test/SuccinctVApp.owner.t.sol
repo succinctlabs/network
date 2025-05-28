@@ -20,10 +20,11 @@ import {Ownable} from "../lib/openzeppelin-contracts/contracts/access/Ownable.so
 // Tests onlyOwner / setter functions.
 contract SuccinctVAppOwnerTest is SuccinctVAppTest {
     function test_UpdateStaking_WhenValid() public {
+        address oldStaking = ISuccinctVApp(VAPP).staking();
         address newStaking = address(1);
 
         vm.expectEmit(true, true, true, true);
-        emit ISuccinctVApp.StakingUpdate(newStaking);
+        emit ISuccinctVApp.StakingUpdate(oldStaking, newStaking);
         vm.prank(OWNER);
         SuccinctVApp(VAPP).updateStaking(newStaking);
 
@@ -39,10 +40,11 @@ contract SuccinctVAppOwnerTest is SuccinctVAppTest {
     }
 
     function test_UpdateVerifier_WhenValid() public {
+        address oldVerifier = ISuccinctVApp(VAPP).verifier();
         address newVerifier = address(1);
 
         vm.expectEmit(true, true, true, true);
-        emit ISuccinctVApp.VerifierUpdate(newVerifier);
+        emit ISuccinctVApp.VerifierUpdate(oldVerifier, newVerifier);
         vm.prank(OWNER);
         SuccinctVApp(VAPP).updateVerifier(newVerifier);
 
@@ -58,10 +60,11 @@ contract SuccinctVAppOwnerTest is SuccinctVAppTest {
     }
 
     function test_UpdateActionDelay_WhenValid() public {
+        uint64 oldDelay = ISuccinctVApp(VAPP).maxActionDelay();
         uint64 newDelay = 2 days;
 
         vm.expectEmit(true, true, true, true);
-        emit ISuccinctVApp.MaxActionDelayUpdate(newDelay);
+        emit ISuccinctVApp.MaxActionDelayUpdate(oldDelay, newDelay);
         vm.prank(OWNER);
         SuccinctVApp(VAPP).updateActionDelay(newDelay);
 
@@ -77,47 +80,49 @@ contract SuccinctVAppOwnerTest is SuccinctVAppTest {
     }
 
     function test_SetTransferBelowMinimum_WhenValid() public {
-        uint256 minAmount = 10e6; // 10 PROVE
+        uint256 oldMinAmount = ISuccinctVApp(VAPP).minDepositAmount();
+        uint256 newMinAmount = 10e6; // 10 PROVE
 
         vm.expectEmit(true, true, true, true);
-        emit ISuccinctVApp.MinimumDepositUpdate(minAmount);
+        emit ISuccinctVApp.MinDepositAmountUpdate(oldMinAmount, newMinAmount);
         vm.prank(OWNER);
-        SuccinctVApp(VAPP).setMinimumDeposit(minAmount);
+        SuccinctVApp(VAPP).updateMinDepositAmount(newMinAmount);
 
-        assertEq(SuccinctVApp(VAPP).minimumDeposit(), minAmount);
+        assertEq(SuccinctVApp(VAPP).minDepositAmount(), newMinAmount);
 
         // Update to a different value
         uint256 newTransferBelowMinimum = 20e6; // 20 PROVE
 
         vm.expectEmit(true, true, true, true);
-        emit ISuccinctVApp.MinimumDepositUpdate(newTransferBelowMinimum);
-        SuccinctVApp(VAPP).setMinimumDeposit(newTransferBelowMinimum);
+        emit ISuccinctVApp.MinDepositAmountUpdate(newMinAmount, newTransferBelowMinimum);
+        SuccinctVApp(VAPP).updateMinDepositAmount(newTransferBelowMinimum);
 
-        assertEq(SuccinctVApp(VAPP).minimumDeposit(), newTransferBelowMinimum);
+        assertEq(SuccinctVApp(VAPP).minDepositAmount(), newTransferBelowMinimum);
 
         // Set to zero to disable minimum check
         vm.expectEmit(true, true, true, true);
-        emit ISuccinctVApp.MinimumDepositUpdate(0);
-        SuccinctVApp(VAPP).setMinimumDeposit(0);
+        emit ISuccinctVApp.MinDepositAmountUpdate(newTransferBelowMinimum, 0);
+        SuccinctVApp(VAPP).updateMinDepositAmount(0);
 
-        assertEq(SuccinctVApp(VAPP).minimumDeposit(), 0);
+        assertEq(SuccinctVApp(VAPP).minDepositAmount(), 0);
     }
 
-    function test_RevertSetMinimumDeposit_WhenNotOwner() public {
+    function test_RevertSetminDepositAmount_WhenNotOwner() public {
         vm.expectRevert(
             abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, REQUESTER_1)
         );
         vm.prank(REQUESTER_1);
-        SuccinctVApp(VAPP).setMinimumDeposit(10e6);
+        SuccinctVApp(VAPP).updateMinDepositAmount(10e6);
     }
 
     function test_SetProtocolFeeBips_WhenValid() public {
+        uint256 oldProtocolFeeBips = ISuccinctVApp(VAPP).protocolFeeBips();
         uint256 newProtocolFeeBips = PROTOCOL_FEE_BIPS + 1; // 10%
 
         vm.expectEmit(true, true, true, true);
-        emit ISuccinctVApp.ProtocolFeeBipsUpdate(newProtocolFeeBips);
+        emit ISuccinctVApp.ProtocolFeeBipsUpdate(oldProtocolFeeBips, newProtocolFeeBips);
         vm.prank(OWNER);
-        SuccinctVApp(VAPP).setProtocolFeeBips(newProtocolFeeBips);
+        SuccinctVApp(VAPP).updateProtocolFeeBips(newProtocolFeeBips);
 
         assertEq(SuccinctVApp(VAPP).protocolFeeBips(), newProtocolFeeBips);
     }
@@ -127,6 +132,6 @@ contract SuccinctVAppOwnerTest is SuccinctVAppTest {
             abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, REQUESTER_1)
         );
         vm.prank(REQUESTER_1);
-        SuccinctVApp(VAPP).setProtocolFeeBips(1000);
+        SuccinctVApp(VAPP).updateProtocolFeeBips(1000);
     }
 }

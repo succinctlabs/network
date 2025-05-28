@@ -6,13 +6,16 @@ import {Create2} from "../../lib/openzeppelin-contracts/contracts/utils/Create2.
 import {IERC20} from "../../lib/openzeppelin-contracts/contracts/interfaces/IERC20.sol";
 import {IProver} from "../interfaces/IProver.sol";
 import {IProverRegistry} from "../interfaces/IProverRegistry.sol";
-
+import {ISuccinctVApp} from "../interfaces/ISuccinctVApp.sol";
 /// @title ProverRegistry
 /// @author Succinct Labs
 /// @notice This contract is used to manage provers.
 /// @dev Because provers are approved to spend $iPROVE, it is important that tracked
 ///      provers are only contracts with `type(SuccinctProver).creationCode`.
 abstract contract ProverRegistry is IProverRegistry {
+    /// @inheritdoc IProverRegistry
+    address public override vapp;
+
     /// @inheritdoc IProverRegistry
     address public override prove;
 
@@ -33,7 +36,8 @@ abstract contract ProverRegistry is IProverRegistry {
         _;
     }
 
-    function __ProverRegistry_init(address _prove, address _iProve) internal {
+    function __ProverRegistry_init(address _vapp, address _prove, address _iProve) internal {
+        vapp = _vapp;
         prove = _prove;
         iProve = _iProve;
     }
@@ -64,11 +68,11 @@ abstract contract ProverRegistry is IProverRegistry {
             revert ProverAlreadyExists();
         }
 
-        return _deployProver(_stakerFeeBips);
+        return _deployProver(msg.sender, _stakerFeeBips);
     }
 
     /// @dev Uses CREATE2 to deploy an instance of SuccinctProver and adds it to the mapping.
-    function _deployProver(uint256 _stakerFeeBips) internal returns (address) {
+    function _deployProver(address _owner, uint256 _stakerFeeBips) internal returns (address) {
         // Ensure that the contract is initialized.
         if (iProve == address(0)) {
             revert NotInitialized();
@@ -82,21 +86,26 @@ abstract contract ProverRegistry is IProverRegistry {
         // Deploy the prover.
         address prover = Create2.deploy(
             0,
-            bytes32(uint256(uint160(msg.sender))),
+            bytes32(uint256(uint160(_owner))),
             abi.encodePacked(
                 type(SuccinctProver).creationCode,
-                abi.encode(iProve, address(this), msg.sender, proverCount, _stakerFeeBips)
+                abi.encode(iProve, address(this), _owner, proverCount, _stakerFeeBips)
             )
         );
 
         // Update the mappings.
-        ownerToProver[msg.sender] = prover;
+        ownerToProver[_owner] = prover;
         provers[prover] = true;
 
-        // Approve the prover to transfer $iPROVE to $PROVER-N during stake().
+        // Add the owner as a delegated signer for the prover. This allows the owner EOA to sign messages
+        // on behalf of the prover.
+        ISuccinctVApp(vapp).addDelegatedSignerForProver(prover, _owner);
+
+        // Approve the prover as a spender so that $iPROVE can be transferred to the prover during\
+        // stake().
         IERC20(iProve).approve(prover, type(uint256).max);
 
-        emit ProverDeploy(prover, msg.sender);
+        emit ProverDeploy(prover, _owner);
 
         return prover;
     }

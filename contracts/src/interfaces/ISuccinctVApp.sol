@@ -5,43 +5,46 @@ import {ActionType} from "../libraries/PublicValues.sol";
 import {ReceiptStatus} from "../libraries/Actions.sol";
 
 interface ISuccinctVApp {
-    /// @notice The program was forked.
+    /// @notice Emitted when the program was forked.
     event Fork(
         bytes32 indexed vkey, uint64 indexed block, bytes32 indexed newRoot, bytes32 oldRoot
     );
 
-    /// @notice A new block was committed.
+    /// @notice Emitted when a new block was committed.
     event Block(uint64 indexed block, bytes32 indexed newRoot, bytes32 indexed oldRoot);
 
-    /// @notice A receipt is completed.
+    /// @notice Emitted when a receipt is completed.
     event ReceiptCompleted(uint64 indexed receipt, ActionType indexed action, bytes data);
 
-    /// @notice A receipt is failed.
+    /// @notice Emitted when a receipt is failed.
     event ReceiptFailed(uint64 indexed receipt, ActionType indexed action, bytes data);
 
-    /// @notice A receipt is pending.
+    /// @notice Emitted when a receipt is pending.
     event ReceiptPending(uint64 indexed receipt, ActionType indexed action, bytes data);
 
-    /// @notice Withdrawal claimed event
+    /// @notice Emitted when a withdrawal is claimed.
     event WithdrawalClaimed(address indexed account, address sender, uint256 amount);
 
-    /// @notice The staking address was updated.
-    event StakingUpdate(address indexed staking);
+    /// @notice Emitted when the staking address was updated.
+    event StakingUpdate(address oldStaking, address newStaking);
 
-    /// @notice The verifier address was updated.
-    event VerifierUpdate(address indexed verifier);
+    /// @notice Emitted when the verifier address was updated.
+    event VerifierUpdate(address oldVerifier, address newVerifier);
 
-    /// @notice The fee vault was updated.
-    event FeeVaultUpdate(address indexed feeVault);
+    /// @notice Emitted when the fee vault was updated.
+    event FeeVaultUpdate(address oldFeeVault, address newFeeVault);
 
-    /// @notice The max action delay was updated.
-    event MaxActionDelayUpdate(uint64 indexed actionDelay);
+    /// @notice Emitted when the max action delay was updated.
+    event MaxActionDelayUpdate(uint64 oldMaxActionDelay, uint64 newMaxActionDelay);
 
-    /// @notice The minimum deposit was updated.
-    event MinimumDepositUpdate(uint256 amount);
+    /// @notice Emitted when the minimum deposit was updated.
+    event MinDepositAmountUpdate(uint256 oldMinDepositAmount, uint256 newMinDepositAmount);
 
-    /// @notice The protocol fee was updated.
-    event ProtocolFeeBipsUpdate(uint256 protocolFeeBips);
+    /// @notice Emitted when the protocol fee was updated.
+    event ProtocolFeeBipsUpdate(uint256 oldProtocolFeeBips, uint256 newProtocolFeeBips);
+
+    /// @dev Thrown when the caller is not the staking contract.
+    error NotStaking();
 
     /// @dev Thrown if the actual balance does not match the expected balance.
     error BalanceMismatch();
@@ -117,7 +120,7 @@ interface ISuccinctVApp {
     function maxActionDelay() external view returns (uint64);
 
     /// @notice The minimum amount for deposit/withdraw operations.
-    function minimumDeposit() external view returns (uint256);
+    function minDepositAmount() external view returns (uint256);
 
     /// @notice The protocol fee in basis points.
     function protocolFeeBips() external view returns (uint256);
@@ -214,6 +217,13 @@ interface ISuccinctVApp {
     /// @return receipt The receipt for the add signer action.
     function addDelegatedSigner(address signer) external returns (uint64 receipt);
 
+    /// @notice Add a delegated signer for a prover owner.
+    /// @dev Must be called by the staking contract.
+    /// @param owner The owner to add the signer for.
+    /// @param signer The signer to add.
+    /// @return receipt The receipt for the add signer action.
+    function addDelegatedSignerForProver(address owner, address signer) external returns (uint64 receipt);
+
     /// @notice Remove a delegated signer.
     /// @param signer The signer to remove.
     /// @return receipt The receipt for the remove signer action.
@@ -259,16 +269,16 @@ interface ISuccinctVApp {
 
     /// @notice Updates the max action delay.
     /// @dev Only callable by the owner.
-    /// @param maxActionDelay The new max action delay.
-    function updateActionDelay(uint64 maxActionDelay) external;
+    /// @param delay The new max action delay.
+    function updateActionDelay(uint64 delay) external;
 
     /// @notice Updates the minimum amount for deposit/withdraw operations.
     /// @dev Only callable by the owner.
     /// @param amount The new minimum amount.
-    function setMinimumDeposit(uint256 amount) external;
+    function updateMinDepositAmount(uint256 amount) external;
 
     /// @notice Updates the protocol fee in basis points.
     /// @dev Only callable by the owner.
     /// @param protocolFeeBips The new protocol fee in basis points.
-    function setProtocolFeeBips(uint256 protocolFeeBips) external;
+    function updateProtocolFeeBips(uint256 protocolFeeBips) external;
 }
