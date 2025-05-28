@@ -52,6 +52,9 @@ interface ISuccinctStaking is IProverRegistry {
     /// @dev Emitted when stakers are dispensed $PROVE.
     event Dispense(uint256 PROVE);
 
+    /// @dev Emitted when the dispense rate is updated.
+    event DispenseRateUpdate(uint256 oldRate, uint256 newRate);
+
     /// @dev Thrown if the staker has insufficient balance to unstake, or if attempting to slash
     ///      more than the prover has.
     error InsufficientStakeBalance();
@@ -79,9 +82,6 @@ interface ISuccinctStaking is IProverRegistry {
 
     /// @dev Thrown if the specified dispense amount exceeds the maximum dispense amount.
     error AmountExceedsAvailableDispense();
-
-    /// @dev Emitted when the dispense rate is updated.
-    event DispenseRateUpdate(uint256 oldRate, uint256 newRate);
 
     /// @notice The minimum amount of $PROVE that needs to be staked.
     function minStakeAmount() external view returns (uint256);
@@ -218,5 +218,5 @@ interface ISuccinctStaking is IProverRegistry {
 
     /// @notice Updates the dispense rate. Only callable by the owner.
     /// @param newRate The new dispense rate.
-    function setDispenseRate(uint256 newRate) external;
+    function updateDispenseRate(uint256 newRate) external;
 }

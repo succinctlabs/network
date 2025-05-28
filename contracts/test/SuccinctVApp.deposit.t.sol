@@ -132,7 +132,7 @@ contract SuccinctVAppDepositTest is SuccinctVAppTest {
         uint256 depositAmount = minAmount / 2; // 5 PROVE - below minimum
 
         // Set minimum amount
-        SuccinctVApp(VAPP).setMinDepositAmount(minAmount);
+        SuccinctVApp(VAPP).updateMinDepositAmount(minAmount);
 
         // Try to deposit below minimum
         MockERC20(PROVE).mint(REQUESTER_1, depositAmount);

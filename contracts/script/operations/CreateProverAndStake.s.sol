@@ -28,7 +28,6 @@ contract CreateProverAndStakeScript is BaseScript {
         // Create prover
         address prover = SuccinctStaking(STAKING).createProver(STAKER_FEE_BIPS);
 
-
         // Check if needs to approve PROVE
         if (IERC20(PROVE).allowance(msg.sender, STAKING) < STAKE_AMOUNT) {
             IERC20(PROVE).approve(STAKING, STAKE_AMOUNT);
@@ -36,7 +35,7 @@ contract CreateProverAndStakeScript is BaseScript {
 
         // Stake
         SuccinctStaking(STAKING).stake(prover, STAKE_AMOUNT);
-        
+
         // Write address
         writeAddress(KEY, prover);
     }

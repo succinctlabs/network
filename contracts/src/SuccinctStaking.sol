@@ -81,7 +81,7 @@ contract SuccinctStaking is
         slashPeriod = _slashPeriod;
 
         // Setup the dispense rate.
-        _setDispenseRate(_dispenseRate);
+        _updateDispenseRate(_dispenseRate);
         lastDispenseTimestamp = block.timestamp;
 
         // Approve the $iPROVE contract to transfer $PROVE to $iPROVE during stake().
@@ -369,8 +369,8 @@ contract SuccinctStaking is
     }
 
     /// @inheritdoc ISuccinctStaking
-    function setDispenseRate(uint256 _newRate) external override onlyOwner {
-        _setDispenseRate(_newRate);
+    function updateDispenseRate(uint256 _rate) external override onlyOwner {
+        _updateDispenseRate(_rate);
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -484,9 +484,9 @@ contract SuccinctStaking is
     }
 
     /// @dev Set the new dispense rate.
-    function _setDispenseRate(uint256 _newRate) internal {
-        emit DispenseRateUpdate(dispenseRate, _newRate);
+    function _updateDispenseRate(uint256 _dispenseRate) internal {
+        emit DispenseRateUpdate(dispenseRate, _dispenseRate);
 
-        dispenseRate = _newRate;
+        dispenseRate = _dispenseRate;
     }
 }

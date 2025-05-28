@@ -78,7 +78,7 @@ Triggered by the [SuccinctStaking.owner()](./src/SuccinctStaking.sol#L54) callin
 
 This moves $PROVE from the staking contract to the $iPROVE vault.
 
-The maximum amount of dispense is defined as [SuccinctStaking.maxDispense()](./src/SuccinctStaking.sol#L176), which is bounded by the [dispenseRate](./src/SuccinctStaking.sol#L66). Dispense rate can also be changed by the owner via [SuccinctStaking.setDispenseRate()](./src/SuccinctStaking.sol#L383).
+The maximum amount of dispense is defined as [SuccinctStaking.maxDispense()](./src/SuccinctStaking.sol#L176), which is bounded by the [dispenseRate](./src/SuccinctStaking.sol#L66). Dispense rate can also be changed by the owner via [SuccinctStaking.updateDispenseRate()](./src/SuccinctStaking.sol#L383).
 
 It is assumed that the staking contract has ownership of this much $PROVE. Operationally, $PROVE will need to be topped up to cover the dispense rate.
 

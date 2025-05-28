@@ -150,7 +150,7 @@ contract SuccinctVApp is
         _updateVerifier(_verifier);
         _updateFeeVault(_feeVault);
         _updateActionDelay(_maxActionDelay);
-        _setProtocolFeeBips(_protocolFeeBips);
+        _updateProtocolFeeBips(_protocolFeeBips);
 
         emit Fork(_vappProgramVKey, 0, bytes32(0), bytes32(0));
     }
@@ -360,13 +360,13 @@ contract SuccinctVApp is
     }
 
     /// @inheritdoc ISuccinctVApp
-    function setMinDepositAmount(uint256 _amount) external override onlyOwner {
-        _setMinDepositAmount(_amount);
+    function updateMinDepositAmount(uint256 _amount) external override onlyOwner {
+        _updateMinDepositAmount(_amount);
     }
 
     /// @inheritdoc ISuccinctVApp
-    function setProtocolFeeBips(uint256 _protocolFeeBips) external override onlyOwner {
-        _setProtocolFeeBips(_protocolFeeBips);
+    function updateProtocolFeeBips(uint256 _protocolFeeBips) external override onlyOwner {
+        _updateProtocolFeeBips(_protocolFeeBips);
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -521,44 +521,44 @@ contract SuccinctVApp is
 
     /// @dev Updates the staking contract.
     function _updateStaking(address _staking) internal {
-        staking = _staking;
+        emit StakingUpdate(staking, _staking);
 
-        emit StakingUpdate(_staking);
+        staking = _staking;
     }
 
     /// @dev Updates the verifier.
     function _updateVerifier(address _verifier) internal {
-        verifier = _verifier;
+        emit VerifierUpdate(verifier, _verifier);
 
-        emit VerifierUpdate(_verifier);
+        verifier = _verifier;
     }
 
     /// @dev Updates the fee vault.
     function _updateFeeVault(address _feeVault) internal {
-        feeVault = _feeVault;
+        emit FeeVaultUpdate(feeVault, _feeVault);
 
-        emit FeeVaultUpdate(_feeVault);
+        feeVault = _feeVault;
     }
 
     /// @dev Updates the action delay.
     function _updateActionDelay(uint64 _maxActionDelay) internal {
+        emit MaxActionDelayUpdate(maxActionDelay, _maxActionDelay);
+
         maxActionDelay = _maxActionDelay;
-
-        emit MaxActionDelayUpdate(_maxActionDelay);
     }
 
-    /// @dev Sets the minimum amount for deposit/withdraw operations.
-    function _setMinDepositAmount(uint256 _amount) internal {
+    /// @dev Updates the minimum amount for deposit/withdraw operations.
+    function _updateMinDepositAmount(uint256 _amount) internal {
+        emit MinDepositAmountUpdate(minDepositAmount, _amount);
+
         minDepositAmount = _amount;
-
-        emit MinDepositAmountUpdate(_amount);
     }
 
-    /// @dev Sets the protocol fee in basis points.
-    function _setProtocolFeeBips(uint256 _protocolFeeBips) internal {
-        protocolFeeBips = _protocolFeeBips;
+    /// @dev Updates the protocol fee in basis points.
+    function _updateProtocolFeeBips(uint256 _protocolFeeBips) internal {
+        emit ProtocolFeeBipsUpdate(protocolFeeBips, _protocolFeeBips);
 
-        emit ProtocolFeeBipsUpdate(_protocolFeeBips);
+        protocolFeeBips = _protocolFeeBips;
     }
 
     /// @dev Authorizes an ERC1967 proxy upgrade to a new implementation contract.
