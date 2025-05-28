@@ -72,16 +72,12 @@ library Actions {
     /// @dev Thrown when the action status is invalid.
     error InvalidActionStatus(ActionType actionType, uint64 receipt, ReceiptStatus status);
 
-    /// @notice Memory for decoding actions
+    /// @notice Memory for decoding actions.
     struct DecodeData {
         uint256 depositLength;
         uint256 withdrawLength;
         uint256 addSignerLength;
         uint256 removeSignerLength;
-        uint256 slashLength;
-        uint256 rewardLength;
-        uint256 proverStateLength;
-        uint256 feeUpdateLength;
     }
 
     /// @dev Decode actions.
@@ -164,9 +160,9 @@ library Actions {
         uint64 _timestamp,
         uint64 _maxActionDelay
     ) internal view {
-        // Ensure that the receipts exist and correspond to the matching action
+        // Ensure that the receipts exist and correspond to the matching action.
         for (uint64 i = 0; i < _actions.length; i++) {
-            // Only validate actions that have a corresponding receipt
+            // Only validate actions that have a corresponding receipt.
             if (hasReceipt(_actions[i])) {
                 Receipt memory receipt = _receipts[++_finalizedReceipt];
 

@@ -425,15 +425,13 @@ contract SuccinctVApp is
     /// @dev Handles committed actions, reverts if the actions are invalid
     function _handleActions(PublicValuesStruct memory _publicValues) internal {
         // Validate the actions.
-        uint64 timestamp_ = uint64(block.timestamp);
-        uint64 actionDelay_ = maxActionDelay;
         Actions.validate(
             receipts,
             _publicValues.actions,
             finalizedReceipt,
             currentReceipt,
-            timestamp_,
-            actionDelay_
+            uint64(block.timestamp),
+            maxActionDelay
         );
 
         // Execute the actions.
