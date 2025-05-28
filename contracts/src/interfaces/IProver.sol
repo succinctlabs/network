@@ -26,4 +26,7 @@ interface IProver {
     ///         given reward, this much goes into this vault.
     /// @return The staker fee percentage in basis points.
     function stakerFeeBips() external view returns (uint256);
+
+    /// @notice Claim the rewards for this prover.
+    function claimRewards() external;
 }

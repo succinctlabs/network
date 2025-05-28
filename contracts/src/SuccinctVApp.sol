@@ -256,50 +256,20 @@ contract SuccinctVApp is
         return _addDelegatedSigner(_owner, _signer);
     }
 
-    function _addDelegatedSigner(address _owner, address _signer) internal returns (uint64 receipt) {
-        // Validate.
-        if (_signer == address(0)) revert ZeroAddress();
-        if (usedSigners[_signer]) revert InvalidSigner();
-        if (!ISuccinctStaking(staking).hasProver(_owner)) revert InvalidSigner();
-        if (ISuccinctStaking(staking).isProver(_signer)) revert InvalidSigner();
-        if (ISuccinctStaking(staking).hasProver(_signer)) revert InvalidSigner();
-
-        // Create the receipt.
-        bytes memory data = abi.encode(AddSignerAction({owner: _owner, signer: _signer}));
-        receipt = _createReceipt(ActionType.AddSigner, data);
-
-        // Update the state.
-        usedSigners[_signer] = true;
-        delegatedSigners[_owner].push(_signer);
-    }
-
     /// @inheritdoc ISuccinctVApp
     function removeDelegatedSigner(address _signer) external returns (uint64 receipt) {
-        // Validate.
-        uint256 index = hasDelegatedSigner(msg.sender, _signer);
-        if (index == type(uint256).max) revert InvalidSigner();
-        if (!usedSigners[_signer]) revert InvalidSigner();
-
-        // Create the receipt.
-        bytes memory data = abi.encode(RemoveSignerAction({owner: msg.sender, signer: _signer}));
-        receipt = _createReceipt(ActionType.RemoveSigner, data);
-
-        // Update the state.
-        usedSigners[_signer] = false;
-        delegatedSigners[msg.sender][index] =
-            delegatedSigners[msg.sender][delegatedSigners[msg.sender].length - 1];
-        delegatedSigners[msg.sender].pop();
+        return _removeDelegatedSigner(msg.sender, _signer);
     }
-
+    
     /// @inheritdoc ISuccinctVApp
-    function updateState(bytes calldata _publicValues, bytes calldata _proofBytes)
+    function updateState(bytes calldata _publicValuesBytes, bytes calldata _proofBytes)
         public
         nonReentrant
         returns (uint64, bytes32, bytes32)
     {
         // Verify the proof.
-        ISP1Verifier(verifier).verifyProof(vappProgramVKey, _publicValues, _proofBytes);
-        PublicValuesStruct memory publicValues = abi.decode(_publicValues, (PublicValuesStruct));
+        ISP1Verifier(verifier).verifyProof(vappProgramVKey, _publicValuesBytes, _proofBytes);
+        PublicValuesStruct memory publicValues = abi.decode(_publicValuesBytes, (PublicValuesStruct));
         if (publicValues.newRoot == bytes32(0)) revert InvalidRoot();
 
         // Verify the old root.
@@ -422,6 +392,40 @@ contract SuccinctVApp is
         receipt = _createReceipt(ActionType.Withdraw, data);
     }
 
+    function _addDelegatedSigner(address _owner, address _signer) internal returns (uint64 receipt) {
+        // Validate.
+        if (_signer == address(0)) revert ZeroAddress();
+        if (usedSigners[_signer]) revert InvalidSigner();
+        if (!ISuccinctStaking(staking).hasProver(_owner)) revert InvalidSigner();
+        if (ISuccinctStaking(staking).isProver(_signer)) revert InvalidSigner();
+        if (ISuccinctStaking(staking).hasProver(_signer)) revert InvalidSigner();
+
+        // Create the receipt.
+        bytes memory data = abi.encode(AddSignerAction({owner: _owner, signer: _signer}));
+        receipt = _createReceipt(ActionType.AddSigner, data);
+
+        // Update the state.
+        usedSigners[_signer] = true;
+        delegatedSigners[_owner].push(_signer);
+    }
+
+    function _removeDelegatedSigner(address _owner, address _signer) internal returns (uint64 receipt) {
+        // Validate.
+        uint256 index = hasDelegatedSigner(_owner, _signer);
+        if (index == type(uint256).max) revert InvalidSigner();
+        if (!usedSigners[_signer]) revert InvalidSigner();
+
+        // Create the receipt.
+        bytes memory data = abi.encode(RemoveSignerAction({owner: _owner, signer: _signer}));
+        receipt = _createReceipt(ActionType.RemoveSigner, data);
+
+        // Update the state.
+        usedSigners[_signer] = false;
+        delegatedSigners[_owner][index] =
+            delegatedSigners[_owner][delegatedSigners[_owner].length - 1];
+        delegatedSigners[_owner].pop();
+    }
+    
     /// @dev Creates a receipt for an action.
     function _createReceipt(ActionType _actionType, bytes memory _data)
         internal

@@ -22,7 +22,7 @@ string constant SYMBOL = "iPROVE";
 ///      - It is non-transferable outside of deposit/withdraw
 contract IntermediateSuccinct is ERC4626, IIntermediateSuccinct {
     /// @inheritdoc IIntermediateSuccinct
-    address public staking;
+    address public override staking;
 
     constructor(address _underlying, address _staking)
         ERC20(NAME, SYMBOL)
@@ -49,7 +49,7 @@ contract IntermediateSuccinct is ERC4626, IIntermediateSuccinct {
 
     /// @dev Only the staking contract or the prover can deposit or withdraw. The latter needs
     ///      to be able to so because it is the underlying token in the prover vault and functions
-    ///      require transferring it (e.g. PROVER-N.deposit() and PROVER-N.redeem()).
+    ///      require transferring it (e.g. $PROVER-N.deposit() and $PROVER-N.redeem()).
     function _update(address _from, address _to, uint256 _value) internal override(ERC20) {
         bool isDepositOrWithdraw =
             IProverRegistry(staking).isProver(msg.sender) && (_from == staking || _to == staking);

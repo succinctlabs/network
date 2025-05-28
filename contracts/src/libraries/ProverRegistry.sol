@@ -28,6 +28,15 @@ abstract contract ProverRegistry is IProverRegistry {
     mapping(address => address) internal ownerToProver;
     mapping(address => bool) internal provers;
 
+    /// @dev This call must be sent by the VApp contract. This also acts as a check to ensure that the contract
+    ///      has been initialized.
+    modifier onlyVApp() {
+        if (msg.sender != vapp) {
+            revert NotAuthorized();
+        }
+        _;
+    }
+
     /// @dev This call must target a prover that exists in the registry.
     modifier onlyForProver(address _prover) {
         if (!provers[_prover]) {

@@ -45,15 +45,6 @@ contract SuccinctStaking is
     mapping(address => UnstakeClaim[]) internal unstakeClaims;
     mapping(address => SlashClaim[]) internal slashClaims;
 
-    /// @dev This call must be sent by the VApp contract. This also acts as a check to ensure that the contract
-    ///      has been initialized.
-    modifier onlyVApp() {
-        if (msg.sender != vapp) {
-            revert NotAuthorized();
-        }
-        _;
-    }
-
     /*//////////////////////////////////////////////////////////////
                               INITIALIZER
     //////////////////////////////////////////////////////////////*/
