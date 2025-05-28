@@ -8,11 +8,7 @@ import {
     DepositInternal,
     WithdrawInternal,
     AddSignerInternal,
-    RemoveSignerInternal,
-    SlashInternal,
-    RewardInternal,
-    ProverStateInternal,
-    FeeUpdateInternal
+    RemoveSignerInternal
 } from "./libraries/Actions.sol";
 import {FeeCalculator} from "./libraries/FeeCalculator.sol";
 import {
@@ -23,11 +19,7 @@ import {
     DepositAction,
     WithdrawAction,
     AddSignerAction,
-    RemoveSignerAction,
-    SlashAction,
-    RewardAction,
-    ProverStateAction,
-    FeeUpdateAction
+    RemoveSignerAction
 } from "./libraries/PublicValues.sol";
 import {ISuccinctVApp} from "./interfaces/ISuccinctVApp.sol";
 import {ISuccinctStaking} from "./interfaces/ISuccinctStaking.sol";
@@ -79,9 +71,6 @@ contract SuccinctVApp is
 
     /// @inheritdoc ISuccinctVApp
     uint64 public override maxActionDelay;
-
-    /// @inheritdoc ISuccinctVApp
-    uint64 public override freezeDuration;
 
     /// @inheritdoc ISuccinctVApp
     uint256 public override minimumDeposit;
@@ -136,7 +125,6 @@ contract SuccinctVApp is
         address _feeVault,
         bytes32 _vappProgramVKey,
         uint64 _maxActionDelay,
-        uint64 _freezeDuration,
         uint256 _protocolFeeBips
     ) external initializer {
         if (
@@ -155,14 +143,12 @@ contract SuccinctVApp is
         feeVault = _feeVault;
         vappProgramVKey = _vappProgramVKey;
         maxActionDelay = _maxActionDelay;
-        freezeDuration = _freezeDuration;
         protocolFeeBips = _protocolFeeBips;
 
         _updateStaking(_staking);
         _updateVerifier(_verifier);
         _updateFeeVault(_feeVault);
         _updateActionDelay(_maxActionDelay);
-        _updateFreezeDuration(_freezeDuration);
         _setProtocolFeeBips(_protocolFeeBips);
 
         emit Fork(_vappProgramVKey, 0, bytes32(0), bytes32(0));
@@ -234,17 +220,7 @@ contract SuccinctVApp is
 
     /// @inheritdoc ISuccinctVApp
     function withdraw(address _to, uint256 _amount) external override returns (uint64 receipt) {
-        // Validate.
-        if (_to == address(0)) revert ZeroAddress();
-        if (_amount < minimumDeposit) {
-            revert TransferBelowMinimum();
-        }
-
-        // Create the receipt.
-        bytes memory data = abi.encode(
-            WithdrawAction({account: msg.sender, amount: _amount, to: _to, token: prove})
-        );
-        receipt = _createReceipt(ActionType.Withdraw, data);
+        return _withdraw(msg.sender, _to, _amount);
     }
 
     /// @inheritdoc ISuccinctVApp
@@ -261,27 +237,6 @@ contract SuccinctVApp is
         ERC20(prove).safeTransfer(_to, amount);
 
         emit WithdrawalClaimed(_to, msg.sender, amount);
-    }
-
-    /// @inheritdoc ISuccinctVApp
-    function emergencyWithdraw(uint256 _amount, bytes32[] calldata _proof) external {
-        // Validate.
-        if (_proof.length == 0) revert InvalidProof();
-        if (block.timestamp < timestamp() + freezeDuration) revert NotFrozen();
-        if (_amount < minimumDeposit) {
-            revert TransferBelowMinimum();
-        }
-
-        // Verify the proof.
-        bytes32 leaf = sha256(abi.encodePacked(msg.sender, _amount));
-        bytes32 root_ = root();
-        bool isValid = MerkleProof.verifyCalldata(_proof, root_, leaf, _hashPair);
-        if (!isValid) revert ProofFailed();
-
-        // Process the withdrawal.
-        _processWithdraw(msg.sender, _amount);
-
-        emit EmergencyWithdrawal(msg.sender, _amount, root_);
     }
 
     /// @inheritdoc ISuccinctVApp
@@ -404,11 +359,6 @@ contract SuccinctVApp is
     }
 
     /// @inheritdoc ISuccinctVApp
-    function updateFreezeDuration(uint64 _freezeDuration) external override onlyOwner {
-        _updateFreezeDuration(_freezeDuration);
-    }
-
-    /// @inheritdoc ISuccinctVApp
     function setMinimumDeposit(uint256 _amount) external override onlyOwner {
         _setMinimumDeposit(_amount);
     }
@@ -422,7 +372,7 @@ contract SuccinctVApp is
                                  INTERNAL
     //////////////////////////////////////////////////////////////*/
 
-    /// @dev Credits a deposit receipt, transfers $PROVE from the sender to the VApp.
+    /// @dev Credits a deposit receipt and transfers $PROVE from the sender to the VApp.
     function _deposit(address _from, uint256 _amount) internal returns (uint64 receipt) {
         // Validate.
         if (_amount < minimumDeposit) {
@@ -439,6 +389,21 @@ contract SuccinctVApp is
 
         // Transfer $PROVE from the sender to the VApp.
         ERC20(prove).safeTransferFrom(_from, address(this), _amount);
+    }
+
+    /// @dev Credits a withdrawal receipt.
+    function _withdraw(address _from, address _to, uint256 _amount) internal returns (uint64 receipt) {
+        // Validate.
+        if (_to == address(0)) revert ZeroAddress();
+        if (_amount < minimumDeposit) {
+            revert TransferBelowMinimum();
+        }
+
+        // Create the receipt.
+        bytes memory data = abi.encode(
+            WithdrawAction({account: _from, amount: _amount, to: _to, token: prove})
+        );
+        receipt = _createReceipt(ActionType.Withdraw, data);
     }
 
     /// @dev Creates a receipt for an action.
@@ -460,15 +425,13 @@ contract SuccinctVApp is
     /// @dev Handles committed actions, reverts if the actions are invalid
     function _handleActions(PublicValuesStruct memory _publicValues) internal {
         // Validate the actions.
-        uint64 timestamp_ = uint64(block.timestamp);
-        uint64 actionDelay_ = maxActionDelay;
         Actions.validate(
             receipts,
             _publicValues.actions,
             finalizedReceipt,
             currentReceipt,
-            timestamp_,
-            actionDelay_
+            uint64(block.timestamp),
+            maxActionDelay
         );
 
         // Execute the actions.
@@ -477,12 +440,8 @@ contract SuccinctVApp is
         _withdrawActions(decoded.withdrawals);
         _addSignerActions(decoded.addSigners);
         _removeSignerActions(decoded.removeSigners);
-        _slashActions(decoded.slashes);
-        _rewardActions(decoded.rewards);
-        _proverStateActions(decoded.proverStates);
-        _feeUpdateActions(decoded.feeUpdates);
 
-        // Update the last finalized receipt
+        // Update the last finalized receipt.
         if (decoded.lastReceipt != 0) {
             finalizedReceipt = decoded.lastReceipt;
         }
@@ -502,7 +461,7 @@ contract SuccinctVApp is
     /// @dev Handles withdraw actions.
     function _withdrawActions(WithdrawInternal[] memory _actions) internal {
         for (uint64 i = 0; i < _actions.length; i++) {
-            // Only update if there is a corresponding receipt
+            // Only update if there is a corresponding receipt.
             if (_actions[i].action.receipt != 0) {
                 receipts[_actions[i].action.receipt].status = _actions[i].action.status;
 
@@ -513,9 +472,9 @@ contract SuccinctVApp is
                 }
             }
 
-            // Handle the action status
+            // Handle the action status.
             if (_actions[i].action.status == ReceiptStatus.Completed) {
-                // Process the withdrawal
+                // Process the withdrawal.
                 _processWithdraw(_actions[i].data.to, _actions[i].data.amount);
 
                 emit ReceiptCompleted(
@@ -546,69 +505,6 @@ contract SuccinctVApp is
             if (_actions[i].action.status == ReceiptStatus.Completed) {
                 emit ReceiptCompleted(
                     _actions[i].action.receipt, ActionType.RemoveSigner, _actions[i].action.data
-                );
-            }
-        }
-    }
-
-    /// @dev Handles slash actions.
-    function _slashActions(SlashInternal[] memory _actions) internal {
-        for (uint64 i = 0; i < _actions.length; i++) {
-            if (_actions[i].action.status == ReceiptStatus.Completed) {
-                ISuccinctStaking(staking).requestSlash(
-                    _actions[i].data.prover, _actions[i].data.amount
-                );
-
-                emit ReceiptCompleted(
-                    _actions[i].action.receipt, ActionType.Slash, _actions[i].action.data
-                );
-            }
-        }
-    }
-
-    /// @dev Handles reward actions.
-    function _rewardActions(RewardInternal[] memory _actions) internal {
-        for (uint64 i = 0; i < _actions.length; i++) {
-            if (_actions[i].action.status == ReceiptStatus.Completed) {
-                FeeCalculator.processReward(
-                    _actions[i].data.prover,
-                    _actions[i].data.amount,
-                    protocolFeeBips,
-                    prove,
-                    feeVault,
-                    staking
-                );
-
-                emit ReceiptCompleted(
-                    _actions[i].action.receipt, ActionType.Reward, _actions[i].action.data
-                );
-            }
-        }
-    }
-
-    /// @dev Handles prover state actions.
-    function _proverStateActions(ProverStateInternal[] memory _actions) internal {
-        for (uint64 i = 0; i < _actions.length; i++) {
-            if (_actions[i].action.status == ReceiptStatus.Completed) {
-                // Verify array lengths match.
-                if (_actions[i].data.provers.length != _actions[i].data.proveBalances.length) {
-                    revert ArrayLengthMismatch();
-                }
-
-                // Verify each prover's on-chain balance matches the asserted balance.
-                for (uint256 j = 0; j < _actions[i].data.provers.length; j++) {
-                    address prover = _actions[i].data.provers[j];
-                    uint256 assertedProveBalance = _actions[i].data.proveBalances[j];
-
-                    // Check the $PROVE token balance.
-                    uint256 actualProveBalance = ERC20(prove).balanceOf(prover);
-                    if (actualProveBalance != assertedProveBalance) {
-                        revert BalanceMismatch();
-                    }
-                }
-
-                emit ReceiptCompleted(
-                    _actions[i].action.receipt, ActionType.ProverState, _actions[i].action.data
                 );
             }
         }
@@ -650,13 +546,6 @@ contract SuccinctVApp is
         emit MaxActionDelayUpdate(_maxActionDelay);
     }
 
-    /// @dev Updates the freeze duration.
-    function _updateFreezeDuration(uint64 _freezeDuration) internal {
-        freezeDuration = _freezeDuration;
-
-        emit FreezeDurationUpdate(_freezeDuration);
-    }
-
     /// @dev Sets the minimum amount for deposit/withdraw operations.
     function _setMinimumDeposit(uint256 _amount) internal {
         minimumDeposit = _amount;
@@ -669,14 +558,6 @@ contract SuccinctVApp is
         protocolFeeBips = _protocolFeeBips;
 
         emit ProtocolFeeBipsUpdate(_protocolFeeBips);
-    }
-
-    /// @dev Handles fee update actions.
-    function _feeUpdateActions(FeeUpdateInternal[] memory _actions) internal {}
-
-    /// @dev Hashes a pair of bytes32 values using SHA-256.
-    function _hashPair(bytes32 _a, bytes32 _b) internal pure returns (bytes32) {
-        return (_a < _b) ? sha256(abi.encodePacked(_a, _b)) : sha256(abi.encodePacked(_b, _a));
     }
 
     /// @dev Authorizes an ERC1967 proxy upgrade to a new implementation contract.

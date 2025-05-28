@@ -14,9 +14,7 @@ import {
     DepositAction,
     WithdrawAction,
     AddSignerAction,
-    RemoveSignerAction,
-    SlashAction,
-    RewardAction
+    RemoveSignerAction
 } from "../src/libraries/PublicValues.sol";
 import {MockStaking} from "../src/mocks/MockStaking.sol";
 import {MockVerifier} from "../src/mocks/MockVerifier.sol";
@@ -35,7 +33,6 @@ contract SuccinctVAppTest is Test, FixtureLoader {
     // Constants
     uint256 constant FEE_UNIT = 10000;
     uint64 constant MAX_ACTION_DELAY = 1 days;
-    uint64 constant FREEZE_DURATION = 1 days;
     uint256 constant PROTOCOL_FEE_BIPS = 30; // 0.3%
 
     // Fixtures
@@ -103,7 +100,6 @@ contract SuccinctVAppTest is Test, FixtureLoader {
             FEE_VAULT,
             jsonFixture.vkey,
             MAX_ACTION_DELAY,
-            FREEZE_DURATION,
             PROTOCOL_FEE_BIPS
         );
     }
@@ -168,8 +164,7 @@ contract SuccinctVAppSetupTests is SuccinctVAppTest {
             VERIFIER,
             FEE_VAULT,
             jsonFixture.vkey,
-            1 days,
-            1 days,
+            MAX_ACTION_DELAY,
             PROTOCOL_FEE_BIPS
         );
     }

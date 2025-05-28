@@ -25,9 +25,6 @@ interface ISuccinctVApp {
     /// @notice Withdrawal claimed event
     event WithdrawalClaimed(address indexed account, address sender, uint256 amount);
 
-    /// @notice Emergency withdrawal event
-    event EmergencyWithdrawal(address indexed account, uint256 balance, bytes32 root);
-
     /// @notice The staking address was updated.
     event StakingUpdate(address indexed staking);
 
@@ -40,17 +37,11 @@ interface ISuccinctVApp {
     /// @notice The max action delay was updated.
     event MaxActionDelayUpdate(uint64 indexed actionDelay);
 
-    /// @notice The freeze duration was updated.
-    event FreezeDurationUpdate(uint64 indexed freezeDuration);
-
     /// @notice The minimum deposit was updated.
     event MinimumDepositUpdate(uint256 amount);
 
     /// @notice The protocol fee was updated.
     event ProtocolFeeBipsUpdate(uint256 protocolFeeBips);
-
-    /// @dev Thrown if the array lengths do not match.
-    error ArrayLengthMismatch();
 
     /// @dev Thrown if the actual balance does not match the expected balance.
     error BalanceMismatch();
@@ -124,9 +115,6 @@ interface ISuccinctVApp {
 
     /// @notice The maximum delay for actions to be committed, in seconds.
     function maxActionDelay() external view returns (uint64);
-
-    /// @notice How long it takes for the state to be consideredfrozen.
-    function freezeDuration() external view returns (uint64);
 
     /// @notice The minimum amount for deposit/withdraw operations.
     function minimumDeposit() external view returns (uint256);
@@ -220,12 +208,6 @@ interface ISuccinctVApp {
     /// @return amount The amount claimed.
     function claimWithdrawal(address to) external returns (uint256 amount);
 
-    /// @notice Emergency withdrawal from the contract.
-    /// @dev Anyone can call this function to withdraw their balance after the freeze duration has passed.
-    /// @param balance The balance to withdraw.
-    /// @param proof The proof for the withdrawal.
-    function emergencyWithdraw(uint256 balance, bytes32[] calldata proof) external;
-
     /// @notice Add a delegated signer.
     /// @dev Must be called by a prover owner.
     /// @param signer The signer to add.
@@ -279,11 +261,6 @@ interface ISuccinctVApp {
     /// @dev Only callable by the owner.
     /// @param maxActionDelay The new max action delay.
     function updateActionDelay(uint64 maxActionDelay) external;
-
-    /// @notice Updates the freeze duration.
-    /// @dev Only callable by the owner.
-    /// @param freezeDuration The new freeze duration.
-    function updateFreezeDuration(uint64 freezeDuration) external;
 
     /// @notice Updates the minimum amount for deposit/withdraw operations.
     /// @dev Only callable by the owner.

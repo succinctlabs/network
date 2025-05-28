@@ -55,7 +55,6 @@ contract AllScript is BaseScript, FixtureLoader {
         address VERIFIER = SP1_VERIFIER_GATEWAY_GROTH16;
         address FEE_VAULT = readAddress("FEE_VAULT");
         uint64 MAX_ACTION_DELAY = readUint64("MAX_ACTION_DELAY");
-        uint64 FREEZE_DURATION = readUint64("FREEZE_DURATION");
         uint256 PROTOCOL_FEE_BIPS = readUint256("PROTOCOL_FEE_BIPS");
 
         // Load fixture
@@ -74,7 +73,6 @@ contract AllScript is BaseScript, FixtureLoader {
             VERIFIER,
             VKEY,
             MAX_ACTION_DELAY,
-            FREEZE_DURATION,
             PROTOCOL_FEE_BIPS
         );
 
