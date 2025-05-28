@@ -14,6 +14,9 @@ import {IProverRegistry} from "../interfaces/IProverRegistry.sol";
 ///      provers are only contracts with `type(SuccinctProver).creationCode`.
 abstract contract ProverRegistry is IProverRegistry {
     /// @inheritdoc IProverRegistry
+    address public override vapp;
+
+    /// @inheritdoc IProverRegistry
     address public override prove;
 
     /// @inheritdoc IProverRegistry
@@ -33,7 +36,8 @@ abstract contract ProverRegistry is IProverRegistry {
         _;
     }
 
-    function __ProverRegistry_init(address _prove, address _iProve) internal {
+    function __ProverRegistry_init(address _vapp, address _prove, address _iProve) internal {
+        vapp = _vapp;
         prove = _prove;
         iProve = _iProve;
     }

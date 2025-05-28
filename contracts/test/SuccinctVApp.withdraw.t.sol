@@ -248,7 +248,7 @@ contract SuccinctVAppWithdrawTest is SuccinctVAppTest {
         uint256 withdrawAmount = 5e6; // 5 PROVE - below minimum
 
         // Set minimum amount
-        SuccinctVApp(VAPP).setMinimumDeposit(minAmount);
+        SuccinctVApp(VAPP).setMinDepositAmount(minAmount);
 
         // Try to withdraw below minimum
         vm.startPrank(REQUESTER_1);

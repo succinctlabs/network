@@ -73,7 +73,7 @@ contract SuccinctVApp is
     uint64 public override maxActionDelay;
 
     /// @inheritdoc ISuccinctVApp
-    uint256 public override minimumDeposit;
+    uint256 public override minDepositAmount;
 
     /// @inheritdoc ISuccinctVApp
     uint256 public override protocolFeeBips;
@@ -359,8 +359,8 @@ contract SuccinctVApp is
     }
 
     /// @inheritdoc ISuccinctVApp
-    function setMinimumDeposit(uint256 _amount) external override onlyOwner {
-        _setMinimumDeposit(_amount);
+    function setMinDepositAmount(uint256 _amount) external override onlyOwner {
+        _setMinDepositAmount(_amount);
     }
 
     /// @inheritdoc ISuccinctVApp
@@ -375,7 +375,7 @@ contract SuccinctVApp is
     /// @dev Credits a deposit receipt and transfers $PROVE from the sender to the VApp.
     function _deposit(address _from, uint256 _amount) internal returns (uint64 receipt) {
         // Validate.
-        if (_amount < minimumDeposit) {
+        if (_amount < minDepositAmount) {
             revert TransferBelowMinimum();
         }
 
@@ -395,7 +395,7 @@ contract SuccinctVApp is
     function _withdraw(address _from, address _to, uint256 _amount) internal returns (uint64 receipt) {
         // Validate.
         if (_to == address(0)) revert ZeroAddress();
-        if (_amount < minimumDeposit) {
+        if (_amount < minDepositAmount) {
             revert TransferBelowMinimum();
         }
 
@@ -547,10 +547,10 @@ contract SuccinctVApp is
     }
 
     /// @dev Sets the minimum amount for deposit/withdraw operations.
-    function _setMinimumDeposit(uint256 _amount) internal {
-        minimumDeposit = _amount;
+    function _setMinDepositAmount(uint256 _amount) internal {
+        minDepositAmount = _amount;
 
-        emit MinimumDepositUpdate(_amount);
+        emit MinDepositAmountUpdate(_amount);
     }
 
     /// @dev Sets the protocol fee in basis points.

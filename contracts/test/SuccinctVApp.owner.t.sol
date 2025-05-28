@@ -80,35 +80,35 @@ contract SuccinctVAppOwnerTest is SuccinctVAppTest {
         uint256 minAmount = 10e6; // 10 PROVE
 
         vm.expectEmit(true, true, true, true);
-        emit ISuccinctVApp.MinimumDepositUpdate(minAmount);
+        emit ISuccinctVApp.MinDepositAmountUpdate(minAmount);
         vm.prank(OWNER);
-        SuccinctVApp(VAPP).setMinimumDeposit(minAmount);
+        SuccinctVApp(VAPP).setMinDepositAmount(minAmount);
 
-        assertEq(SuccinctVApp(VAPP).minimumDeposit(), minAmount);
+        assertEq(SuccinctVApp(VAPP).minDepositAmount(), minAmount);
 
         // Update to a different value
         uint256 newTransferBelowMinimum = 20e6; // 20 PROVE
 
         vm.expectEmit(true, true, true, true);
-        emit ISuccinctVApp.MinimumDepositUpdate(newTransferBelowMinimum);
-        SuccinctVApp(VAPP).setMinimumDeposit(newTransferBelowMinimum);
+        emit ISuccinctVApp.MinDepositAmountUpdate(newTransferBelowMinimum);
+        SuccinctVApp(VAPP).setMinDepositAmount(newTransferBelowMinimum);
 
-        assertEq(SuccinctVApp(VAPP).minimumDeposit(), newTransferBelowMinimum);
+        assertEq(SuccinctVApp(VAPP).minDepositAmount(), newTransferBelowMinimum);
 
         // Set to zero to disable minimum check
         vm.expectEmit(true, true, true, true);
-        emit ISuccinctVApp.MinimumDepositUpdate(0);
-        SuccinctVApp(VAPP).setMinimumDeposit(0);
+        emit ISuccinctVApp.MinDepositAmountUpdate(0);
+        SuccinctVApp(VAPP).setMinDepositAmount(0);
 
-        assertEq(SuccinctVApp(VAPP).minimumDeposit(), 0);
+        assertEq(SuccinctVApp(VAPP).minDepositAmount(), 0);
     }
 
-    function test_RevertSetMinimumDeposit_WhenNotOwner() public {
+    function test_RevertSetminDepositAmount_WhenNotOwner() public {
         vm.expectRevert(
             abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, REQUESTER_1)
         );
         vm.prank(REQUESTER_1);
-        SuccinctVApp(VAPP).setMinimumDeposit(10e6);
+        SuccinctVApp(VAPP).setMinDepositAmount(10e6);
     }
 
     function test_SetProtocolFeeBips_WhenValid() public {

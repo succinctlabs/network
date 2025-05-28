@@ -17,6 +17,9 @@ interface IProverRegistry {
     /// @dev Thrown if a prover already exists for this owner.
     error ProverAlreadyExists();
 
+    /// @notice The address of the VApp.
+    function vapp() external view returns (address);
+
     /// @notice The address of the $PROVE token.
     function prove() external view returns (address);
 

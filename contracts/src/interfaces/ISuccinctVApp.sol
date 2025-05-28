@@ -38,7 +38,7 @@ interface ISuccinctVApp {
     event MaxActionDelayUpdate(uint64 indexed actionDelay);
 
     /// @notice The minimum deposit was updated.
-    event MinimumDepositUpdate(uint256 amount);
+    event MinDepositAmountUpdate(uint256 amount);
 
     /// @notice The protocol fee was updated.
     event ProtocolFeeBipsUpdate(uint256 protocolFeeBips);
@@ -117,7 +117,7 @@ interface ISuccinctVApp {
     function maxActionDelay() external view returns (uint64);
 
     /// @notice The minimum amount for deposit/withdraw operations.
-    function minimumDeposit() external view returns (uint256);
+    function minDepositAmount() external view returns (uint256);
 
     /// @notice The protocol fee in basis points.
     function protocolFeeBips() external view returns (uint256);
@@ -259,13 +259,13 @@ interface ISuccinctVApp {
 
     /// @notice Updates the max action delay.
     /// @dev Only callable by the owner.
-    /// @param maxActionDelay The new max action delay.
-    function updateActionDelay(uint64 maxActionDelay) external;
+    /// @param delay The new max action delay.
+    function updateActionDelay(uint64 delay) external;
 
     /// @notice Updates the minimum amount for deposit/withdraw operations.
     /// @dev Only callable by the owner.
     /// @param amount The new minimum amount.
-    function setMinimumDeposit(uint256 amount) external;
+    function setMinDepositAmount(uint256 amount) external;
 
     /// @notice Updates the protocol fee in basis points.
     /// @dev Only callable by the owner.
