@@ -41,7 +41,8 @@ import {IERC20Permit} from
 
 /// @title SuccinctVApp
 /// @author Succinct Labs
-/// @notice Settlement layer for the vApp, processes actions resulting from state transitions.
+/// @notice Settlement layer for the Succinct Prover Network.
+/// @dev Processes actions resulting from state transitions.
 contract SuccinctVApp is
     Initializable,
     ReentrancyGuardUpgradeable,

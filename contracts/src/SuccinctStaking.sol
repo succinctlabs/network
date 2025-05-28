@@ -27,9 +27,6 @@ contract SuccinctStaking is
     using SafeERC20 for IERC20;
 
     /// @inheritdoc ISuccinctStaking
-    address public override vapp;
-
-    /// @inheritdoc ISuccinctStaking
     uint256 public override minStakeAmount;
 
     /// @inheritdoc ISuccinctStaking
@@ -78,8 +75,7 @@ contract SuccinctStaking is
         uint256 _dispenseRate
     ) external onlyOwner initializer {
         // Setup the initial state.
-        __ProverRegistry_init(_prove, _intermediateProve);
-        vapp = _vApp;
+        __ProverRegistry_init(_vApp, _prove, _intermediateProve);
         minStakeAmount = _minStakeAmount;
         unstakePeriod = _unstakePeriod;
         slashPeriod = _slashPeriod;
