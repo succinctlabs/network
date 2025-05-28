@@ -29,9 +29,9 @@ contract AllScript is BaseScript, FixtureLoader {
         // Deploy contracts
         address STAKING = address(new SuccinctStaking{salt: salt}(OWNER));
         address PROVE = address(new Succinct{salt: salt}(OWNER));
-        address VAPP = _deployVAppAsProxy(salt, PROVE, STAKING);
         address I_PROVE = address(new IntermediateSuccinct{salt: salt}(PROVE, STAKING));
-        address GOVERNOR = address(new SuccinctGovernor{salt: salt}(I_PROVE));
+        address VAPP = _deployVAppAsProxy(salt, PROVE, STAKING);
+        address GOVERNOR = address(new SuccinctGovernor{salt: salt}(STAKING));
 
         // Initialize staking contract
         SuccinctStaking(STAKING).initialize(
