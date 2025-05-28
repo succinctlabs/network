@@ -17,6 +17,7 @@ enum ReceiptStatus {
     Failed
 }
 /// @notice The public values encoded as a struct that can be easily deserialized inside Solidity.
+
 struct PublicValuesStruct {
     bytes32 oldRoot;
     bytes32 newRoot;

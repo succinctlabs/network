@@ -41,7 +41,6 @@ contract E2ETest is Test, FixtureLoader {
     uint256 public constant SLASH_PERIOD = 7 days;
     uint256 public constant DISPENSE_RATE = 1268391679; // ~4% yearly
     uint64 public constant MAX_ACTION_DELAY = 1 days;
-    uint64 public constant FREEZE_DURATION = 1 days;
     uint256 public constant STAKER_FEE_BIPS = 1000; // 10%
     uint256 public constant PROTOCOL_FEE_BIPS = 30; // 0.3%
 
@@ -123,7 +122,6 @@ contract E2ETest is Test, FixtureLoader {
             FEE_VAULT,
             jsonFixture.vkey,
             MAX_ACTION_DELAY,
-            FREEZE_DURATION,
             PROTOCOL_FEE_BIPS
         );
 

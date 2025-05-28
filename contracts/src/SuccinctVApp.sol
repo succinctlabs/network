@@ -73,9 +73,6 @@ contract SuccinctVApp is
     uint64 public override maxActionDelay;
 
     /// @inheritdoc ISuccinctVApp
-    uint64 public override freezeDuration;
-
-    /// @inheritdoc ISuccinctVApp
     uint256 public override minimumDeposit;
 
     /// @inheritdoc ISuccinctVApp
@@ -128,7 +125,6 @@ contract SuccinctVApp is
         address _feeVault,
         bytes32 _vappProgramVKey,
         uint64 _maxActionDelay,
-        uint64 _freezeDuration,
         uint256 _protocolFeeBips
     ) external initializer {
         if (
@@ -147,14 +143,12 @@ contract SuccinctVApp is
         feeVault = _feeVault;
         vappProgramVKey = _vappProgramVKey;
         maxActionDelay = _maxActionDelay;
-        freezeDuration = _freezeDuration;
         protocolFeeBips = _protocolFeeBips;
 
         _updateStaking(_staking);
         _updateVerifier(_verifier);
         _updateFeeVault(_feeVault);
         _updateActionDelay(_maxActionDelay);
-        _updateFreezeDuration(_freezeDuration);
         _setProtocolFeeBips(_protocolFeeBips);
 
         emit Fork(_vappProgramVKey, 0, bytes32(0), bytes32(0));
@@ -365,11 +359,6 @@ contract SuccinctVApp is
     }
 
     /// @inheritdoc ISuccinctVApp
-    function updateFreezeDuration(uint64 _freezeDuration) external override onlyOwner {
-        _updateFreezeDuration(_freezeDuration);
-    }
-
-    /// @inheritdoc ISuccinctVApp
     function setMinimumDeposit(uint256 _amount) external override onlyOwner {
         _setMinimumDeposit(_amount);
     }
@@ -557,13 +546,6 @@ contract SuccinctVApp is
         maxActionDelay = _maxActionDelay;
 
         emit MaxActionDelayUpdate(_maxActionDelay);
-    }
-
-    /// @dev Updates the freeze duration.
-    function _updateFreezeDuration(uint64 _freezeDuration) internal {
-        freezeDuration = _freezeDuration;
-
-        emit FreezeDurationUpdate(_freezeDuration);
     }
 
     /// @dev Sets the minimum amount for deposit/withdraw operations.

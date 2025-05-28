@@ -37,9 +37,6 @@ interface ISuccinctVApp {
     /// @notice The max action delay was updated.
     event MaxActionDelayUpdate(uint64 indexed actionDelay);
 
-    /// @notice The freeze duration was updated.
-    event FreezeDurationUpdate(uint64 indexed freezeDuration);
-
     /// @notice The minimum deposit was updated.
     event MinimumDepositUpdate(uint256 amount);
 
@@ -118,9 +115,6 @@ interface ISuccinctVApp {
 
     /// @notice The maximum delay for actions to be committed, in seconds.
     function maxActionDelay() external view returns (uint64);
-
-    /// @notice How long it takes for the state to be consideredfrozen.
-    function freezeDuration() external view returns (uint64);
 
     /// @notice The minimum amount for deposit/withdraw operations.
     function minimumDeposit() external view returns (uint256);
@@ -267,11 +261,6 @@ interface ISuccinctVApp {
     /// @dev Only callable by the owner.
     /// @param maxActionDelay The new max action delay.
     function updateActionDelay(uint64 maxActionDelay) external;
-
-    /// @notice Updates the freeze duration.
-    /// @dev Only callable by the owner.
-    /// @param freezeDuration The new freeze duration.
-    function updateFreezeDuration(uint64 freezeDuration) external;
 
     /// @notice Updates the minimum amount for deposit/withdraw operations.
     /// @dev Only callable by the owner.

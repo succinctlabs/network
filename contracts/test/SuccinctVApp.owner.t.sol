@@ -76,25 +76,6 @@ contract SuccinctVAppOwnerTest is SuccinctVAppTest {
         SuccinctVApp(VAPP).updateActionDelay(2 days);
     }
 
-    function test_UpdateFreezeDuration() public {
-        uint64 newDuration = 3 days;
-
-        vm.expectEmit(true, true, true, true);
-        emit ISuccinctVApp.FreezeDurationUpdate(newDuration);
-        vm.prank(OWNER);
-        SuccinctVApp(VAPP).updateFreezeDuration(newDuration);
-
-        assertEq(SuccinctVApp(VAPP).freezeDuration(), newDuration);
-    }
-
-    function test_RevertUpdateFreezeDuration_WhenNotOwner() public {
-        vm.expectRevert(
-            abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, REQUESTER_1)
-        );
-        vm.prank(REQUESTER_1);
-        SuccinctVApp(VAPP).updateFreezeDuration(3 days);
-    }
-
     function test_SetTransferBelowMinimum_WhenValid() public {
         uint256 minAmount = 10e6; // 10 PROVE
 
