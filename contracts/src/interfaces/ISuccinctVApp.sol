@@ -23,7 +23,7 @@ interface ISuccinctVApp {
     event ReceiptPending(uint64 indexed receipt, ActionType indexed action, bytes data);
 
     /// @notice Emitted when a withdrawal is claimed.
-    event WithdrawalClaimed(address indexed account, address sender, uint256 amount);
+    event WithdrawalCompleted(address indexed account, address sender, uint256 amount);
 
     /// @notice Emitted when the staking address was updated.
     event StakingUpdate(address oldStaking, address newStaking);
@@ -125,12 +125,6 @@ interface ISuccinctVApp {
     /// @notice The protocol fee in basis points.
     function protocolFeeBips() external view returns (uint256);
 
-    /// @notice The total deposits for the vApp.
-    function totalDeposits() external view returns (uint256);
-
-    /// @notice The total pending withdrawal claims for each token
-    function totalPendingWithdrawals() external view returns (uint256);
-
     /// @notice The state root for the current block.
     function root() external view returns (bytes32);
 
@@ -209,7 +203,7 @@ interface ISuccinctVApp {
     /// @notice Claim a pending withdrawal from the contract.
     /// @param to The address to claim the withdrawal to.
     /// @return amount The amount claimed.
-    function claimWithdrawal(address to) external returns (uint256 amount);
+    function completeWithdrawal(address to) external returns (uint256 amount);
 
     /// @notice Add a delegated signer.
     /// @dev Must be called by a prover owner.

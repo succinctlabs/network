@@ -58,13 +58,6 @@ contract SuccinctProver is ERC4626, IProver {
         stakerFeeBips = _stakerFeeBips;
     }
 
-    /// @inheritdoc IProver
-    function claimRewards() external override {
-        address vapp = ISuccinctStaking(staking).vapp();
-
-        ISuccinctVApp(vapp).claimWithdrawal(msg.sender);
-    }
-
     /// @dev Override to prevent transfers of $PROVER-N tokens except for stake/unstake
     function _update(address _from, address _to, uint256 _value) internal override(ERC20) {
         if (msg.sender != staking) {

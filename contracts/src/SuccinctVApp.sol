@@ -80,12 +80,6 @@ contract SuccinctVApp is
     uint256 public override protocolFeeBips;
 
     /// @inheritdoc ISuccinctVApp
-    uint256 public override totalDeposits;
-
-    /// @inheritdoc ISuccinctVApp
-    uint256 public override totalPendingWithdrawals;
-
-    /// @inheritdoc ISuccinctVApp
     uint64 public override currentReceipt;
 
     /// @inheritdoc ISuccinctVApp
@@ -231,19 +225,18 @@ contract SuccinctVApp is
     }
 
     /// @inheritdoc ISuccinctVApp
-    function claimWithdrawal(address _to) external override returns (uint256 amount) {
+    function completeWithdrawal(address _to) external override returns (uint256 amount) {
         // Validate.
         amount = withdrawalClaims[_to];
         if (amount == 0) revert NoWithdrawalToClaim();
 
         // Update the state.
-        totalPendingWithdrawals -= amount;
         withdrawalClaims[_to] = 0;
 
         // Transfer the withdrawal.
         ERC20(prove).safeTransfer(_to, amount);
 
-        emit WithdrawalClaimed(_to, msg.sender, amount);
+        emit WithdrawalCompleted(_to, msg.sender, amount);
     }
 
     /// @inheritdoc ISuccinctVApp
@@ -369,9 +362,6 @@ contract SuccinctVApp is
         bytes memory data =
             abi.encode(DepositAction({account: _from, amount: _amount, token: prove}));
         receipt = _createReceipt(ActionType.Deposit, data);
-
-        // Update the state.
-        totalDeposits += _amount;
 
         // Transfer $PROVE from the sender to the VApp.
         ERC20(prove).safeTransferFrom(_from, address(this), _amount);
@@ -533,9 +523,7 @@ contract SuccinctVApp is
     /// @dev Processes a withdrawal by creating a claim for the amount.
     function _processWithdraw(address _to, uint256 _amount) internal {
         // Update the state.
-        totalPendingWithdrawals += _amount;
         withdrawalClaims[_to] += _amount;
-        totalDeposits -= _amount;
     }
 
     /// @dev Updates the staking contract.
