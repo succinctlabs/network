@@ -2,6 +2,8 @@
 pragma solidity ^0.8.28;
 
 import {IProver} from "../interfaces/IProver.sol";
+import {ISuccinctStaking} from "../interfaces/ISuccinctStaking.sol";
+import {ISuccinctVApp} from "../interfaces/ISuccinctVApp.sol";
 import {ERC20} from "../../lib/openzeppelin-contracts/contracts/token/ERC20/ERC20.sol";
 import {IERC20} from "../../lib/openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
 import {ERC4626} from
@@ -56,7 +58,7 @@ contract SuccinctProver is ERC4626, IProver {
         stakerFeeBips = _stakerFeeBips;
     }
 
-    /// @dev Override to prevent transfers of PROVER-N tokens except for stake/unstake
+    /// @dev Override to prevent transfers of $PROVER-N tokens except for stake/unstake
     function _update(address _from, address _to, uint256 _value) internal override(ERC20) {
         if (msg.sender != staking) {
             revert NonTransferable();

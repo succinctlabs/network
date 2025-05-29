@@ -30,7 +30,7 @@ contract AllScript is BaseScript, FixtureLoader {
         address STAKING = address(new SuccinctStaking{salt: salt}(OWNER));
         address PROVE = address(new Succinct{salt: salt}(OWNER));
         address I_PROVE = address(new IntermediateSuccinct{salt: salt}(PROVE, STAKING));
-        address VAPP = _deployVAppAsProxy(salt, PROVE, STAKING);
+        address VAPP = _deployVAppAsProxy(salt, PROVE, I_PROVE, STAKING);
         address GOVERNOR = address(new SuccinctGovernor{salt: salt}(STAKING));
 
         // Initialize staking contract
@@ -47,7 +47,7 @@ contract AllScript is BaseScript, FixtureLoader {
     }
 
     /// @dev This is a stack-too-deep workaround.
-    function _deployVAppAsProxy(bytes32 salt, address PROVE, address STAKING)
+    function _deployVAppAsProxy(bytes32 salt, address PROVE, address I_PROVE, address STAKING)
         internal
         returns (address)
     {
@@ -68,6 +68,7 @@ contract AllScript is BaseScript, FixtureLoader {
         SuccinctVApp(VAPP).initialize(
             msg.sender,
             PROVE,
+            I_PROVE,
             STAKING,
             FEE_VAULT,
             VERIFIER,

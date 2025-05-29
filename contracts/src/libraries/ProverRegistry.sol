@@ -12,6 +12,7 @@ import {ISuccinctVApp} from "../interfaces/ISuccinctVApp.sol";
 /// @notice This contract is used to manage provers.
 /// @dev Because provers are approved to spend $iPROVE, it is important that tracked
 ///      provers are only contracts with `type(SuccinctProver).creationCode`.
+
 abstract contract ProverRegistry is IProverRegistry {
     /// @inheritdoc IProverRegistry
     address public override vapp;
@@ -27,6 +28,15 @@ abstract contract ProverRegistry is IProverRegistry {
 
     mapping(address => address) internal ownerToProver;
     mapping(address => bool) internal provers;
+
+    /// @dev This call must be sent by the VApp contract. This also acts as a check to ensure that the contract
+    ///      has been initialized.
+    modifier onlyVApp() {
+        if (msg.sender != vapp) {
+            revert NotAuthorized();
+        }
+        _;
+    }
 
     /// @dev This call must target a prover that exists in the registry.
     modifier onlyForProver(address _prover) {

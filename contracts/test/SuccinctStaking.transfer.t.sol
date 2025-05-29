@@ -7,7 +7,7 @@ import {ERC20} from "../lib/openzeppelin-contracts/contracts/token/ERC20/ERC20.s
 import {IIntermediateSuccinct} from "../src/interfaces/IIntermediateSuccinct.sol";
 import {IERC4626} from "../lib/openzeppelin-contracts/contracts/interfaces/IERC4626.sol";
 
-// Ensures that iPROVE, PROVER-N, and stPROVE cannot be transferred (or deposited/withdrawn directly).
+// Ensures that $iPROVE, $PROVER-N, and $stPROVE cannot be transferred (or deposited/withdrawn directly).
 
 contract SuccinctStakingTransferTests is SuccinctStakingTest {
     function test_Transfer_WhenProve() public {
@@ -38,7 +38,7 @@ contract SuccinctStakingTransferTests is SuccinctStakingTest {
         // Stake to Alice prover
         _stake(STAKER_1, ALICE_PROVER, stakeAmount);
 
-        // Try to transfer PROVER-N
+        // Try to transfer $PROVER-N
         vm.expectRevert(abi.encodeWithSelector(IIntermediateSuccinct.NonTransferable.selector));
         vm.prank(STAKER_1);
         ERC20(ALICE_PROVER).transfer(OWNER, stakeAmount);

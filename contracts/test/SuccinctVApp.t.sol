@@ -53,6 +53,7 @@ contract SuccinctVAppTest is Test, FixtureLoader {
     address public VERIFIER;
     address public FEE_VAULT;
     address public PROVE;
+    address public I_PROVE;
     address public VAPP;
     address public STAKING;
 
@@ -85,6 +86,7 @@ contract SuccinctVAppTest is Test, FixtureLoader {
 
         // Deploy tokens
         PROVE = address(new MockERC20("Succinct", "PROVE", 18));
+        I_PROVE = address(new MockERC20("Succinct", "iPROVE", 18));
 
         // Deploy staking
         STAKING = address(new MockStaking(PROVE));
@@ -95,6 +97,7 @@ contract SuccinctVAppTest is Test, FixtureLoader {
         SuccinctVApp(VAPP).initialize(
             OWNER,
             PROVE,
+            I_PROVE,
             STAKING,
             VERIFIER,
             FEE_VAULT,
@@ -146,6 +149,7 @@ contract SuccinctVAppSetupTests is SuccinctVAppTest {
     function test_SetUp() public view {
         assertEq(SuccinctVApp(VAPP).owner(), OWNER);
         assertEq(SuccinctVApp(VAPP).prove(), PROVE);
+        assertEq(SuccinctVApp(VAPP).iProve(), I_PROVE);
         assertEq(SuccinctVApp(VAPP).staking(), STAKING);
         assertEq(SuccinctVApp(VAPP).verifier(), VERIFIER);
         assertEq(SuccinctVApp(VAPP).feeVault(), FEE_VAULT);
@@ -160,6 +164,7 @@ contract SuccinctVAppSetupTests is SuccinctVAppTest {
         SuccinctVApp(VAPP).initialize(
             OWNER,
             PROVE,
+            I_PROVE,
             STAKING,
             VERIFIER,
             FEE_VAULT,

@@ -40,13 +40,13 @@ contract SuccinctGovernor is
         return super.votingPeriod();
     }
 
-    function quorum(uint256 blockNumber)
+    function quorum(uint256 _blockNumber)
         public
         view
         override(Governor, GovernorVotesQuorumFraction)
         returns (uint256)
     {
-        return super.quorum(blockNumber);
+        return super.quorum(_blockNumber);
     }
 
     function proposalThreshold()

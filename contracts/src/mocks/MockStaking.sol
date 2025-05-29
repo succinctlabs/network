@@ -144,15 +144,6 @@ contract MockStaking is ISuccinctStaking {
         return 0;
     }
 
-    function reward(address _prover, uint256 _amount) external override {
-        // Verify caller is VApp
-        require(msg.sender == vapp, "Not authorized");
-        // Note: The VApp has already transferred the staker reward amount to this contract
-        // In a real staking contract, this would distribute rewards to stakers
-        // For the mock, we just emit the event to indicate the reward was processed
-        emit Reward(_prover, _amount);
-    }
-
     function requestSlash(address _prover, uint256 _iPROVE) external override returns (uint256) {
         uint256 index = slashClaims[_prover].length;
         slashClaims[_prover].push(SlashClaim({iPROVE: _iPROVE, timestamp: block.timestamp}));
