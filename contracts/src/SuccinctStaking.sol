@@ -4,6 +4,7 @@ pragma solidity ^0.8.28;
 import {ProverRegistry} from "./libraries/ProverRegistry.sol";
 import {StakedSuccinct} from "./tokens/StakedSuccinct.sol";
 import {ISuccinctStaking} from "./interfaces/ISuccinctStaking.sol";
+import {ISuccinctVApp} from "./interfaces/ISuccinctVApp.sol";
 import {IIntermediateSuccinct} from "./interfaces/IIntermediateSuccinct.sol";
 import {Initializable} from "../lib/openzeppelin-contracts/contracts/proxy/utils/Initializable.sol";
 import {Ownable} from "../lib/openzeppelin-contracts/contracts/access/Ownable.sol";
@@ -175,6 +176,7 @@ contract SuccinctStaking is
         bytes32 _r,
         bytes32 _s
     ) external override onlyForProver(_prover) returns (uint256) {
+        // Approve this contract to spend the $PROVE from the staker.
         IERC20Permit(prove).permit(_from, address(this), _amount, _deadline, _v, _r, _s);
 
         return _stake(_from, _prover, _amount);
@@ -207,6 +209,10 @@ contract SuccinctStaking is
             UnstakeClaim({stPROVE: _stPROVE, timestamp: block.timestamp})
         );
 
+        // Trigger a withdrawal on the prover so that any pending rewards are
+        // are sent to the prover vault by the time the unstake is finished.
+        ISuccinctVApp(vapp).requestWithdraw(prover, type(uint256).max);
+
         emit UnstakeRequest(msg.sender, prover, _stPROVE);
     }
 
@@ -222,6 +228,12 @@ contract SuccinctStaking is
 
         // Check that this prover is not in the process of being slashed.
         if (slashClaims[prover].length > 0) revert ProverHasSlashRequest();
+
+        // If the prover has any claimable withdrawal, withdraw it *before* unstaking
+        // from the prover vault.
+        if (ISuccinctVApp(vapp).claimableWithdrawal(prover) > 0) {
+            ISuccinctVApp(vapp).finishWithdrawal(prover);
+        }
 
         // Process the available unstake claims.
         PROVE_ += _finishUnstake(prover, claims);

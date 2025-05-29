@@ -62,7 +62,7 @@ contract SuccinctVAppWithdrawTest is SuccinctVAppTest {
 
         vm.expectEmit(true, true, true, true);
         emit ISuccinctVApp.ReceiptPending(2, ActionType.Withdraw, withdrawData);
-        uint64 withdrawReceipt = SuccinctVApp(VAPP).withdraw(REQUESTER_2, amount);
+        uint64 withdrawReceipt = SuccinctVApp(VAPP).requestWithdraw(REQUESTER_2, amount);
         vm.stopPrank();
 
         assertEq(withdrawReceipt, 2);
@@ -95,7 +95,7 @@ contract SuccinctVAppWithdrawTest is SuccinctVAppTest {
         SuccinctVApp(VAPP).updateState(abi.encode(withdrawPublicValues), jsonFixture.proof);
 
         // Verify withdrawal claims created
-        assertEq(SuccinctVApp(VAPP).withdrawalClaims(REQUESTER_2), amount);
+        assertEq(SuccinctVApp(VAPP).claimableWithdrawal(REQUESTER_2), amount);
 
         // Verify finalizedReceipt updated
         assertEq(SuccinctVApp(VAPP).finalizedReceipt(), 2);
@@ -104,18 +104,18 @@ contract SuccinctVAppWithdrawTest is SuccinctVAppTest {
         assertEq(MockERC20(PROVE).balanceOf(REQUESTER_2), 0);
         vm.startPrank(REQUESTER_2);
         vm.expectEmit(true, true, true, true);
-        emit ISuccinctVApp.WithdrawalCompleted(REQUESTER_2, REQUESTER_2, amount);
-        uint256 claimedAmount = SuccinctVApp(VAPP).completeWithdrawal(REQUESTER_2);
+        emit ISuccinctVApp.Withdrawal(REQUESTER_2, REQUESTER_2, amount);
+        uint256 claimedAmount = SuccinctVApp(VAPP).finishWithdrawal(REQUESTER_2);
         vm.stopPrank();
 
         assertEq(claimedAmount, amount);
         assertEq(MockERC20(PROVE).balanceOf(REQUESTER_2), amount); // User2 now has the PROVE
-        assertEq(SuccinctVApp(VAPP).withdrawalClaims(REQUESTER_2), 0); // Claim is cleared
+        assertEq(SuccinctVApp(VAPP).claimableWithdrawal(REQUESTER_2), 0); // Claim is cleared
 
         // Reattempt claim
         vm.startPrank(REQUESTER_2);
         vm.expectRevert(abi.encodeWithSelector(ISuccinctVApp.NoWithdrawalToClaim.selector));
-        SuccinctVApp(VAPP).completeWithdrawal(REQUESTER_2);
+        SuccinctVApp(VAPP).finishWithdrawal(REQUESTER_2);
         vm.stopPrank();
     }
 
@@ -161,7 +161,7 @@ contract SuccinctVAppWithdrawTest is SuccinctVAppTest {
 
         vm.expectEmit(true, true, true, true);
         emit ISuccinctVApp.ReceiptPending(2, ActionType.Withdraw, withdrawData);
-        uint64 withdrawReceipt = SuccinctVApp(VAPP).withdraw(REQUESTER_3, amount);
+        uint64 withdrawReceipt = SuccinctVApp(VAPP).requestWithdraw(REQUESTER_3, amount);
         vm.stopPrank();
 
         assertEq(withdrawReceipt, 2);
@@ -194,8 +194,8 @@ contract SuccinctVAppWithdrawTest is SuccinctVAppTest {
         SuccinctVApp(VAPP).updateState(abi.encode(withdrawPublicValues), jsonFixture.proof);
 
         // Verify withdrawal claim was created for user3, not user2
-        assertEq(SuccinctVApp(VAPP).withdrawalClaims(REQUESTER_2), 0);
-        assertEq(SuccinctVApp(VAPP).withdrawalClaims(REQUESTER_3), amount);
+        assertEq(SuccinctVApp(VAPP).claimableWithdrawal(REQUESTER_2), 0);
+        assertEq(SuccinctVApp(VAPP).claimableWithdrawal(REQUESTER_3), amount);
 
         // Verify finalizedReceipt updated
         assertEq(SuccinctVApp(VAPP).finalizedReceipt(), 2);
@@ -204,26 +204,26 @@ contract SuccinctVAppWithdrawTest is SuccinctVAppTest {
         assertEq(MockERC20(PROVE).balanceOf(REQUESTER_3), 0);
         vm.startPrank(REQUESTER_3);
         vm.expectEmit(true, true, true, true);
-        emit ISuccinctVApp.WithdrawalCompleted(REQUESTER_3, REQUESTER_3, amount);
-        uint256 claimedAmount = SuccinctVApp(VAPP).completeWithdrawal(REQUESTER_3);
+        emit ISuccinctVApp.Withdrawal(REQUESTER_3, REQUESTER_3, amount);
+        uint256 claimedAmount = SuccinctVApp(VAPP).finishWithdrawal(REQUESTER_3);
         vm.stopPrank();
 
         // Verify claim was successful, and user3 has the funds
         assertEq(claimedAmount, amount);
         assertEq(MockERC20(PROVE).balanceOf(REQUESTER_3), amount); // User3 now has the PROVE
         assertEq(MockERC20(PROVE).balanceOf(REQUESTER_2), 0); // User2 has nothing
-        assertEq(SuccinctVApp(VAPP).withdrawalClaims(REQUESTER_3), 0); // Claim is cleared
+        assertEq(SuccinctVApp(VAPP).claimableWithdrawal(REQUESTER_3), 0); // Claim is cleared
 
         // Attempt to claim again should fail
         vm.startPrank(REQUESTER_3);
         vm.expectRevert(abi.encodeWithSelector(ISuccinctVApp.NoWithdrawalToClaim.selector));
-        SuccinctVApp(VAPP).completeWithdrawal(REQUESTER_3);
+        SuccinctVApp(VAPP).finishWithdrawal(REQUESTER_3);
         vm.stopPrank();
 
         // User2 shouldn't be able to claim either
         vm.startPrank(REQUESTER_2);
         vm.expectRevert(abi.encodeWithSelector(ISuccinctVApp.NoWithdrawalToClaim.selector));
-        SuccinctVApp(VAPP).completeWithdrawal(REQUESTER_2);
+        SuccinctVApp(VAPP).finishWithdrawal(REQUESTER_2);
         vm.stopPrank();
     }
 
@@ -232,7 +232,7 @@ contract SuccinctVAppWithdrawTest is SuccinctVAppTest {
 
         vm.startPrank(REQUESTER_1);
         vm.expectRevert(abi.encodeWithSelector(ISuccinctVApp.ZeroAddress.selector));
-        SuccinctVApp(VAPP).withdraw(address(0), amount);
+        SuccinctVApp(VAPP).requestWithdraw(address(0), amount);
         vm.stopPrank();
 
         // Verify no withdrawal receipt was created
@@ -249,7 +249,7 @@ contract SuccinctVAppWithdrawTest is SuccinctVAppTest {
         // Try to withdraw below minimum
         vm.startPrank(REQUESTER_1);
         vm.expectRevert(abi.encodeWithSelector(ISuccinctVApp.TransferBelowMinimum.selector));
-        SuccinctVApp(VAPP).withdraw(REQUESTER_1, withdrawAmount);
+        SuccinctVApp(VAPP).requestWithdraw(REQUESTER_1, withdrawAmount);
         vm.stopPrank();
 
         // Verify no withdrawal receipt was created
@@ -298,7 +298,7 @@ contract SuccinctVAppWithdrawTest is SuccinctVAppTest {
 
     //     // Claim withdrawal
     //     assertEq(ERC20(testUsdc).balanceOf(user), 0);
-    //     SuccinctVApp(VAPP).completeWithdrawal(user);
+    //     SuccinctVApp(VAPP).finishWithdrawal(user);
     //     assertEq(ERC20(testUsdc).balanceOf(user), 100);
     //     vm.stopPrank();
     // }

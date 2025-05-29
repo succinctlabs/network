@@ -23,7 +23,7 @@ interface ISuccinctVApp {
     event ReceiptPending(uint64 indexed receipt, ActionType indexed action, bytes data);
 
     /// @notice Emitted when a withdrawal is claimed.
-    event WithdrawalCompleted(address indexed account, address sender, uint256 amount);
+    event Withdrawal(address indexed account, address sender, uint256 amount);
 
     /// @notice Emitted when the staking address was updated.
     event StakingUpdate(address oldStaking, address newStaking);
@@ -143,8 +143,8 @@ interface ISuccinctVApp {
     /// @notice Timestamp for each block.
     function timestamps(uint64 block) external view returns (uint64);
 
-    /// @notice The claimable withdrawals for each account and token
-    function withdrawalClaims(address account) external view returns (uint256);
+    /// @notice The claimable withdrawal amount for each account.
+    function claimableWithdrawal(address account) external view returns (uint256);
 
     /// @notice Receipts for pending actions
     function receipts(uint64 receipt)
@@ -194,16 +194,17 @@ interface ISuccinctVApp {
     ) external returns (uint64 receipt);
 
     /// @notice Request to withdraw funds from the contract.
-    /// @dev Can fail if balance is insufficient.
+    /// @dev This request can also be done offchain.
     /// @param to The address to withdraw funds to.
-    /// @param amount The amount to withdraw.
+    /// @param amount The amount to withdraw. MUST be less than or equal to the balance, except
+    ///        in the case of type(uint256).max, in which case the entire balance is withdrawn.
     /// @return receipt The receipt for the withdrawal.
-    function withdraw(address to, uint256 amount) external returns (uint64 receipt);
+    function requestWithdraw(address to, uint256 amount) external returns (uint64 receipt);
 
     /// @notice Claim a pending withdrawal from the contract.
     /// @param to The address to claim the withdrawal to.
     /// @return amount The amount claimed.
-    function completeWithdrawal(address to) external returns (uint256 amount);
+    function finishWithdrawal(address to) external returns (uint256 amount);
 
     /// @notice Add a delegated signer.
     /// @dev Must be called by a prover owner.

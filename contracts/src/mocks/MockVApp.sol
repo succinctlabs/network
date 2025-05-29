@@ -80,6 +80,18 @@ contract MockVApp is Bridge {
         return 0;
     }
 
+    function claimableWithdrawal(address) external pure returns (uint256) {
+        return 0;
+    }
+
+    function requestWithdraw(address, uint256) external pure returns (uint64) {
+        return 0;
+    }
+
+    function finishWithdrawal(address) external pure returns (uint256) {
+        return 0;
+    }
+
     /// @dev We still maintain the same fee splitting logic as the real VApp.
     function processReward(address _prover, uint256 _amount) external {
         FeeCalculator.processReward(_prover, _amount, PROTOCOL_FEE_BIPS, PROVE, FEE_VAULT, STAKING);

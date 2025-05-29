@@ -86,7 +86,7 @@ contract SuccinctVApp is
     uint64 public override finalizedReceipt;
 
     /// @inheritdoc ISuccinctVApp
-    mapping(address => uint256) public override withdrawalClaims;
+    mapping(address => uint256) public override claimableWithdrawal;
 
     /// @inheritdoc ISuccinctVApp
     mapping(uint64 => bytes32) public override roots;
@@ -214,29 +214,30 @@ contract SuccinctVApp is
         bytes32 _r,
         bytes32 _s
     ) external override returns (uint64 receipt) {
+        // Approve this contract to spend the $PROVE from the depositor.
         IERC20Permit(prove).permit(_from, address(this), _amount, _deadline, _v, _r, _s);
 
         return _deposit(_from, _amount);
     }
 
     /// @inheritdoc ISuccinctVApp
-    function withdraw(address _to, uint256 _amount) external override returns (uint64 receipt) {
-        return _withdraw(msg.sender, _to, _amount);
+    function requestWithdraw(address _to, uint256 _amount) external override returns (uint64 receipt) {
+        return _requestWithdraw(msg.sender, _to, _amount);
     }
 
     /// @inheritdoc ISuccinctVApp
-    function completeWithdrawal(address _to) external override returns (uint256 amount) {
+    function finishWithdrawal(address _to) external override returns (uint256 amount) {
         // Validate.
-        amount = withdrawalClaims[_to];
+        amount = claimableWithdrawal[_to];
         if (amount == 0) revert NoWithdrawalToClaim();
 
         // Update the state.
-        withdrawalClaims[_to] = 0;
+        claimableWithdrawal[_to] = 0;
 
         // Transfer the withdrawal.
         ERC20(prove).safeTransfer(_to, amount);
 
-        emit WithdrawalCompleted(_to, msg.sender, amount);
+        emit Withdrawal(_to, msg.sender, amount);
     }
 
     /// @inheritdoc ISuccinctVApp
@@ -368,7 +369,7 @@ contract SuccinctVApp is
     }
 
     /// @dev Credits a withdrawal receipt.
-    function _withdraw(address _from, address _to, uint256 _amount) internal returns (uint64 receipt) {
+    function _requestWithdraw(address _from, address _to, uint256 _amount) internal returns (uint64 receipt) {
         // Validate.
         if (_to == address(0)) revert ZeroAddress();
         if (_amount < minDepositAmount) {
@@ -447,7 +448,7 @@ contract SuccinctVApp is
         // Execute the actions.
         ActionsInternal memory decoded = Actions.decode(_publicValues.actions);
         _depositActions(decoded.deposits);
-        _withdrawActions(decoded.withdrawals);
+        _requestWithdrawActions(decoded.withdrawals);
         _addSignerActions(decoded.addSigners);
         _removeSignerActions(decoded.removeSigners);
 
@@ -469,7 +470,7 @@ contract SuccinctVApp is
     }
 
     /// @dev Handles withdraw actions.
-    function _withdrawActions(WithdrawInternal[] memory _actions) internal {
+    function _requestWithdrawActions(WithdrawInternal[] memory _actions) internal {
         for (uint64 i = 0; i < _actions.length; i++) {
             // Only update if there is a corresponding receipt.
             if (_actions[i].action.receipt != 0) {
@@ -523,7 +524,7 @@ contract SuccinctVApp is
     /// @dev Processes a withdrawal by creating a claim for the amount.
     function _processWithdraw(address _to, uint256 _amount) internal {
         // Update the state.
-        withdrawalClaims[_to] += _amount;
+        claimableWithdrawal[_to] += _amount;
     }
 
     /// @dev Updates the staking contract.
