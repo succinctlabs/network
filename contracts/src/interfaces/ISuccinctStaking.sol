@@ -183,13 +183,6 @@ interface ISuccinctStaking is IProverRegistry {
     /// @return The amount of $PROVE received.
     function finishUnstake() external returns (uint256);
 
-    /// @notice Rewards a prover, increasing the value of $PROVER for all stakers of that prover. Only
-    ///         callable by the VApp.
-    /// @dev The caller must have approved the prover to transfer $USDC.
-    /// @param prover The address of the prover to reward.
-    /// @param USDC The amount of $USDC to reward.
-    function reward(address prover, uint256 USDC) external;
-
     /// @notice Creates a request to slash a prover for the specified amount. Only callable by the
     ///         VApp.
     /// @param prover The address of the prover to slash.
