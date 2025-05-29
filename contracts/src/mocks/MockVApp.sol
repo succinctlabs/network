@@ -11,17 +11,40 @@ import {IERC20Permit} from
 import {IERC4626} from "../../lib/openzeppelin-contracts/contracts/interfaces/IERC4626.sol";
 import {IProverRegistry} from "../interfaces/IProverRegistry.sol";
 
-contract Bridge {
+/// @dev A mock vApp implementation. The vApp is responsible for dispensing, rewarding, and slashing.
+contract MockVApp {
     using SafeERC20 for IERC20;
-
-    /// @dev The PROVE token address, which is used as the underlying asset for this bridge.
-    address public immutable prove;
 
     event Deposit(address indexed from, uint256 amount);
     event Withdrawal(address indexed to, uint256 amount);
 
-    constructor(address _prove) {
+    address public immutable staking;
+    address public immutable prove;
+    address public immutable iProve;
+    address public immutable feeVault;
+    uint256 public immutable protocolFeeBips;
+
+    /// @dev Balances mapping - simulates offchain balances which is the case in the real VApp.
+    mapping(address => uint256) public balances;
+
+    /// @dev Simple withdraw claims mapping - In the real VApp this would only get updated after an `updateState`.
+    mapping(address => uint256) public withdrawClaims;
+
+    constructor(
+        address _staking,
+        address _prove,
+        address _iProve,
+        address _feeVault,
+        uint256 _protocolFeeBips
+    ) {
+        staking = _staking;
         prove = _prove;
+        iProve = _iProve;
+        feeVault = _feeVault;
+        protocolFeeBips = _protocolFeeBips;
+
+        // Approve the $iPROVE contract to transfer $PROVE from this contract during prover withdrawal.
+        IERC20(prove).approve(_iProve, type(uint256).max);
     }
 
     function permitAndDeposit(
@@ -51,36 +74,6 @@ contract Bridge {
         IERC20(prove).safeTransferFrom(_from, address(this), _amount);
 
         emit Deposit(_from, _amount);
-    }
-}
-
-/// @dev A mock vApp implementation. The vApp is responsible for dispensing, rewarding, and slashing.
-contract MockVApp is Bridge {
-    using SafeERC20 for IERC20;
-
-    address public immutable staking;
-    address public immutable feeVault;
-    uint256 public immutable protocolFeeBips;
-
-    /// @dev Balances mapping - simulates offchain balances which is the case in the real VApp.
-    mapping(address => uint256) public balances;
-
-    /// @dev Simple withdraw claims mapping - In the real VApp this would only get updated after an `updateState`.
-    mapping(address => uint256) public withdrawClaims;
-
-    constructor(
-        address _staking,
-        address _prove,
-        address _iProve,
-        address _feeVault,
-        uint256 _protocolFeeBips
-    ) Bridge(_prove) {
-        staking = _staking;
-        feeVault = _feeVault;
-        protocolFeeBips = _protocolFeeBips;
-
-        // Approve the $iPROVE contract to transfer $PROVE from this contract during prover withdrawal.
-        IERC20(prove).approve(_iProve, type(uint256).max);
     }
 
     function addDelegatedSignerForProver(address, address) external pure returns (uint64) {
@@ -113,8 +106,6 @@ contract MockVApp is Bridge {
         withdrawClaims[account] = 0;
 
         if (IProverRegistry(staking).isProver(account)) {
-            address iProve = IProverRegistry(staking).iProve();
-
             // Deposit $PROVE to mint $iPROVE, sending it to this contract.
             uint256 iPROVE = IERC4626(iProve).deposit(amount, address(this));
 
@@ -125,7 +116,11 @@ contract MockVApp is Bridge {
         }
     }
 
-    /// @dev We still maintain the same fee splitting logic as the real VApp.
+    /// @dev This simulates a prover finishing a proof fulfillment. Offchain, this adds to the balances
+    ///      of the prover, the prover owner, and the fee vault. We update our balances mapping to
+    ///      simulate this.
+    ///
+    ///      The fee splitting logic is the same as the real VApp STF.
     function processReward(address _prover, uint256 _amount) external {
         uint256 stakerFeeBips = IProver(_prover).stakerFeeBips();
 

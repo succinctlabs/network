@@ -229,7 +229,11 @@ contract SuccinctVApp is
     }
 
     /// @inheritdoc ISuccinctVApp
-    function requestWithdraw(address _to, uint256 _amount) external override returns (uint64 receipt) {
+    function requestWithdraw(address _to, uint256 _amount)
+        external
+        override
+        returns (uint64 receipt)
+    {
         return _requestWithdraw(msg.sender, _to, _amount);
     }
 
@@ -249,7 +253,7 @@ contract SuccinctVApp is
         // of the prover stakers.
         //
         // Otherwise if the `_to` is not a prover vault, we can just transfer the $PROVE directly.
-        if(ISuccinctStaking(staking).isProver(_to)) {
+        if (ISuccinctStaking(staking).isProver(_to)) {
             // Deposit $PROVE to mint $iPROVE, sending it to this contract.
             uint256 iPROVE = IERC4626(iProve).deposit(amount, address(this));
 
@@ -269,7 +273,11 @@ contract SuccinctVApp is
     }
 
     /// @inheritdoc ISuccinctVApp
-    function addDelegatedSignerForProver(address _owner, address _signer) external onlyStaking returns (uint64 receipt) {
+    function addDelegatedSignerForProver(address _owner, address _signer)
+        external
+        onlyStaking
+        returns (uint64 receipt)
+    {
         return _addDelegatedSigner(_owner, _signer);
     }
 
@@ -277,7 +285,7 @@ contract SuccinctVApp is
     function removeDelegatedSigner(address _signer) external returns (uint64 receipt) {
         return _removeDelegatedSigner(msg.sender, _signer);
     }
-    
+
     /// @inheritdoc ISuccinctVApp
     function updateState(bytes calldata _publicValues, bytes calldata _proofBytes)
         public
@@ -392,7 +400,10 @@ contract SuccinctVApp is
     }
 
     /// @dev Credits a withdrawal receipt.
-    function _requestWithdraw(address _from, address _to, uint256 _amount) internal returns (uint64 receipt) {
+    function _requestWithdraw(address _from, address _to, uint256 _amount)
+        internal
+        returns (uint64 receipt)
+    {
         // Validate.
         if (_to == address(0)) revert ZeroAddress();
         if (_amount < minDepositAmount) {
@@ -400,13 +411,15 @@ contract SuccinctVApp is
         }
 
         // Create the receipt.
-        bytes memory data = abi.encode(
-            WithdrawAction({account: _from, amount: _amount, to: _to, token: prove})
-        );
+        bytes memory data =
+            abi.encode(WithdrawAction({account: _from, amount: _amount, to: _to, token: prove}));
         receipt = _createReceipt(ActionType.Withdraw, data);
     }
 
-    function _addDelegatedSigner(address _owner, address _signer) internal returns (uint64 receipt) {
+    function _addDelegatedSigner(address _owner, address _signer)
+        internal
+        returns (uint64 receipt)
+    {
         // Validate.
         if (_signer == address(0)) revert ZeroAddress();
         if (usedSigners[_signer]) revert InvalidSigner();
@@ -423,7 +436,10 @@ contract SuccinctVApp is
         delegatedSigners[_owner].push(_signer);
     }
 
-    function _removeDelegatedSigner(address _owner, address _signer) internal returns (uint64 receipt) {
+    function _removeDelegatedSigner(address _owner, address _signer)
+        internal
+        returns (uint64 receipt)
+    {
         // Validate.
         uint256 index = hasDelegatedSigner(_owner, _signer);
         if (index == type(uint256).max) revert InvalidSigner();
@@ -439,7 +455,7 @@ contract SuccinctVApp is
             delegatedSigners[_owner][delegatedSigners[_owner].length - 1];
         delegatedSigners[_owner].pop();
     }
-    
+
     /// @dev Creates a receipt for an action.
     function _createReceipt(ActionType _actionType, bytes memory _data)
         internal

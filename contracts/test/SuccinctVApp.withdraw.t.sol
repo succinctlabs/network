@@ -104,7 +104,7 @@ contract SuccinctVAppWithdrawTest is SuccinctVAppTest {
         assertEq(MockERC20(PROVE).balanceOf(REQUESTER_2), 0);
         vm.startPrank(REQUESTER_2);
         vm.expectEmit(true, true, true, true);
-        emit ISuccinctVApp.Withdrawal(REQUESTER_2, REQUESTER_2, amount);
+        emit ISuccinctVApp.Withdrawal(REQUESTER_2, amount);
         uint256 claimedAmount = SuccinctVApp(VAPP).finishWithdrawal(REQUESTER_2);
         vm.stopPrank();
 
@@ -204,7 +204,7 @@ contract SuccinctVAppWithdrawTest is SuccinctVAppTest {
         assertEq(MockERC20(PROVE).balanceOf(REQUESTER_3), 0);
         vm.startPrank(REQUESTER_3);
         vm.expectEmit(true, true, true, true);
-        emit ISuccinctVApp.Withdrawal(REQUESTER_3, REQUESTER_3, amount);
+        emit ISuccinctVApp.Withdrawal(REQUESTER_3, amount);
         uint256 claimedAmount = SuccinctVApp(VAPP).finishWithdrawal(REQUESTER_3);
         vm.stopPrank();
 

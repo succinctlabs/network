@@ -350,8 +350,8 @@ contract SuccinctStakingSlashTests is SuccinctStakingTest {
         SuccinctStaking(STAKING).finishSlash(ALICE_PROVER, 0);
     }
 
-    // Prover's stakers can cannot recieve rewards after being slashed to zero (because you need stake to earn rewards)
-    function test_RevertSlash_WhenRewardAfterFullSlash() public {
+    // Prover's stakers can still technically recieve withdrawals after being slashed to zero.
+    function test_Slash_WhenRewardAfterFullSlash() public {
         uint256 stakeAmount = STAKER_PROVE_AMOUNT;
         uint256 rewardAmount = stakeAmount;
 
@@ -366,8 +366,33 @@ contract SuccinctStakingSlashTests is SuccinctStakingTest {
         assertEq(IERC20(PROVE).balanceOf(I_PROVE), 0);
         assertEq(IERC20(I_PROVE).balanceOf(ALICE_PROVER), 0);
 
-        // Now reward the slashed prover
-        vm.expectRevert(abi.encodeWithSelector(ISuccinctStaking.NotStaked.selector));
+        // Record balances before reward
+        uint256 feeVaultBalanceBefore = MockVApp(VAPP).balances(FEE_VAULT);
+        uint256 proverBalanceBefore = MockVApp(VAPP).balances(ALICE_PROVER);
+        uint256 aliceBalanceBefore = MockVApp(VAPP).balances(ALICE);
+
+        // Calculate expected reward split
+        (uint256 expectedProtocolFee, uint256 expectedStakerReward, uint256 expectedOwnerReward) =
+            _calculateFullRewardSplit(rewardAmount);
+
+        // Now reward the slashed prover - this should work even after full slash
         MockVApp(VAPP).processReward(ALICE_PROVER, rewardAmount);
+
+        // Verify the reward was processed correctly in MockVApp balances
+        assertEq(
+            MockVApp(VAPP).balances(FEE_VAULT),
+            feeVaultBalanceBefore + expectedProtocolFee,
+            "Protocol fee should be added to FEE_VAULT balance"
+        );
+        assertEq(
+            MockVApp(VAPP).balances(ALICE_PROVER),
+            proverBalanceBefore + expectedStakerReward,
+            "Staker reward should be added to prover balance"
+        );
+        assertEq(
+            MockVApp(VAPP).balances(ALICE),
+            aliceBalanceBefore + expectedOwnerReward,
+            "Owner reward should be added to Alice balance"
+        );
     }
 }
