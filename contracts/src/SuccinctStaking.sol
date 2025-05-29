@@ -76,7 +76,7 @@ contract SuccinctStaking is
         _updateDispenseRate(_dispenseRate);
         lastDispenseTimestamp = block.timestamp;
 
-        // Approve the $iPROVE contract to transfer $PROVE to $iPROVE during stake().
+        // Approve the $iPROVE contract to transfer $PROVE from this contract during stake().
         IERC20(prove).approve(iProve, type(uint256).max);
     }
 
@@ -194,14 +194,13 @@ contract SuccinctStaking is
         // Check that this prover is not in the process of being slashed.
         if (slashClaims[prover].length > 0) revert ProverHasSlashRequest();
 
-        // Get the amount of $stPROVE this staker currently has for this prover.
-        // We do this by checking $PROVER-N, but they will always be 1:1.
+        // Get the amount of $stPROVE this staker currently has.
         uint256 stPROVEBalance = balanceOf(msg.sender);
 
         // Get the amount $stPROVE this staker has pending a claim already.
         uint256 stPROVEClaim = _getUnstakeClaimBalance(msg.sender);
 
-        // Check that this staker has enough $stPROVE to unstake.
+        // Check that this staker has enough $stPROVE to unstake this amount.
         if (stPROVEBalance < stPROVEClaim + _stPROVE) revert InsufficientStakeBalance();
 
         // Create a claim to unstake $stPROVE from the prover for the specified amount.
