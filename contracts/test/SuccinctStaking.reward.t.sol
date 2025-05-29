@@ -50,6 +50,11 @@ contract SuccinctStakingRewardTests is SuccinctStakingTest {
         // Reward the prover
         MockVApp(VAPP).processReward(ALICE_PROVER, rewardAmount);
 
+        // Simulate withdrawals from VApp to make actual token transfers
+        _withdrawFromVApp(FEE_VAULT, expectedProtocolFee);
+        _withdrawFromVApp(ALICE, expectedOwnerReward);
+        _withdrawFromVApp(ALICE_PROVER, expectedStakerReward);
+
         // Check that the staked amount increased by the staker reward portion
         assertEq(
             SuccinctStaking(STAKING).staked(STAKER_1),
@@ -86,6 +91,11 @@ contract SuccinctStakingRewardTests is SuccinctStakingTest {
 
         // Reward the prover
         MockVApp(VAPP).processReward(ALICE_PROVER, rewardAmount);
+
+        // Simulate withdrawals from VApp to make actual token transfers
+        _withdrawFromVApp(FEE_VAULT, expectedProtocolFee);
+        _withdrawFromVApp(ALICE, expectedOwnerReward);
+        _withdrawFromVApp(ALICE_PROVER, expectedStakerReward);
 
         // Check that the staked amount increased by the staker reward portion
         assertEq(
@@ -127,6 +137,11 @@ contract SuccinctStakingRewardTests is SuccinctStakingTest {
 
         // Reward the prover
         MockVApp(VAPP).processReward(ALICE_PROVER, rewardAmount);
+
+        // Simulate withdrawals from VApp to make actual token transfers
+        _withdrawFromVApp(FEE_VAULT, expectedProtocolFee);
+        _withdrawFromVApp(ALICE, expectedOwnerReward);
+        _withdrawFromVApp(ALICE_PROVER, expectedStakerReward);
 
         // Check that the staked amount increased by the staker reward portion
         assertEq(
@@ -174,6 +189,11 @@ contract SuccinctStakingRewardTests is SuccinctStakingTest {
         // Reward only to Alice prover
         MockVApp(VAPP).processReward(ALICE_PROVER, rewardAmount);
 
+        // Simulate withdrawals from VApp to make actual token transfers
+        _withdrawFromVApp(FEE_VAULT, expectedProtocolFee);
+        _withdrawFromVApp(ALICE, expectedOwnerReward);
+        _withdrawFromVApp(ALICE_PROVER, expectedStakerReward);
+
         // Check that only STAKER_1's staked amount increased
         assertEq(
             SuccinctStaking(STAKING).staked(STAKER_1),
@@ -218,6 +238,11 @@ contract SuccinctStakingRewardTests is SuccinctStakingTest {
 
         // Reward to Alice prover
         MockVApp(VAPP).processReward(ALICE_PROVER, rewardAmount);
+
+        // Simulate withdrawals from VApp to make actual token transfers
+        _withdrawFromVApp(FEE_VAULT, expectedProtocolFee);
+        _withdrawFromVApp(ALICE, expectedOwnerReward);
+        _withdrawFromVApp(ALICE_PROVER, expectedStakerReward);
 
         // Check that STAKER_1's staked amount increased
         assertEq(
@@ -273,6 +298,11 @@ contract SuccinctStakingRewardTests is SuccinctStakingTest {
         // Reward to Alice prover
         MockVApp(VAPP).processReward(ALICE_PROVER, rewardAmount);
 
+        // Simulate withdrawals from VApp to make actual token transfers
+        _withdrawFromVApp(FEE_VAULT, expectedProtocolFee);
+        _withdrawFromVApp(ALICE, expectedOwnerReward);
+        _withdrawFromVApp(ALICE_PROVER, expectedStakerReward);
+
         // Check that Alice (prover owner) received her portion of the reward
         assertEq(IERC20(PROVE).balanceOf(ALICE), before.aliceBalance + expectedOwnerReward);
 
@@ -326,6 +356,13 @@ contract SuccinctStakingRewardTests is SuccinctStakingTest {
         // Reward both provers
         MockVApp(VAPP).processReward(ALICE_PROVER, rewardAmount1);
         MockVApp(VAPP).processReward(BOB_PROVER, rewardAmount2);
+
+        // Simulate withdrawals from VApp to make actual token transfers
+        _withdrawFromVApp(FEE_VAULT, expectedProtocolFee1 + expectedProtocolFee2);
+        _withdrawFromVApp(ALICE, expectedOwnerReward1);
+        _withdrawFromVApp(BOB, expectedOwnerReward2);
+        _withdrawFromVApp(ALICE_PROVER, expectedStakerReward1);
+        _withdrawFromVApp(BOB_PROVER, expectedStakerReward2);
 
         // Check that both stakers' staked amounts increased by the staker portion
         assertEq(

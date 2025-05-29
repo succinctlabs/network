@@ -92,6 +92,11 @@ contract SuccinctStakingUnstakeTests is SuccinctStakingTest {
         uint256 expectedReward2 =
             (expectedStakerReward * stakeAmount2) / (stakeAmount1 + stakeAmount2);
 
+        // Withdraw the rewards from VApp to make actual token transfers
+        _withdrawFromVApp(FEE_VAULT, expectedProtocolFee);
+        _withdrawFromVApp(ALICE, expectedOwnerReward);
+        _withdrawFromVApp(ALICE_PROVER, expectedStakerReward);
+
         // Verify protocol fee was transferred to FEE_VAULT
         assertEq(
             IERC20(PROVE).balanceOf(FEE_VAULT),
@@ -317,6 +322,9 @@ contract SuccinctStakingUnstakeTests is SuccinctStakingTest {
         uint256 expectedStakerRewardPerReward = (rewardAmount * STAKER_FEE_BIPS) / FEE_UNIT;
         uint256 totalExpectedStakerRewards = expectedStakerRewardPerReward * 2;
 
+        // Withdraw the staker reward to the prover vault to increase staked amount
+        _withdrawFromVApp(ALICE_PROVER, expectedStakerRewardPerReward);
+
         // Verify staked amount increased
         uint256 stakedAfterFirstReward = SuccinctStaking(STAKING).staked(STAKER_1);
         assertApproxEqAbs(
@@ -331,6 +339,9 @@ contract SuccinctStakingUnstakeTests is SuccinctStakingTest {
 
         // Add more rewards while tokens are in the unstake queue
         MockVApp(VAPP).processReward(ALICE_PROVER, rewardAmount);
+
+        // Withdraw the second staker reward to the prover vault
+        _withdrawFromVApp(ALICE_PROVER, expectedStakerRewardPerReward);
 
         // Skip to allow claiming
         skip(UNSTAKE_PERIOD);

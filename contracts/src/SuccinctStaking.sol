@@ -256,22 +256,22 @@ contract SuccinctStaking is
         onlyVApp
         onlyForProver(_prover)
     {
-        // Ensure rewarding a non-zero amount.
-        if (_PROVE == 0) revert ZeroAmount();
+        // // Ensure rewarding a non-zero amount.
+        // if (_PROVE == 0) revert ZeroAmount();
 
-        // Ensure the prover has some stake.
-        //
-        // If this check isn't in place, then a the next staker to stake to this prover
-        // will lose their deposit.
-        if (proverStaked(_prover) == 0) revert NotStaked();
+        // // Ensure the prover has some stake.
+        // //
+        // // If this check isn't in place, then a the next staker to stake to this prover
+        // // will lose their deposit.
+        // if (proverStaked(_prover) == 0) revert NotStaked();
 
-        // Deposit $PROVE to mint $iPROVE, sending it to this contract.
-        uint256 iPROVE = IERC4626(iProve).deposit(_PROVE, address(this));
+        // // Deposit $PROVE to mint $iPROVE, sending it to this contract.
+        // uint256 iPROVE = IERC4626(iProve).deposit(_PROVE, address(this));
 
-        // Transfer the $iPROVE from this contract to the prover vault.
-        IERC20(iProve).safeTransfer(_prover, iPROVE);
+        // // Transfer the $iPROVE from this contract to the prover vault.
+        // IERC20(iProve).safeTransfer(_prover, iPROVE);
 
-        emit Reward(_prover, _PROVE);
+        // emit Reward(_prover, _PROVE);
     }
 
     /// @inheritdoc ISuccinctStaking

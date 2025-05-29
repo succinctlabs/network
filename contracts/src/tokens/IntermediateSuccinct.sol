@@ -54,7 +54,10 @@ contract IntermediateSuccinct is ERC4626, IIntermediateSuccinct {
         bool isDepositOrWithdraw =
             IProverRegistry(staking).isProver(msg.sender) && (_from == staking || _to == staking);
 
-        if (msg.sender != staking && !isDepositOrWithdraw) {
+        // TODO pass in vapp addr
+        address vapp = IProverRegistry(staking).vapp();
+
+        if (msg.sender != staking && msg.sender != vapp && !isDepositOrWithdraw) {
             revert NonTransferable();
         }
 

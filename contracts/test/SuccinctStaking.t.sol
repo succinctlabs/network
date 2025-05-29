@@ -76,7 +76,7 @@ contract SuccinctStakingTest is Test {
         I_PROVE = address(new IntermediateSuccinct(PROVE, STAKING));
 
         // Deploy VAPP
-        VAPP = address(new MockVApp(STAKING, PROVE, FEE_VAULT, PROTOCOL_FEE_BIPS));
+        VAPP = address(new MockVApp(STAKING, PROVE, I_PROVE, FEE_VAULT, PROTOCOL_FEE_BIPS));
 
         // Initialize Succinct Staking
         vm.prank(OWNER);
