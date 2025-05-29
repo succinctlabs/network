@@ -68,9 +68,13 @@ contract MockVApp is Bridge {
     /// @dev Simple withdraw claims mapping - In the real VApp this would only get updated after an `updateState`.
     mapping(address => uint256) public withdrawClaims;
 
-    constructor(address _staking, address _prove, address _iProve, address _feeVault, uint256 _protocolFeeBips)
-        Bridge(_prove)
-    {
+    constructor(
+        address _staking,
+        address _prove,
+        address _iProve,
+        address _feeVault,
+        uint256 _protocolFeeBips
+    ) Bridge(_prove) {
         staking = _staking;
         feeVault = _feeVault;
         protocolFeeBips = _protocolFeeBips;
@@ -95,20 +99,20 @@ contract MockVApp is Bridge {
 
         balances[account] -= amount;
         withdrawClaims[account] += amount;
-        
+
         // Return a dummy receipt ID (in real VApp this would be meaningful)
         return 1;
     }
 
     function finishWithdrawal(address account) external {
         uint256 amount = withdrawClaims[account];
-        if(amount == 0) {
+        if (amount == 0) {
             revert("No withdrawal claim");
         }
 
         withdrawClaims[account] = 0;
 
-        if(IProverRegistry(staking).isProver(account)) {
+        if (IProverRegistry(staking).isProver(account)) {
             address iProve = IProverRegistry(staking).iProve();
 
             // Deposit $PROVE to mint $iPROVE, sending it to this contract.
@@ -123,11 +127,6 @@ contract MockVApp is Bridge {
 
     /// @dev We still maintain the same fee splitting logic as the real VApp.
     function processReward(address _prover, uint256 _amount) external {
-        // Ensure the prover has some stake.
-        if (ISuccinctStaking(staking).proverStaked(_prover) == 0) {
-            revert ISuccinctStaking.NotStaked();
-        }
-
         uint256 stakerFeeBips = IProver(_prover).stakerFeeBips();
 
         (uint256 protocolReward, uint256 stakerReward, uint256 ownerReward) =

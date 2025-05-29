@@ -12,6 +12,7 @@ import {ISuccinctVApp} from "../interfaces/ISuccinctVApp.sol";
 /// @notice This contract is used to manage provers.
 /// @dev Because provers are approved to spend $iPROVE, it is important that tracked
 ///      provers are only contracts with `type(SuccinctProver).creationCode`.
+
 abstract contract ProverRegistry is IProverRegistry {
     /// @inheritdoc IProverRegistry
     address public override vapp;

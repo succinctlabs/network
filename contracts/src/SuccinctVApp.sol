@@ -32,12 +32,13 @@ import {OwnableUpgradeable} from
     "../lib/openzeppelin-contracts-upgradeable/contracts/access/OwnableUpgradeable.sol";
 import {MerkleProof} from
     "../lib/openzeppelin-contracts/contracts/utils/cryptography/MerkleProof.sol";
-import {ERC20} from "../lib/openzeppelin-contracts/contracts/token/ERC20/ERC20.sol";
 import {SafeERC20} from "../lib/openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol";
 import {UUPSUpgradeable} from
     "../lib/openzeppelin-contracts-upgradeable/contracts/proxy/utils/UUPSUpgradeable.sol";
 import {IERC20Permit} from
     "../lib/openzeppelin-contracts/contracts/token/ERC20/extensions/IERC20Permit.sol";
+import {IERC20} from "../lib/openzeppelin-contracts/contracts/interfaces/IERC20.sol";
+import {IERC4626} from "../lib/openzeppelin-contracts/contracts/interfaces/IERC4626.sol";
 
 /// @title SuccinctVApp
 /// @author Succinct Labs
@@ -50,11 +51,13 @@ contract SuccinctVApp is
     UUPSUpgradeable,
     ISuccinctVApp
 {
-    using SafeERC20 for ERC20;
+    using SafeERC20 for IERC20;
 
     /// @inheritdoc ISuccinctVApp
     address public override prove;
 
+    /// @inheritdoc ISuccinctVApp
+    address public override iProve;
     /// @inheritdoc ISuccinctVApp
     address public override staking;
 
@@ -121,6 +124,7 @@ contract SuccinctVApp is
     function initialize(
         address _owner,
         address _prove,
+        address _iProve,
         address _staking,
         address _verifier,
         address _feeVault,
@@ -139,6 +143,7 @@ contract SuccinctVApp is
         __Ownable_init(_owner);
 
         prove = _prove;
+        iProve = _iProve;
         staking = _staking;
         verifier = _verifier;
         feeVault = _feeVault;
@@ -151,6 +156,9 @@ contract SuccinctVApp is
         _updateFeeVault(_feeVault);
         _updateActionDelay(_maxActionDelay);
         _updateProtocolFeeBips(_protocolFeeBips);
+
+        // Approve the $iPROVE contract to transfer $PROVE from this contract during prover withdrawal.
+        IERC20(prove).approve(_iProve, type(uint256).max);
 
         emit Fork(_vappProgramVKey, 0, bytes32(0), bytes32(0));
     }
@@ -235,9 +243,24 @@ contract SuccinctVApp is
         claimableWithdrawal[_to] = 0;
 
         // Transfer the withdrawal.
-        ERC20(prove).safeTransfer(_to, amount);
+        //
+        // If the `_to` is a prover vault, we need to first deposit it to get $iPROVE and then
+        // transfer the $iPROVE to the prover vault. This splits the $PROVE amount amongst all
+        // of the prover stakers.
+        //
+        // Otherwise if the `_to` is not a prover vault, we can just transfer the $PROVE directly.
+        if(ISuccinctStaking(staking).isProver(_to)) {
+            // Deposit $PROVE to mint $iPROVE, sending it to this contract.
+            uint256 iPROVE = IERC4626(iProve).deposit(amount, address(this));
 
-        emit Withdrawal(_to, msg.sender, amount);
+            // Transfer the $iPROVE from this contract to the prover vault.
+            IERC20(iProve).safeTransfer(_to, iPROVE);
+        } else {
+            // Transfer the $PROVE from this contract to the `_to` address.
+            IERC20(prove).safeTransfer(_to, amount);
+        }
+
+        emit Withdrawal(_to, amount);
     }
 
     /// @inheritdoc ISuccinctVApp
@@ -365,7 +388,7 @@ contract SuccinctVApp is
         receipt = _createReceipt(ActionType.Deposit, data);
 
         // Transfer $PROVE from the sender to the VApp.
-        ERC20(prove).safeTransferFrom(_from, address(this), _amount);
+        IERC20(prove).safeTransferFrom(_from, address(this), _amount);
     }
 
     /// @dev Credits a withdrawal receipt.

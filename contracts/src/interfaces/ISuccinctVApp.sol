@@ -23,7 +23,7 @@ interface ISuccinctVApp {
     event ReceiptPending(uint64 indexed receipt, ActionType indexed action, bytes data);
 
     /// @notice Emitted when a withdrawal is claimed.
-    event Withdrawal(address indexed account, address sender, uint256 amount);
+    event Withdrawal(address indexed account, uint256 amount);
 
     /// @notice Emitted when the staking address was updated.
     event StakingUpdate(address oldStaking, address newStaking);
@@ -96,6 +96,9 @@ interface ISuccinctVApp {
 
     /// @notice The address of the $PROVE token.
     function prove() external view returns (address);
+
+    /// @notice The address of the $iPROVE token.
+    function iProve() external view returns (address);
 
     /// @notice The address of the Succinct staking contract.
     function staking() external view returns (address);

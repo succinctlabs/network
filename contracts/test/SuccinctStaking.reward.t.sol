@@ -401,13 +401,6 @@ contract SuccinctStakingRewardTests is SuccinctStakingTest {
         assertEq(IERC20(BOB_PROVER).balanceOf(STAKING), 0);
     }
 
-    function test_RevertReward_WhenProverHasNotStaked() public {
-        uint256 rewardAmount = STAKER_PROVE_AMOUNT;
-
-        // Reward the prover
-        vm.expectRevert(abi.encodeWithSelector(ISuccinctStaking.NotStaked.selector));
-        MockVApp(VAPP).processReward(ALICE_PROVER, rewardAmount);
-    }
 
     function test_RevertReward_WhenProverNotFound() public {
         uint256 rewardAmount = STAKER_PROVE_AMOUNT;
