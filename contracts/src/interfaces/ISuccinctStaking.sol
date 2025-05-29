@@ -101,43 +101,43 @@ interface ISuccinctStaking is IProverRegistry {
     /// @notice The prover that a staker is staked with.
     /// @dev A staker can only be staked with one prover at a time. To switch provers, they must
     ///      fully unstake from their current prover first.
-    /// @param staker The address of the staker
-    /// @return The address of the prover
+    /// @param staker The address of the staker.
+    /// @return The address of the prover.
     function stakedTo(address staker) external view returns (address);
 
     /// @notice The amount of $PROVE that a staker has staked to their prover.
-    /// @param staker The address of the staker
-    /// @return The amount of $PROVE
+    /// @param staker The address of the staker.
+    /// @return The amount of $PROVE.
     function staked(address staker) external view returns (uint256);
 
     /// @notice The amount of $PROVE that a prover has staked to them.
-    /// @param prover The address of the prover
-    /// @return The amount of $PROVE
+    /// @param prover The address of the prover.
+    /// @return The amount of $PROVE.
     function proverStaked(address prover) external view returns (uint256);
 
     /// @notice The unstake requests for a staker.
-    /// @param staker The address of the staker
-    /// @return The unstake requests
+    /// @param staker The address of the staker.
+    /// @return The unstake requests.
     function unstakeRequests(address staker) external view returns (UnstakeClaim[] memory);
 
     /// @notice The slash requests for a prover.
-    /// @param prover The address of the prover
-    /// @return The slash requests
+    /// @param prover The address of the prover.
+    /// @return The slash requests.
     function slashRequests(address prover) external view returns (SlashClaim[] memory);
 
     /// @notice The amount of $PROVE that a staker would recieve with their pending unstake request.
-    /// @param staker The address of the staker
-    /// @return The amount of $PROVE
+    /// @param staker The address of the staker.
+    /// @return The amount of $PROVE.
     function unstakePending(address staker) external view returns (uint256);
 
     /// @notice The amount of $PROVE that a staker would recieve if they unstaked from a prover.
-    /// @param prover The address of the prover
-    /// @param amount The amount of $stPROVE to unstake
-    /// @return The amount of $PROVE
+    /// @param prover The address of the prover.
+    /// @param amount The amount of $stPROVE to unstake.
+    /// @return The amount of $PROVE.
     function previewRedeem(address prover, uint256 amount) external view returns (uint256);
 
     /// @notice The maximum amount of $PROVE that can be dispensed currently.
-    /// @return The maximum amount of $PROVE
+    /// @return The maximum amount of $PROVE.
     function maxDispense() external view returns (uint256);
 
     /// @notice Stake $PROVE to a prover. Must have approved $PROVE with this contract as the spender.
@@ -217,6 +217,6 @@ interface ISuccinctStaking is IProverRegistry {
     function dispense(uint256 PROVE) external;
 
     /// @notice Updates the dispense rate. Only callable by the owner.
-    /// @param newRate The new dispense rate.
-    function updateDispenseRate(uint256 newRate) external;
+    /// @param rate The new dispense rate.
+    function updateDispenseRate(uint256 rate) external;
 }

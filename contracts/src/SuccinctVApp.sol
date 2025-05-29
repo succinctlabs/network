@@ -255,14 +255,14 @@ contract SuccinctVApp is
     }
     
     /// @inheritdoc ISuccinctVApp
-    function updateState(bytes calldata _publicValuesBytes, bytes calldata _proofBytes)
+    function updateState(bytes calldata _publicValues, bytes calldata _proofBytes)
         public
         nonReentrant
         returns (uint64, bytes32, bytes32)
     {
         // Verify the proof.
-        ISP1Verifier(verifier).verifyProof(vappProgramVKey, _publicValuesBytes, _proofBytes);
-        PublicValuesStruct memory publicValues = abi.decode(_publicValuesBytes, (PublicValuesStruct));
+        ISP1Verifier(verifier).verifyProof(vappProgramVKey, _publicValues, _proofBytes);
+        PublicValuesStruct memory publicValues = abi.decode(_publicValues, (PublicValuesStruct));
         if (publicValues.newRoot == bytes32(0)) revert InvalidRoot();
 
         // Verify the old root.
