@@ -64,6 +64,12 @@ contract MockVApp is Bridge {
     address internal immutable FEE_VAULT;
     uint256 internal immutable PROTOCOL_FEE_BIPS;
 
+    /// @dev Balances mapping - simulates offchain balances which is the case in the real VApp.
+    mapping(address => uint256) public balances;
+
+    /// @dev Simple withdraw claims mapping - In the real VApp this would only get updated after an `updateState`.
+    mapping(address => uint256) public withdrawClaims;
+
     constructor(address _staking, address _prove, address _feeVault, uint256 _protocolFeeBips)
         Bridge(_prove)
     {
@@ -80,21 +86,38 @@ contract MockVApp is Bridge {
         return 0;
     }
 
-    function claimableWithdrawal(address) external pure returns (uint256) {
-        return 0;
+    function claimableWithdrawal(address) external view returns (uint256) {
+        return withdrawClaims[msg.sender];
     }
 
-    function requestWithdraw(address, uint256) external pure returns (uint64) {
-        return 0;
+    function requestWithdraw(address account, uint256 amount) external {
+        balances[account] -= amount;
+        withdrawClaims[account] += amount;
     }
 
-    function finishWithdrawal(address) external pure returns (uint256) {
-        return 0;
+    function finishWithdrawal(address account) external {
+        uint256 amount = withdrawClaims[account];
+        if(amount == 0) {
+            revert("No withdrawal claim");
+        }
+
+        withdrawClaims[account] = 0;
+
+        IERC20(PROVE).safeTransfer(account, amount);
     }
 
     /// @dev We still maintain the same fee splitting logic as the real VApp.
     function processReward(address _prover, uint256 _amount) external {
-        FeeCalculator.processReward(_prover, _amount, PROTOCOL_FEE_BIPS, PROVE, FEE_VAULT, STAKING);
+        uint256 stakerFeeBips = IProver(_prover).stakerFeeBips();
+
+        (uint256 protocolReward, uint256 stakerReward, uint256 ownerReward) =
+            FeeCalculator.calculateFeeSplit(_amount, PROTOCOL_FEE_BIPS, stakerFeeBips);
+
+        address proverOwner = IProver(_prover).owner();
+
+        balances[FEE_VAULT] += protocolReward;
+        balances[_prover] += stakerReward;
+        balances[proverOwner] += ownerReward;
     }
 
     function processSlash(address _prover, uint256 _amount) external returns (uint256) {
