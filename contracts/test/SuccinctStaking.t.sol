@@ -230,6 +230,11 @@ contract SuccinctStakingTest is Test {
         // Sign the digest
         return vm.sign(_pk, digest);
     }
+
+    function _withdrawFromVApp(address _account, uint256 _amount) internal {
+        MockVApp(VAPP).requestWithdraw(_account, _amount);
+        MockVApp(VAPP).finishWithdrawal(_account);
+    }
 }
 
 contract SuccinctStakingSetupTests is SuccinctStakingTest {

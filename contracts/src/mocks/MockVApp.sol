@@ -91,6 +91,11 @@ contract MockVApp is Bridge {
     }
 
     function requestWithdraw(address account, uint256 amount) external {
+        // If amount is max, withdraw all
+        if (amount == type(uint256).max) {
+            amount = balances[account];
+        }
+
         balances[account] -= amount;
         withdrawClaims[account] += amount;
     }
