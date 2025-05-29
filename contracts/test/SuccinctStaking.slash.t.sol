@@ -376,7 +376,7 @@ contract SuccinctStakingSlashTests is SuccinctStakingTest {
             _calculateFullRewardSplit(rewardAmount);
 
         // Now reward the slashed prover - this should work even after full slash
-        MockVApp(VAPP).processReward(ALICE_PROVER, rewardAmount);
+        MockVApp(VAPP).processFulfillment(ALICE_PROVER, rewardAmount);
 
         // Verify the reward was processed correctly in MockVApp balances
         assertEq(

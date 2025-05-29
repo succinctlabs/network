@@ -82,7 +82,7 @@ contract SuccinctStakingUnstakeTests is SuccinctStakingTest {
         assertEq(IERC20(STAKING).balanceOf(STAKER_2), stakeAmount2);
 
         // Reward to Alice prover
-        MockVApp(VAPP).processReward(ALICE_PROVER, rewardAmount);
+        MockVApp(VAPP).processFulfillment(ALICE_PROVER, rewardAmount);
 
         // Calculate expected rewards (only staker portion goes to stakers, after protocol fee)
         (uint256 expectedProtocolFee, uint256 expectedStakerReward, uint256 expectedOwnerReward) =
@@ -181,7 +181,7 @@ contract SuccinctStakingUnstakeTests is SuccinctStakingTest {
         _permitAndStake(STAKER_2, STAKER_2_PK, BOB_PROVER, stakeAmount);
 
         // Reward to Bob's prover (the one STAKER_1 did NOT delegate to)
-        MockVApp(VAPP).processReward(BOB_PROVER, rewardAmount);
+        MockVApp(VAPP).processFulfillment(BOB_PROVER, rewardAmount);
 
         // Complete unstake process
         _completeUnstake(STAKER_1, stakeAmount);
@@ -316,7 +316,7 @@ contract SuccinctStakingUnstakeTests is SuccinctStakingTest {
         uint256 initialStaked = SuccinctStaking(STAKING).staked(STAKER_1);
 
         // Add rewards before unstaking
-        MockVApp(VAPP).processReward(ALICE_PROVER, rewardAmount);
+        MockVApp(VAPP).processFulfillment(ALICE_PROVER, rewardAmount);
 
         // Calculate expected staker reward portion
         uint256 expectedStakerRewardPerReward = (rewardAmount * STAKER_FEE_BIPS) / FEE_UNIT;
@@ -338,7 +338,7 @@ contract SuccinctStakingUnstakeTests is SuccinctStakingTest {
         _requestUnstake(STAKER_1, stakeAmount);
 
         // Add more rewards while tokens are in the unstake queue
-        MockVApp(VAPP).processReward(ALICE_PROVER, rewardAmount);
+        MockVApp(VAPP).processFulfillment(ALICE_PROVER, rewardAmount);
 
         // Withdraw the second staker reward to the prover vault
         _withdrawFromVApp(ALICE_PROVER, expectedStakerRewardPerReward);

@@ -11,7 +11,7 @@ import {IERC20Permit} from
 import {IERC4626} from "../../lib/openzeppelin-contracts/contracts/interfaces/IERC4626.sol";
 import {IProverRegistry} from "../interfaces/IProverRegistry.sol";
 
-/// @dev A mock vApp implementation. The vApp is responsible for dispensing, rewarding, and slashing.
+/// @dev A mock vApp contract implementation.
 contract MockVApp {
     using SafeERC20 for IERC20;
 
@@ -121,7 +121,7 @@ contract MockVApp {
     ///      simulate this.
     ///
     ///      The fee splitting logic is the same as the real VApp STF.
-    function processReward(address _prover, uint256 _amount) external {
+    function processFulfillment(address _prover, uint256 _amount) external {
         uint256 stakerFeeBips = IProver(_prover).stakerFeeBips();
 
         (uint256 protocolReward, uint256 stakerReward, uint256 ownerReward) =

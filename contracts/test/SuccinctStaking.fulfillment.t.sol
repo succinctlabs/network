@@ -5,9 +5,8 @@ import {SuccinctStakingTest} from "./SuccinctStaking.t.sol";
 import {SuccinctStaking} from "../src/SuccinctStaking.sol";
 import {MockVApp} from "../src/mocks/MockVApp.sol";
 import {IERC20} from "../lib/openzeppelin-contracts/contracts/interfaces/IERC20.sol";
-import {ISuccinctStaking} from "../src/interfaces/ISuccinctStaking.sol";
 
-contract SuccinctStakingRewardTests is SuccinctStakingTest {
+contract SuccinctStakingFulfillmentTests is SuccinctStakingTest {
     /// @dev For stack-too-deep workaround
     struct BalanceSnapshot {
         uint256 staker1Balance;
@@ -48,7 +47,7 @@ contract SuccinctStakingRewardTests is SuccinctStakingTest {
             _calculateFullRewardSplit(rewardAmount);
 
         // Reward the prover
-        MockVApp(VAPP).processReward(ALICE_PROVER, rewardAmount);
+        MockVApp(VAPP).processFulfillment(ALICE_PROVER, rewardAmount);
 
         // Simulate withdrawals from VApp to make actual token transfers
         _withdrawFromVApp(FEE_VAULT, expectedProtocolFee);
@@ -90,7 +89,7 @@ contract SuccinctStakingRewardTests is SuccinctStakingTest {
             _calculateFullRewardSplit(rewardAmount);
 
         // Reward the prover
-        MockVApp(VAPP).processReward(ALICE_PROVER, rewardAmount);
+        MockVApp(VAPP).processFulfillment(ALICE_PROVER, rewardAmount);
 
         // Simulate withdrawals from VApp to make actual token transfers
         _withdrawFromVApp(FEE_VAULT, expectedProtocolFee);
@@ -136,7 +135,7 @@ contract SuccinctStakingRewardTests is SuccinctStakingTest {
             _calculateFullRewardSplit(rewardAmount);
 
         // Reward the prover
-        MockVApp(VAPP).processReward(ALICE_PROVER, rewardAmount);
+        MockVApp(VAPP).processFulfillment(ALICE_PROVER, rewardAmount);
 
         // Simulate withdrawals from VApp to make actual token transfers
         _withdrawFromVApp(FEE_VAULT, expectedProtocolFee);
@@ -187,7 +186,7 @@ contract SuccinctStakingRewardTests is SuccinctStakingTest {
             _calculateFullRewardSplit(rewardAmount);
 
         // Reward only to Alice prover
-        MockVApp(VAPP).processReward(ALICE_PROVER, rewardAmount);
+        MockVApp(VAPP).processFulfillment(ALICE_PROVER, rewardAmount);
 
         // Simulate withdrawals from VApp to make actual token transfers
         _withdrawFromVApp(FEE_VAULT, expectedProtocolFee);
@@ -237,7 +236,7 @@ contract SuccinctStakingRewardTests is SuccinctStakingTest {
             _calculateFullRewardSplit(rewardAmount);
 
         // Reward to Alice prover
-        MockVApp(VAPP).processReward(ALICE_PROVER, rewardAmount);
+        MockVApp(VAPP).processFulfillment(ALICE_PROVER, rewardAmount);
 
         // Simulate withdrawals from VApp to make actual token transfers
         _withdrawFromVApp(FEE_VAULT, expectedProtocolFee);
@@ -296,7 +295,7 @@ contract SuccinctStakingRewardTests is SuccinctStakingTest {
             _calculateFullRewardSplit(rewardAmount);
 
         // Reward to Alice prover
-        MockVApp(VAPP).processReward(ALICE_PROVER, rewardAmount);
+        MockVApp(VAPP).processFulfillment(ALICE_PROVER, rewardAmount);
 
         // Simulate withdrawals from VApp to make actual token transfers
         _withdrawFromVApp(FEE_VAULT, expectedProtocolFee);
@@ -354,8 +353,8 @@ contract SuccinctStakingRewardTests is SuccinctStakingTest {
         = _calculateFullRewardSplit(rewardAmount2);
 
         // Reward both provers
-        MockVApp(VAPP).processReward(ALICE_PROVER, rewardAmount1);
-        MockVApp(VAPP).processReward(BOB_PROVER, rewardAmount2);
+        MockVApp(VAPP).processFulfillment(ALICE_PROVER, rewardAmount1);
+        MockVApp(VAPP).processFulfillment(BOB_PROVER, rewardAmount2);
 
         // Simulate withdrawals from VApp to make actual token transfers
         _withdrawFromVApp(FEE_VAULT, expectedProtocolFee1 + expectedProtocolFee2);
@@ -407,6 +406,6 @@ contract SuccinctStakingRewardTests is SuccinctStakingTest {
         address unknownProver = makeAddr("UNKNOWN_PROVER");
 
         vm.expectRevert();
-        MockVApp(VAPP).processReward(unknownProver, rewardAmount);
+        MockVApp(VAPP).processFulfillment(unknownProver, rewardAmount);
     }
 }

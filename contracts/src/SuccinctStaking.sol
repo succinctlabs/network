@@ -394,26 +394,25 @@ contract SuccinctStaking is
         emit Stake(_staker, _prover, _PROVE, iPROVE, stPROVE);
     }
 
-    /// @dev Get the sum of all unstake claims for a staker for a given prover.
-    function _getUnstakeClaimBalance(address _staker)
+    /// @dev Burn $stPROVE and withdraw $PROVER-N from the prover, receiving $iPROVE, then
+    ///      withdraw $iPROVE to receive $PROVE.
+    function _unstake(address _staker, address _prover, uint256 _stPROVE)
         internal
-        view
-        returns (uint256 unstakeClaimBalance)
+        stakingOperation
+        returns (uint256 PROVE)
     {
-        for (uint256 i = 0; i < unstakeClaims[_staker].length; i++) {
-            unstakeClaimBalance += unstakeClaims[_staker][i].stPROVE;
-        }
-    }
+        if (_stPROVE == 0) revert ZeroAmount();
 
-    /// @dev Get the sum of all slash claims for a prover.
-    function _getSlashClaimBalance(address _prover)
-        internal
-        view
-        returns (uint256 slashClaimBalance)
-    {
-        for (uint256 i = 0; i < slashClaims[_prover].length; i++) {
-            slashClaimBalance += slashClaims[_prover][i].iPROVE;
-        }
+        // Burn the $stPROVE from the staker
+        _burn(_staker, _stPROVE);
+
+        // Withdraw $PROVER-N from this contract to have this contract receive $iPROVE.
+        uint256 iPROVE = IERC4626(_prover).redeem(_stPROVE, address(this), address(this));
+
+        // Withdraw $iPROVE from this contract to have the staker receive $PROVE.
+        PROVE = IERC4626(iProve).redeem(iPROVE, _staker, address(this));
+
+        emit Unstake(_staker, _prover, PROVE, iPROVE, _stPROVE);
     }
 
     /// @dev Iterate over the claims, processing each one that has passed the unstake period.
@@ -439,25 +438,26 @@ contract SuccinctStaking is
         }
     }
 
-    /// @dev Burn $stPROVE and withdraw $PROVER-N from the prover, receiving $iPROVE, then
-    ///      withdraw $iPROVE to receive $PROVE.
-    function _unstake(address _staker, address _prover, uint256 _stPROVE)
+    /// @dev Get the sum of all unstake claims for a staker for a given prover.
+    function _getUnstakeClaimBalance(address _staker)
         internal
-        stakingOperation
-        returns (uint256 PROVE)
+        view
+        returns (uint256 unstakeClaimBalance)
     {
-        if (_stPROVE == 0) revert ZeroAmount();
+        for (uint256 i = 0; i < unstakeClaims[_staker].length; i++) {
+            unstakeClaimBalance += unstakeClaims[_staker][i].stPROVE;
+        }
+    }
 
-        // Burn the $stPROVE from the staker
-        _burn(_staker, _stPROVE);
-
-        // Withdraw $PROVER-N from this contract to have this contract receive $iPROVE.
-        uint256 iPROVE = IERC4626(_prover).redeem(_stPROVE, address(this), address(this));
-
-        // Withdraw $iPROVE from this contract to have the staker receive $PROVE.
-        PROVE = IERC4626(iProve).redeem(iPROVE, _staker, address(this));
-
-        emit Unstake(_staker, _prover, PROVE, iPROVE, _stPROVE);
+    /// @dev Get the sum of all slash claims for a prover.
+    function _getSlashClaimBalance(address _prover)
+        internal
+        view
+        returns (uint256 slashClaimBalance)
+    {
+        for (uint256 i = 0; i < slashClaims[_prover].length; i++) {
+            slashClaimBalance += slashClaims[_prover][i].iPROVE;
+        }
     }
 
     /// @dev Set the new dispense rate.

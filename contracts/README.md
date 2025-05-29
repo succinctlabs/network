@@ -97,7 +97,7 @@ cast send $PROVE "mint(address,uint256)" $VAPP 1000e18 --private-key $PRIVATE_KE
 Then send the reward to the prover (simulates the proof being fulfilled):
 
 ```sh
-cast send $VAPP "processReward(address,uint256)" $PROVER 100e18 --private-key $PRIVATE_KEY --rpc-url $ETH_RPC_URL
+cast send $VAPP "processFulfillment(address,uint256)" $PROVER 100e18 --private-key $PRIVATE_KEY --rpc-url $ETH_RPC_URL
 ```
 
 ### Slash
