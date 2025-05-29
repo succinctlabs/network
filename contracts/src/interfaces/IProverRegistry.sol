@@ -48,12 +48,4 @@ interface IProverRegistry {
     /// @param owner The address of the owner.
     /// @return True if the address is the owner of a prover, false otherwise.
     function hasProver(address owner) external view returns (bool);
-
-    /// @notice Create a new prover.
-    /// @dev The caller becomes the owner of the new prover. Only one prover can be created per
-    ///      owner.
-    /// @param stakerFeeBips The reward percentage in basis points (one-hundredth of a percent) that
-    ///        goes to the prover's stakers. This cannot be changed after the prover is created.
-    /// @return The address of the new prover.
-    function createProver(uint256 stakerFeeBips) external returns (address);
 }

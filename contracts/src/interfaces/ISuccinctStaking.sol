@@ -141,16 +141,12 @@ interface ISuccinctStaking is IProverRegistry {
     function maxDispense() external view returns (uint256);
 
     /// @notice Stake $PROVE to a prover. Must have approved $PROVE with this contract as the spender.
-    /// @dev Deposits $PROVE into the iPROVE to mint $iPROVE, then deposits $iPROVE into the chosen
-    ///      prover to mint $PROVER-N/$stPROVE.
     /// @param prover The address of the prover to delegate $iPROVE to.
     /// @param PROVE The amount of $PROVE to deposit.
     /// @return The amount of $stPROVE received.
     function stake(address prover, uint256 PROVE) external returns (uint256);
 
     /// @notice Stake $PROVE to a prover.
-    /// @dev Deposits $PROVE to mint $iPROVE, then deposits $iPROVE into the chosen
-    ///      prover to mint $PROVER-N/$stPROVE.
     /// @param prover The address of the prover to delegate $iPROVE to.
     /// @param staker The address if the staker. Must correspond to the signer of the permit
     ///        signature.
@@ -169,6 +165,36 @@ interface ISuccinctStaking is IProverRegistry {
         bytes32 r,
         bytes32 s
     ) external returns (uint256);
+
+    /// @notice Creates a prover and stakes $PROVE to it. Must have approved $PROVE with this
+    ///         contract as the spender.
+    /// @param stakerFeeBips The prover's staker fee in basis points.
+    /// @param PROVE The amount of $PROVE to stake to the prover. Must be greater or equal to
+    ///        minStakeAmount().
+    /// @return prover The address of the created prover.
+    /// @return stPROVE The amount of $stPROVE received.
+    function createProver(uint256 stakerFeeBips, uint256 PROVE)
+        external
+        returns (address prover, uint256 stPROVE);
+
+    /// @notice Creates a prover.
+    /// @param stakerFeeBips The prover's staker fee in basis points.
+    /// @param PROVE The amount of $PROVE to stake to the prover. Must be greater or equal to
+    ///        minStakeAmount().
+    /// @param deadline The deadline for the permit signature.
+    /// @param v The v component of the permit signature.
+    /// @param r The r component of the permit signature.
+    /// @param s The s component of the permit signature.
+    /// @return prover The address of the created prover.
+    /// @return stPROVE The amount of $stPROVE received.
+    function permitAndCreateProver(
+        uint256 stakerFeeBips,
+        uint256 PROVE,
+        uint256 deadline,
+        uint8 v,
+        bytes32 r,
+        bytes32 s
+    ) external returns (address prover, uint256 stPROVE);
 
     /// @notice Creates a request to unstake $stPROVE from the prover for the specified amount.
     /// @dev The staker must have enough $stPROVE that is not already in the unclaim queue.

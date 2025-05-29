@@ -57,11 +57,18 @@ contract MockStaking is ISuccinctStaking {
         return ownerToProver[_owner];
     }
 
-    function createProver(uint256) external override returns (address) {
+    function createProver(uint256, uint256) external override returns (address, uint256) {
         proverToOwner[msg.sender] = msg.sender;
         ownerToProver[msg.sender] = msg.sender;
         proverCounter++;
-        return msg.sender;
+        return (msg.sender, 0);
+    }
+
+    function permitAndCreateProver(uint256, uint256, uint256, uint8, bytes32, bytes32) external override returns (address, uint256) {
+        proverToOwner[msg.sender] = msg.sender;
+        ownerToProver[msg.sender] = msg.sender;
+        proverCounter++;
+        return (msg.sender, 0);
     }
 
     // ISuccinctStaking implementation

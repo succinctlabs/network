@@ -171,6 +171,7 @@ contract SuccinctStaking is
         onlyForProver(_prover)
         returns (uint256)
     {
+        // Stake $PROVE to the prover.
         return _stake(msg.sender, _prover, _amount);
     }
 
@@ -184,9 +185,37 @@ contract SuccinctStaking is
         bytes32 _r,
         bytes32 _s
     ) external override onlyForProver(_prover) returns (uint256) {
+        // Approve this contract to spend $PROVE on behalf of the staker.
         IERC20Permit(prove).permit(_from, address(this), _amount, _deadline, _v, _r, _s);
 
+        // Stake $PROVE to the prover.
         return _stake(_from, _prover, _amount);
+    }
+
+    /// @inheritdoc ISuccinctStaking
+    function createProver(uint256 _stakerFeeBips, uint256 _stakeAmount)
+        external
+        override
+        returns (address prover, uint256 stPROVE)
+    {
+        // Create the prover and stake $PROVE to it.
+        return _createProverAndStake(msg.sender, _stakerFeeBips, _stakeAmount);
+    }
+
+    /// @inheritdoc ISuccinctStaking
+    function permitAndCreateProver(
+        uint256 _stakerFeeBips,
+        uint256 _PROVE,
+        uint256 _deadline,
+        uint8 _v,
+        bytes32 _r,
+        bytes32 _s
+    ) external returns (address prover, uint256 stPROVE) {
+        // Approve this contract to spend $PROVE on behalf of the staker.
+        IERC20Permit(prove).permit(msg.sender, address(this), _PROVE, _deadline, _v, _r, _s);
+
+        // Create the prover and stake $PROVE to it.
+        return _createProverAndStake(msg.sender, _stakerFeeBips, _PROVE);
     }
 
     /// @inheritdoc ISuccinctStaking
@@ -378,8 +407,8 @@ contract SuccinctStaking is
     //////////////////////////////////////////////////////////////*/
 
     /// @dev Deposit $PROVE into the staking contract, minting $iPROVE, then depositing $iPROVE
-    ///      into the prover to mint $PROVER-N, then minting $stPROVE to the staker (because
-    ///      $stPROVE always stays in sync with $PROVER-N balance).
+    ///      into the prover to mint $PROVER-N, then minting $stPROVE to the staker (which is a
+    ///      unified receipt token over the specific $PROVER-N balance).
     function _stake(address _staker, address _prover, uint256 _PROVE)
         internal
         stakingOperation
@@ -417,26 +446,21 @@ contract SuccinctStaking is
         emit Stake(_staker, _prover, _PROVE, iPROVE, stPROVE);
     }
 
-    /// @dev Get the sum of all unstake claims for a staker for a given prover.
-    function _getUnstakeClaimBalance(address _staker)
+    /// @dev Create a prover and stake $PROVE to it.
+    function _createProverAndStake(address _owner, uint256 _stakerFeeBips, uint256 _stakeAmount)
         internal
-        view
-        returns (uint256 unstakeClaimBalance)
+        returns (address prover, uint256 stPROVE)
     {
-        for (uint256 i = 0; i < unstakeClaims[_staker].length; i++) {
-            unstakeClaimBalance += unstakeClaims[_staker][i].stPROVE;
+        // Ensure the caller is not already a prover owner.
+        if (hasProver(_owner)) {
+            revert ProverAlreadyExists();
         }
-    }
 
-    /// @dev Get the sum of all slash claims for a prover.
-    function _getSlashClaimBalance(address _prover)
-        internal
-        view
-        returns (uint256 slashClaimBalance)
-    {
-        for (uint256 i = 0; i < slashClaims[_prover].length; i++) {
-            slashClaimBalance += slashClaims[_prover][i].iPROVE;
-        }
+        // Deploy the prover.
+        prover = _deployProver(_owner, _stakerFeeBips);
+
+        // Stake $PROVE to the prover.
+        stPROVE = _stake(_owner, prover, _stakeAmount);
     }
 
     /// @dev Iterate over the claims, processing each one that has passed the unstake period.
@@ -481,6 +505,29 @@ contract SuccinctStaking is
         PROVE = IERC4626(iProve).redeem(iPROVE, _staker, address(this));
 
         emit Unstake(_staker, _prover, PROVE, iPROVE, _stPROVE);
+    }
+    
+
+    /// @dev Get the sum of all unstake claims for a staker for a given prover.
+    function _getUnstakeClaimBalance(address _staker)
+        internal
+        view
+        returns (uint256 unstakeClaimBalance)
+    {
+        for (uint256 i = 0; i < unstakeClaims[_staker].length; i++) {
+            unstakeClaimBalance += unstakeClaims[_staker][i].stPROVE;
+        }
+    }
+
+    /// @dev Get the sum of all slash claims for a prover.
+    function _getSlashClaimBalance(address _prover)
+        internal
+        view
+        returns (uint256 slashClaimBalance)
+    {
+        for (uint256 i = 0; i < slashClaims[_prover].length; i++) {
+            slashClaimBalance += slashClaims[_prover][i].iPROVE;
+        }
     }
 
     /// @dev Set the new dispense rate.

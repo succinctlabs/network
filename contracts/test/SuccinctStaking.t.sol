@@ -21,6 +21,7 @@ contract SuccinctStakingTest is Test {
     uint256 public constant STAKING_PROVE_AMOUNT = 1000e18;
     uint256 public constant REQUESTER_PROVE_AMOUNT = 10e18;
     uint256 public constant STAKER_PROVE_AMOUNT = 1e18;
+    uint256 public constant PROVER_PROVE_AMOUNT = 1e18;
     uint256 public constant MIN_STAKE_AMOUNT = 1e12;
     uint256 public constant UNSTAKE_PERIOD = 21 days;
     uint256 public constant SLASH_PERIOD = 7 days;
@@ -96,15 +97,24 @@ contract SuccinctStakingTest is Test {
         vm.prank(REQUESTER);
         MockVApp(VAPP).deposit(REQUESTER_PROVE_AMOUNT);
 
-        // Create the provers
-        vm.prank(ALICE);
-        ALICE_PROVER = SuccinctStaking(STAKING).createProver(STAKER_FEE_BIPS);
-        vm.prank(BOB);
-        BOB_PROVER = SuccinctStaking(STAKING).createProver(STAKER_FEE_BIPS);
-
         // Mint some $PROVE for the stakers
         deal(PROVE, STAKER_1, STAKER_PROVE_AMOUNT);
         deal(PROVE, STAKER_2, STAKER_PROVE_AMOUNT);
+
+
+        // Mint some $PROVE for the provers
+        deal(PROVE, ALICE, PROVER_PROVE_AMOUNT);
+        deal(PROVE, BOB, PROVER_PROVE_AMOUNT);
+
+        // Create the provers
+        vm.prank(ALICE);
+        IERC20(PROVE).approve(STAKING, PROVER_PROVE_AMOUNT);
+        vm.prank(ALICE);
+        (ALICE_PROVER, ) = SuccinctStaking(STAKING).createProver(STAKER_FEE_BIPS, PROVER_PROVE_AMOUNT);
+        vm.prank(BOB);
+        IERC20(PROVE).approve(STAKING, PROVER_PROVE_AMOUNT);
+        vm.prank(BOB);
+        (BOB_PROVER, ) = SuccinctStaking(STAKING).createProver(STAKER_FEE_BIPS, PROVER_PROVE_AMOUNT);
     }
 
     function _calculateStakerReward(uint256 _totalReward) internal pure returns (uint256) {

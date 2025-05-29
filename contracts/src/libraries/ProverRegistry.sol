@@ -62,15 +62,6 @@ abstract contract ProverRegistry is IProverRegistry {
         return ownerToProver[_owner] != address(0);
     }
 
-    /// @inheritdoc IProverRegistry
-    function createProver(uint256 _stakerFeeBips) external override returns (address) {
-        if (hasProver(msg.sender)) {
-            revert ProverAlreadyExists();
-        }
-
-        return _deployProver(msg.sender, _stakerFeeBips);
-    }
-
     /// @dev Uses CREATE2 to deploy an instance of SuccinctProver and adds it to the mapping.
     function _deployProver(address _owner, uint256 _stakerFeeBips) internal returns (address) {
         // Ensure that the contract is initialized.
