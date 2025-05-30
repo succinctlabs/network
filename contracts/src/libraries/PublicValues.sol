@@ -52,9 +52,3 @@ struct SetDelegatedSignerAction {
     address owner;
     address signer;
 }
-
-/// @notice The action data for a remove signer.
-struct RemoveSignerAction {
-    address owner;
-    address signer;
-}

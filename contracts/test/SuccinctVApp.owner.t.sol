@@ -12,7 +12,6 @@ import {
     DepositAction,
     WithdrawAction,
     SetDelegatedSignerAction,
-    RemoveSignerAction
 } from "../src/libraries/PublicValues.sol";
 import {ISuccinctVApp} from "../src/interfaces/ISuccinctVApp.sol";
 import {Ownable} from "../lib/openzeppelin-contracts/contracts/access/Ownable.sol";

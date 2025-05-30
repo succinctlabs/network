@@ -13,7 +13,6 @@ import {
     DepositAction,
     WithdrawAction,
     SetDelegatedSignerAction,
-    RemoveSignerAction
 } from "../src/libraries/PublicValues.sol";
 import {ISuccinctVApp} from "../src/interfaces/ISuccinctVApp.sol";
 import {MockStaking} from "../src/mocks/MockStaking.sol";
