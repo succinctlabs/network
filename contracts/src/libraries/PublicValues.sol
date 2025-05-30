@@ -5,8 +5,7 @@ pragma solidity ^0.8.28;
 enum ActionType {
     Deposit,
     Withdraw,
-    AddSigner,
-    RemoveSigner
+    SetDelegatedSigner
 }
 
 /// @notice The status of a receipt
@@ -49,7 +48,7 @@ struct WithdrawAction {
 }
 
 /// @notice The action data for an add signer.
-struct AddSignerAction {
+struct SetDelegatedSignerAction {
     address owner;
     address signer;
 }

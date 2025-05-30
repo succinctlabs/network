@@ -109,7 +109,7 @@ abstract contract ProverRegistry is IProverRegistry {
 
         // Add the owner as a delegated signer for the prover. This allows the owner EOA to sign messages
         // on behalf of the prover.
-        ISuccinctVApp(vapp).addDelegatedSignerForProver(prover, _owner);
+        ISuccinctVApp(vapp).setDelegatedSigner(prover, _owner);
 
         // Approve the prover as a spender so that $iPROVE can be transferred to the prover during\
         // stake().
