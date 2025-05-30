@@ -45,10 +45,7 @@ contract SuccinctProver is ERC4626, IProver {
         uint256 _id,
         uint256 _stakerFeeBips
     )
-        ERC20(
-            string.concat(NAME_PREFIX, _id.toString()),
-            string.concat(SYMBOL_PREFIX, _id.toString())
-        )
+        ERC20(string.concat(NAME_PREFIX, _id.toString()), string.concat(SYMBOL_PREFIX, _id.toString()))
         ERC4626(IERC20(_iProve))
     {
         staking = _staking;

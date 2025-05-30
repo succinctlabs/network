@@ -253,14 +253,6 @@ contract SuccinctVApp is
         // Create the receipt.
         bytes memory data = abi.encode(SetDelegatedSignerAction({owner: _owner, signer: _signer}));
         receipt = _createReceipt(ActionType.SetDelegatedSigner, data);
-
-        // Delete the old signer.
-        address oldSigner = delegatedSigner[_owner];
-        delete usedSigners[oldSigner];
-
-        // Update the state.
-        usedSigners[_signer] = true;
-        delegatedSigner[_owner] = _signer;
     }
 
     /// @inheritdoc ISuccinctVApp
@@ -476,8 +468,13 @@ contract SuccinctVApp is
             receipts[_actions[i].action.receipt].status = _actions[i].action.status;
 
             if (_actions[i].action.status == ReceiptStatus.Completed) {
+                // Process the set delegated signer action.
+                _processSetDelegatedSigner(_actions[i].data.owner, _actions[i].data.signer);
+
                 emit ReceiptCompleted(
-                    _actions[i].action.receipt, ActionType.SetDelegatedSigner, _actions[i].action.data
+                    _actions[i].action.receipt,
+                    ActionType.SetDelegatedSigner,
+                    _actions[i].action.data
                 );
             }
         }
@@ -487,6 +484,17 @@ contract SuccinctVApp is
     function _processWithdraw(address _to, uint256 _amount) internal {
         // Update the state.
         claimableWithdrawal[_to] += _amount;
+    }
+
+    /// @dev Processes a set delegated signer action by updating the state.
+    function _processSetDelegatedSigner(address _owner, address _signer) internal {
+        // Delete the old signer.
+        address oldSigner = delegatedSigner[_owner];
+        delete usedSigners[oldSigner];
+
+        // Update the state.
+        usedSigners[_signer] = true;
+        delegatedSigner[_owner] = _signer;
     }
 
     /// @dev Updates the staking contract.
