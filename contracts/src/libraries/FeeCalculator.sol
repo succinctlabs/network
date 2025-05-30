@@ -1,13 +1,10 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.28;
 
-import {SafeERC20} from "../../lib/openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol";
-import {IERC20} from "../../lib/openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
-
 /// @title FeeCalculator
 /// @notice Library for calculating and distributing fees for rewards.
+/// @dev This occurs offchain in the VApp, and only exists in Solidity for testing purposes.
 library FeeCalculator {
-    using SafeERC20 for IERC20;
 
     uint256 internal constant FEE_UNIT = 10000;
 

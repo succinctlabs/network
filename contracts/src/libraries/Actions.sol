@@ -7,8 +7,7 @@ import {
     ActionType,
     DepositAction,
     WithdrawAction,
-    AddSignerAction,
-    RemoveSignerAction
+    SetDelegatedSignerAction
 } from "./PublicValues.sol";
 
 /// @notice A receipt for an action
@@ -24,8 +23,7 @@ struct ActionsInternal {
     uint64 lastReceipt;
     DepositInternal[] deposits;
     WithdrawInternal[] withdrawals;
-    AddSignerInternal[] addSigners;
-    RemoveSignerInternal[] removeSigners;
+    SetDelegatedSignerInternal[] setDelegatedSigners;
 }
 
 /// @notice Internal deposit action
@@ -41,15 +39,9 @@ struct WithdrawInternal {
 }
 
 /// @notice Internal add signer action
-struct AddSignerInternal {
+struct SetDelegatedSignerInternal {
     Action action;
-    AddSignerAction data;
-}
-
-/// @notice Internal remove signer action
-struct RemoveSignerInternal {
-    Action action;
-    RemoveSignerAction data;
+    SetDelegatedSignerAction data;
 }
 
 /// @notice Library for handling actions
@@ -76,7 +68,7 @@ library Actions {
     struct DecodeData {
         uint256 depositLength;
         uint256 withdrawLength;
-        uint256 addSignerLength;
+        uint256 setDelegatedSignerLength;
         uint256 removeSignerLength;
     }
 
@@ -94,10 +86,8 @@ library Actions {
                 data.depositLength++;
             } else if (actionType == ActionType.Withdraw) {
                 data.withdrawLength++;
-            } else if (actionType == ActionType.AddSigner) {
-                data.addSignerLength++;
-            } else if (actionType == ActionType.RemoveSigner) {
-                data.removeSignerLength++;
+            } else if (actionType == ActionType.SetDelegatedSigner) {
+                data.setDelegatedSignerLength++;
             } else {
                 revert InvalidAction();
             }
@@ -105,14 +95,12 @@ library Actions {
 
         decoded.deposits = new DepositInternal[](data.depositLength);
         decoded.withdrawals = new WithdrawInternal[](data.withdrawLength);
-        decoded.addSigners = new AddSignerInternal[](data.addSignerLength);
-        decoded.removeSigners = new RemoveSignerInternal[](data.removeSignerLength);
+        decoded.setDelegatedSigners = new SetDelegatedSignerInternal[](data.setDelegatedSignerLength);
 
         // Decode the actions
         data.depositLength = 0;
         data.withdrawLength = 0;
-        data.addSignerLength = 0;
-        data.removeSignerLength = 0;
+        data.setDelegatedSignerLength = 0;
 
         for (uint64 i = 0; i < _actions.length; i++) {
             Action memory action = _actions[i];
@@ -133,18 +121,12 @@ library Actions {
                     data: abi.decode(action.data, (WithdrawAction))
                 });
                 decoded.withdrawals[data.withdrawLength++] = withdraw;
-            } else if (action.action == ActionType.AddSigner) {
-                AddSignerInternal memory addSigner = AddSignerInternal({
+            } else if (action.action == ActionType.SetDelegatedSigner) {
+                SetDelegatedSignerInternal memory setDelegatedSigner = SetDelegatedSignerInternal({
                     action: action,
-                    data: abi.decode(action.data, (AddSignerAction))
+                    data: abi.decode(action.data, (SetDelegatedSignerAction))
                 });
-                decoded.addSigners[data.addSignerLength++] = addSigner;
-            } else if (action.action == ActionType.RemoveSigner) {
-                RemoveSignerInternal memory removeSigner = RemoveSignerInternal({
-                    action: action,
-                    data: abi.decode(action.data, (RemoveSignerAction))
-                });
-                decoded.removeSigners[data.removeSignerLength++] = removeSigner;
+                decoded.setDelegatedSigners[data.setDelegatedSignerLength++] = setDelegatedSigner;
             } else {
                 revert InvalidAction();
             }
@@ -191,9 +173,7 @@ library Actions {
                     _validateDeposit(_actions[i], receipt);
                 } else if (_actions[i].action == ActionType.Withdraw) {
                     _validateWithdraw(_actions[i], receipt);
-                } else if (_actions[i].action == ActionType.AddSigner) {
-                    // Skip validations
-                } else if (_actions[i].action == ActionType.RemoveSigner) {
+                } else if (_actions[i].action == ActionType.SetDelegatedSigner) {
                     // Skip validations
                 } else {
                     revert InvalidAction();
@@ -215,9 +195,7 @@ library Actions {
             return true;
         } else if (_action.action == ActionType.Withdraw) {
             return _action.receipt != 0;
-        } else if (_action.action == ActionType.AddSigner) {
-            return true;
-        } else if (_action.action == ActionType.RemoveSigner) {
+        } else if (_action.action == ActionType.SetDelegatedSigner) {
             return true;
         }
 

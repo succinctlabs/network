@@ -13,8 +13,7 @@ import {
     ActionType,
     DepositAction,
     WithdrawAction,
-    AddSignerAction,
-    RemoveSignerAction
+    SetDelegatedSignerAction
 } from "../src/libraries/PublicValues.sol";
 import {MockStaking} from "../src/mocks/MockStaking.sol";
 import {MockVerifier} from "../src/mocks/MockVerifier.sol";
@@ -34,7 +33,7 @@ contract SuccinctVAppTest is Test, FixtureLoader {
     uint256 constant FEE_UNIT = 10000;
     uint64 constant MAX_ACTION_DELAY = 1 days;
     uint256 constant PROTOCOL_FEE_BIPS = 30; // 0.3%
-
+    uint256 constant STAKER_FEE_BIPS = 1000; // 10%
     // Fixtures
     SP1ProofFixtureJson public jsonFixture;
     PublicValuesStruct public fixture;
@@ -42,6 +41,7 @@ contract SuccinctVAppTest is Test, FixtureLoader {
     // EOAs
     address OWNER;
     address ALICE;
+    address BOB;
     address REQUESTER_1;
     uint256 REQUESTER_1_PK;
     address REQUESTER_2;
@@ -72,6 +72,7 @@ contract SuccinctVAppTest is Test, FixtureLoader {
         // OWNER = makeAddr("OWNER");
         OWNER = address(this);
         ALICE = makeAddr("ALICE");
+        BOB = makeAddr("BOB");
 
         // Create requesters
         (REQUESTER_1, REQUESTER_1_PK) = makeAddrAndKey("REQUESTER_1");
@@ -89,7 +90,7 @@ contract SuccinctVAppTest is Test, FixtureLoader {
         I_PROVE = address(new MockERC20("Succinct", "iPROVE", 18));
 
         // Deploy staking
-        STAKING = address(new MockStaking(PROVE));
+        STAKING = address(new MockStaking(PROVE, I_PROVE));
 
         // Deploy VApp
         address vappImpl = address(new SuccinctVApp());
@@ -105,6 +106,7 @@ contract SuccinctVAppTest is Test, FixtureLoader {
             MAX_ACTION_DELAY,
             PROTOCOL_FEE_BIPS
         );
+        MockStaking(STAKING).setVApp(VAPP);
     }
 
     function mockCall(bool verified) public {

@@ -2,16 +2,14 @@
 pragma solidity ^0.8.28;
 
 import {IProver} from "../interfaces/IProver.sol";
-import {ISuccinctStaking} from "../interfaces/ISuccinctStaking.sol";
-import {ISuccinctVApp} from "../interfaces/ISuccinctVApp.sol";
 import {ERC20} from "../../lib/openzeppelin-contracts/contracts/token/ERC20/ERC20.sol";
 import {IERC20} from "../../lib/openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
 import {ERC4626} from
     "../../lib/openzeppelin-contracts/contracts/token/ERC20/extensions/ERC4626.sol";
 import {Strings} from "../../lib/openzeppelin-contracts/contracts/utils/Strings.sol";
 
-string constant NAME_PREFIX = "SuccinctProver";
-string constant SYMBOL_PREFIX = "PROVER";
+string constant NAME_PREFIX = "SuccinctProver-";
+string constant SYMBOL_PREFIX = "PROVER-";
 
 /// @title SuccinctProver
 /// @author Succinct Labs
@@ -39,18 +37,16 @@ contract SuccinctProver is ERC4626, IProver {
     /// @inheritdoc IProver
     uint256 public immutable override stakerFeeBips;
 
+    /// @dev Initializes this vault with $iPROVE as the underlying, with additional parameters.
     constructor(
-        address _underlying,
+        address _iProve,
         address _staking,
         address _owner,
         uint256 _id,
         uint256 _stakerFeeBips
     )
-        ERC20(
-            string.concat(NAME_PREFIX, "-", _id.toString()),
-            string.concat(SYMBOL_PREFIX, "-", _id.toString())
-        )
-        ERC4626(IERC20(_underlying))
+        ERC20(string.concat(NAME_PREFIX, _id.toString()), string.concat(SYMBOL_PREFIX, _id.toString()))
+        ERC4626(IERC20(_iProve))
     {
         staking = _staking;
         owner = _owner;

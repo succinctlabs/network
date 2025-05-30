@@ -23,7 +23,7 @@ pragma solidity ^0.8.28;
 //     ActionType,
 //     DepositAction,
 //     WithdrawAction,
-//     AddSignerAction,
+//     SetDelegatedSignerAction
 //     RemoveSignerAction
 // } from "../src/libraries/PublicValues.sol";
 

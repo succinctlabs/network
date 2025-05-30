@@ -76,7 +76,7 @@ contract MockVApp {
         emit Deposit(_from, _amount);
     }
 
-    function addDelegatedSignerForProver(address, address) external pure returns (uint64) {
+    function setDelegatedSigner(address, address) external pure returns (uint64) {
         return 0;
     }
 
