@@ -12,13 +12,13 @@ import {
     ActionType,
     DepositAction,
     WithdrawAction,
-    SetDelegatedSignerAction,
+    SetDelegatedSignerAction
 } from "../src/libraries/PublicValues.sol";
 import {ISuccinctVApp} from "../src/interfaces/ISuccinctVApp.sol";
 import {MockStaking} from "../src/mocks/MockStaking.sol";
 
 contract SuccinctVAppDelegateTest is SuccinctVAppTest {
-    function test_SetDelegatedSigner_WhenValid() public {
+    function test_SetDelegatedSigner_WhenProverCreated() public {
 		// Create the prover, this emits a SetDelegatedSigner action for the prover owner being
 		// a delegate of the prover.
 		vm.expectEmit(true, true, true, false);
@@ -64,6 +64,54 @@ contract SuccinctVAppDelegateTest is SuccinctVAppTest {
         address signer = SuccinctVApp(VAPP).delegatedSigner(aliceProver);
         assertEq(signer, ALICE);
         assertTrue(SuccinctVApp(VAPP).usedSigners(ALICE));
+    }
+
+	function test_SetDelegatedSigner_WhenSetigner() public {
+		// // Create the prover, this emits a SetDelegatedSigner action for the prover owner being
+		// // a delegate of the prover.
+		// vm.expectEmit(true, true, true, false);
+        // emit ISuccinctVApp.ReceiptPending(1, ActionType.SetDelegatedSigner, bytes(""));
+        // vm.prank(ALICE);
+        // address aliceProver = MockStaking(STAKING).createProver(STAKER_FEE_BIPS);
+
+		// // The expected action data for alice creating a prover.
+        // bytes memory expectedSetDelegatedSignerData =
+        //     abi.encode(SetDelegatedSignerAction({owner: aliceProver, signer: ALICE}));
+
+        // (ActionType actionType, ReceiptStatus status,, bytes memory data) =
+        //     SuccinctVApp(VAPP).receipts(SuccinctVApp(VAPP).currentReceipt());
+        // assertEq(uint8(actionType), uint8(ActionType.SetDelegatedSigner));
+        // assertEq(uint8(status), uint8(ReceiptStatus.Pending));
+        // assertEq(data, expectedSetDelegatedSignerData);
+
+        // // Process the first setDelegatedSigner action through state update
+        // PublicValuesStruct memory publicValues1 = PublicValuesStruct({
+        //     actions: new Action[](1),
+        //     oldRoot: bytes32(0),
+        //     newRoot: bytes32(uint256(1)),
+        //     timestamp: uint64(block.timestamp)
+        // });
+        // publicValues1.actions[0] = Action({
+        //     action: ActionType.SetDelegatedSigner,
+        //     status: ReceiptStatus.Completed,
+        //     receipt: SuccinctVApp(VAPP).currentReceipt(),
+        //     data: expectedSetDelegatedSignerData
+        // });
+
+        // mockCall(true);
+        // vm.expectEmit(true, true, true, true);
+        // emit ISuccinctVApp.Block(1, publicValues1.newRoot, publicValues1.oldRoot);
+        // SuccinctVApp(VAPP).updateState(abi.encode(publicValues1), jsonFixture.proof);
+
+        // // Verify receipt status updated
+        // (, status,,) = SuccinctVApp(VAPP).receipts(SuccinctVApp(VAPP).currentReceipt());
+        // assertEq(uint8(status), uint8(ReceiptStatus.Completed));
+        // assertEq(SuccinctVApp(VAPP).finalizedReceipt(), 1);
+
+        // // Verify first delegated signer was added
+        // address signer = SuccinctVApp(VAPP).delegatedSigner(aliceProver);
+        // assertEq(signer, ALICE);
+        // assertTrue(SuccinctVApp(VAPP).usedSigners(ALICE));
 
         // Add second delegated signer
         // vm.startPrank(REQUESTER_1);

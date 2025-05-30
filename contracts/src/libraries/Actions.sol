@@ -7,8 +7,7 @@ import {
     ActionType,
     DepositAction,
     WithdrawAction,
-    SetDelegatedSignerAction,
-    RemoveSignerAction
+    SetDelegatedSignerAction
 } from "./PublicValues.sol";
 
 /// @notice A receipt for an action
@@ -43,12 +42,6 @@ struct WithdrawInternal {
 struct SetDelegatedSignerInternal {
     Action action;
     SetDelegatedSignerAction data;
-}
-
-/// @notice Internal remove signer action
-struct RemoveSignerInternal {
-    Action action;
-    RemoveSignerAction data;
 }
 
 /// @notice Library for handling actions

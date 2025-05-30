@@ -7,10 +7,8 @@ import {
     ActionsInternal,
     DepositInternal,
     WithdrawInternal,
-    SetDelegatedSignerInternal,
-    RemoveSignerInternal
+    SetDelegatedSignerInternal
 } from "./libraries/Actions.sol";
-import {FeeCalculator} from "./libraries/FeeCalculator.sol";
 import {
     PublicValuesStruct,
     ReceiptStatus,
@@ -18,8 +16,7 @@ import {
     ActionType,
     DepositAction,
     WithdrawAction,
-    SetDelegatedSignerAction,
-    RemoveSignerAction
+    SetDelegatedSignerAction
 } from "./libraries/PublicValues.sol";
 import {ISuccinctVApp} from "./interfaces/ISuccinctVApp.sol";
 import {ISuccinctStaking} from "./interfaces/ISuccinctStaking.sol";

@@ -46,11 +46,11 @@ interface ISuccinctVApp {
     /// @dev Thrown when the caller is not the staking contract.
     error NotStaking();
 
-    /// @dev Thrown if the actual balance does not match the expected balance.
-    error BalanceMismatch();
-
     /// @dev Thrown when an address parameter is zero.
     error ZeroAddress();
+    
+    /// @dev Thrown if the actual balance does not match the expected balance.
+    error BalanceMismatch();
 
     /// @dev Thrown when an amount parameter is invalid.
     error InvalidAmount();
@@ -161,10 +161,12 @@ interface ISuccinctVApp {
         view
         returns (ActionType action, ReceiptStatus status, uint64 timestamp, bytes memory data);
 
-    /// @notice The signers that have been used for delegation
+    /// @notice The signers that have been used for delegation.
     function usedSigners(address signer) external view returns (bool);
 
     /// @notice The delegated signer for an owner.
+    /// @dev The signer still has to accept the delegation offchain on the network before this
+    ///      takes effect.
     function delegatedSigner(address owner) external view returns (address);
 
     /// @notice Deposit funds into the vApp, must have already approved the contract as a spender.
