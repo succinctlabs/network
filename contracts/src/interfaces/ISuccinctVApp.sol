@@ -165,8 +165,6 @@ interface ISuccinctVApp {
     function usedSigners(address signer) external view returns (bool);
 
     /// @notice The delegated signer for an owner.
-    /// @dev The signer still has to accept the delegation offchain on the network before this
-    ///      takes effect.
     function delegatedSigner(address owner) external view returns (address);
 
     /// @notice Deposit funds into the vApp, must have already approved the contract as a spender.
