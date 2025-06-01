@@ -10,3 +10,6 @@
 	path = contracts/lib/openzeppelin-contracts-upgradeable
 	url = https://github.com/openzeppelin/openzeppelin-contracts-upgradeable
 	tag = v5.2.0
+[submodule "contracts/lib/sp1-contracts"]
+	path = contracts/lib/sp1-contracts
+	url = https://github.com/succinctlabs/sp1-contracts

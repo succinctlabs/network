@@ -137,7 +137,9 @@ contract SuccinctVApp is
         bytes32 _vappProgramVKey,
         uint64 _maxActionDelay,
         uint64 _freezeDuration,
-        uint256 _protocolFeeBips
+        uint256 _protocolFeeBips,
+        bytes32 _genesisStateRoot,
+        uint64 _genesisTimestamp
     ) external initializer {
         if (
             _owner == address(0) || _prove == address(0) || _staking == address(0)
@@ -158,6 +160,11 @@ contract SuccinctVApp is
         freezeDuration = _freezeDuration;
         protocolFeeBips = _protocolFeeBips;
 
+        // Set the genesis state root.
+        roots[0] = _genesisStateRoot;
+        timestamps[0] = _genesisTimestamp;
+        blockNumber = 0;
+
         _updateStaking(_staking);
         _updateVerifier(_verifier);
         _updateFeeVault(_feeVault);
@@ -165,7 +172,7 @@ contract SuccinctVApp is
         _updateFreezeDuration(_freezeDuration);
         _setProtocolFeeBips(_protocolFeeBips);
 
-        emit Fork(_vappProgramVKey, 0, bytes32(0), bytes32(0));
+        emit Fork(_vappProgramVKey, 0, _genesisStateRoot, bytes32(0));
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -332,13 +339,13 @@ contract SuccinctVApp is
         if (publicValues.newRoot == bytes32(0)) revert InvalidRoot();
 
         // Verify the old root.
-        if (blockNumber != 0 && roots[blockNumber] != publicValues.oldRoot) {
+        if (roots[blockNumber] != publicValues.oldRoot) {
             revert InvalidOldRoot();
         }
 
         // Assert that the timestamp is not in the future and is increasing.
         if (publicValues.timestamp > block.timestamp) revert InvalidTimestamp();
-        if (blockNumber != 0 && timestamps[blockNumber] > publicValues.timestamp) {
+        if (timestamps[blockNumber] > publicValues.timestamp) {
             revert TimestampInPast();
         }
 
@@ -462,30 +469,30 @@ contract SuccinctVApp is
         // Validate the actions.
         uint64 timestamp_ = uint64(block.timestamp);
         uint64 actionDelay_ = maxActionDelay;
-        Actions.validate(
-            receipts,
-            _publicValues.actions,
-            finalizedReceipt,
-            currentReceipt,
-            timestamp_,
-            actionDelay_
-        );
+        // Actions.validate(
+        //     receipts,
+        //     _publicValues.actions,
+        //     finalizedReceipt,
+        //     currentReceipt,
+        //     timestamp_,
+        //     actionDelay_
+        // );
 
         // Execute the actions.
-        ActionsInternal memory decoded = Actions.decode(_publicValues.actions);
-        _depositActions(decoded.deposits);
-        _withdrawActions(decoded.withdrawals);
-        _addSignerActions(decoded.addSigners);
-        _removeSignerActions(decoded.removeSigners);
-        _slashActions(decoded.slashes);
-        _rewardActions(decoded.rewards);
-        _proverStateActions(decoded.proverStates);
-        _feeUpdateActions(decoded.feeUpdates);
+        // ActionsInternal memory decoded = Actions.decode(_publicValues.actions);
+        // _depositActions(decoded.deposits);
+        // _withdrawActions(decoded.withdrawals);
+        // _addSignerActions(decoded.addSigners);
+        // _removeSignerActions(decoded.removeSigners);
+        // _slashActions(decoded.slashes);
+        // _rewardActions(decoded.rewards);
+        // _proverStateActions(decoded.proverStates);
+        // _feeUpdateActions(decoded.feeUpdates);
 
-        // Update the last finalized receipt
-        if (decoded.lastReceipt != 0) {
-            finalizedReceipt = decoded.lastReceipt;
-        }
+        // // Update the last finalized receipt
+        // if (decoded.lastReceipt != 0) {
+        //     finalizedReceipt = decoded.lastReceipt;
+        // }
     }
 
     /// @dev Handles deposit actions.

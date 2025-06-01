@@ -280,12 +280,12 @@ library Actions {
             }
         }
 
-        if (_finalizedReceipt < _currentReceipt) {
-            Receipt memory receipt = _receipts[++_finalizedReceipt];
-            if (receipt.timestamp + _maxActionDelay < _timestamp) {
-                revert MissingActions(ActionType.Deposit, _finalizedReceipt);
-            }
-        }
+        // if (_finalizedReceipt < _currentReceipt) {
+        //     Receipt memory receipt = _receipts[++_finalizedReceipt];
+        //     if (receipt.timestamp + _maxActionDelay < _timestamp) {
+        //         revert MissingActions(ActionType.Deposit, _finalizedReceipt);
+        //     }
+        // }
     }
 
     /// @dev Returns true if the action type has a corresponding receipt.
