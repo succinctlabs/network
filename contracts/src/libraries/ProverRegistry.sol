@@ -73,34 +73,12 @@ abstract contract ProverRegistry is IProverRegistry {
     }
 
     /// @inheritdoc IProverRegistry
-    function delegatedSigner(address _prover) public view override returns (address) {
-        return ISuccinctVApp(vapp).delegatedSigner(_prover);
-    }
-
-    /// @inheritdoc IProverRegistry
     function createProver(uint256 _stakerFeeBips) external override returns (address) {
         if (hasProver(msg.sender)) {
             revert ProverAlreadyExists();
         }
 
         return _deployProver(msg.sender, _stakerFeeBips);
-    }
-
-    /// @inheritdoc IProverRegistry
-    function setDelegatedSigner(address _prover, address _signer) external override returns (uint64 receipt) {
-        if (_prover == address(0) || _signer == address(0)) {
-            revert ZeroAddress();
-        }
-
-        // Validate that the owner is the prover.
-        if (ownerToProver[msg.sender] != _prover) {
-            revert NotAuthorized();
-        }
-
-        // Set the delegated signer for the prover.
-        receipt = ISuccinctVApp(vapp).setDelegatedSigner(_prover, _signer);
-
-        emit DelegatedSignerSet(_prover, _signer);
     }
 
     /// @dev Uses CREATE2 to deploy an instance of SuccinctProver and adds it to the mapping.
@@ -129,14 +107,13 @@ abstract contract ProverRegistry is IProverRegistry {
         ownerToProver[_owner] = prover;
         provers[prover] = true;
 
-        // Set the owner as the default delegated signer for the prover.
-        ISuccinctVApp(vapp).setDelegatedSigner(prover, _owner);
+        // Register the prover with the VApp.
+        ISuccinctVApp(vapp).registerProver(prover, _owner, _stakerFeeBips);
 
         // Approve the prover as a spender so that $iPROVE can be transferred to the prover during\
         // stake().
         IERC20(iProve).approve(prover, type(uint256).max);
 
-        emit ProverDeploy(prover, _owner);
-        emit DelegatedSignerSet(prover, _owner);
+        emit ProverDeploy(prover, _owner, _stakerFeeBips);
     }
 }

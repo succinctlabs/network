@@ -62,6 +62,10 @@ contract MockStaking is ProverRegistry, ISuccinctStaking {
         return 0;
     }
 
+    function createProver(address _owner, uint256 _stakerFeeBips) external returns (address) {
+        return _deployProver(_owner, _stakerFeeBips);
+    }
+
     function stake(address _prover, uint256 _amount) external override returns (uint256) {
         IERC20(prove).transferFrom(msg.sender, address(this), _amount);
         proverVaultBalances[_prover][msg.sender] += _amount;
