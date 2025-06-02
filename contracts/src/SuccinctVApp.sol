@@ -7,14 +7,8 @@ import {
     ActionsInternal,
     DepositInternal,
     WithdrawInternal,
-    AddSignerInternal,
-    RemoveSignerInternal,
-    SlashInternal,
-    RewardInternal,
-    ProverStateInternal,
-    FeeUpdateInternal
+    SetDelegatedSignerInternal
 } from "./libraries/Actions.sol";
-import {FeeCalculator} from "./libraries/FeeCalculator.sol";
 import {
     PublicValuesStruct,
     ReceiptStatus,
@@ -22,12 +16,7 @@ import {
     ActionType,
     DepositAction,
     WithdrawAction,
-    AddSignerAction,
-    RemoveSignerAction,
-    SlashAction,
-    RewardAction,
-    ProverStateAction,
-    FeeUpdateAction
+    SetDelegatedSignerAction
 } from "./libraries/PublicValues.sol";
 import {ISuccinctVApp} from "./interfaces/ISuccinctVApp.sol";
 import {ISuccinctStaking} from "./interfaces/ISuccinctStaking.sol";
@@ -40,16 +29,18 @@ import {OwnableUpgradeable} from
     "../lib/openzeppelin-contracts-upgradeable/contracts/access/OwnableUpgradeable.sol";
 import {MerkleProof} from
     "../lib/openzeppelin-contracts/contracts/utils/cryptography/MerkleProof.sol";
-import {ERC20} from "../lib/openzeppelin-contracts/contracts/token/ERC20/ERC20.sol";
 import {SafeERC20} from "../lib/openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol";
 import {UUPSUpgradeable} from
     "../lib/openzeppelin-contracts-upgradeable/contracts/proxy/utils/UUPSUpgradeable.sol";
 import {IERC20Permit} from
     "../lib/openzeppelin-contracts/contracts/token/ERC20/extensions/IERC20Permit.sol";
+import {IERC20} from "../lib/openzeppelin-contracts/contracts/interfaces/IERC20.sol";
+import {IERC4626} from "../lib/openzeppelin-contracts/contracts/interfaces/IERC4626.sol";
 
 /// @title SuccinctVApp
 /// @author Succinct Labs
-/// @notice Settlement layer for the vApp, processes actions resulting from state transitions.
+/// @notice Settlement layer for the Succinct Prover Network.
+/// @dev Processes actions resulting from state transitions.
 contract SuccinctVApp is
     Initializable,
     ReentrancyGuardUpgradeable,
@@ -57,11 +48,13 @@ contract SuccinctVApp is
     UUPSUpgradeable,
     ISuccinctVApp
 {
-    using SafeERC20 for ERC20;
+    using SafeERC20 for IERC20;
 
     /// @inheritdoc ISuccinctVApp
     address public override prove;
 
+    /// @inheritdoc ISuccinctVApp
+    address public override iProve;
     /// @inheritdoc ISuccinctVApp
     address public override staking;
 
@@ -75,25 +68,19 @@ contract SuccinctVApp is
     bytes32 public override vappProgramVKey;
 
     /// @inheritdoc ISuccinctVApp
+    uint256 public override txNumber;
+
+    /// @inheritdoc ISuccinctVApp
     uint64 public override blockNumber;
 
     /// @inheritdoc ISuccinctVApp
     uint64 public override maxActionDelay;
 
     /// @inheritdoc ISuccinctVApp
-    uint64 public override freezeDuration;
-
-    /// @inheritdoc ISuccinctVApp
-    uint256 public override minimumDeposit;
+    uint256 public override minDepositAmount;
 
     /// @inheritdoc ISuccinctVApp
     uint256 public override protocolFeeBips;
-
-    /// @inheritdoc ISuccinctVApp
-    uint256 public override totalDeposits;
-
-    /// @inheritdoc ISuccinctVApp
-    uint256 public override totalPendingWithdrawals;
 
     /// @inheritdoc ISuccinctVApp
     uint64 public override currentReceipt;
@@ -102,7 +89,7 @@ contract SuccinctVApp is
     uint64 public override finalizedReceipt;
 
     /// @inheritdoc ISuccinctVApp
-    mapping(address => uint256) public override withdrawalClaims;
+    mapping(address => uint256) public override claimableWithdrawal;
 
     /// @inheritdoc ISuccinctVApp
     mapping(uint64 => bytes32) public override roots;
@@ -116,7 +103,14 @@ contract SuccinctVApp is
     /// @inheritdoc ISuccinctVApp
     mapping(address => bool) public override usedSigners;
 
-    mapping(address => address[]) internal delegatedSigners;
+    /// @inheritdoc ISuccinctVApp
+    mapping(address => address) public override delegatedSigner;
+
+    /// @dev Modifier to ensure that the caller is the staking contract.
+    modifier onlyStaking() {
+        if (msg.sender != staking) revert NotStaking();
+        _;
+    }
 
     /*//////////////////////////////////////////////////////////////
                               INITIALIZER
@@ -131,6 +125,7 @@ contract SuccinctVApp is
     function initialize(
         address _owner,
         address _prove,
+        address _iProve,
         address _staking,
         address _verifier,
         address _feeVault,
@@ -152,25 +147,28 @@ contract SuccinctVApp is
         __Ownable_init(_owner);
 
         prove = _prove;
+        iProve = _iProve;
         staking = _staking;
         verifier = _verifier;
         feeVault = _feeVault;
         vappProgramVKey = _vappProgramVKey;
         maxActionDelay = _maxActionDelay;
-        freezeDuration = _freezeDuration;
         protocolFeeBips = _protocolFeeBips;
 
         // Set the genesis state root.
         roots[0] = _genesisStateRoot;
         timestamps[0] = _genesisTimestamp;
+        txNumber = 0;
         blockNumber = 0;
 
         _updateStaking(_staking);
         _updateVerifier(_verifier);
         _updateFeeVault(_feeVault);
         _updateActionDelay(_maxActionDelay);
-        _updateFreezeDuration(_freezeDuration);
-        _setProtocolFeeBips(_protocolFeeBips);
+        _updateProtocolFeeBips(_protocolFeeBips);
+
+        // Approve the $iPROVE contract to transfer $PROVE from this contract during prover withdrawal.
+        IERC20(prove).approve(_iProve, type(uint256).max);
 
         emit Fork(_vappProgramVKey, 0, _genesisStateRoot, bytes32(0));
     }
@@ -187,33 +185,6 @@ contract SuccinctVApp is
     /// @inheritdoc ISuccinctVApp
     function timestamp() public view override returns (uint64) {
         return timestamps[blockNumber];
-    }
-
-    /// @inheritdoc ISuccinctVApp
-    function hasDelegatedSigner(address _owner, address _signer)
-        public
-        view
-        override
-        returns (uint256)
-    {
-        address[] memory signers = delegatedSigners[_owner];
-        for (uint256 i = 0; i < signers.length; i++) {
-            if (signers[i] == _signer) {
-                return i;
-            }
-        }
-
-        return type(uint256).max;
-    }
-
-    /// @inheritdoc ISuccinctVApp
-    function getDelegatedSigners(address _owner)
-        external
-        view
-        override
-        returns (address[] memory)
-    {
-        return delegatedSigners[_owner];
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -234,97 +205,66 @@ contract SuccinctVApp is
         bytes32 _r,
         bytes32 _s
     ) external override returns (uint64 receipt) {
+        // Approve this contract to spend the $PROVE from the depositor.
         IERC20Permit(prove).permit(_from, address(this), _amount, _deadline, _v, _r, _s);
 
         return _deposit(_from, _amount);
     }
 
     /// @inheritdoc ISuccinctVApp
-    function withdraw(address _to, uint256 _amount) external override returns (uint64 receipt) {
-        // Validate.
-        if (_to == address(0)) revert ZeroAddress();
-        if (_amount < minimumDeposit) {
-            revert TransferBelowMinimum();
-        }
-
-        // Create the receipt.
-        bytes memory data = abi.encode(
-            WithdrawAction({account: msg.sender, amount: _amount, to: _to, token: prove})
-        );
-        receipt = _createReceipt(ActionType.Withdraw, data);
+    function requestWithdraw(address _to, uint256 _amount)
+        external
+        override
+        returns (uint64 receipt)
+    {
+        return _requestWithdraw(msg.sender, _to, _amount);
     }
 
     /// @inheritdoc ISuccinctVApp
-    function claimWithdrawal(address _to) external override returns (uint256 amount) {
+    function finishWithdrawal(address _to) external override returns (uint256 amount) {
         // Validate.
-        amount = withdrawalClaims[_to];
+        amount = claimableWithdrawal[_to];
         if (amount == 0) revert NoWithdrawalToClaim();
 
         // Update the state.
-        totalPendingWithdrawals -= amount;
-        withdrawalClaims[_to] = 0;
+        claimableWithdrawal[_to] = 0;
 
         // Transfer the withdrawal.
-        ERC20(prove).safeTransfer(_to, amount);
+        //
+        // If the `_to` is a prover vault, we need to first deposit it to get $iPROVE and then
+        // transfer the $iPROVE to the prover vault. This splits the $PROVE amount amongst all
+        // of the prover stakers.
+        //
+        // Otherwise if the `_to` is not a prover vault, we can just transfer the $PROVE directly.
+        if (ISuccinctStaking(staking).isProver(_to)) {
+            // Deposit $PROVE to mint $iPROVE, sending it to this contract.
+            uint256 iPROVE = IERC4626(iProve).deposit(amount, address(this));
 
-        emit WithdrawalClaimed(_to, msg.sender, amount);
-    }
-
-    /// @inheritdoc ISuccinctVApp
-    function emergencyWithdraw(uint256 _amount, bytes32[] calldata _proof) external {
-        // Validate.
-        if (_proof.length == 0) revert InvalidProof();
-        if (block.timestamp < timestamp() + freezeDuration) revert NotFrozen();
-        if (_amount < minimumDeposit) {
-            revert TransferBelowMinimum();
+            // Transfer the $iPROVE from this contract to the prover vault.
+            IERC20(iProve).safeTransfer(_to, iPROVE);
+        } else {
+            // Transfer the $PROVE from this contract to the `_to` address.
+            IERC20(prove).safeTransfer(_to, amount);
         }
 
-        // Verify the proof.
-        bytes32 leaf = sha256(abi.encodePacked(msg.sender, _amount));
-        bytes32 root_ = root();
-        bool isValid = MerkleProof.verifyCalldata(_proof, root_, leaf, _hashPair);
-        if (!isValid) revert ProofFailed();
-
-        // Process the withdrawal.
-        _processWithdraw(msg.sender, _amount);
-
-        emit EmergencyWithdrawal(msg.sender, _amount, root_);
+        emit Withdrawal(_to, amount);
     }
 
     /// @inheritdoc ISuccinctVApp
-    function addDelegatedSigner(address _signer) external returns (uint64 receipt) {
+    // TODO(jtguibas): add back onlyStaking modifier
+    function setDelegatedSigner(address _owner, address _signer)
+        external
+        returns (uint64 receipt)
+    {
         // Validate.
-        if (_signer == address(0)) revert ZeroAddress();
-        if (usedSigners[_signer]) revert InvalidSigner();
-        if (!ISuccinctStaking(staking).hasProver(msg.sender)) revert InvalidSigner();
-        if (ISuccinctStaking(staking).isProver(_signer)) revert InvalidSigner();
-        if (ISuccinctStaking(staking).hasProver(_signer)) revert InvalidSigner();
+        if (_owner == address(0) || _signer == address(0)) revert ZeroAddress();
+        if (usedSigners[_signer]) revert SignerAlreadyUsed();
+        if (!ISuccinctStaking(staking).isProver(_owner)) revert OwnerNotProver();
+        if (ISuccinctStaking(staking).isProver(_signer)) revert SignerIsProver();
 
         // Create the receipt.
-        bytes memory data = abi.encode(AddSignerAction({owner: msg.sender, signer: _signer}));
-        receipt = _createReceipt(ActionType.AddSigner, data);
-
-        // Update the state.
-        usedSigners[_signer] = true;
-        delegatedSigners[msg.sender].push(_signer);
-    }
-
-    /// @inheritdoc ISuccinctVApp
-    function removeDelegatedSigner(address _signer) external returns (uint64 receipt) {
-        // Validate.
-        uint256 index = hasDelegatedSigner(msg.sender, _signer);
-        if (index == type(uint256).max) revert InvalidSigner();
-        if (!usedSigners[_signer]) revert InvalidSigner();
-
-        // Create the receipt.
-        bytes memory data = abi.encode(RemoveSignerAction({owner: msg.sender, signer: _signer}));
-        receipt = _createReceipt(ActionType.RemoveSigner, data);
-
-        // Update the state.
-        usedSigners[_signer] = false;
-        delegatedSigners[msg.sender][index] =
-            delegatedSigners[msg.sender][delegatedSigners[msg.sender].length - 1];
-        delegatedSigners[msg.sender].pop();
+        bytes memory data = abi.encode(SetDelegatedSignerAction({owner: _owner, signer: _signer}));
+        receipt = _createReceipt(ActionType.SetDelegatedSigner, data);
     }
 
     /// @inheritdoc ISuccinctVApp
@@ -411,28 +351,23 @@ contract SuccinctVApp is
     }
 
     /// @inheritdoc ISuccinctVApp
-    function updateFreezeDuration(uint64 _freezeDuration) external override onlyOwner {
-        _updateFreezeDuration(_freezeDuration);
+    function updateMinDepositAmount(uint256 _amount) external override onlyOwner {
+        _updateMinDepositAmount(_amount);
     }
 
     /// @inheritdoc ISuccinctVApp
-    function setMinimumDeposit(uint256 _amount) external override onlyOwner {
-        _setMinimumDeposit(_amount);
-    }
-
-    /// @inheritdoc ISuccinctVApp
-    function setProtocolFeeBips(uint256 _protocolFeeBips) external override onlyOwner {
-        _setProtocolFeeBips(_protocolFeeBips);
+    function updateProtocolFeeBips(uint256 _protocolFeeBips) external override onlyOwner {
+        _updateProtocolFeeBips(_protocolFeeBips);
     }
 
     /*//////////////////////////////////////////////////////////////
                                  INTERNAL
     //////////////////////////////////////////////////////////////*/
 
-    /// @dev Credits a deposit receipt, transfers $PROVE from the sender to the VApp.
+    /// @dev Credits a deposit receipt and transfers $PROVE from the sender to the VApp.
     function _deposit(address _from, uint256 _amount) internal returns (uint64 receipt) {
         // Validate.
-        if (_amount < minimumDeposit) {
+        if (_amount < minDepositAmount) {
             revert TransferBelowMinimum();
         }
 
@@ -441,11 +376,25 @@ contract SuccinctVApp is
             abi.encode(DepositAction({account: _from, amount: _amount, token: prove}));
         receipt = _createReceipt(ActionType.Deposit, data);
 
-        // Update the state.
-        totalDeposits += _amount;
-
         // Transfer $PROVE from the sender to the VApp.
-        ERC20(prove).safeTransferFrom(_from, address(this), _amount);
+        IERC20(prove).safeTransferFrom(_from, address(this), _amount);
+    }
+
+    /// @dev Credits a withdrawal receipt.
+    function _requestWithdraw(address _from, address _to, uint256 _amount)
+        internal
+        returns (uint64 receipt)
+    {
+        // Validate.
+        if (_to == address(0)) revert ZeroAddress();
+        if (_amount < minDepositAmount) {
+            revert TransferBelowMinimum();
+        }
+
+        // Create the receipt.
+        bytes memory data =
+            abi.encode(WithdrawAction({account: _from, amount: _amount, to: _to, token: prove}));
+        receipt = _createReceipt(ActionType.Withdraw, data);
     }
 
     /// @dev Creates a receipt for an action.
@@ -467,32 +416,25 @@ contract SuccinctVApp is
     /// @dev Handles committed actions, reverts if the actions are invalid
     function _handleActions(PublicValuesStruct memory _publicValues) internal {
         // Validate the actions.
-        uint64 timestamp_ = uint64(block.timestamp);
-        uint64 actionDelay_ = maxActionDelay;
-        // Actions.validate(
-        //     receipts,
-        //     _publicValues.actions,
-        //     finalizedReceipt,
-        //     currentReceipt,
-        //     timestamp_,
-        //     actionDelay_
-        // );
+        Actions.validate(
+            receipts,
+            _publicValues.actions,
+            finalizedReceipt,
+            currentReceipt,
+            uint64(block.timestamp),
+            maxActionDelay
+        );
 
         // Execute the actions.
-        // ActionsInternal memory decoded = Actions.decode(_publicValues.actions);
-        // _depositActions(decoded.deposits);
-        // _withdrawActions(decoded.withdrawals);
-        // _addSignerActions(decoded.addSigners);
-        // _removeSignerActions(decoded.removeSigners);
-        // _slashActions(decoded.slashes);
-        // _rewardActions(decoded.rewards);
-        // _proverStateActions(decoded.proverStates);
-        // _feeUpdateActions(decoded.feeUpdates);
+        ActionsInternal memory decoded = Actions.decode(_publicValues.actions);
+        _depositActions(decoded.deposits);
+        _requestWithdrawActions(decoded.withdrawals);
+        _setDelegatedSignerActions(decoded.setDelegatedSigners);
 
-        // // Update the last finalized receipt
-        // if (decoded.lastReceipt != 0) {
-        //     finalizedReceipt = decoded.lastReceipt;
-        // }
+        // Update the last finalized receipt.
+        if (decoded.lastReceipt != 0) {
+            finalizedReceipt = decoded.lastReceipt;
+        }
     }
 
     /// @dev Handles deposit actions.
@@ -507,9 +449,9 @@ contract SuccinctVApp is
     }
 
     /// @dev Handles withdraw actions.
-    function _withdrawActions(WithdrawInternal[] memory _actions) internal {
+    function _requestWithdrawActions(WithdrawInternal[] memory _actions) internal {
         for (uint64 i = 0; i < _actions.length; i++) {
-            // Only update if there is a corresponding receipt
+            // Only update if there is a corresponding receipt.
             if (_actions[i].action.receipt != 0) {
                 receipts[_actions[i].action.receipt].status = _actions[i].action.status;
 
@@ -520,9 +462,9 @@ contract SuccinctVApp is
                 }
             }
 
-            // Handle the action status
+            // Handle the action status.
             if (_actions[i].action.status == ReceiptStatus.Completed) {
-                // Process the withdrawal
+                // Process the withdrawal.
                 _processWithdraw(_actions[i].data.to, _actions[i].data.amount);
 
                 emit ReceiptCompleted(
@@ -533,89 +475,18 @@ contract SuccinctVApp is
     }
 
     /// @dev Handles add signer actions.
-    function _addSignerActions(AddSignerInternal[] memory _actions) internal {
+    function _setDelegatedSignerActions(SetDelegatedSignerInternal[] memory _actions) internal {
         for (uint64 i = 0; i < _actions.length; i++) {
             receipts[_actions[i].action.receipt].status = _actions[i].action.status;
 
             if (_actions[i].action.status == ReceiptStatus.Completed) {
-                emit ReceiptCompleted(
-                    _actions[i].action.receipt, ActionType.AddSigner, _actions[i].action.data
-                );
-            }
-        }
-    }
-
-    /// @dev Handles remove signer actions.
-    function _removeSignerActions(RemoveSignerInternal[] memory _actions) internal {
-        for (uint64 i = 0; i < _actions.length; i++) {
-            receipts[_actions[i].action.receipt].status = _actions[i].action.status;
-
-            if (_actions[i].action.status == ReceiptStatus.Completed) {
-                emit ReceiptCompleted(
-                    _actions[i].action.receipt, ActionType.RemoveSigner, _actions[i].action.data
-                );
-            }
-        }
-    }
-
-    /// @dev Handles slash actions.
-    function _slashActions(SlashInternal[] memory _actions) internal {
-        for (uint64 i = 0; i < _actions.length; i++) {
-            if (_actions[i].action.status == ReceiptStatus.Completed) {
-                ISuccinctStaking(staking).requestSlash(
-                    _actions[i].data.prover, _actions[i].data.amount
-                );
+                // Process the set delegated signer action.
+                _processSetDelegatedSigner(_actions[i].data.owner, _actions[i].data.signer);
 
                 emit ReceiptCompleted(
-                    _actions[i].action.receipt, ActionType.Slash, _actions[i].action.data
-                );
-            }
-        }
-    }
-
-    /// @dev Handles reward actions.
-    function _rewardActions(RewardInternal[] memory _actions) internal {
-        for (uint64 i = 0; i < _actions.length; i++) {
-            if (_actions[i].action.status == ReceiptStatus.Completed) {
-                FeeCalculator.processReward(
-                    _actions[i].data.prover,
-                    _actions[i].data.amount,
-                    protocolFeeBips,
-                    prove,
-                    feeVault,
-                    staking
-                );
-
-                emit ReceiptCompleted(
-                    _actions[i].action.receipt, ActionType.Reward, _actions[i].action.data
-                );
-            }
-        }
-    }
-
-    /// @dev Handles prover state actions.
-    function _proverStateActions(ProverStateInternal[] memory _actions) internal {
-        for (uint64 i = 0; i < _actions.length; i++) {
-            if (_actions[i].action.status == ReceiptStatus.Completed) {
-                // Verify array lengths match.
-                if (_actions[i].data.provers.length != _actions[i].data.proveBalances.length) {
-                    revert ArrayLengthMismatch();
-                }
-
-                // Verify each prover's on-chain balance matches the asserted balance.
-                for (uint256 j = 0; j < _actions[i].data.provers.length; j++) {
-                    address prover = _actions[i].data.provers[j];
-                    uint256 assertedProveBalance = _actions[i].data.proveBalances[j];
-
-                    // Check the $PROVE token balance.
-                    uint256 actualProveBalance = ERC20(prove).balanceOf(prover);
-                    if (actualProveBalance != assertedProveBalance) {
-                        revert BalanceMismatch();
-                    }
-                }
-
-                emit ReceiptCompleted(
-                    _actions[i].action.receipt, ActionType.ProverState, _actions[i].action.data
+                    _actions[i].action.receipt,
+                    ActionType.SetDelegatedSigner,
+                    _actions[i].action.data
                 );
             }
         }
@@ -624,66 +495,60 @@ contract SuccinctVApp is
     /// @dev Processes a withdrawal by creating a claim for the amount.
     function _processWithdraw(address _to, uint256 _amount) internal {
         // Update the state.
-        totalPendingWithdrawals += _amount;
-        withdrawalClaims[_to] += _amount;
-        totalDeposits -= _amount;
+        claimableWithdrawal[_to] += _amount;
+    }
+
+    /// @dev Processes a set delegated signer action by updating the state.
+    function _processSetDelegatedSigner(address _owner, address _signer) internal {
+        // Delete the old signer.
+        address oldSigner = delegatedSigner[_owner];
+        delete usedSigners[oldSigner];
+
+        // Update the state.
+        usedSigners[_signer] = true;
+        delegatedSigner[_owner] = _signer;
     }
 
     /// @dev Updates the staking contract.
     function _updateStaking(address _staking) internal {
-        staking = _staking;
+        emit StakingUpdate(staking, _staking);
 
-        emit StakingUpdate(_staking);
+        staking = _staking;
     }
 
     /// @dev Updates the verifier.
     function _updateVerifier(address _verifier) internal {
-        verifier = _verifier;
+        emit VerifierUpdate(verifier, _verifier);
 
-        emit VerifierUpdate(_verifier);
+        verifier = _verifier;
     }
 
     /// @dev Updates the fee vault.
     function _updateFeeVault(address _feeVault) internal {
-        feeVault = _feeVault;
+        emit FeeVaultUpdate(feeVault, _feeVault);
 
-        emit FeeVaultUpdate(_feeVault);
+        feeVault = _feeVault;
     }
 
     /// @dev Updates the action delay.
     function _updateActionDelay(uint64 _maxActionDelay) internal {
+        emit MaxActionDelayUpdate(maxActionDelay, _maxActionDelay);
+
         maxActionDelay = _maxActionDelay;
-
-        emit MaxActionDelayUpdate(_maxActionDelay);
     }
 
-    /// @dev Updates the freeze duration.
-    function _updateFreezeDuration(uint64 _freezeDuration) internal {
-        freezeDuration = _freezeDuration;
+    /// @dev Updates the minimum amount for deposit/withdraw operations.
+    function _updateMinDepositAmount(uint256 _amount) internal {
+        emit MinDepositAmountUpdate(minDepositAmount, _amount);
 
-        emit FreezeDurationUpdate(_freezeDuration);
+        minDepositAmount = _amount;
     }
 
-    /// @dev Sets the minimum amount for deposit/withdraw operations.
-    function _setMinimumDeposit(uint256 _amount) internal {
-        minimumDeposit = _amount;
+    /// @dev Updates the protocol fee in basis points.
+    function _updateProtocolFeeBips(uint256 _protocolFeeBips) internal {
+        emit ProtocolFeeBipsUpdate(protocolFeeBips, _protocolFeeBips);
 
-        emit MinimumDepositUpdate(_amount);
-    }
-
-    /// @dev Sets the protocol fee in basis points.
-    function _setProtocolFeeBips(uint256 _protocolFeeBips) internal {
         protocolFeeBips = _protocolFeeBips;
-
-        emit ProtocolFeeBipsUpdate(_protocolFeeBips);
-    }
-
-    /// @dev Handles fee update actions.
-    function _feeUpdateActions(FeeUpdateInternal[] memory _actions) internal {}
-
-    /// @dev Hashes a pair of bytes32 values using SHA-256.
-    function _hashPair(bytes32 _a, bytes32 _b) internal pure returns (bytes32) {
-        return (_a < _b) ? sha256(abi.encodePacked(_a, _b)) : sha256(abi.encodePacked(_b, _a));
     }
 
     /// @dev Authorizes an ERC1967 proxy upgrade to a new implementation contract.

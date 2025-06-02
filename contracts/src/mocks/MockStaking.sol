@@ -3,82 +3,26 @@ pragma solidity ^0.8.28;
 
 import {IERC20} from "../../lib/openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
 import {ISuccinctStaking} from "../interfaces/ISuccinctStaking.sol";
-import {IProverRegistry} from "../interfaces/IProverRegistry.sol";
+import {ProverRegistry} from "../libraries/ProverRegistry.sol";
 
-contract MockStaking is ISuccinctStaking {
-    address public PROVE;
-    address public vapp;
+contract MockStaking is ProverRegistry, ISuccinctStaking {
     uint256 public minStakeAmount;
     uint256 public unstakePeriod;
     uint256 public slashPeriod;
     uint256 public dispenseRate;
     uint256 public lastDispenseTimestamp;
 
-    // IProverRegistry state
-    address public iprove;
-    uint256 public proverCounter;
-    mapping(address => address) public proverToOwner;
-    mapping(address => address) public ownerToProver;
-
-    mapping(address => bool) public isProverVault;
-    mapping(address => mapping(address => uint256)) public proverVaultBalances;
-    mapping(address => bool) public provers;
-    mapping(address => bool) internal _isProver;
     mapping(address => address) internal stakerToProver;
+    mapping(address => mapping(address => uint256)) internal proverVaultBalances;
     mapping(address => UnstakeClaim[]) internal unstakeClaims;
     mapping(address => SlashClaim[]) internal slashClaims;
 
-    constructor(address _prove) {
-        PROVE = _prove;
+    constructor(address _prove, address _iProve) {
+        __ProverRegistry_init(address(this), _prove, _iProve);
     }
 
     function setVApp(address _vapp) external {
         vapp = _vapp;
-    }
-
-    // IProverRegistry implementation
-    function prove() external view override returns (address) {
-        return PROVE;
-    }
-
-    function iProve() external view override returns (address) {
-        return iprove;
-    }
-
-    function proverCount() external view override returns (uint256) {
-        return proverCounter;
-    }
-
-    function ownerOf(address _prover) external view override returns (address) {
-        return proverToOwner[_prover];
-    }
-
-    function getProver(address _owner) external view override returns (address) {
-        return ownerToProver[_owner];
-    }
-
-    function createProver(uint256) external override returns (address) {
-        proverToOwner[msg.sender] = msg.sender;
-        ownerToProver[msg.sender] = msg.sender;
-        proverCounter++;
-        return msg.sender;
-    }
-
-    // ISuccinctStaking implementation
-    function hasProver(address _account) public view override returns (bool) {
-        return provers[_account];
-    }
-
-    function setHasProver(address _account, bool _status) external {
-        provers[_account] = _status;
-    }
-
-    function isProver(address _account) public view override returns (bool) {
-        return _isProver[_account];
-    }
-
-    function setIsProver(address _account, bool _status) external {
-        _isProver[_account] = _status;
     }
 
     function stakedTo(address _staker) external view override returns (address) {
@@ -119,7 +63,7 @@ contract MockStaking is ISuccinctStaking {
     }
 
     function stake(address _prover, uint256 _amount) external override returns (uint256) {
-        IERC20(PROVE).transferFrom(msg.sender, address(this), _amount);
+        IERC20(prove).transferFrom(msg.sender, address(this), _amount);
         proverVaultBalances[_prover][msg.sender] += _amount;
         stakerToProver[msg.sender] = _prover;
         return _amount;
@@ -142,15 +86,6 @@ contract MockStaking is ISuccinctStaking {
 
     function finishUnstake() external pure override returns (uint256) {
         return 0;
-    }
-
-    function reward(address _prover, uint256 _amount) external override {
-        // Verify caller is VApp
-        require(msg.sender == vapp, "Not authorized");
-        // Note: The VApp has already transferred the staker reward amount to this contract
-        // In a real staking contract, this would distribute rewards to stakers
-        // For the mock, we just emit the event to indicate the reward was processed
-        emit Reward(_prover, _amount);
     }
 
     function requestSlash(address _prover, uint256 _iPROVE) external override returns (uint256) {
@@ -179,7 +114,7 @@ contract MockStaking is ISuccinctStaking {
         emit Dispense(_amount);
     }
 
-    function setDispenseRate(uint256 _newRate) external override {
+    function updateDispenseRate(uint256 _newRate) external override {
         uint256 oldRate = dispenseRate;
         dispenseRate = _newRate;
         emit DispenseRateUpdate(oldRate, _newRate);

@@ -19,10 +19,10 @@ contract SuccinctVAppScript is BaseScript, FixtureLoader {
         bytes32 salt = readBytes32("CREATE2_SALT");
         address STAKING = readAddress("STAKING");
         address PROVE = readAddress("PROVE");
+        address I_PROVE = readAddress("I_PROVE");
         address VERIFIER = SP1_VERIFIER_GATEWAY_GROTH16;
         address FEE_VAULT = readAddress("FEE_VAULT");
         uint64 MAX_ACTION_DELAY = readUint64("MAX_ACTION_DELAY");
-        uint64 FREEZE_DURATION = readUint64("FREEZE_DURATION");
         uint256 PROTOCOL_FEE_BIPS = readUint256("PROTOCOL_FEE_BIPS");
 
         // Load fixture
@@ -36,12 +36,12 @@ contract SuccinctVAppScript is BaseScript, FixtureLoader {
         SuccinctVApp(VAPP).initialize(
             msg.sender,
             PROVE,
+            I_PROVE,
             STAKING,
             VERIFIER,
             FEE_VAULT,
             VKEY,
             MAX_ACTION_DELAY,
-            FREEZE_DURATION,
             PROTOCOL_FEE_BIPS
         );
 

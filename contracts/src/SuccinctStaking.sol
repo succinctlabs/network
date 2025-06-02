@@ -4,6 +4,7 @@ pragma solidity ^0.8.28;
 import {ProverRegistry} from "./libraries/ProverRegistry.sol";
 import {StakedSuccinct} from "./tokens/StakedSuccinct.sol";
 import {ISuccinctStaking} from "./interfaces/ISuccinctStaking.sol";
+import {ISuccinctVApp} from "./interfaces/ISuccinctVApp.sol";
 import {IIntermediateSuccinct} from "./interfaces/IIntermediateSuccinct.sol";
 import {Initializable} from "../lib/openzeppelin-contracts/contracts/proxy/utils/Initializable.sol";
 import {Ownable} from "../lib/openzeppelin-contracts/contracts/access/Ownable.sol";
@@ -27,9 +28,6 @@ contract SuccinctStaking is
     using SafeERC20 for IERC20;
 
     /// @inheritdoc ISuccinctStaking
-    address public override vapp;
-
-    /// @inheritdoc ISuccinctStaking
     uint256 public override minStakeAmount;
 
     /// @inheritdoc ISuccinctStaking
@@ -47,15 +45,6 @@ contract SuccinctStaking is
     mapping(address => address) internal stakerToProver;
     mapping(address => UnstakeClaim[]) internal unstakeClaims;
     mapping(address => SlashClaim[]) internal slashClaims;
-
-    /// @dev This call must be sent by the VApp contract. This also acts as a check to ensure that the contract
-    ///      has been initialized.
-    modifier onlyVApp() {
-        if (msg.sender != vapp) {
-            revert NotAuthorized();
-        }
-        _;
-    }
 
     /*//////////////////////////////////////////////////////////////
                               INITIALIZER
@@ -78,17 +67,16 @@ contract SuccinctStaking is
         uint256 _dispenseRate
     ) external onlyOwner initializer {
         // Setup the initial state.
-        __ProverRegistry_init(_prove, _intermediateProve);
-        vapp = _vApp;
+        __ProverRegistry_init(_vApp, _prove, _intermediateProve);
         minStakeAmount = _minStakeAmount;
         unstakePeriod = _unstakePeriod;
         slashPeriod = _slashPeriod;
 
         // Setup the dispense rate.
-        _setDispenseRate(_dispenseRate);
+        _updateDispenseRate(_dispenseRate);
         lastDispenseTimestamp = block.timestamp;
 
-        // Approve the $iPROVE contract to transfer $PROVE to $iPROVE during stake().
+        // Approve the $iPROVE contract to transfer $PROVE from this contract during stake().
         IERC20(prove).approve(iProve, type(uint256).max);
     }
 
@@ -188,6 +176,7 @@ contract SuccinctStaking is
         bytes32 _r,
         bytes32 _s
     ) external override onlyForProver(_prover) returns (uint256) {
+        // Approve this contract to spend the $PROVE from the staker.
         IERC20Permit(prove).permit(_from, address(this), _amount, _deadline, _v, _r, _s);
 
         return _stake(_from, _prover, _amount);
@@ -205,20 +194,23 @@ contract SuccinctStaking is
         // Check that this prover is not in the process of being slashed.
         if (slashClaims[prover].length > 0) revert ProverHasSlashRequest();
 
-        // Get the amount of $stPROVE this staker currently has for this prover.
-        // We do this by checking $PROVER-N, but they will always be 1:1.
+        // Get the amount of $stPROVE this staker currently has.
         uint256 stPROVEBalance = balanceOf(msg.sender);
 
         // Get the amount $stPROVE this staker has pending a claim already.
         uint256 stPROVEClaim = _getUnstakeClaimBalance(msg.sender);
 
-        // Check that this staker has enough $stPROVE to unstake.
+        // Check that this staker has enough $stPROVE to unstake this amount.
         if (stPROVEBalance < stPROVEClaim + _stPROVE) revert InsufficientStakeBalance();
 
         // Create a claim to unstake $stPROVE from the prover for the specified amount.
         unstakeClaims[msg.sender].push(
             UnstakeClaim({stPROVE: _stPROVE, timestamp: block.timestamp})
         );
+
+        // Trigger a withdrawal on the prover so that any pending rewards are
+        // are sent to the prover vault by the time the unstake is finished.
+        ISuccinctVApp(vapp).requestWithdraw(prover, type(uint256).max);
 
         emit UnstakeRequest(msg.sender, prover, _stPROVE);
     }
@@ -236,6 +228,12 @@ contract SuccinctStaking is
         // Check that this prover is not in the process of being slashed.
         if (slashClaims[prover].length > 0) revert ProverHasSlashRequest();
 
+        // If the prover has any claimable withdrawal, withdraw it *before* unstaking
+        // from the prover vault.
+        if (ISuccinctVApp(vapp).claimableWithdrawal(prover) > 0) {
+            ISuccinctVApp(vapp).finishWithdrawal(prover);
+        }
+
         // Process the available unstake claims.
         PROVE_ += _finishUnstake(prover, claims);
 
@@ -250,31 +248,6 @@ contract SuccinctStaking is
     /*//////////////////////////////////////////////////////////////
                                  VAPP
     //////////////////////////////////////////////////////////////*/
-
-    /// @inheritdoc ISuccinctStaking
-    function reward(address _prover, uint256 _PROVE)
-        external
-        override
-        onlyVApp
-        onlyForProver(_prover)
-    {
-        // Ensure rewarding a non-zero amount.
-        if (_PROVE == 0) revert ZeroAmount();
-
-        // Ensure the prover has some stake.
-        //
-        // If this check isn't in place, then a the next staker to stake to this prover
-        // will lose their deposit.
-        if (proverStaked(_prover) == 0) revert NotStaked();
-
-        // Deposit $PROVE to mint $iPROVE, sending it to this contract.
-        uint256 iPROVE = IERC4626(iProve).deposit(_PROVE, address(this));
-
-        // Transfer the $iPROVE to the $PROVER-N vault.
-        IERC20(iProve).safeTransfer(_prover, iPROVE);
-
-        emit Reward(_prover, _PROVE);
-    }
 
     /// @inheritdoc ISuccinctStaking
     function requestSlash(address _prover, uint256 _iPROVE)
@@ -373,8 +346,8 @@ contract SuccinctStaking is
     }
 
     /// @inheritdoc ISuccinctStaking
-    function setDispenseRate(uint256 _newRate) external override onlyOwner {
-        _setDispenseRate(_newRate);
+    function updateDispenseRate(uint256 _rate) external override onlyOwner {
+        _updateDispenseRate(_rate);
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -421,26 +394,25 @@ contract SuccinctStaking is
         emit Stake(_staker, _prover, _PROVE, iPROVE, stPROVE);
     }
 
-    /// @dev Get the sum of all unstake claims for a staker for a given prover.
-    function _getUnstakeClaimBalance(address _staker)
+    /// @dev Burn $stPROVE and withdraw $PROVER-N from the prover, receiving $iPROVE, then
+    ///      withdraw $iPROVE to receive $PROVE.
+    function _unstake(address _staker, address _prover, uint256 _stPROVE)
         internal
-        view
-        returns (uint256 unstakeClaimBalance)
+        stakingOperation
+        returns (uint256 PROVE)
     {
-        for (uint256 i = 0; i < unstakeClaims[_staker].length; i++) {
-            unstakeClaimBalance += unstakeClaims[_staker][i].stPROVE;
-        }
-    }
+        if (_stPROVE == 0) revert ZeroAmount();
 
-    /// @dev Get the sum of all slash claims for a prover.
-    function _getSlashClaimBalance(address _prover)
-        internal
-        view
-        returns (uint256 slashClaimBalance)
-    {
-        for (uint256 i = 0; i < slashClaims[_prover].length; i++) {
-            slashClaimBalance += slashClaims[_prover][i].iPROVE;
-        }
+        // Burn the $stPROVE from the staker
+        _burn(_staker, _stPROVE);
+
+        // Withdraw $PROVER-N from this contract to have this contract receive $iPROVE.
+        uint256 iPROVE = IERC4626(_prover).redeem(_stPROVE, address(this), address(this));
+
+        // Withdraw $iPROVE from this contract to have the staker receive $PROVE.
+        PROVE = IERC4626(iProve).redeem(iPROVE, _staker, address(this));
+
+        emit Unstake(_staker, _prover, PROVE, iPROVE, _stPROVE);
     }
 
     /// @dev Iterate over the claims, processing each one that has passed the unstake period.
@@ -466,31 +438,32 @@ contract SuccinctStaking is
         }
     }
 
-    /// @dev Burn $stPROVE and withdraw $PROVER-N from the prover, receiving $iPROVE, then
-    ///      withdraw $iPROVE to receive $PROVE.
-    function _unstake(address _staker, address _prover, uint256 _stPROVE)
+    /// @dev Get the sum of all unstake claims for a staker for a given prover.
+    function _getUnstakeClaimBalance(address _staker)
         internal
-        stakingOperation
-        returns (uint256 PROVE)
+        view
+        returns (uint256 unstakeClaimBalance)
     {
-        if (_stPROVE == 0) revert ZeroAmount();
+        for (uint256 i = 0; i < unstakeClaims[_staker].length; i++) {
+            unstakeClaimBalance += unstakeClaims[_staker][i].stPROVE;
+        }
+    }
 
-        // Burn the $stPROVE from the staker
-        _burn(_staker, _stPROVE);
-
-        // Withdraw $PROVER-N from this contract to have this contract receive $iPROVE.
-        uint256 iPROVE = IERC4626(_prover).redeem(_stPROVE, address(this), address(this));
-
-        // Withdraw $iPROVE from this contract to have the staker receive $PROVE.
-        PROVE = IERC4626(iProve).redeem(iPROVE, _staker, address(this));
-
-        emit Unstake(_staker, _prover, PROVE, iPROVE, _stPROVE);
+    /// @dev Get the sum of all slash claims for a prover.
+    function _getSlashClaimBalance(address _prover)
+        internal
+        view
+        returns (uint256 slashClaimBalance)
+    {
+        for (uint256 i = 0; i < slashClaims[_prover].length; i++) {
+            slashClaimBalance += slashClaims[_prover][i].iPROVE;
+        }
     }
 
     /// @dev Set the new dispense rate.
-    function _setDispenseRate(uint256 _newRate) internal {
-        emit DispenseRateUpdate(dispenseRate, _newRate);
+    function _updateDispenseRate(uint256 _dispenseRate) internal {
+        emit DispenseRateUpdate(dispenseRate, _dispenseRate);
 
-        dispenseRate = _newRate;
+        dispenseRate = _dispenseRate;
     }
 }

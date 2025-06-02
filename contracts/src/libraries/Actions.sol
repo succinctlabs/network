@@ -7,12 +7,7 @@ import {
     ActionType,
     DepositAction,
     WithdrawAction,
-    AddSignerAction,
-    RemoveSignerAction,
-    SlashAction,
-    RewardAction,
-    ProverStateAction,
-    FeeUpdateAction
+    SetDelegatedSignerAction
 } from "./PublicValues.sol";
 
 /// @notice A receipt for an action
@@ -25,15 +20,10 @@ struct Receipt {
 
 /// @notice Internal decoded actions
 struct ActionsInternal {
+    uint64 lastReceipt;
     DepositInternal[] deposits;
     WithdrawInternal[] withdrawals;
-    AddSignerInternal[] addSigners;
-    RemoveSignerInternal[] removeSigners;
-    SlashInternal[] slashes;
-    RewardInternal[] rewards;
-    ProverStateInternal[] proverStates;
-    FeeUpdateInternal[] feeUpdates;
-    uint64 lastReceipt;
+    SetDelegatedSignerInternal[] setDelegatedSigners;
 }
 
 /// @notice Internal deposit action
@@ -49,39 +39,9 @@ struct WithdrawInternal {
 }
 
 /// @notice Internal add signer action
-struct AddSignerInternal {
+struct SetDelegatedSignerInternal {
     Action action;
-    AddSignerAction data;
-}
-
-/// @notice Internal remove signer action
-struct RemoveSignerInternal {
-    Action action;
-    RemoveSignerAction data;
-}
-
-/// @notice Internal slash action
-struct SlashInternal {
-    Action action;
-    SlashAction data;
-}
-
-/// @notice Internal reward action
-struct RewardInternal {
-    Action action;
-    RewardAction data;
-}
-
-/// @notice Internal prover state action
-struct ProverStateInternal {
-    Action action;
-    ProverStateAction data;
-}
-
-/// @notice Internal fee update action
-struct FeeUpdateInternal {
-    Action action;
-    FeeUpdateAction data;
+    SetDelegatedSignerAction data;
 }
 
 /// @notice Library for handling actions
@@ -104,16 +64,12 @@ library Actions {
     /// @dev Thrown when the action status is invalid.
     error InvalidActionStatus(ActionType actionType, uint64 receipt, ReceiptStatus status);
 
-    /// @notice Memory for decoding actions
+    /// @notice Memory for decoding actions.
     struct DecodeData {
         uint256 depositLength;
         uint256 withdrawLength;
-        uint256 addSignerLength;
+        uint256 setDelegatedSignerLength;
         uint256 removeSignerLength;
-        uint256 slashLength;
-        uint256 rewardLength;
-        uint256 proverStateLength;
-        uint256 feeUpdateLength;
     }
 
     /// @dev Decode actions.
@@ -130,18 +86,8 @@ library Actions {
                 data.depositLength++;
             } else if (actionType == ActionType.Withdraw) {
                 data.withdrawLength++;
-            } else if (actionType == ActionType.AddSigner) {
-                data.addSignerLength++;
-            } else if (actionType == ActionType.RemoveSigner) {
-                data.removeSignerLength++;
-            } else if (actionType == ActionType.Slash) {
-                data.slashLength++;
-            } else if (actionType == ActionType.Reward) {
-                data.rewardLength++;
-            } else if (actionType == ActionType.ProverState) {
-                data.proverStateLength++;
-            } else if (actionType == ActionType.FeeUpdate) {
-                data.feeUpdateLength++;
+            } else if (actionType == ActionType.SetDelegatedSigner) {
+                data.setDelegatedSignerLength++;
             } else {
                 revert InvalidAction();
             }
@@ -149,22 +95,13 @@ library Actions {
 
         decoded.deposits = new DepositInternal[](data.depositLength);
         decoded.withdrawals = new WithdrawInternal[](data.withdrawLength);
-        decoded.addSigners = new AddSignerInternal[](data.addSignerLength);
-        decoded.removeSigners = new RemoveSignerInternal[](data.removeSignerLength);
-        decoded.slashes = new SlashInternal[](data.slashLength);
-        decoded.rewards = new RewardInternal[](data.rewardLength);
-        decoded.proverStates = new ProverStateInternal[](data.proverStateLength);
-        decoded.feeUpdates = new FeeUpdateInternal[](data.feeUpdateLength);
+        decoded.setDelegatedSigners = new SetDelegatedSignerInternal[](data.setDelegatedSignerLength);
 
         // Decode the actions
         data.depositLength = 0;
         data.withdrawLength = 0;
-        data.addSignerLength = 0;
-        data.removeSignerLength = 0;
-        data.slashLength = 0;
-        data.rewardLength = 0;
-        data.proverStateLength = 0;
-        data.feeUpdateLength = 0;
+        data.setDelegatedSignerLength = 0;
+
         for (uint64 i = 0; i < _actions.length; i++) {
             Action memory action = _actions[i];
 
@@ -184,38 +121,12 @@ library Actions {
                     data: abi.decode(action.data, (WithdrawAction))
                 });
                 decoded.withdrawals[data.withdrawLength++] = withdraw;
-            } else if (action.action == ActionType.AddSigner) {
-                AddSignerInternal memory addSigner = AddSignerInternal({
+            } else if (action.action == ActionType.SetDelegatedSigner) {
+                SetDelegatedSignerInternal memory setDelegatedSigner = SetDelegatedSignerInternal({
                     action: action,
-                    data: abi.decode(action.data, (AddSignerAction))
+                    data: abi.decode(action.data, (SetDelegatedSignerAction))
                 });
-                decoded.addSigners[data.addSignerLength++] = addSigner;
-            } else if (action.action == ActionType.RemoveSigner) {
-                RemoveSignerInternal memory removeSigner = RemoveSignerInternal({
-                    action: action,
-                    data: abi.decode(action.data, (RemoveSignerAction))
-                });
-                decoded.removeSigners[data.removeSignerLength++] = removeSigner;
-            } else if (action.action == ActionType.Slash) {
-                SlashInternal memory slash =
-                    SlashInternal({action: action, data: abi.decode(action.data, (SlashAction))});
-                decoded.slashes[data.slashLength++] = slash;
-            } else if (action.action == ActionType.Reward) {
-                RewardInternal memory reward =
-                    RewardInternal({action: action, data: abi.decode(action.data, (RewardAction))});
-                decoded.rewards[data.rewardLength++] = reward;
-            } else if (action.action == ActionType.ProverState) {
-                ProverStateInternal memory proverState = ProverStateInternal({
-                    action: action,
-                    data: abi.decode(action.data, (ProverStateAction))
-                });
-                decoded.proverStates[data.proverStateLength++] = proverState;
-            } else if (action.action == ActionType.FeeUpdate) {
-                FeeUpdateInternal memory feeUpdate = FeeUpdateInternal({
-                    action: action,
-                    data: abi.decode(action.data, (FeeUpdateAction))
-                });
-                decoded.feeUpdates[data.feeUpdateLength++] = feeUpdate;
+                decoded.setDelegatedSigners[data.setDelegatedSignerLength++] = setDelegatedSigner;
             } else {
                 revert InvalidAction();
             }
@@ -231,9 +142,9 @@ library Actions {
         uint64 _timestamp,
         uint64 _maxActionDelay
     ) internal view {
-        // Ensure that the receipts exist and correspond to the matching action
+        // Ensure that the receipts exist and correspond to the matching action.
         for (uint64 i = 0; i < _actions.length; i++) {
-            // Only validate actions that have a corresponding receipt
+            // Only validate actions that have a corresponding receipt.
             if (hasReceipt(_actions[i])) {
                 Receipt memory receipt = _receipts[++_finalizedReceipt];
 
@@ -259,20 +170,10 @@ library Actions {
                 }
 
                 if (_actions[i].action == ActionType.Deposit) {
-                    _deposit(_actions[i], receipt);
+                    _validateDeposit(_actions[i], receipt);
                 } else if (_actions[i].action == ActionType.Withdraw) {
-                    _withdraw(_actions[i], receipt);
-                } else if (_actions[i].action == ActionType.AddSigner) {
-                    // Skip validations
-                } else if (_actions[i].action == ActionType.RemoveSigner) {
-                    // Skip validations
-                } else if (_actions[i].action == ActionType.Slash) {
-                    // Skip validations
-                } else if (_actions[i].action == ActionType.Reward) {
-                    // Skip validations
-                } else if (_actions[i].action == ActionType.ProverState) {
-                    // Skip validations
-                } else if (_actions[i].action == ActionType.FeeUpdate) {
+                    _validateWithdraw(_actions[i], receipt);
+                } else if (_actions[i].action == ActionType.SetDelegatedSigner) {
                     // Skip validations
                 } else {
                     revert InvalidAction();
@@ -294,25 +195,15 @@ library Actions {
             return true;
         } else if (_action.action == ActionType.Withdraw) {
             return _action.receipt != 0;
-        } else if (_action.action == ActionType.AddSigner) {
+        } else if (_action.action == ActionType.SetDelegatedSigner) {
             return true;
-        } else if (_action.action == ActionType.RemoveSigner) {
-            return true;
-        } else if (_action.action == ActionType.Slash) {
-            return false;
-        } else if (_action.action == ActionType.Reward) {
-            return false;
-        } else if (_action.action == ActionType.ProverState) {
-            return false;
-        } else if (_action.action == ActionType.FeeUpdate) {
-            return false;
         }
 
         return false;
     }
 
     /// @dev Validates a deposit action, reverting if the action does not match the receipt.
-    function _deposit(Action memory _action, Receipt memory _receipt) internal pure {
+    function _validateDeposit(Action memory _action, Receipt memory _receipt) internal pure {
         DepositAction memory deposit = abi.decode(_action.data, (DepositAction));
         DepositAction memory depositReceipt = abi.decode(_receipt.data, (DepositAction));
 
@@ -325,7 +216,7 @@ library Actions {
     }
 
     /// @dev Validates a withdraw action, reverting if the action does not match the receipt.
-    function _withdraw(Action memory _action, Receipt memory _receipt) internal pure {
+    function _validateWithdraw(Action memory _action, Receipt memory _receipt) internal pure {
         WithdrawAction memory withdraw = abi.decode(_action.data, (WithdrawAction));
         WithdrawAction memory withdrawReceipt = abi.decode(_receipt.data, (WithdrawAction));
 

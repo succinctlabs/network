@@ -8,8 +8,8 @@ import {ERC4626} from
     "../../lib/openzeppelin-contracts/contracts/token/ERC20/extensions/ERC4626.sol";
 import {Strings} from "../../lib/openzeppelin-contracts/contracts/utils/Strings.sol";
 
-string constant NAME_PREFIX = "SuccinctProver";
-string constant SYMBOL_PREFIX = "PROVER";
+string constant NAME_PREFIX = "SuccinctProver-";
+string constant SYMBOL_PREFIX = "PROVER-";
 
 /// @title SuccinctProver
 /// @author Succinct Labs
@@ -37,18 +37,16 @@ contract SuccinctProver is ERC4626, IProver {
     /// @inheritdoc IProver
     uint256 public immutable override stakerFeeBips;
 
+    /// @dev Initializes this vault with $iPROVE as the underlying, with additional parameters.
     constructor(
-        address _underlying,
+        address _iProve,
         address _staking,
         address _owner,
         uint256 _id,
         uint256 _stakerFeeBips
     )
-        ERC20(
-            string.concat(NAME_PREFIX, "-", _id.toString()),
-            string.concat(SYMBOL_PREFIX, "-", _id.toString())
-        )
-        ERC4626(IERC20(_underlying))
+        ERC20(string.concat(NAME_PREFIX, _id.toString()), string.concat(SYMBOL_PREFIX, _id.toString()))
+        ERC4626(IERC20(_iProve))
     {
         staking = _staking;
         owner = _owner;
@@ -56,7 +54,7 @@ contract SuccinctProver is ERC4626, IProver {
         stakerFeeBips = _stakerFeeBips;
     }
 
-    /// @dev Override to prevent transfers of PROVER-N tokens except for stake/unstake
+    /// @dev Override to prevent transfers of $PROVER-N tokens except for stake/unstake
     function _update(address _from, address _to, uint256 _value) internal override(ERC20) {
         if (msg.sender != staking) {
             revert NonTransferable();

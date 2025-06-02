@@ -1,7 +1,22 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.28;
 
+/// @notice The type of action to be taken.
+enum ActionType {
+    Deposit,
+    Withdraw,
+    SetDelegatedSigner
+}
+
+/// @notice The status of a receipt
+enum ReceiptStatus {
+    None,
+    Pending,
+    Completed,
+    Failed
+}
 /// @notice The public values encoded as a struct that can be easily deserialized inside Solidity.
+
 struct PublicValuesStruct {
     bytes32 oldRoot;
     bytes32 newRoot;
@@ -17,30 +32,10 @@ struct Action {
     bytes data;
 }
 
-/// @notice The type of action to be taken.
-enum ActionType {
-    Deposit,
-    Withdraw,
-    AddSigner,
-    RemoveSigner,
-    Slash,
-    Reward,
-    ProverState,
-    FeeUpdate
-}
-
-/// @notice The status of a receipt
-enum ReceiptStatus {
-    None,
-    Pending,
-    Completed,
-    Failed
-}
-
 /// @notice The action data for a deposit.
 struct DepositAction {
     address account;
-    address token; // TODO: Remove, only PROVE is supported
+    address token; // TODO: Remove, only $PROVE is supported
     uint256 amount;
 }
 
@@ -48,43 +43,12 @@ struct DepositAction {
 struct WithdrawAction {
     address account;
     address to;
-    address token; // TODO: Remove, only PROVE is supported
+    address token; // TODO: Remove, only $PROVE is supported
     uint256 amount;
 }
 
 /// @notice The action data for an add signer.
-struct AddSignerAction {
+struct SetDelegatedSignerAction {
     address owner;
     address signer;
-}
-
-/// @notice The action data for a remove signer.
-struct RemoveSignerAction {
-    address owner;
-    address signer;
-}
-
-/// @notice The action data for a slash.
-struct SlashAction {
-    address prover;
-    uint256 amount;
-}
-
-/// @notice The action data for a reward.
-struct RewardAction {
-    address prover;
-    uint256 amount;
-}
-
-/// @notice The action data for prover state assertions.
-struct ProverStateAction {
-    address[] provers;
-    uint256[] proveBalances;
-    uint256[] usdcBalances; // TODO: Remove, only PROVE is supported
-}
-
-/// @notice The action data for fee updates.
-struct FeeUpdateAction {
-    uint256 fee;
-    address recipient;
 }

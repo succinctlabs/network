@@ -5,9 +5,8 @@ import {SuccinctStakingTest} from "./SuccinctStaking.t.sol";
 import {SuccinctStaking} from "../src/SuccinctStaking.sol";
 import {MockVApp} from "../src/mocks/MockVApp.sol";
 import {IERC20} from "../lib/openzeppelin-contracts/contracts/interfaces/IERC20.sol";
-import {ISuccinctStaking} from "../src/interfaces/ISuccinctStaking.sol";
 
-contract SuccinctStakingRewardTests is SuccinctStakingTest {
+contract SuccinctStakingFulfillmentTests is SuccinctStakingTest {
     /// @dev For stack-too-deep workaround
     struct BalanceSnapshot {
         uint256 staker1Balance;
@@ -48,7 +47,12 @@ contract SuccinctStakingRewardTests is SuccinctStakingTest {
             _calculateFullRewardSplit(rewardAmount);
 
         // Reward the prover
-        MockVApp(VAPP).processReward(ALICE_PROVER, rewardAmount);
+        MockVApp(VAPP).processFulfillment(ALICE_PROVER, rewardAmount);
+
+        // Simulate withdrawals from VApp to make actual token transfers
+        _withdrawFromVApp(FEE_VAULT, expectedProtocolFee);
+        _withdrawFromVApp(ALICE, expectedOwnerReward);
+        _withdrawFromVApp(ALICE_PROVER, expectedStakerReward);
 
         // Check that the staked amount increased by the staker reward portion
         assertEq(
@@ -85,7 +89,12 @@ contract SuccinctStakingRewardTests is SuccinctStakingTest {
             _calculateFullRewardSplit(rewardAmount);
 
         // Reward the prover
-        MockVApp(VAPP).processReward(ALICE_PROVER, rewardAmount);
+        MockVApp(VAPP).processFulfillment(ALICE_PROVER, rewardAmount);
+
+        // Simulate withdrawals from VApp to make actual token transfers
+        _withdrawFromVApp(FEE_VAULT, expectedProtocolFee);
+        _withdrawFromVApp(ALICE, expectedOwnerReward);
+        _withdrawFromVApp(ALICE_PROVER, expectedStakerReward);
 
         // Check that the staked amount increased by the staker reward portion
         assertEq(
@@ -126,7 +135,12 @@ contract SuccinctStakingRewardTests is SuccinctStakingTest {
             _calculateFullRewardSplit(rewardAmount);
 
         // Reward the prover
-        MockVApp(VAPP).processReward(ALICE_PROVER, rewardAmount);
+        MockVApp(VAPP).processFulfillment(ALICE_PROVER, rewardAmount);
+
+        // Simulate withdrawals from VApp to make actual token transfers
+        _withdrawFromVApp(FEE_VAULT, expectedProtocolFee);
+        _withdrawFromVApp(ALICE, expectedOwnerReward);
+        _withdrawFromVApp(ALICE_PROVER, expectedStakerReward);
 
         // Check that the staked amount increased by the staker reward portion
         assertEq(
@@ -172,7 +186,12 @@ contract SuccinctStakingRewardTests is SuccinctStakingTest {
             _calculateFullRewardSplit(rewardAmount);
 
         // Reward only to Alice prover
-        MockVApp(VAPP).processReward(ALICE_PROVER, rewardAmount);
+        MockVApp(VAPP).processFulfillment(ALICE_PROVER, rewardAmount);
+
+        // Simulate withdrawals from VApp to make actual token transfers
+        _withdrawFromVApp(FEE_VAULT, expectedProtocolFee);
+        _withdrawFromVApp(ALICE, expectedOwnerReward);
+        _withdrawFromVApp(ALICE_PROVER, expectedStakerReward);
 
         // Check that only STAKER_1's staked amount increased
         assertEq(
@@ -217,7 +236,12 @@ contract SuccinctStakingRewardTests is SuccinctStakingTest {
             _calculateFullRewardSplit(rewardAmount);
 
         // Reward to Alice prover
-        MockVApp(VAPP).processReward(ALICE_PROVER, rewardAmount);
+        MockVApp(VAPP).processFulfillment(ALICE_PROVER, rewardAmount);
+
+        // Simulate withdrawals from VApp to make actual token transfers
+        _withdrawFromVApp(FEE_VAULT, expectedProtocolFee);
+        _withdrawFromVApp(ALICE, expectedOwnerReward);
+        _withdrawFromVApp(ALICE_PROVER, expectedStakerReward);
 
         // Check that STAKER_1's staked amount increased
         assertEq(
@@ -271,7 +295,12 @@ contract SuccinctStakingRewardTests is SuccinctStakingTest {
             _calculateFullRewardSplit(rewardAmount);
 
         // Reward to Alice prover
-        MockVApp(VAPP).processReward(ALICE_PROVER, rewardAmount);
+        MockVApp(VAPP).processFulfillment(ALICE_PROVER, rewardAmount);
+
+        // Simulate withdrawals from VApp to make actual token transfers
+        _withdrawFromVApp(FEE_VAULT, expectedProtocolFee);
+        _withdrawFromVApp(ALICE, expectedOwnerReward);
+        _withdrawFromVApp(ALICE_PROVER, expectedStakerReward);
 
         // Check that Alice (prover owner) received her portion of the reward
         assertEq(IERC20(PROVE).balanceOf(ALICE), before.aliceBalance + expectedOwnerReward);
@@ -324,8 +353,15 @@ contract SuccinctStakingRewardTests is SuccinctStakingTest {
         = _calculateFullRewardSplit(rewardAmount2);
 
         // Reward both provers
-        MockVApp(VAPP).processReward(ALICE_PROVER, rewardAmount1);
-        MockVApp(VAPP).processReward(BOB_PROVER, rewardAmount2);
+        MockVApp(VAPP).processFulfillment(ALICE_PROVER, rewardAmount1);
+        MockVApp(VAPP).processFulfillment(BOB_PROVER, rewardAmount2);
+
+        // Simulate withdrawals from VApp to make actual token transfers
+        _withdrawFromVApp(FEE_VAULT, expectedProtocolFee1 + expectedProtocolFee2);
+        _withdrawFromVApp(ALICE, expectedOwnerReward1);
+        _withdrawFromVApp(BOB, expectedOwnerReward2);
+        _withdrawFromVApp(ALICE_PROVER, expectedStakerReward1);
+        _withdrawFromVApp(BOB_PROVER, expectedStakerReward2);
 
         // Check that both stakers' staked amounts increased by the staker portion
         assertEq(
@@ -364,19 +400,12 @@ contract SuccinctStakingRewardTests is SuccinctStakingTest {
         assertEq(IERC20(BOB_PROVER).balanceOf(STAKING), 0);
     }
 
-    function test_RevertReward_WhenProverHasNotStaked() public {
-        uint256 rewardAmount = STAKER_PROVE_AMOUNT;
-
-        // Reward the prover
-        vm.expectRevert(abi.encodeWithSelector(ISuccinctStaking.NotStaked.selector));
-        MockVApp(VAPP).processReward(ALICE_PROVER, rewardAmount);
-    }
 
     function test_RevertReward_WhenProverNotFound() public {
         uint256 rewardAmount = STAKER_PROVE_AMOUNT;
         address unknownProver = makeAddr("UNKNOWN_PROVER");
 
         vm.expectRevert();
-        MockVApp(VAPP).processReward(unknownProver, rewardAmount);
+        MockVApp(VAPP).processFulfillment(unknownProver, rewardAmount);
     }
 }

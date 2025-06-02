@@ -12,10 +12,7 @@ import {
     ActionType,
     DepositAction,
     WithdrawAction,
-    AddSignerAction,
-    RemoveSignerAction,
-    SlashAction,
-    RewardAction
+    SetDelegatedSignerAction
 } from "../src/libraries/PublicValues.sol";
 import {ISuccinctVApp} from "../src/interfaces/ISuccinctVApp.sol";
 

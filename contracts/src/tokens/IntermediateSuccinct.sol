@@ -22,7 +22,7 @@ string constant SYMBOL = "iPROVE";
 ///      - It is non-transferable outside of deposit/withdraw
 contract IntermediateSuccinct is ERC4626, IIntermediateSuccinct {
     /// @inheritdoc IIntermediateSuccinct
-    address public staking;
+    address public override staking;
 
     constructor(address _underlying, address _staking)
         ERC20(NAME, SYMBOL)
@@ -47,14 +47,35 @@ contract IntermediateSuccinct is ERC4626, IIntermediateSuccinct {
         return PROVE;
     }
 
-    /// @dev Only the staking contract or the prover can deposit or withdraw. The latter needs
-    ///      to be able to so because it is the underlying token in the prover vault and functions
-    ///      require transferring it (e.g. PROVER-N.deposit() and PROVER-N.redeem()).
+    /// @dev Only the staking contract, the vApp, or the prover can deposit or withdraw.
+    ///
+    ///      Each situation is as follows:
+    ///      1a. The staking contract needs to transfer $iPROVE to a prover during stake().
+    ///         - $iPROVE.deposit() - transfer from address(0) to staking
+    ///         - $iPROVE.transfer() - transfer from staking to prover
+    ///      1b. The staking contract needs to transfer $iPROVE to a prover during unstake().
+    ///         - $PROVER-N.redeem() - transfer from prover to staking
+    ///         - $iPROVE.redeem() - transfer from staking to address(0)
+    ///      2. The vApp needs to transfer $iPROVE to a prover during finishWithdrawal(to),
+    ///         when `to` is a prover.
+    ///         - $iPROVE.deposit() - transfer from address(0) to VApp
+    ///         - $iPROVE.transfer() - transfer from VApp to prover
+    ///
+    ///      TODO: Double check that this is the best strictest possible solution. This is easy to test by removing
+    ///            an exception and seeing if the tests fail.
     function _update(address _from, address _to, uint256 _value) internal override(ERC20) {
-        bool isDepositOrWithdraw =
-            IProverRegistry(staking).isProver(msg.sender) && (_from == staking || _to == staking);
+        // Check for (1).
+        bool isStakeOrUnstake = msg.sender == staking ||
+            (IProverRegistry(staking).isProver(msg.sender) && (_from == staking || _to == staking));
 
-        if (msg.sender != staking && !isDepositOrWithdraw) {
+        // If not (1), check for (2).
+        bool isWithdraw;
+        if (!isStakeOrUnstake) {
+            isWithdraw = msg.sender == IProverRegistry(staking).vapp();
+        }
+
+        // If not (1) or (2), revert.
+        if (!isStakeOrUnstake && !isWithdraw) {
             revert NonTransferable();
         }
 

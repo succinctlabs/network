@@ -3,6 +3,7 @@ pragma solidity ^0.8.28;
 
 import {BaseScript} from "../utils/Base.s.sol";
 import {SuccinctVApp} from "../../src/SuccinctVApp.sol";
+import {SuccinctStaking} from "../../src/SuccinctStaking.sol";
 import {MockERC20} from "../../test/utils/MockERC20.sol";
 import {MockStaking} from "../../src/mocks/MockStaking.sol";
 import {FixtureLoader, SP1ProofFixtureJson, Fixture} from "../../test/utils/FixtureLoader.sol";
@@ -22,26 +23,28 @@ contract DeployProveAndVAppScript is BaseScript, FixtureLoader {
     address internal SP1_VERIFIER_GATEWAY_GROTH16 = 0x397A5f7f3dBd538f23DE225B51f532c34448dA9B;
 
     function run() external broadcaster {
-        // Deploy MockERC20 PROVE token with 18 decimals
-        MockERC20 prove = new MockERC20("Succinct", "PROVE", 18);
-
-        // Deploy MockStaking with PROVE token
-        MockStaking staking = new MockStaking(address(prove));
-
         // Deploy the SP1VerifierGatway.
         SP1VerifierGateway gateway = new SP1VerifierGateway(msg.sender);
         SP1Verifier groth16 = new SP1Verifier();
         gateway.addRoute(address(groth16));
 
+        // Deploy MockERC20 PROVE and iPROVE tokens.
+        MockERC20 prove = new MockERC20("Succinct", "PROVE", 18);
+        MockERC20 iProve = new MockERC20("Succinct", "iPROVE", 18);
+
+        // Deploy SuccinctStaking.
+        SuccinctStaking staking = new SuccinctStaking(msg.sender);
+
         // Deploy VApp contract
 		bytes32 vkey = bytes32(0x002124aeceb145cb3e4d4b50f94571ab92fc27c165ccc4ac41d930bc86595088);
         bytes32 genesisStateRoot = bytes32(0xa11f4a6c98ad88ce1f707acc85018b1ee2ac1bc5e8dd912c8273400b7e535beb);
         uint64 genesisTimestamp = 0;
-        address vappImpl = address(new SuccinctVApp());
-        address VAPP = address(SuccinctVApp(payable(address(new ERC1967Proxy(vappImpl, "")))));
-        SuccinctVApp(VAPP).initialize(
+        address vAppImpl = address(new SuccinctVApp());
+        SuccinctVApp vApp = SuccinctVApp(payable(address(new ERC1967Proxy(vAppImpl, ""))));
+        vApp.initialize(
             msg.sender,
             address(prove),
+            address(iProve),
             address(staking),
             address(gateway),
             msg.sender,
@@ -53,8 +56,16 @@ contract DeployProveAndVAppScript is BaseScript, FixtureLoader {
             genesisTimestamp
         );
 
-        // Set VApp address in MockStaking so it can authorize VApp calls
-        staking.setVApp(VAPP);
+        // Initialize SuccinctStaking.
+        staking.initialize(
+            address(vApp),
+            address(prove),
+            address(iProve),
+            0,
+            1 days,
+            1 days,
+            0 
+        );
 
         // ===== MINT PROVE TOKENS =====
         console.log("=== Minting PROVE tokens ===");
@@ -62,6 +73,11 @@ contract DeployProveAndVAppScript is BaseScript, FixtureLoader {
         prove.mint(msg.sender, totalMintAmount);
         console.log("Minted %s PROVE tokens to %s", totalMintAmount / 1e18, msg.sender);
         console.log("Your PROVE balance: %s", prove.balanceOf(msg.sender) / 1e18);
+
+        // ===== CREATE PROVER =====
+        console.log("\n=== Creating prover ===");
+        address prover = staking.createProver(10000);
+        console.log("Created prover: %s", prover);
 
         // ===== PROCESS 10 DEPOSITS =====
         console.log("\n=== Processing 10 deposits ===");
@@ -74,7 +90,7 @@ contract DeployProveAndVAppScript is BaseScript, FixtureLoader {
         }
         
         // Single approval for all deposits
-        prove.approve(VAPP, totalApprovalNeeded);
+        prove.approve(address(vApp), totalApprovalNeeded);
         console.log("Approved %s PROVE tokens for batch deposits", totalApprovalNeeded / 1e18);
         
         uint256 totalDeposited = 0;
@@ -84,7 +100,7 @@ contract DeployProveAndVAppScript is BaseScript, FixtureLoader {
             // Vary deposit amounts: base amount + some variation based on index
             uint256 depositAmount = (100 + (i * 10)) * 1e18; // 100, 110, 120, ... 190 PROVE
             
-            uint64 receipt = SuccinctVApp(VAPP).deposit(depositAmount);
+            uint64 receipt = SuccinctVApp(address(vApp)).deposit(depositAmount);
             depositReceipts[i] = receipt;
             totalDeposited += depositAmount;
             
@@ -96,7 +112,7 @@ contract DeployProveAndVAppScript is BaseScript, FixtureLoader {
         }
         
         console.log("Total deposited: %s PROVE", totalDeposited / 1e18);
-        console.log("VApp PROVE balance: %s", prove.balanceOf(VAPP) / 1e18);
+        console.log("VApp PROVE balance: %s", prove.balanceOf(address(vApp)) / 1e18);
         console.log("Your remaining PROVE balance: %s", prove.balanceOf(msg.sender) / 1e18);
 
         // ===== PROCESS 10 WITHDRAWAL REQUESTS =====
@@ -109,7 +125,7 @@ contract DeployProveAndVAppScript is BaseScript, FixtureLoader {
             // Vary withdrawal amounts: smaller amounts to ensure we don't exceed deposits
             uint256 withdrawAmount = (50 + (i * 5)) * 1e18; // 50, 55, 60, ... 545 PROVE
             
-            uint64 withdrawReceipt = SuccinctVApp(VAPP).withdraw(msg.sender, withdrawAmount);
+            uint64 withdrawReceipt = SuccinctVApp(address(vApp)).requestWithdraw(msg.sender, withdrawAmount);
             withdrawalReceipts[i] = withdrawReceipt;
             totalWithdrawRequested += withdrawAmount;
             
@@ -126,10 +142,9 @@ contract DeployProveAndVAppScript is BaseScript, FixtureLoader {
         console.log("\n=== Summary ===");
         console.log("PROVE Token Address: %s", address(prove));
         console.log("MockStaking Address: %s", address(staking));
-        console.log("SuccinctVApp Address: %s", VAPP);
-        console.log("Current Receipt Number: %s", SuccinctVApp(VAPP).currentReceipt());
-        console.log("Total Deposits in VApp: %s PROVE", SuccinctVApp(VAPP).totalDeposits() / 1e18);
-        console.log("VApp PROVE Balance: %s", prove.balanceOf(VAPP) / 1e18);
+        console.log("SuccinctVApp Address: %s", address(vApp));
+        console.log("Current Receipt Number: %s", SuccinctVApp(address(vApp)).currentReceipt());
+        console.log("VApp PROVE Balance: %s", prove.balanceOf(address(vApp)) / 1e18);
         console.log("Your PROVE Balance: %s", prove.balanceOf(msg.sender) / 1e18);
         console.log("Total Deposits Made: 10");
         console.log("Total Withdrawals Requested: 10");

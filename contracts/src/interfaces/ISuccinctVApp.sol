@@ -5,58 +5,52 @@ import {ActionType} from "../libraries/PublicValues.sol";
 import {ReceiptStatus} from "../libraries/Actions.sol";
 
 interface ISuccinctVApp {
-    /// @notice The program was forked.
+    /// @notice Emitted when the program was forked.
     event Fork(
         bytes32 indexed vkey, uint64 indexed block, bytes32 indexed newRoot, bytes32 oldRoot
     );
 
-    /// @notice A new block was committed.
+    /// @notice Emitted when a new block was committed.
     event Block(uint64 indexed block, bytes32 indexed newRoot, bytes32 indexed oldRoot);
 
-    /// @notice A receipt is completed.
+    /// @notice Emitted when a receipt is completed.
     event ReceiptCompleted(uint64 indexed receipt, ActionType indexed action, bytes data);
 
-    /// @notice A receipt is failed.
+    /// @notice Emitted when a receipt is failed.
     event ReceiptFailed(uint64 indexed receipt, ActionType indexed action, bytes data);
 
-    /// @notice A receipt is pending.
+    /// @notice Emitted when a receipt is pending.
     event ReceiptPending(uint64 indexed receipt, ActionType indexed action, bytes data);
 
-    /// @notice Withdrawal claimed event
-    event WithdrawalClaimed(address indexed account, address sender, uint256 amount);
+    /// @notice Emitted when a withdrawal is claimed.
+    event Withdrawal(address indexed account, uint256 amount);
 
-    /// @notice Emergency withdrawal event
-    event EmergencyWithdrawal(address indexed account, uint256 balance, bytes32 root);
+    /// @notice Emitted when the staking address was updated.
+    event StakingUpdate(address oldStaking, address newStaking);
 
-    /// @notice The staking address was updated.
-    event StakingUpdate(address indexed staking);
+    /// @notice Emitted when the verifier address was updated.
+    event VerifierUpdate(address oldVerifier, address newVerifier);
 
-    /// @notice The verifier address was updated.
-    event VerifierUpdate(address indexed verifier);
+    /// @notice Emitted when the fee vault was updated.
+    event FeeVaultUpdate(address oldFeeVault, address newFeeVault);
 
-    /// @notice The fee vault was updated.
-    event FeeVaultUpdate(address indexed feeVault);
+    /// @notice Emitted when the max action delay was updated.
+    event MaxActionDelayUpdate(uint64 oldMaxActionDelay, uint64 newMaxActionDelay);
 
-    /// @notice The max action delay was updated.
-    event MaxActionDelayUpdate(uint64 indexed actionDelay);
+    /// @notice Emitted when the minimum deposit was updated.
+    event MinDepositAmountUpdate(uint256 oldMinDepositAmount, uint256 newMinDepositAmount);
 
-    /// @notice The freeze duration was updated.
-    event FreezeDurationUpdate(uint64 indexed freezeDuration);
+    /// @notice Emitted when the protocol fee was updated.
+    event ProtocolFeeBipsUpdate(uint256 oldProtocolFeeBips, uint256 newProtocolFeeBips);
 
-    /// @notice The minimum deposit was updated.
-    event MinimumDepositUpdate(uint256 amount);
-
-    /// @notice The protocol fee was updated.
-    event ProtocolFeeBipsUpdate(uint256 protocolFeeBips);
-
-    /// @dev Thrown if the array lengths do not match.
-    error ArrayLengthMismatch();
-
-    /// @dev Thrown if the actual balance does not match the expected balance.
-    error BalanceMismatch();
+    /// @dev Thrown when the caller is not the staking contract.
+    error NotStaking();
 
     /// @dev Thrown when an address parameter is zero.
     error ZeroAddress();
+    
+    /// @dev Thrown if the actual balance does not match the expected balance.
+    error BalanceMismatch();
 
     /// @dev Thrown when an amount parameter is invalid.
     error InvalidAmount();
@@ -94,14 +88,23 @@ interface ISuccinctVApp {
     /// @dev Thrown when a proof fails.
     error ProofFailed();
 
-    /// @dev Thrown when an invalid signer is encountered.
-    error InvalidSigner();
-
     /// @dev Thrown when a deposit or withdrawal is below the minimum.
     error TransferBelowMinimum();
 
+    /// @dev Thrown when trying to add a signer that is already a delegate of another prover.
+    error SignerAlreadyUsed();
+
+    /// @dev Thrown when trying to add a signer for an owner that is not a prover.
+    error OwnerNotProver();
+
+    /// @dev Thrown when trying to add a signer for a prover that is a prover.
+    error SignerIsProver();
+
     /// @notice The address of the $PROVE token.
     function prove() external view returns (address);
+
+    /// @notice The address of the $iPROVE token.
+    function iProve() external view returns (address);
 
     /// @notice The address of the Succinct staking contract.
     function staking() external view returns (address);
@@ -125,20 +128,11 @@ interface ISuccinctVApp {
     /// @notice The maximum delay for actions to be committed, in seconds.
     function maxActionDelay() external view returns (uint64);
 
-    /// @notice How long it takes for the state to be consideredfrozen.
-    function freezeDuration() external view returns (uint64);
-
     /// @notice The minimum amount for deposit/withdraw operations.
-    function minimumDeposit() external view returns (uint256);
+    function minDepositAmount() external view returns (uint256);
 
     /// @notice The protocol fee in basis points.
     function protocolFeeBips() external view returns (uint256);
-
-    /// @notice The total deposits for the vApp.
-    function totalDeposits() external view returns (uint256);
-
-    /// @notice The total pending withdrawal claims for each token
-    function totalPendingWithdrawals() external view returns (uint256);
 
     /// @notice The state root for the current block.
     function root() external view returns (bytes32);
@@ -158,8 +152,8 @@ interface ISuccinctVApp {
     /// @notice Timestamp for each block.
     function timestamps(uint64 block) external view returns (uint64);
 
-    /// @notice The claimable withdrawals for each account and token
-    function withdrawalClaims(address account) external view returns (uint256);
+    /// @notice The claimable withdrawal amount for each account.
+    function claimableWithdrawal(address account) external view returns (uint256);
 
     /// @notice Receipts for pending actions
     function receipts(uint64 receipt)
@@ -167,22 +161,11 @@ interface ISuccinctVApp {
         view
         returns (ActionType action, ReceiptStatus status, uint64 timestamp, bytes memory data);
 
-    /// @notice Returns the index of a delegated signer for an owner.
-    /// @param owner The owner to check.
-    /// @param signer The signer to check.
-    /// @return index The index of the signer, returns type(uint256).max if not found.
-    function hasDelegatedSigner(address owner, address signer)
-        external
-        view
-        returns (uint256 index);
-
-    /// @notice The delegated signers for the owner.
-    /// @param owner The owner to get the delegated signers for.
-    /// @return The delegated signers.
-    function getDelegatedSigners(address owner) external view returns (address[] memory);
-
-    /// @notice The signers that have been used for delegation
+    /// @notice The signers that have been used for delegation.
     function usedSigners(address signer) external view returns (bool);
+
+    /// @notice The delegated signer for an owner.
+    function delegatedSigner(address owner) external view returns (address);
 
     /// @notice Deposit funds into the vApp, must have already approved the contract as a spender.
     /// @param amount The amount of $PROVE to deposit.
@@ -209,33 +192,25 @@ interface ISuccinctVApp {
     ) external returns (uint64 receipt);
 
     /// @notice Request to withdraw funds from the contract.
-    /// @dev Can fail if balance is insufficient.
+    /// @dev This request can also be done offchain.
     /// @param to The address to withdraw funds to.
-    /// @param amount The amount to withdraw.
+    /// @param amount The amount to withdraw. MUST be less than or equal to the balance, except
+    ///        in the case of type(uint256).max, in which case the entire balance is withdrawn.
     /// @return receipt The receipt for the withdrawal.
-    function withdraw(address to, uint256 amount) external returns (uint64 receipt);
+    function requestWithdraw(address to, uint256 amount) external returns (uint64 receipt);
 
     /// @notice Claim a pending withdrawal from the contract.
     /// @param to The address to claim the withdrawal to.
     /// @return amount The amount claimed.
-    function claimWithdrawal(address to) external returns (uint256 amount);
+    function finishWithdrawal(address to) external returns (uint256 amount);
 
-    /// @notice Emergency withdrawal from the contract.
-    /// @dev Anyone can call this function to withdraw their balance after the freeze duration has passed.
-    /// @param balance The balance to withdraw.
-    /// @param proof The proof for the withdrawal.
-    function emergencyWithdraw(uint256 balance, bytes32[] calldata proof) external;
-
-    /// @notice Add a delegated signer.
-    /// @dev Must be called by a prover owner.
+    /// @notice Set a delegated signer for a prover owner. This allows the owner EOA to sign messages
+    ///         on behalf of the prover. Only one signer can be a delegate for a prover at a time.
+    /// @dev Must be called by the staking contract.
+    /// @param owner The owner to add the signer for.
     /// @param signer The signer to add.
-    /// @return receipt The receipt for the add signer action.
-    function addDelegatedSigner(address signer) external returns (uint64 receipt);
-
-    /// @notice Remove a delegated signer.
-    /// @param signer The signer to remove.
-    /// @return receipt The receipt for the remove signer action.
-    function removeDelegatedSigner(address signer) external returns (uint64 receipt);
+    /// @return receipt The receipt for the set delegated signer action.
+    function setDelegatedSigner(address owner, address signer) external returns (uint64 receipt);
 
     /// @notice Update the state of the vApp.
     /// @dev Reverts if the committed actions are invalid.
@@ -277,21 +252,16 @@ interface ISuccinctVApp {
 
     /// @notice Updates the max action delay.
     /// @dev Only callable by the owner.
-    /// @param maxActionDelay The new max action delay.
-    function updateActionDelay(uint64 maxActionDelay) external;
-
-    /// @notice Updates the freeze duration.
-    /// @dev Only callable by the owner.
-    /// @param freezeDuration The new freeze duration.
-    function updateFreezeDuration(uint64 freezeDuration) external;
+    /// @param delay The new max action delay.
+    function updateActionDelay(uint64 delay) external;
 
     /// @notice Updates the minimum amount for deposit/withdraw operations.
     /// @dev Only callable by the owner.
     /// @param amount The new minimum amount.
-    function setMinimumDeposit(uint256 amount) external;
+    function updateMinDepositAmount(uint256 amount) external;
 
     /// @notice Updates the protocol fee in basis points.
     /// @dev Only callable by the owner.
     /// @param protocolFeeBips The new protocol fee in basis points.
-    function setProtocolFeeBips(uint256 protocolFeeBips) external;
+    function updateProtocolFeeBips(uint256 protocolFeeBips) external;
 }

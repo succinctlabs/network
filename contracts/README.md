@@ -45,7 +45,7 @@ Then, add a `{CHAIN_ID}.json` file in the [deployments](./deployments) directory
 All contracts:
 
 ```sh
-FOUNDRY_PROFILE=deploy forge script AllScript --private-key $PRIVATE_KEY --broadcast --rpc-url $ETH_RPC_URL
+FOUNDRY_PROFILE=deploy forge script AllScript --private-key $PRIVATE_KEY --broadcast --rpc-url $ETH_RPC_URL --verify --verifier etherscan
 ```
 
 ## Operations
@@ -53,15 +53,15 @@ FOUNDRY_PROFILE=deploy forge script AllScript --private-key $PRIVATE_KEY --broad
 ### Deposit
 
 ```sh
-cast send $PROVE "mint(address,uint256)" $(cast wallet address --private-key $PRIVATE_KEY) 10000e6 --private-key $PRIVATE_KEY --rpc-url $ETH_RPC_URL
+cast send $PROVE "mint(address,uint256)" $(cast wallet address --private-key $PRIVATE_KEY) 10000e18 --private-key $PRIVATE_KEY --rpc-url $ETH_RPC_URL
 ```
 
 ```sh
-cast send $PROVE "approve(address,uint256)" $VAPP 10000e6 --private-key $PRIVATE_KEY --rpc-url $ETH_RPC_URL
+cast send $PROVE "approve(address,uint256)" $VAPP 50e18 --private-key $PRIVATE_KEY --rpc-url $ETH_RPC_URL
 ```
 
 ```sh
-cast send $VAPP "deposit(uint256)" 5000e6 --private-key $PRIVATE_KEY --rpc-url $ETH_RPC_URL
+cast send $VAPP "deposit(uint256)" 50e18 --private-key $PRIVATE_KEY --rpc-url $ETH_RPC_URL
 ```
 
 ### Create a Prover
@@ -97,7 +97,7 @@ cast send $PROVE "mint(address,uint256)" $VAPP 1000e18 --private-key $PRIVATE_KE
 Then send the reward to the prover (simulates the proof being fulfilled):
 
 ```sh
-cast send $VAPP "processReward(address,uint256)" $PROVER 100e6 --private-key $PRIVATE_KEY --rpc-url $ETH_RPC_URL
+cast send $VAPP "processFulfillment(address,uint256)" $PROVER 100e18 --private-key $PRIVATE_KEY --rpc-url $ETH_RPC_URL
 ```
 
 ### Slash

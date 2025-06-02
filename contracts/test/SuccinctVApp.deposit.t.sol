@@ -12,10 +12,7 @@ import {
     ActionType,
     DepositAction,
     WithdrawAction,
-    AddSignerAction,
-    RemoveSignerAction,
-    SlashAction,
-    RewardAction
+    SetDelegatedSignerAction
 } from "../src/libraries/PublicValues.sol";
 import {ISuccinctVApp} from "../src/interfaces/ISuccinctVApp.sol";
 import {MockERC20} from "./utils/MockERC20.sol";
@@ -134,7 +131,7 @@ contract SuccinctVAppDepositTest is SuccinctVAppTest {
         uint256 depositAmount = minAmount / 2; // 5 PROVE - below minimum
 
         // Set minimum amount
-        SuccinctVApp(VAPP).setMinimumDeposit(minAmount);
+        SuccinctVApp(VAPP).updateMinDepositAmount(minAmount);
 
         // Try to deposit below minimum
         MockERC20(PROVE).mint(REQUESTER_1, depositAmount);
