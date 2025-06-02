@@ -61,7 +61,7 @@ contract DeployProveAndVAppScript is BaseScript, FixtureLoader {
             address(vApp),
             address(prove),
             address(iProve),
-            0,
+            10e18,
             1 days,
             1 days,
             0 
@@ -69,7 +69,7 @@ contract DeployProveAndVAppScript is BaseScript, FixtureLoader {
 
         // ===== MINT PROVE TOKENS =====
         console.log("=== Minting PROVE tokens ===");
-        uint256 totalMintAmount = 1000000 * 1e18; // 1,000,000 PROVE tokens (increased for 100 operations)
+        uint256 totalMintAmount = 1000000 * 1e18;
         prove.mint(msg.sender, totalMintAmount);
         console.log("Minted %s PROVE tokens to %s", totalMintAmount / 1e18, msg.sender);
         console.log("Your PROVE balance: %s", prove.balanceOf(msg.sender) / 1e18);
@@ -78,6 +78,13 @@ contract DeployProveAndVAppScript is BaseScript, FixtureLoader {
         console.log("\n=== Creating prover ===");
         address prover = staking.createProver(10000);
         console.log("Created prover: %s", prover);
+
+        // ===== STAKE TO PROVER =====
+        console.log("\n=== Staking to prover ===");
+        prove.approve(address(staking), staking.minStakeAmount());
+        staking.stake(prover, staking.minStakeAmount());
+        console.log("Staked %s PROVE tokens to prover", totalMintAmount / 1e18);
+        console.log("Prover PROVE balance: %s", prove.balanceOf(prover) / 1e18);
 
         // ===== PROCESS 10 DEPOSITS =====
         console.log("\n=== Processing 10 deposits ===");
