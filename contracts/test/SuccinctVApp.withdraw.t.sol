@@ -12,7 +12,7 @@ import {
     ActionType,
     DepositAction,
     WithdrawAction,
-    SetDelegatedSignerAction
+    ProverAction
 } from "../src/libraries/PublicValues.sol";
 import {ISuccinctVApp} from "../src/interfaces/ISuccinctVApp.sol";
 import {MockERC20} from "./utils/MockERC20.sol";

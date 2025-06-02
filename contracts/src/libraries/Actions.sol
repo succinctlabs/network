@@ -7,7 +7,7 @@ import {
     ActionType,
     DepositAction,
     WithdrawAction,
-    SetDelegatedSignerAction
+    ProverAction
 } from "./PublicValues.sol";
 
 /// @notice A receipt for an action
@@ -23,7 +23,7 @@ struct ActionsInternal {
     uint64 lastReceipt;
     DepositInternal[] deposits;
     WithdrawInternal[] withdrawals;
-    SetDelegatedSignerInternal[] setDelegatedSigners;
+    ProverInternal[] provers;
 }
 
 /// @notice Internal deposit action
@@ -39,9 +39,9 @@ struct WithdrawInternal {
 }
 
 /// @notice Internal add signer action
-struct SetDelegatedSignerInternal {
+struct ProverInternal {
     Action action;
-    SetDelegatedSignerAction data;
+    ProverAction data;
 }
 
 /// @notice Library for handling actions
@@ -86,7 +86,7 @@ library Actions {
                 data.depositLength++;
             } else if (actionType == ActionType.Withdraw) {
                 data.withdrawLength++;
-            } else if (actionType == ActionType.SetDelegatedSigner) {
+            } else if (actionType == ActionType.Prover) {
                 data.setDelegatedSignerLength++;
             } else {
                 revert InvalidAction();
@@ -95,7 +95,7 @@ library Actions {
 
         decoded.deposits = new DepositInternal[](data.depositLength);
         decoded.withdrawals = new WithdrawInternal[](data.withdrawLength);
-        decoded.setDelegatedSigners = new SetDelegatedSignerInternal[](data.setDelegatedSignerLength);
+        decoded.provers = new ProverInternal[](data.setDelegatedSignerLength);
 
         // Decode the actions
         data.depositLength = 0;
@@ -121,12 +121,12 @@ library Actions {
                     data: abi.decode(action.data, (WithdrawAction))
                 });
                 decoded.withdrawals[data.withdrawLength++] = withdraw;
-            } else if (action.action == ActionType.SetDelegatedSigner) {
-                SetDelegatedSignerInternal memory setDelegatedSigner = SetDelegatedSignerInternal({
+            } else if (action.action == ActionType.Prover) {
+                ProverInternal memory setDelegatedSigner = ProverInternal({
                     action: action,
-                    data: abi.decode(action.data, (SetDelegatedSignerAction))
+                    data: abi.decode(action.data, (ProverAction))
                 });
-                decoded.setDelegatedSigners[data.setDelegatedSignerLength++] = setDelegatedSigner;
+                decoded.provers[data.setDelegatedSignerLength++] = setDelegatedSigner;
             } else {
                 revert InvalidAction();
             }
@@ -173,7 +173,7 @@ library Actions {
                     _validateDeposit(_actions[i], receipt);
                 } else if (_actions[i].action == ActionType.Withdraw) {
                     _validateWithdraw(_actions[i], receipt);
-                } else if (_actions[i].action == ActionType.SetDelegatedSigner) {
+                } else if (_actions[i].action == ActionType.Prover) {
                     // Skip validations
                 } else {
                     revert InvalidAction();
@@ -195,7 +195,7 @@ library Actions {
             return true;
         } else if (_action.action == ActionType.Withdraw) {
             return _action.receipt != 0;
-        } else if (_action.action == ActionType.SetDelegatedSigner) {
+        } else if (_action.action == ActionType.Prover) {
             return true;
         }
 
