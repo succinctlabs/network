@@ -199,6 +199,16 @@ contract SuccinctVApp is
         override
         returns (uint64 receipt)
     {
+        // Validate.
+        if (_to == address(0)) revert ZeroAddress();
+        if (_amount < minDepositAmount) revert TransferBelowMinimum();
+
+        // If the `_to` is a prover vault, then anyone can do it. Otherwise, only `_to` can trigger
+        // the withdrawal.
+        if (msg.sender != _to) {
+            if (!ISuccinctStaking(staking).isProver(_to)) revert CannotWithdrawToDifferentAddress();
+        }
+
         return _requestWithdraw(msg.sender, _to, _amount);
     }
 

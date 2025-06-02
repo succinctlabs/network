@@ -76,7 +76,7 @@ contract MockVApp {
         emit Deposit(_from, _amount);
     }
 
-    function registerProver(address, address, uint256) external returns (uint64 receipt) {
+    function registerProver(address, address, uint256) external pure returns (uint64 receipt) {
         return 1;
     }
 

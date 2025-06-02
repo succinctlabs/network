@@ -95,6 +95,11 @@ interface ISuccinctVApp {
     ///      owner of the prover.
     error ProverNotOwned();
 
+    /// @dev Thrown when trying to withdraw to a different address than the one that requested the
+    ///      withdrawal. Not relevant if the withdrawal is to a prover vault, in which case anyone
+    ///      can do it.
+    error CannotWithdrawToDifferentAddress();
+
     /// @notice The address of the $PROVE token.
     function prove() external view returns (address);
 
