@@ -54,7 +54,7 @@ interface IProverRegistry {
 
     /// @notice Create a new prover.
     /// @dev The caller becomes the owner of the new prover. Only one prover can be created per
-    ///      owner. It is recommended to use a cold wallet to create a prover, and then 
+    ///      owner. It is recommended to use a cold wallet to create a prover, and then
     ///      immediately set a delegated signer to a hot wallet for the prover.
     /// @param stakerFeeBips The reward percentage in basis points (one-hundredth of a percent) that
     ///        goes to the prover's stakers. This cannot be changed after the prover is created.
