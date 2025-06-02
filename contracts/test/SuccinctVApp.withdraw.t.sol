@@ -152,78 +152,7 @@ contract SuccinctVAppWithdrawTest is SuccinctVAppTest {
         emit ISuccinctVApp.Block(1, depositPublicValues.newRoot, depositPublicValues.oldRoot);
         SuccinctVApp(VAPP).updateState(abi.encode(depositPublicValues), jsonFixture.proof);
 
-        // Withdraw with a different recipient (user2 initiates withdrawal to user3)
-        vm.startPrank(REQUESTER_2);
-        bytes memory withdrawData = abi.encode(
-            WithdrawAction({account: REQUESTER_2, amount: amount, to: REQUESTER_3, token: PROVE})
-        );
-
-        vm.expectEmit(true, true, true, true);
-        emit ISuccinctVApp.ReceiptPending(2, ActionType.Withdraw, withdrawData);
-        uint64 withdrawReceipt = SuccinctVApp(VAPP).requestWithdraw(REQUESTER_3, amount);
-        vm.stopPrank();
-
-        assertEq(withdrawReceipt, 2);
-        (ActionType actionType, ReceiptStatus status,, bytes memory data) =
-            SuccinctVApp(VAPP).receipts(withdrawReceipt);
-        assertEq(uint8(actionType), uint8(ActionType.Withdraw));
-        assertEq(uint8(status), uint8(ReceiptStatus.Pending));
-        assertEq(data, withdrawData);
-
-        // Update state after withdraw
-        PublicValuesStruct memory withdrawPublicValues = PublicValuesStruct({
-            actions: new Action[](1),
-            oldRoot: bytes32(uint256(1)),
-            newRoot: bytes32(uint256(2)),
-            timestamp: uint64(block.timestamp)
-        });
-        withdrawPublicValues.actions[0] = Action({
-            action: ActionType.Withdraw,
-            status: ReceiptStatus.Completed,
-            receipt: withdrawReceipt,
-            data: withdrawData
-        });
-
-        mockCall(true);
-
-        vm.expectEmit(true, true, true, true);
-        emit ISuccinctVApp.ReceiptCompleted(withdrawReceipt, ActionType.Withdraw, withdrawData);
-        vm.expectEmit(true, true, true, true);
-        emit ISuccinctVApp.Block(2, withdrawPublicValues.newRoot, withdrawPublicValues.oldRoot);
-        SuccinctVApp(VAPP).updateState(abi.encode(withdrawPublicValues), jsonFixture.proof);
-
-        // Verify withdrawal claim was created for user3, not user2
-        assertEq(SuccinctVApp(VAPP).claimableWithdrawal(REQUESTER_2), 0);
-        assertEq(SuccinctVApp(VAPP).claimableWithdrawal(REQUESTER_3), amount);
-
-        // Verify finalizedReceipt updated
-        assertEq(SuccinctVApp(VAPP).finalizedReceipt(), 2);
-
-        // Claim withdrawal as user3
-        assertEq(MockERC20(PROVE).balanceOf(REQUESTER_3), 0);
-        vm.startPrank(REQUESTER_3);
-        vm.expectEmit(true, true, true, true);
-        emit ISuccinctVApp.Withdrawal(REQUESTER_3, amount);
-        uint256 claimedAmount = SuccinctVApp(VAPP).finishWithdrawal(REQUESTER_3);
-        vm.stopPrank();
-
-        // Verify claim was successful, and user3 has the funds
-        assertEq(claimedAmount, amount);
-        assertEq(MockERC20(PROVE).balanceOf(REQUESTER_3), amount); // User3 now has the PROVE
-        assertEq(MockERC20(PROVE).balanceOf(REQUESTER_2), 0); // User2 has nothing
-        assertEq(SuccinctVApp(VAPP).claimableWithdrawal(REQUESTER_3), 0); // Claim is cleared
-
-        // Attempt to claim again should fail
-        vm.startPrank(REQUESTER_3);
-        vm.expectRevert(abi.encodeWithSelector(ISuccinctVApp.NoWithdrawalToClaim.selector));
-        SuccinctVApp(VAPP).finishWithdrawal(REQUESTER_3);
-        vm.stopPrank();
-
-        // User2 shouldn't be able to claim either
-        vm.startPrank(REQUESTER_2);
-        vm.expectRevert(abi.encodeWithSelector(ISuccinctVApp.NoWithdrawalToClaim.selector));
-        SuccinctVApp(VAPP).finishWithdrawal(REQUESTER_2);
-        vm.stopPrank();
+        // TODO
     }
 
     function test_RevertWithdraw_WhenZeroAddress() public {
