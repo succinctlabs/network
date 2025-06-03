@@ -7,7 +7,7 @@ import {
     ActionsInternal,
     DepositInternal,
     WithdrawInternal,
-    SetDelegatedSignerInternal
+    ProverInternal
 } from "./libraries/Actions.sol";
 import {
     PublicValuesStruct,
@@ -16,7 +16,7 @@ import {
     ActionType,
     DepositAction,
     WithdrawAction,
-    SetDelegatedSignerAction
+    ProverAction
 } from "./libraries/PublicValues.sol";
 import {ISuccinctVApp} from "./interfaces/ISuccinctVApp.sol";
 import {ISuccinctStaking} from "./interfaces/ISuccinctStaking.sol";
@@ -68,9 +68,6 @@ contract SuccinctVApp is
     bytes32 public override vappProgramVKey;
 
     /// @inheritdoc ISuccinctVApp
-    uint256 public override txNumber;
-
-    /// @inheritdoc ISuccinctVApp
     uint64 public override blockNumber;
 
     /// @inheritdoc ISuccinctVApp
@@ -99,12 +96,6 @@ contract SuccinctVApp is
 
     /// @inheritdoc ISuccinctVApp
     mapping(uint64 => Receipt) public override receipts;
-
-    /// @inheritdoc ISuccinctVApp
-    mapping(address => bool) public override usedSigners;
-
-    /// @inheritdoc ISuccinctVApp
-    mapping(address => address) public override delegatedSigner;
 
     /// @dev Modifier to ensure that the caller is the staking contract.
     modifier onlyStaking() {
@@ -158,7 +149,6 @@ contract SuccinctVApp is
         // Set the genesis state root.
         roots[0] = _genesisStateRoot;
         timestamps[0] = _genesisTimestamp;
-        txNumber = 0;
         blockNumber = 0;
 
         _updateStaking(_staking);
@@ -217,6 +207,16 @@ contract SuccinctVApp is
         override
         returns (uint64 receipt)
     {
+        // Validate.
+        if (_to == address(0)) revert ZeroAddress();
+        if (_amount < minDepositAmount) revert TransferBelowMinimum();
+
+        // If the `_to` is a prover vault, then anyone can do it. Otherwise, only `_to` can trigger
+        // the withdrawal.
+        if (msg.sender != _to) {
+            if (!ISuccinctStaking(staking).isProver(_to)) revert CannotWithdrawToDifferentAddress();
+        }
+
         return _requestWithdraw(msg.sender, _to, _amount);
     }
 
@@ -251,20 +251,18 @@ contract SuccinctVApp is
     }
 
     /// @inheritdoc ISuccinctVApp
-    // TODO(jtguibas): add back onlyStaking modifier
-    function setDelegatedSigner(address _owner, address _signer)
+    function registerProver(address _prover, address _owner, uint256 _stakerFeeBips)
         external
+        onlyStaking
         returns (uint64 receipt)
     {
         // Validate.
-        if (_owner == address(0) || _signer == address(0)) revert ZeroAddress();
-        if (usedSigners[_signer]) revert SignerAlreadyUsed();
-        if (!ISuccinctStaking(staking).isProver(_owner)) revert OwnerNotProver();
-        if (ISuccinctStaking(staking).isProver(_signer)) revert SignerIsProver();
+        if (_owner == address(0)) revert ZeroAddress();
+        if (_owner != ISuccinctStaking(staking).ownerOf(_prover)) revert ProverNotOwned();
 
         // Create the receipt.
-        bytes memory data = abi.encode(SetDelegatedSignerAction({owner: _owner, signer: _signer}));
-        receipt = _createReceipt(ActionType.SetDelegatedSigner, data);
+        bytes memory data = abi.encode(ProverAction({prover: _prover, owner: _owner, stakerFeeBips: _stakerFeeBips}));
+        receipt = _createReceipt(ActionType.Prover, data);
     }
 
     /// @inheritdoc ISuccinctVApp
@@ -429,7 +427,7 @@ contract SuccinctVApp is
         ActionsInternal memory decoded = Actions.decode(_publicValues.actions);
         _depositActions(decoded.deposits);
         _requestWithdrawActions(decoded.withdrawals);
-        _setDelegatedSignerActions(decoded.setDelegatedSigners);
+        _setProverActions(decoded.provers);
 
         // Update the last finalized receipt.
         if (decoded.lastReceipt != 0) {
@@ -475,17 +473,15 @@ contract SuccinctVApp is
     }
 
     /// @dev Handles add signer actions.
-    function _setDelegatedSignerActions(SetDelegatedSignerInternal[] memory _actions) internal {
+    function _setProverActions(ProverInternal[] memory _actions) internal {
         for (uint64 i = 0; i < _actions.length; i++) {
             receipts[_actions[i].action.receipt].status = _actions[i].action.status;
 
             if (_actions[i].action.status == ReceiptStatus.Completed) {
-                // Process the set delegated signer action.
-                _processSetDelegatedSigner(_actions[i].data.owner, _actions[i].data.signer);
 
                 emit ReceiptCompleted(
                     _actions[i].action.receipt,
-                    ActionType.SetDelegatedSigner,
+                    ActionType.Prover,
                     _actions[i].action.data
                 );
             }
@@ -496,17 +492,6 @@ contract SuccinctVApp is
     function _processWithdraw(address _to, uint256 _amount) internal {
         // Update the state.
         claimableWithdrawal[_to] += _amount;
-    }
-
-    /// @dev Processes a set delegated signer action by updating the state.
-    function _processSetDelegatedSigner(address _owner, address _signer) internal {
-        // Delete the old signer.
-        address oldSigner = delegatedSigner[_owner];
-        delete usedSigners[oldSigner];
-
-        // Update the state.
-        usedSigners[_signer] = true;
-        delegatedSigner[_owner] = _signer;
     }
 
     /// @dev Updates the staking contract.

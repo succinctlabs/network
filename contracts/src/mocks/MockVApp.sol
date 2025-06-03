@@ -76,8 +76,8 @@ contract MockVApp {
         emit Deposit(_from, _amount);
     }
 
-    function setDelegatedSigner(address, address) external pure returns (uint64) {
-        return 0;
+    function registerProver(address, address, uint256) external pure returns (uint64 receipt) {
+        return 1;
     }
 
     function claimableWithdrawal(address) external view returns (uint256) {

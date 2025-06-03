@@ -12,6 +12,8 @@ import {ERC1967Proxy} from
 import {console} from "../../lib/forge-std/src/console.sol";
 import {SP1VerifierGateway} from "../../lib/sp1-contracts/contracts/src/SP1VerifierGateway.sol";
 import {SP1Verifier} from "../../lib/sp1-contracts/contracts/src/v4.0.0-rc.3/SP1VerifierGroth16.sol";
+import {Succinct} from "../../src/tokens/Succinct.sol";
+import {IntermediateSuccinct} from "../../src/tokens/IntermediateSuccinct.sol";
 
 contract DeployProveAndVAppScript is BaseScript, FixtureLoader {
     string internal constant PROVE_KEY = "PROVE";
@@ -28,12 +30,12 @@ contract DeployProveAndVAppScript is BaseScript, FixtureLoader {
         SP1Verifier groth16 = new SP1Verifier();
         gateway.addRoute(address(groth16));
 
-        // Deploy MockERC20 PROVE and iPROVE tokens.
-        MockERC20 prove = new MockERC20("Succinct", "PROVE", 18);
-        MockERC20 iProve = new MockERC20("Succinct", "iPROVE", 18);
-
         // Deploy SuccinctStaking.
         SuccinctStaking staking = new SuccinctStaking(msg.sender);
+
+        // Deploy MockERC20 PROVE and iPROVE tokens.
+        Succinct prove = new Succinct(msg.sender);
+        IntermediateSuccinct iProve = new IntermediateSuccinct(address(prove), address(staking));
 
         // Deploy VApp contract
 		bytes32 vkey = bytes32(0x002124aeceb145cb3e4d4b50f94571ab92fc27c165ccc4ac41d930bc86595088);

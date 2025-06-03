@@ -91,14 +91,14 @@ interface ISuccinctVApp {
     /// @dev Thrown when a deposit or withdrawal is below the minimum.
     error TransferBelowMinimum();
 
-    /// @dev Thrown when trying to add a signer that is already a delegate of another prover.
-    error SignerAlreadyUsed();
+    /// @dev Thrown when trying to register a prover and the owner mismatches the staking contract's
+    ///      owner of the prover.
+    error ProverNotOwned();
 
-    /// @dev Thrown when trying to add a signer for an owner that is not a prover.
-    error OwnerNotProver();
-
-    /// @dev Thrown when trying to add a signer for a prover that is a prover.
-    error SignerIsProver();
+    /// @dev Thrown when trying to withdraw to a different address than the one that requested the
+    ///      withdrawal. Not relevant if the withdrawal is to a prover vault, in which case anyone
+    ///      can do it.
+    error CannotWithdrawToDifferentAddress();
 
     /// @notice The address of the $PROVE token.
     function prove() external view returns (address);
@@ -161,12 +161,6 @@ interface ISuccinctVApp {
         view
         returns (ActionType action, ReceiptStatus status, uint64 timestamp, bytes memory data);
 
-    /// @notice The signers that have been used for delegation.
-    function usedSigners(address signer) external view returns (bool);
-
-    /// @notice The delegated signer for an owner.
-    function delegatedSigner(address owner) external view returns (address);
-
     /// @notice Deposit funds into the vApp, must have already approved the contract as a spender.
     /// @param amount The amount of $PROVE to deposit.
     /// @return receipt The receipt for the deposit.
@@ -204,13 +198,11 @@ interface ISuccinctVApp {
     /// @return amount The amount claimed.
     function finishWithdrawal(address to) external returns (uint256 amount);
 
-    /// @notice Set a delegated signer for a prover owner. This allows the owner EOA to sign messages
-    ///         on behalf of the prover. Only one signer can be a delegate for a prover at a time.
-    /// @dev Must be called by the staking contract.
-    /// @param owner The owner to add the signer for.
-    /// @param signer The signer to add.
-    /// @return receipt The receipt for the set delegated signer action.
-    function setDelegatedSigner(address owner, address signer) external returns (uint64 receipt);
+    /// @notice Register a newly created prover. Only callable by the staking contract.
+    /// @param prover The address of the prover.
+    /// @param owner The address of the prover owner.
+    /// @param stakerFeeBips The staker fee in basis points.
+    function registerProver(address prover, address owner, uint256 stakerFeeBips) external returns (uint64 receipt);
 
     /// @notice Update the state of the vApp.
     /// @dev Reverts if the committed actions are invalid.
