@@ -5,7 +5,7 @@ pragma solidity ^0.8.28;
 enum TransactionVariant {
     Deposit,
     Withdraw,
-    Prover
+    CreateProver
 }
 
 /// @notice The status of a transaction.
@@ -18,9 +18,25 @@ enum TransactionStatus {
 
 /// @notice A transaction.
 struct Transaction {
+    /// @notice The variant of the transaction.
     TransactionVariant variant;
+    /// @notice The status of the transaction.
     TransactionStatus status;
+    /// @notice The onchain transaction ID.
     uint64 onchainTx;
+    /// @notice The data of one of {DepositTransaction, WithdrawTransaction, CreateProverTransaction}.
+    bytes data;
+}
+
+/// @notice The receipt for a transaction.
+struct Receipt {
+    /// @notice The variant of the transaction.
+    TransactionVariant variant;
+    /// @notice The status of the transaction.
+    TransactionStatus status;
+    /// @notice The onchain transaction ID.
+    uint64 onchainTx;
+    /// @notice The data of one of {DepositTransaction, WithdrawTransaction, CreateProverTransaction}.
     bytes data;
 }
 
@@ -44,38 +60,12 @@ struct CreateProverTransaction {
     uint256 stakerFeeBips;
 }
 
-/// @notice The receipt for a transaction.
-struct Receipt {
-    TransactionVariant variant;
-    TransactionStatus status;
-    uint64 onchainTx;
-    bytes data;
-}
-
 /// @notice Internal decoded actions
-struct ReceiptsInternal {
+struct DecodedReceipts {
     uint64 lastTxId;
-    DepositReceipt[] deposits;
-    WithdrawReceipt[] withdrawals;
-    CreateProverReceipt[] provers;
-}
-
-/// @notice Internal deposit action
-struct DepositReceipt {
-    Receipt receipt;
-    DepositTransaction data;
-}
-
-/// @notice Internal withdraw action
-struct WithdrawReceipt {
-    Receipt receipt;
-    WithdrawTransaction data;
-}
-
-/// @notice Internal add signer action
-struct CreateProverReceipt {
-    Receipt receipt;
-    CreateProverTransaction data;
+    DepositTransaction[] deposits;
+    WithdrawTransaction[] withdrawals;
+    CreateProverTransaction[] provers;
 }
 
 /// @notice The public values encoded as a struct that can be easily deserialized inside Solidity.

@@ -4,7 +4,7 @@ pragma solidity ^0.8.28;
 import {SuccinctVAppTest} from "./SuccinctVApp.t.sol";
 import {SuccinctVApp} from "../src/SuccinctVApp.sol";
 import {ISuccinctVApp} from "../src/interfaces/ISuccinctVApp.sol";
-import {Actions} from "../src/libraries/Actions.sol";
+import {Receipts} from "../src/libraries/Receipts.sol";
 import {
     PublicValuesStruct,
     TransactionStatus,
@@ -48,16 +48,17 @@ contract SuccinctVAppWithdrawTest is SuccinctVAppTest {
         mockCall(true);
 
         vm.expectEmit(true, true, true, true);
-        emit ISuccinctVApp.TransactionCompleted(depositReceipt, TransactionVariant.Deposit, depositData);
+        emit ISuccinctVApp.TransactionCompleted(
+            depositReceipt, TransactionVariant.Deposit, depositData
+        );
         vm.expectEmit(true, true, true, true);
         emit ISuccinctVApp.Block(1, depositPublicValues.newRoot, depositPublicValues.oldRoot);
         SuccinctVApp(VAPP).step(abi.encode(depositPublicValues), jsonFixture.proof);
 
         // Withdraw
         vm.startPrank(REQUESTER_2);
-        bytes memory withdrawData = abi.encode(
-            WithdrawTransaction({account: REQUESTER_2, to: REQUESTER_2, amount: amount})
-        );
+        bytes memory withdrawData =
+            abi.encode(WithdrawTransaction({account: REQUESTER_2, to: REQUESTER_2, amount: amount}));
 
         vm.expectEmit(true, true, true, true);
         emit ISuccinctVApp.TransactionPending(2, TransactionVariant.Withdraw, withdrawData);
@@ -88,7 +89,9 @@ contract SuccinctVAppWithdrawTest is SuccinctVAppTest {
         mockCall(true);
 
         vm.expectEmit(true, true, true, true);
-        emit ISuccinctVApp.TransactionCompleted(withdrawReceipt, TransactionVariant.Withdraw, withdrawData);
+        emit ISuccinctVApp.TransactionCompleted(
+            withdrawReceipt, TransactionVariant.Withdraw, withdrawData
+        );
         vm.expectEmit(true, true, true, true);
         emit ISuccinctVApp.Block(2, withdrawPublicValues.newRoot, withdrawPublicValues.oldRoot);
         SuccinctVApp(VAPP).step(abi.encode(withdrawPublicValues), jsonFixture.proof);
@@ -147,7 +150,9 @@ contract SuccinctVAppWithdrawTest is SuccinctVAppTest {
         mockCall(true);
 
         vm.expectEmit(true, true, true, true);
-        emit ISuccinctVApp.TransactionCompleted(depositReceipt, TransactionVariant.Deposit, depositData);
+        emit ISuccinctVApp.TransactionCompleted(
+            depositReceipt, TransactionVariant.Deposit, depositData
+        );
         vm.expectEmit(true, true, true, true);
         emit ISuccinctVApp.Block(1, depositPublicValues.newRoot, depositPublicValues.oldRoot);
 

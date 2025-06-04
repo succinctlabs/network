@@ -38,8 +38,9 @@ contract DeployProveAndVAppScript is BaseScript, FixtureLoader {
         IntermediateSuccinct iProve = new IntermediateSuccinct(address(prove), address(staking));
 
         // Deploy VApp contract
-		bytes32 vkey = bytes32(0x002124aeceb145cb3e4d4b50f94571ab92fc27c165ccc4ac41d930bc86595088);
-        bytes32 genesisStateRoot = bytes32(0xa11f4a6c98ad88ce1f707acc85018b1ee2ac1bc5e8dd912c8273400b7e535beb);
+        bytes32 vkey = bytes32(0x002124aeceb145cb3e4d4b50f94571ab92fc27c165ccc4ac41d930bc86595088);
+        bytes32 genesisStateRoot =
+            bytes32(0xa11f4a6c98ad88ce1f707acc85018b1ee2ac1bc5e8dd912c8273400b7e535beb);
         uint64 genesisTimestamp = 0;
         address vAppImpl = address(new SuccinctVApp());
         SuccinctVApp vApp = SuccinctVApp(payable(address(new ERC1967Proxy(vAppImpl, ""))));
@@ -49,22 +50,14 @@ contract DeployProveAndVAppScript is BaseScript, FixtureLoader {
             address(iProve),
             address(staking),
             address(gateway),
-			vkey,
+            vkey,
             0,
             genesisStateRoot,
             genesisTimestamp
         );
 
         // Initialize SuccinctStaking.
-        staking.initialize(
-            address(vApp),
-            address(prove),
-            address(iProve),
-            10e18,
-            1 days,
-            1 days,
-            0 
-        );
+        staking.initialize(address(vApp), address(prove), address(iProve), 10e18, 1 days, 1 days, 0);
 
         // ===== MINT PROVE TOKENS =====
         console.log("=== Minting PROVE tokens ===");
@@ -87,61 +80,70 @@ contract DeployProveAndVAppScript is BaseScript, FixtureLoader {
 
         // ===== PROCESS 10 DEPOSITS =====
         console.log("\n=== Processing 10 deposits ===");
-        
+
         // Pre-calculate total approval needed to reduce transactions
         uint256 totalApprovalNeeded = 0;
         for (uint256 i = 0; i < 10; i++) {
             uint256 depositAmount = (100 + (i * 10)) * 1e18;
             totalApprovalNeeded += depositAmount;
         }
-        
+
         // Single approval for all deposits
         prove.approve(address(vApp), totalApprovalNeeded);
         console.log("Approved %s PROVE tokens for batch deposits", totalApprovalNeeded / 1e18);
-        
+
         uint256 totalDeposited = 0;
         uint64[] memory depositReceipts = new uint64[](10);
-        
+
         for (uint256 i = 0; i < 10; i++) {
             // Vary deposit amounts: base amount + some variation based on index
             uint256 depositAmount = (100 + (i * 10)) * 1e18; // 100, 110, 120, ... 190 PROVE
-            
+
             uint64 receipt = SuccinctVApp(address(vApp)).deposit(depositAmount);
             depositReceipts[i] = receipt;
             totalDeposited += depositAmount;
-            
+
             // Log every 5th deposit to avoid spam
             if ((i + 1) % 5 == 0) {
-                console.log("Completed %s deposits. Latest: %s PROVE (Receipt #%s)", 
-                    i + 1, depositAmount / 1e18, receipt);
+                console.log(
+                    "Completed %s deposits. Latest: %s PROVE (Receipt #%s)",
+                    i + 1,
+                    depositAmount / 1e18,
+                    receipt
+                );
             }
         }
-        
+
         console.log("Total deposited: %s PROVE", totalDeposited / 1e18);
         console.log("VApp PROVE balance: %s", prove.balanceOf(address(vApp)) / 1e18);
         console.log("Your remaining PROVE balance: %s", prove.balanceOf(msg.sender) / 1e18);
 
         // ===== PROCESS 10 WITHDRAWAL REQUESTS =====
         console.log("\n=== Processing 10 withdrawal requests ===");
-        
+
         uint256 totalWithdrawRequested = 0;
         uint64[] memory withdrawalReceipts = new uint64[](10);
-        
+
         for (uint256 i = 0; i < 10; i++) {
             // Vary withdrawal amounts: smaller amounts to ensure we don't exceed deposits
             uint256 withdrawAmount = (50 + (i * 5)) * 1e18; // 50, 55, 60, ... 545 PROVE
-            
-            uint64 withdrawReceipt = SuccinctVApp(address(vApp)).requestWithdraw(msg.sender, withdrawAmount);
+
+            uint64 withdrawReceipt =
+                SuccinctVApp(address(vApp)).requestWithdraw(msg.sender, withdrawAmount);
             withdrawalReceipts[i] = withdrawReceipt;
             totalWithdrawRequested += withdrawAmount;
-            
+
             // Log every 5th withdrawal to avoid spam
             if ((i + 1) % 5 == 0) {
-                console.log("Completed %s withdrawals. Latest: %s PROVE (Receipt #%s)", 
-                    i + 1, withdrawAmount / 1e18, withdrawReceipt);
+                console.log(
+                    "Completed %s withdrawals. Latest: %s PROVE (Receipt #%s)",
+                    i + 1,
+                    withdrawAmount / 1e18,
+                    withdrawReceipt
+                );
             }
         }
-        
+
         console.log("Total withdrawal requested: %s PROVE", totalWithdrawRequested / 1e18);
 
         // ===== SUMMARY =====

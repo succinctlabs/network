@@ -65,8 +65,8 @@ contract IntermediateSuccinct is ERC4626, IIntermediateSuccinct {
     ///            an exception and seeing if the tests fail.
     function _update(address _from, address _to, uint256 _value) internal override(ERC20) {
         // Check for (1).
-        bool isStakeOrUnstake = msg.sender == staking ||
-            (IProverRegistry(staking).isProver(msg.sender) && (_from == staking || _to == staking));
+        bool isStakeOrUnstake = msg.sender == staking
+            || (IProverRegistry(staking).isProver(msg.sender) && (_from == staking || _to == staking));
 
         // If not (1), check for (2).
         bool isWithdraw;

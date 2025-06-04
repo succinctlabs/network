@@ -5,7 +5,7 @@ import {Test} from "../lib/forge-std/src/Test.sol";
 import {stdJson} from "../lib/forge-std/src/StdJson.sol";
 import {SuccinctVApp} from "../src/SuccinctVApp.sol";
 import {ISuccinctVApp} from "../src/interfaces/ISuccinctVApp.sol";
-import {Actions} from "../src/libraries/Actions.sol";
+import {Receipts} from "../src/libraries/Receipts.sol";
 import {
     PublicValuesStruct,
     TransactionStatus,

@@ -82,7 +82,10 @@ abstract contract ProverRegistry is IProverRegistry {
     }
 
     /// @dev Uses CREATE2 to deploy an instance of SuccinctProver and adds it to the mapping.
-    function _deployProver(address _owner, uint256 _stakerFeeBips) internal returns (address prover) {
+    function _deployProver(address _owner, uint256 _stakerFeeBips)
+        internal
+        returns (address prover)
+    {
         // Ensure that the contract is initialized.
         if (iProve == address(0)) {
             revert NotInitialized();

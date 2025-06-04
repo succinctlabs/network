@@ -57,7 +57,7 @@ contract SuccinctVAppOwnerTest is SuccinctVAppTest {
         vm.prank(REQUESTER_1);
         SuccinctVApp(VAPP).updateVerifier(address(1));
     }
- 
+
     function test_SetTransferBelowMinimum_WhenValid() public {
         uint256 oldMinAmount = ISuccinctVApp(VAPP).minDepositAmount();
         uint256 newMinAmount = 10e6; // 10 PROVE

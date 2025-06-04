@@ -5,7 +5,6 @@ pragma solidity ^0.8.28;
 /// @notice Library for calculating and distributing fees for rewards.
 /// @dev This occurs offchain in the VApp, and only exists in Solidity for testing purposes.
 library FeeCalculator {
-
     uint256 internal constant FEE_UNIT = 10000;
 
     /// @notice Calculates the fee split for a reward amount.

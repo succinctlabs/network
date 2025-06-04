@@ -400,7 +400,6 @@ contract SuccinctStakingFulfillmentTests is SuccinctStakingTest {
         assertEq(IERC20(BOB_PROVER).balanceOf(STAKING), 0);
     }
 
-
     function test_RevertReward_WhenProverNotFound() public {
         uint256 rewardAmount = STAKER_PROVE_AMOUNT;
         address unknownProver = makeAddr("UNKNOWN_PROVER");

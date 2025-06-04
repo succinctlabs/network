@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.28;
 
-import {Actions} from "./libraries/Actions.sol";
+import {Receipts} from "./libraries/Receipts.sol";
 import {
     PublicValuesStruct,
     TransactionStatus,
@@ -11,10 +11,7 @@ import {
     DepositTransaction,
     WithdrawTransaction,
     CreateProverTransaction,
-    ReceiptsInternal,
-    DepositReceipt,
-    WithdrawReceipt,
-    CreateProverReceipt
+    DecodedReceipts
 } from "./libraries/PublicValues.sol";
 import {ISuccinctVApp} from "./interfaces/ISuccinctVApp.sol";
 import {ISuccinctStaking} from "./interfaces/ISuccinctStaking.sol";
@@ -115,8 +112,8 @@ contract SuccinctVApp is
         uint64 _genesisTimestamp
     ) external initializer {
         if (
-            _owner == address(0) || _prove == address(0) || _staking == address(0)
-                || _verifier == address(0)
+            _owner == address(0) || _prove == address(0) || _iProve == address(0)
+                || _staking == address(0) || _verifier == address(0)
         ) {
             revert ZeroAddress();
         }
@@ -188,7 +185,6 @@ contract SuccinctVApp is
         override
         returns (uint64 receipt)
     {
-        // TODO(jtguibas): maybe consider simplifying this in the future
         // Validate.
         if (_to == address(0)) revert ZeroAddress();
         if (_amount < minDepositAmount) revert TransferBelowMinimum();
@@ -243,8 +239,10 @@ contract SuccinctVApp is
         if (_owner != ISuccinctStaking(staking).ownerOf(_prover)) revert ProverNotOwned();
 
         // Create the receipt.
-        bytes memory data = abi.encode(CreateProverTransaction({prover: _prover, owner: _owner, stakerFeeBips: _stakerFeeBips}));
-        receipt = _createTransaction(TransactionVariant.Prover, data);
+        bytes memory data = abi.encode(
+            CreateProverTransaction({prover: _prover, owner: _owner, stakerFeeBips: _stakerFeeBips})
+        );
+        receipt = _createTransaction(TransactionVariant.CreateProver, data);
     }
 
     /// @inheritdoc ISuccinctVApp
@@ -274,10 +272,11 @@ contract SuccinctVApp is
         roots[_block] = publicValues.newRoot;
         timestamps[_block] = publicValues.timestamp;
 
-           // Commit the actions.
-        _handleActions(publicValues);
+        // Handle the receipts.
+        _handleReceipts(publicValues);
 
-        emit Block(_block, publicValues.newRoot, publicValues.oldRoot);     
+        // Emit the block event.
+        emit Block(_block, publicValues.newRoot, publicValues.oldRoot);
 
         return (_block, publicValues.newRoot, publicValues.oldRoot);
     }
@@ -287,10 +286,12 @@ contract SuccinctVApp is
     //////////////////////////////////////////////////////////////*/
 
     /// @inheritdoc ISuccinctVApp
-    function fork(
-        bytes32 _vkey,
-        bytes32 _newRoot
-    ) external override onlyOwner returns (uint64, bytes32, bytes32) {
+    function fork(bytes32 _vkey, bytes32 _newRoot)
+        external
+        override
+        onlyOwner
+        returns (uint64, bytes32, bytes32)
+    {
         // Update the vkey.
         vappProgramVKey = _vkey;
 
@@ -334,8 +335,7 @@ contract SuccinctVApp is
         }
 
         // Create the receipt.
-        bytes memory data =
-            abi.encode(DepositTransaction({account: _from, amount: _amount}));
+        bytes memory data = abi.encode(DepositTransaction({account: _from, amount: _amount}));
         receipt = _createTransaction(TransactionVariant.Deposit, data);
 
         // Transfer $PROVE from the sender to the VApp.
@@ -376,76 +376,46 @@ contract SuccinctVApp is
     }
 
     /// @dev Handles committed actions, reverts if the actions are invalid
-    function _handleActions(PublicValuesStruct memory _publicValues) internal {
-        // Validate the actions.
-        Actions.validate(
-            transactions,
-            _publicValues.receipts,
-            finalizedOnchainTx,
-            currentOnchainTx,
-            uint64(block.timestamp)
-        );
+    function _handleReceipts(PublicValuesStruct memory _publicValues) internal {
+        // Validate the receipts.
+        //
+        // In particular, check that the receipts have the correct onchainTx and that
+        // the values in the receipts are consistent with the transactions we sent.
+        Receipts.validate(transactions, _publicValues.receipts, finalizedOnchainTx);
 
-        // Execute the actions.
-        ReceiptsInternal memory decoded = Actions.decode(_publicValues.receipts);
-        _depositActions(decoded.deposits);
-        _requestWithdrawActions(decoded.withdrawals);
-        _setProverActions(decoded.provers);
+        // Execute the receipts.
+        for (uint64 i = 0; i < _publicValues.receipts.length; i++) {
+            // Update the finalized onchain transaction.
+            uint64 onchainTx = _publicValues.receipts[i].onchainTx;
+            finalizedOnchainTx = onchainTx;
 
-        // Update the last finalized receipt.
-        finalizedOnchainTx = decoded.lastTxId;
-    }
+            // Update the transaction status.
+            TransactionStatus status = _publicValues.receipts[i].status;
+            transactions[onchainTx].status = status;
 
-    /// @dev Handles deposit actions.
-    function _depositActions(DepositReceipt[] memory _actions) internal {
-        for (uint64 i = 0; i < _actions.length; i++) {
-            transactions[_actions[i].receipt.onchainTx].status = _actions[i].receipt.status;
+            // If the transaction is none or pending, something went wrong. If it failed, emit the revert event.
+            TransactionVariant variant = _publicValues.receipts[i].variant;
+            if (status == TransactionStatus.None || status == TransactionStatus.Pending) {
+                emit ReceiptStatusInvalid(onchainTx, variant, _publicValues.receipts[i].data);
+            } else if (status == TransactionStatus.Failed) {
+                emit TransactionReverted(onchainTx, variant, _publicValues.receipts[i].data);
+                continue;
+            }
+
+            // Execute the receipt, if necessary.
+            if (variant == TransactionVariant.Deposit) {
+                // No-op.
+            } else if (variant == TransactionVariant.Withdraw) {
+                WithdrawTransaction memory withdraw =
+                    abi.decode(_publicValues.receipts[i].data, (WithdrawTransaction));
+                _processWithdraw(withdraw.to, withdraw.amount);
+            } else if (variant == TransactionVariant.CreateProver) {
+                // No-op.
+            }
 
             emit TransactionCompleted(
-                _actions[i].receipt.onchainTx, TransactionVariant.Deposit, _actions[i].receipt.data
+                _publicValues.receipts[i].onchainTx, variant, _publicValues.receipts[i].data
             );
-        }
-    }
-
-    /// @dev Handles withdraw actions.
-    function _requestWithdrawActions(WithdrawReceipt[] memory _actions) internal {
-        for (uint64 i = 0; i < _actions.length; i++) {
-            // Only update if there is a corresponding receipt.
-            if (_actions[i].receipt.onchainTx != 0) {
-                transactions[_actions[i].receipt.onchainTx].status = _actions[i].receipt.status;
-
-                if (_actions[i].receipt.status == TransactionStatus.Failed) {
-                    emit TransactionFailed(
-                        _actions[i].receipt.onchainTx, TransactionVariant.Withdraw, _actions[i].receipt.data
-                    );
-                }
-            }
-
-            // Handle the action status.
-            if (_actions[i].receipt.status == TransactionStatus.Completed) {
-                // Process the withdrawal.
-                _processWithdraw(_actions[i].data.to, _actions[i].data.amount);
-
-                emit TransactionCompleted(
-                    _actions[i].receipt.onchainTx, TransactionVariant.Withdraw, _actions[i].receipt.data
-                );
-            }
-        }
-    }
-
-    /// @dev Handles add signer actions.
-    function _setProverActions(CreateProverReceipt[] memory _actions) internal {
-        for (uint64 i = 0; i < _actions.length; i++) {
-            transactions[_actions[i].receipt.onchainTx].status = _actions[i].receipt.status;
-
-            if (_actions[i].receipt.status == TransactionStatus.Completed) {
-
-                emit TransactionCompleted(
-                    _actions[i].receipt.onchainTx,
-                    TransactionVariant.Prover,
-                    _actions[i].receipt.data
-                );
-            }
         }
     }
 

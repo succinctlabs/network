@@ -4,7 +4,7 @@ pragma solidity ^0.8.28;
 import {SuccinctVAppTest} from "./SuccinctVApp.t.sol";
 import {SuccinctVApp} from "../src/SuccinctVApp.sol";
 import {ISuccinctVApp} from "../src/interfaces/ISuccinctVApp.sol";
-import {Actions} from "../src/libraries/Actions.sol";
+import {Receipts} from "../src/libraries/Receipts.sol";
 import {
     PublicValuesStruct,
     TransactionStatus,
@@ -32,8 +32,7 @@ contract SuccinctVAppDepositTest is SuccinctVAppTest {
         MockERC20(PROVE).approve(VAPP, amount);
 
         // Deposit
-        bytes memory data =
-            abi.encode(DepositTransaction({account: REQUESTER_1, amount: amount}));
+        bytes memory data = abi.encode(DepositTransaction({account: REQUESTER_1, amount: amount}));
         vm.expectEmit(true, true, true, true);
         emit ISuccinctVApp.TransactionPending(1, TransactionVariant.Deposit, data);
         SuccinctVApp(VAPP).deposit(amount);
@@ -83,8 +82,7 @@ contract SuccinctVAppDepositTest is SuccinctVAppTest {
         // Deposit
         (uint8 v, bytes32 r, bytes32 s) =
             _signPermit(REQUESTER_1_PK, REQUESTER_1, amount, block.timestamp + 1 days);
-        bytes memory data =
-            abi.encode(DepositTransaction({account: REQUESTER_1, amount: amount}));
+        bytes memory data = abi.encode(DepositTransaction({account: REQUESTER_1, amount: amount}));
         vm.expectEmit(true, true, true, true);
         emit ISuccinctVApp.TransactionPending(1, TransactionVariant.Deposit, data);
         SuccinctVApp(VAPP).permitAndDeposit(REQUESTER_1, amount, block.timestamp + 1 days, v, r, s);

@@ -14,13 +14,24 @@ interface ISuccinctVApp {
     event Block(uint64 indexed block, bytes32 indexed newRoot, bytes32 indexed oldRoot);
 
     /// @notice Emitted when a receipt is completed.
-    event TransactionCompleted(uint64 indexed onchainTxId, TransactionVariant indexed action, bytes data);
+    event TransactionCompleted(
+        uint64 indexed onchainTxId, TransactionVariant indexed action, bytes data
+    );
 
     /// @notice Emitted when a receipt is failed.
-    event TransactionFailed(uint64 indexed onchainTxId, TransactionVariant indexed action, bytes data);
+    event TransactionReverted(
+        uint64 indexed onchainTxId, TransactionVariant indexed action, bytes data
+    );
 
     /// @notice Emitted when a receipt is pending.
-    event TransactionPending(uint64 indexed onchainTxId, TransactionVariant indexed action, bytes data);
+    event TransactionPending(
+        uint64 indexed onchainTxId, TransactionVariant indexed action, bytes data
+    );
+
+    /// @notice Emitted when a receipt is reverted.
+    event ReceiptStatusInvalid(
+        uint64 indexed onchainTxId, TransactionVariant indexed action, bytes data
+    );
 
     /// @notice Emitted when a withdrawal is claimed.
     event Withdrawal(address indexed account, uint256 amount);
@@ -48,7 +59,7 @@ interface ISuccinctVApp {
 
     /// @dev Thrown when an address parameter is zero.
     error ZeroAddress();
-    
+
     /// @dev Thrown if the actual balance does not match the expected balance.
     error BalanceMismatch();
 
@@ -150,7 +161,12 @@ interface ISuccinctVApp {
     function transactions(uint64 onchainTx)
         external
         view
-        returns (TransactionVariant action, TransactionStatus status, uint64 timestamp, bytes memory data);
+        returns (
+            TransactionVariant action,
+            TransactionStatus status,
+            uint64 timestamp,
+            bytes memory data
+        );
 
     /// @notice Deposit funds into the vApp, must have already approved the contract as a spender.
     /// @param amount The amount of $PROVE to deposit.
@@ -193,7 +209,9 @@ interface ISuccinctVApp {
     /// @param prover The address of the prover.
     /// @param owner The address of the prover owner.
     /// @param stakerFeeBips The staker fee in basis points.
-    function createProver(address prover, address owner, uint256 stakerFeeBips) external returns (uint64 receipt);
+    function createProver(address prover, address owner, uint256 stakerFeeBips)
+        external
+        returns (uint64 receipt);
 
     /// @notice Update the state of the vApp.
     /// @dev Reverts if the committed actions are invalid.
@@ -209,10 +227,7 @@ interface ISuccinctVApp {
     /// @param vkey The new vkey.
     /// @param newRoot The new root committed by the new program.
     /// @return The block number, the new state root, and the old state root.
-    function fork(
-        bytes32 vkey,
-        bytes32 newRoot
-    ) external returns (uint64, bytes32, bytes32);
+    function fork(bytes32 vkey, bytes32 newRoot) external returns (uint64, bytes32, bytes32);
 
     /// @notice Updates the succinct staking contract address.
     /// @dev Only callable by the owner.
