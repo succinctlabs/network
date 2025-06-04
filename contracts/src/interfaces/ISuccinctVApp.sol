@@ -15,17 +15,17 @@ interface ISuccinctVApp {
 
     /// @notice Emitted when a receipt is completed.
     event TransactionCompleted(
-        uint64 indexed onchainTxId, TransactionVariant indexed action, bytes data
+        uint64 indexed onchainTxId, TransactionVariant indexed variant, bytes data
     );
 
     /// @notice Emitted when a receipt is failed.
     event TransactionReverted(
-        uint64 indexed onchainTxId, TransactionVariant indexed action, bytes data
+        uint64 indexed onchainTxId, TransactionVariant indexed variant, bytes data
     );
 
     /// @notice Emitted when a receipt is pending.
     event TransactionPending(
-        uint64 indexed onchainTxId, TransactionVariant indexed action, bytes data
+        uint64 indexed onchainTxId, TransactionVariant indexed variant, bytes data
     );
 
     /// @notice Emitted when a withdrawal is claimed.
@@ -146,11 +146,14 @@ interface ISuccinctVApp {
     /// @notice The timestamp for the current block.
     function timestamp() external view returns (uint64);
 
-    /// @notice Tracks the incrementing onchainTx counter.
-    function currentOnchainTx() external view returns (uint64);
+    /// @notice The ID of the current transaction.
+    function txId() external view returns (uint64);
 
-    /// @notice The onchainTx of the last finalized deposit.
-    function finalizedOnchainTx() external view returns (uint64);
+    /// @notice Tracks the incrementing onchainTx counter.
+    function currentOnchainTxId() external view returns (uint64);
+
+    /// @notice The onchainTxId of the last finalized deposit.
+    function finalizedOnchainTxId() external view returns (uint64);
 
     /// @notice State root for each block.
     function roots(uint64 block) external view returns (bytes32);

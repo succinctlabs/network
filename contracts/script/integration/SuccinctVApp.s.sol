@@ -150,7 +150,7 @@ contract DeployProveAndVAppScript is BaseScript, FixtureLoader {
         console.log("PROVE Token Address: %s", address(prove));
         console.log("MockStaking Address: %s", address(staking));
         console.log("SuccinctVApp Address: %s", address(vApp));
-        console.log("Current Receipt Number: %s", SuccinctVApp(address(vApp)).currentOnchainTx());
+        console.log("Current Receipt Number: %s", SuccinctVApp(address(vApp)).currentOnchainTxId());
         console.log("VApp PROVE Balance: %s", prove.balanceOf(address(vApp)) / 1e18);
         console.log("Your PROVE Balance: %s", prove.balanceOf(msg.sender) / 1e18);
         console.log("Total Deposits Made: 10");

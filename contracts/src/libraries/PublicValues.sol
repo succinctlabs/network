@@ -1,6 +1,30 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.28;
 
+/// @notice A transaction.
+struct Transaction {
+    /// @notice The variant of the transaction.
+    TransactionVariant variant;
+    /// @notice The status of the transaction.
+    TransactionStatus status;
+    /// @notice The onchain transaction ID.
+    uint64 onchainTxId;
+    /// @notice The action of one of {Deposit, Withdraw, CreateProver}.
+    bytes action;
+}
+
+/// @notice The receipt for a transaction.
+struct Receipt {
+    /// @notice The variant of the transaction.
+    TransactionVariant variant;
+    /// @notice The status of the transaction.
+    TransactionStatus status;
+    /// @notice The onchain transaction ID.
+    uint64 onchainTxId;
+    /// @notice The action of one of {Deposit, Withdraw, CreateProver}.
+    bytes action;
+}
+
 /// @notice The type of transaction.
 enum TransactionVariant {
     Deposit,
@@ -20,60 +44,29 @@ enum TransactionStatus {
     Reverted
 }
 
-/// @notice A transaction.
-struct Transaction {
-    /// @notice The variant of the transaction.
-    TransactionVariant variant;
-    /// @notice The status of the transaction.
-    TransactionStatus status;
-    /// @notice The onchain transaction ID.
-    uint64 onchainTx;
-    /// @notice The data of one of {DepositTransaction, WithdrawTransaction, CreateProverTransaction}.
-    bytes data;
-}
-
-/// @notice The receipt for a transaction.
-struct Receipt {
-    /// @notice The variant of the transaction.
-    TransactionVariant variant;
-    /// @notice The status of the transaction.
-    TransactionStatus status;
-    /// @notice The onchain transaction ID.
-    uint64 onchainTx;
-    /// @notice The data of one of {DepositTransaction, WithdrawTransaction, CreateProverTransaction}.
-    bytes data;
-}
-
 /// @notice The action data for a deposit.
-struct DepositTransaction {
+struct Deposit {
     address account;
     uint256 amount;
 }
 
 /// @notice The action data for a withdraw.
-struct WithdrawTransaction {
+struct Withdraw {
     address account;
     address to;
     uint256 amount;
 }
 
 /// @notice The action data for an add signer.
-struct CreateProverTransaction {
+struct CreateProver {
     address prover;
     address owner;
     uint256 stakerFeeBips;
 }
 
-/// @notice Internal decoded actions
-struct DecodedReceipts {
-    uint64 lastTxId;
-    DepositTransaction[] deposits;
-    WithdrawTransaction[] withdrawals;
-    CreateProverTransaction[] provers;
-}
-
 /// @notice The public values encoded as a struct that can be easily deserialized inside Solidity.
 struct PublicValuesStruct {
+    uint64 txId;
     bytes32 oldRoot;
     bytes32 newRoot;
     uint64 timestamp;

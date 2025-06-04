@@ -10,9 +10,9 @@ import {
     TransactionStatus,
     Receipt as VAppReceipt,
     TransactionVariant,
-    DepositTransaction,
-    WithdrawTransaction,
-    CreateProverTransaction
+    Deposit,
+    Withdraw,
+    CreateProver
 } from "../src/libraries/PublicValues.sol";
 import {ISuccinctVApp} from "../src/interfaces/ISuccinctVApp.sol";
 import {MockStaking} from "../src/mocks/MockStaking.sol";
@@ -29,7 +29,7 @@ contract SuccinctVAppDelegateTest is SuccinctVAppTest {
 
         // The expected action data for alice creating a prover.
         bytes memory expectedProverData = abi.encode(
-            CreateProverTransaction({
+            CreateProver({
                 prover: aliceProver,
                 owner: ALICE,
                 stakerFeeBips: STAKER_FEE_BIPS
@@ -37,7 +37,7 @@ contract SuccinctVAppDelegateTest is SuccinctVAppTest {
         );
 
         (TransactionVariant actionType, TransactionStatus status,, bytes memory data) =
-            SuccinctVApp(VAPP).transactions(SuccinctVApp(VAPP).currentOnchainTx());
+            SuccinctVApp(VAPP).transactions(SuccinctVApp(VAPP).currentOnchainTxId());
         assertEq(uint8(actionType), uint8(TransactionVariant.CreateProver));
         assertEq(uint8(status), uint8(TransactionStatus.Pending));
         assertEq(data, expectedProverData);
@@ -52,8 +52,8 @@ contract SuccinctVAppDelegateTest is SuccinctVAppTest {
         publicValues1.receipts[0] = VAppReceipt({
             variant: TransactionVariant.CreateProver,
             status: TransactionStatus.Completed,
-            onchainTx: SuccinctVApp(VAPP).currentOnchainTx(),
-            data: expectedProverData
+            onchainTxId: SuccinctVApp(VAPP).currentOnchainTxId(),
+            action: expectedProverData
         });
 
         mockCall(true);
@@ -62,7 +62,7 @@ contract SuccinctVAppDelegateTest is SuccinctVAppTest {
         SuccinctVApp(VAPP).step(abi.encode(publicValues1), jsonFixture.proof);
 
         // Verify receipt status updated
-        (, status,,) = SuccinctVApp(VAPP).transactions(SuccinctVApp(VAPP).currentOnchainTx());
+        (, status,,) = SuccinctVApp(VAPP).transactions(SuccinctVApp(VAPP).currentOnchainTxId());
         assertEq(uint8(status), uint8(TransactionStatus.Completed));
         // assertEq(SuccinctVApp(VAPP).finalizedOnchainTx(), 1);
     }
