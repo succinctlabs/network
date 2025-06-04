@@ -28,11 +28,6 @@ interface ISuccinctVApp {
         uint64 indexed onchainTxId, TransactionVariant indexed action, bytes data
     );
 
-    /// @notice Emitted when a receipt is reverted.
-    event ReceiptStatusInvalid(
-        uint64 indexed onchainTxId, TransactionVariant indexed action, bytes data
-    );
-
     /// @notice Emitted when a withdrawal is claimed.
     event Withdrawal(address indexed account, uint256 amount);
 
@@ -110,6 +105,12 @@ interface ISuccinctVApp {
     ///      withdrawal. Not relevant if the withdrawal is to a prover vault, in which case anyone
     ///      can do it.
     error CannotWithdrawToDifferentAddress();
+
+    /// @dev Thrown when a receipt is processed out of order.
+    error ReceiptOutOfOrder();
+
+    /// @dev Thrown when a receipt is reverted.
+    error ReceiptStatusInvalid();
 
     /// @notice The address of the $PROVE token.
     function prove() external view returns (address);

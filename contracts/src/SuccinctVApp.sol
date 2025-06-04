@@ -377,32 +377,37 @@ contract SuccinctVApp is
 
     /// @dev Handles committed actions, reverts if the actions are invalid
     function _handleReceipts(PublicValuesStruct memory _publicValues) internal {
-        // Validate the receipts.
-        //
-        // In particular, check that the receipts have the correct onchainTx and that
-        // the values in the receipts are consistent with the transactions we sent.
+        // Validate that the receipts are consistent with the transactions we send and are
+        // the ones we expect to be processed.
         Receipts.validate(transactions, _publicValues.receipts, finalizedOnchainTx);
 
         // Execute the receipts.
         for (uint64 i = 0; i < _publicValues.receipts.length; i++) {
-            // Update the finalized onchain transaction.
-            uint64 onchainTx = _publicValues.receipts[i].onchainTx;
-            finalizedOnchainTx = onchainTx;
+            // Increment the finalized onchain transaction ID.
+            uint64 onchainTx = ++finalizedOnchainTx;
+
+            // Ensure that the receipt is the next one to be processed.
+            if (onchainTx != _publicValues.receipts[i].onchainTx) {
+                revert ReceiptOutOfOrder();
+            }
+
+            // Ensure that the receipt has of the expected statuses.
+            TransactionStatus status = _publicValues.receipts[i].status;
+            if (status == TransactionStatus.None || status == TransactionStatus.Pending) {
+                revert ReceiptStatusInvalid();
+            }
 
             // Update the transaction status.
-            TransactionStatus status = _publicValues.receipts[i].status;
-            transactions[onchainTx].status = status;
+            transactions[finalizedOnchainTx].status = status;
 
-            // If the transaction is none or pending, something went wrong. If it failed, emit the revert event.
+            // If the transaction failed, emit the revert event and skip the rest of the loop.
             TransactionVariant variant = _publicValues.receipts[i].variant;
-            if (status == TransactionStatus.None || status == TransactionStatus.Pending) {
-                emit ReceiptStatusInvalid(onchainTx, variant, _publicValues.receipts[i].data);
-            } else if (status == TransactionStatus.Failed) {
+            if (status == TransactionStatus.Failed) {
                 emit TransactionReverted(onchainTx, variant, _publicValues.receipts[i].data);
                 continue;
             }
 
-            // Execute the receipt, if necessary.
+            // If the transaction completed, run a handler for the transaction.
             if (variant == TransactionVariant.Deposit) {
                 // No-op.
             } else if (variant == TransactionVariant.Withdraw) {
@@ -413,9 +418,8 @@ contract SuccinctVApp is
                 // No-op.
             }
 
-            emit TransactionCompleted(
-                _publicValues.receipts[i].onchainTx, variant, _publicValues.receipts[i].data
-            );
+            // Emit the completed event.
+            emit TransactionCompleted(onchainTx, variant, _publicValues.receipts[i].data);
         }
     }
 
