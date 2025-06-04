@@ -21,13 +21,6 @@ contract SuccinctVAppForkTest is SuccinctVAppTest {
         bytes32 newVkey = bytes32(uint256(1));
         bytes32 newRoot = bytes32(uint256(2));
 
-        PublicValuesStruct memory publicValues = PublicValuesStruct({
-            receipts: new TxReceipt[](0),
-            oldRoot: bytes32(0),
-            newRoot: newRoot,
-            timestamp: uint64(block.timestamp)
-        });
-
         mockCall(true);
 
         vm.expectEmit(true, true, true, true);
@@ -66,13 +59,6 @@ contract SuccinctVAppForkTest is SuccinctVAppTest {
         bytes32 newVkey = bytes32(uint256(99));
         bytes32 newRoot = bytes32(uint256(2));
 
-        PublicValuesStruct memory publicValues2 = PublicValuesStruct({
-            receipts: new TxReceipt[](0),
-            oldRoot: bytes32(uint256(1)),
-            newRoot: newRoot,
-            timestamp: uint64(block.timestamp)
-        });
-
         vm.expectEmit(true, true, true, true);
         emit ISuccinctVApp.Block(2, newRoot, bytes32(uint256(1)));
         emit ISuccinctVApp.Fork(newVkey, 2, newRoot, bytes32(uint256(1)));
@@ -92,13 +78,6 @@ contract SuccinctVAppForkTest is SuccinctVAppTest {
     function test_RevertFork_WhenUnauthorized() public {
         bytes32 newVkey = bytes32(uint256(1));
         bytes32 newRoot = bytes32(uint256(2));
-
-        PublicValuesStruct memory publicValues = PublicValuesStruct({
-            receipts: new TxReceipt[](0),
-            oldRoot: bytes32(0),
-            newRoot: newRoot,
-            timestamp: uint64(block.timestamp)
-        });
 
         vm.prank(REQUESTER_1);
         vm.expectRevert(abi.encodeWithSignature("OwnableUnauthorizedAccount(address)", REQUESTER_1));

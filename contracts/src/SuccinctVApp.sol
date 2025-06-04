@@ -107,7 +107,6 @@ contract SuccinctVApp is
         address _staking,
         address _verifier,
         bytes32 _vappProgramVKey,
-        uint64 _freezeDuration,
         bytes32 _genesisStateRoot,
         uint64 _genesisTimestamp
     ) external initializer {
@@ -130,7 +129,6 @@ contract SuccinctVApp is
         // Set the genesis state root.
         roots[0] = _genesisStateRoot;
         timestamps[0] = _genesisTimestamp;
-        blockNumber = 0;
 
         _updateStaking(_staking);
         _updateVerifier(_verifier);
@@ -296,16 +294,16 @@ contract SuccinctVApp is
         vappProgramVKey = _vkey;
 
         // Get the old root.
-        bytes32 _oldRoot = roots[blockNumber];
+        bytes32 oldRoot = roots[blockNumber];
 
         // Update the root and produce a new block.
         uint64 _block = ++blockNumber;
         roots[_block] = _newRoot;
 
-        emit Block(_block, _newRoot, _oldRoot);
-        emit Fork(vappProgramVKey, _block, _newRoot, _oldRoot);
+        emit Block(_block, _newRoot, oldRoot);
+        emit Fork(vappProgramVKey, _block, _newRoot, oldRoot);
 
-        return (_block, _newRoot, _oldRoot);
+        return (_block, _newRoot, oldRoot);
     }
 
     /// @inheritdoc ISuccinctVApp
@@ -415,6 +413,8 @@ contract SuccinctVApp is
                 _processWithdraw(withdraw.to, withdraw.amount);
             } else if (variant == TransactionVariant.CreateProver) {
                 // No-op.
+            } else {
+                revert TransactionVariantInvalid();
             }
 
             // Emit the completed event.

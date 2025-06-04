@@ -51,7 +51,6 @@ contract DeployProveAndVAppScript is BaseScript, FixtureLoader {
             address(staking),
             address(gateway),
             vkey,
-            0,
             genesisStateRoot,
             genesisTimestamp
         );

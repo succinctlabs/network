@@ -32,7 +32,6 @@ contract SuccinctVAppTest is Test, FixtureLoader {
     // Constants
     uint256 constant FEE_UNIT = 10000;
     uint64 constant MAX_ACTION_DELAY = 1 days;
-    uint64 constant FREEZE_DURATION = 7 days;
     uint256 constant PROTOCOL_FEE_BIPS = 30; // 0.3%
     uint256 constant STAKER_FEE_BIPS = 1000; // 10%
     // Fixtures
@@ -103,7 +102,6 @@ contract SuccinctVAppTest is Test, FixtureLoader {
             STAKING,
             VERIFIER,
             jsonFixture.vkey,
-            FREEZE_DURATION,
             fixture.oldRoot, // genesisStateRoot
             uint64(0) // genesisTimestamp
         );
@@ -168,7 +166,6 @@ contract SuccinctVAppSetupTests is SuccinctVAppTest {
             STAKING,
             VERIFIER,
             jsonFixture.vkey,
-            FREEZE_DURATION,
             bytes32(0), // genesisStateRoot
             uint64(block.timestamp) // genesisTimestamp
         );

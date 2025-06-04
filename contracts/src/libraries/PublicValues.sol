@@ -10,9 +10,13 @@ enum TransactionVariant {
 
 /// @notice The status of a transaction.
 enum TransactionStatus {
+    /// The transaction has no initialiezd status.
     None,
+    /// The transaction has been included in the ledger but is not yet executed.
     Pending,
+    /// The transaction executed successfully.
     Completed,
+    /// The transaction reverted during execution.
     Reverted
 }
 

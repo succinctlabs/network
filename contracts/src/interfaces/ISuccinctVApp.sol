@@ -112,6 +112,9 @@ interface ISuccinctVApp {
     /// @dev Thrown when a receipt is reverted.
     error ReceiptStatusInvalid();
 
+    /// @dev Thrown when a transaction variant is invalid.
+    error TransactionVariantInvalid();
+
     /// @notice The address of the $PROVE token.
     function prove() external view returns (address);
 
