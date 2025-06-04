@@ -8,12 +8,7 @@ use metrics_process::Collector;
 use std::{net::SocketAddr, sync::Arc};
 use tokio::{
     io::AsyncWriteExt,
-    select,
-    signal::{
-        ctrl_c,
-        unix::{signal, SignalKind},
-    },
-    spawn,
+    select, spawn,
     sync::oneshot::{self, Sender},
 };
 use tracing::{debug, error, info, warn};
@@ -80,9 +75,7 @@ impl MetricServer {
     }
 
     /// Spawns the metrics server.
-    pub async fn serve(self) -> eyre::Result<()> {
-        let (shutdown_tx, shutdown_rx) = oneshot::channel();
-
+    pub async fn serve(self, shutdown_rx: oneshot::Receiver<()>) -> eyre::Result<()> {
         // Clone hooks before creating the closure.
         let hooks = self.config.hooks.clone();
 
@@ -110,26 +103,6 @@ impl MetricServer {
         Collector::default().describe();
         self.config.version_info.register_version_metrics();
         describe_io_stats();
-
-        // Handle shutdown signals.
-        spawn(async move {
-            select! {
-                _ = ctrl_c() => {
-                    info!("ctrl-c received, initiating graceful shutdown...");
-                }
-                _ = async {
-                    signal(SignalKind::terminate())
-                        .expect("failed to install signal handler")
-                        .recv()
-                        .await;
-                } => {
-                    info!("SIGTERM received, initiating graceful shutdown...");
-                }
-            }
-            if shutdown_tx.send(()).is_err() {
-                warn!("failed to send shutdown signal to metrics server");
-            }
-        });
 
         // Wait for the server to complete.
         server_handle.await?;
@@ -250,7 +223,8 @@ mod tests {
 
         // Start server in separate task
         let server = MetricServer::new(config);
-        let server_handle = tokio::spawn(async move { server.serve().await });
+        let (_shutdown_tx, shutdown_rx) = oneshot::channel();
+        let server_handle = tokio::spawn(async move { server.serve(shutdown_rx).await });
 
         // Give the server a moment to start
         tokio::time::sleep(std::time::Duration::from_millis(100)).await;
