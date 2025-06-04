@@ -401,7 +401,7 @@ contract SuccinctVApp is
 
             // If the transaction failed, emit the revert event and skip the rest of the loop.
             TransactionVariant variant = _publicValues.receipts[i].variant;
-            if (status == TransactionStatus.Failed) {
+            if (status == TransactionStatus.Reverted) {
                 emit TransactionReverted(onchainTx, variant, _publicValues.receipts[i].data);
                 continue;
             }

@@ -13,7 +13,7 @@ enum TransactionStatus {
     None,
     Pending,
     Completed,
-    Failed
+    Reverted
 }
 
 /// @notice A transaction.
