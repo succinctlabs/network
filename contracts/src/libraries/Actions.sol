@@ -76,9 +76,7 @@ library Actions {
         for (uint64 i = 0; i < _actions.length; i++) {
             Receipt memory action = _actions[i];
 
-            if (action.onchainTx != 0) {
-                decoded.lastTxId = action.onchainTx;
-            }
+            decoded.lastTxId = action.onchainTx;
 
             if (action.variant == TransactionVariant.Deposit) {
                 DepositReceipt memory deposit = DepositReceipt({
@@ -131,23 +129,23 @@ library Actions {
                 }
 
                 if (
-                    transaction.status != TransactionStatus.Completed
-                        && transaction.status != TransactionStatus.Failed
+                    _actions[i].status != TransactionStatus.Completed
+                        && _actions[i].status != TransactionStatus.Failed
                 ) {
                     revert InvalidActionStatus(
                         _actions[i].variant, _actions[i].onchainTx, transaction.status
                     );
                 }
 
-                // if (_actions[i].variant == TransactionVariant.Deposit) {
-                //     // _validateDeposit(_actions[i], receipt);
-                // } else if (_actions[i].variant == TransactionVariant.Withdraw) {
-                //     // _validateWithdraw(_actions[i], receipt);
-                // } else if (_actions[i].variant == TransactionVariant.Prover) {
-                //     // Skip validations
-                // } else {
-                //     revert InvalidAction();
-                // }
+                if (_actions[i].variant == TransactionVariant.Deposit) {
+                    // _validateDeposit(_actions[i], receipt);
+                } else if (_actions[i].variant == TransactionVariant.Withdraw) {
+                    // _validateWithdraw(_actions[i], receipt);
+                } else if (_actions[i].variant == TransactionVariant.Prover) {
+                    // Skip validations
+                } else {
+                    revert InvalidAction();
+                }
             }
         }
 
@@ -164,7 +162,7 @@ library Actions {
         if (_action.variant == TransactionVariant.Deposit) {
             return true;
         } else if (_action.variant == TransactionVariant.Withdraw) {
-            return _action.onchainTx != 0;
+            return true;
         } else if (_action.variant == TransactionVariant.Prover) {
             return true;
         }

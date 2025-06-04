@@ -8,7 +8,7 @@ import {Actions} from "../src/libraries/Actions.sol";
 import {
     PublicValuesStruct,
     TransactionStatus,
-    Receipt,
+    Receipt as VAppReceipt,
     TransactionVariant,
     DepositTransaction,
     WithdrawTransaction,
@@ -39,12 +39,12 @@ contract SuccinctVAppDelegateTest is SuccinctVAppTest {
 
         // Process the first setDelegatedSigner action through state update
         PublicValuesStruct memory publicValues1 = PublicValuesStruct({
-            receipts: new TxReceipt[](1),
+            receipts: new VAppReceipt[](1),
             oldRoot: bytes32(0),
             newRoot: bytes32(uint256(1)),
             timestamp: uint64(block.timestamp)
         });
-        publicValues1.receipts[0] = Receipt({
+        publicValues1.receipts[0] = VAppReceipt({
             variant: TransactionVariant.Prover,
             status: TransactionStatus.Completed,
             onchainTx: SuccinctVApp(VAPP).currentOnchainTx(),

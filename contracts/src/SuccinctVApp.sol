@@ -388,14 +388,12 @@ contract SuccinctVApp is
 
         // Execute the actions.
         ReceiptsInternal memory decoded = Actions.decode(_publicValues.receipts);
-        // _depositActions(decoded.deposits);
-        // _requestWithdrawActions(decoded.withdrawals);
-        // _setProverActions(decoded.provers);
+        _depositActions(decoded.deposits);
+        _requestWithdrawActions(decoded.withdrawals);
+        _setProverActions(decoded.provers);
 
         // Update the last finalized receipt.
-        // if (decoded.lastTxId != 0) {
-        //     finalizedOnchainTx = decoded.lastTxId;
-        // }
+        finalizedOnchainTx = decoded.lastTxId;
     }
 
     /// @dev Handles deposit actions.
