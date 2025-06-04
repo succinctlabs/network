@@ -155,10 +155,7 @@ contract SuccinctVAppSetupTests is SuccinctVAppTest {
         assertEq(SuccinctVApp(VAPP).iProve(), I_PROVE);
         assertEq(SuccinctVApp(VAPP).staking(), STAKING);
         assertEq(SuccinctVApp(VAPP).verifier(), VERIFIER);
-        // assertEq(SuccinctVApp(VAPP).feeVault(), FEE_VAULT);
         assertEq(SuccinctVApp(VAPP).vappProgramVKey(), jsonFixture.vkey);
-        // assertEq(SuccinctVApp(VAPP).maxActionDelay(), 1 days);
-        // assertEq(SuccinctVApp(VAPP).protocolFeeBips(), PROTOCOL_FEE_BIPS);
         assertEq(SuccinctVApp(VAPP).blockNumber(), 0);
     }
 

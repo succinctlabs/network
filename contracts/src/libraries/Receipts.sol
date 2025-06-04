@@ -21,10 +21,7 @@ library Receipts {
     error TransactionReceiptMismatch(TransactionVariant variant, uint64 receipt);
 
     /// @dev Asserts that the transaction and receipt are consistent.
-    function assertEq(
-        Transaction memory _transaction,
-        Receipt memory _receipt
-    ) internal pure {
+    function assertEq(Transaction memory _transaction, Receipt memory _receipt) internal pure {
         if (_receipt.variant == TransactionVariant.Deposit) {
             _assertDepositEq(_receipt, _transaction);
         } else if (_receipt.variant == TransactionVariant.Withdraw) {
