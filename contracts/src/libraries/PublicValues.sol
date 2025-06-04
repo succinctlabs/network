@@ -8,7 +8,7 @@ struct Transaction {
     /// @notice The status of the transaction.
     TransactionStatus status;
     /// @notice The onchain transaction ID.
-    uint64 onchainTx;
+    uint64 onchainTxId;
     /// @notice The action of one of {Deposit, Withdraw, CreateProver}.
     bytes action;
 }
@@ -20,7 +20,7 @@ struct Receipt {
     /// @notice The status of the transaction.
     TransactionStatus status;
     /// @notice The onchain transaction ID.
-    uint64 onchainTx;
+    uint64 onchainTxId;
     /// @notice The action of one of {Deposit, Withdraw, CreateProver}.
     bytes action;
 }

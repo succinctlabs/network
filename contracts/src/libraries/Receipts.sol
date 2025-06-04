@@ -41,10 +41,10 @@ library Receipts {
         Deposit memory depositReceipt = abi.decode(_receipt.action, (Deposit));
 
         if (deposit.account != depositReceipt.account) {
-            revert TransactionReceiptMismatch(TransactionVariant.Deposit, _receipt.onchainTx);
+            revert TransactionReceiptMismatch(TransactionVariant.Deposit, _receipt.onchainTxId);
         }
         if (deposit.amount != depositReceipt.amount) {
-            revert TransactionReceiptMismatch(TransactionVariant.Deposit, _receipt.onchainTx);
+            revert TransactionReceiptMismatch(TransactionVariant.Deposit, _receipt.onchainTxId);
         }
     }
 
@@ -57,10 +57,10 @@ library Receipts {
         Withdraw memory withdrawReceipt = abi.decode(_receipt.action, (Withdraw));
 
         if (withdraw.account != withdrawReceipt.account) {
-            revert TransactionReceiptMismatch(TransactionVariant.Withdraw, _receipt.onchainTx);
+            revert TransactionReceiptMismatch(TransactionVariant.Withdraw, _receipt.onchainTxId);
         }
         if (withdraw.amount != withdrawReceipt.amount) {
-            revert TransactionReceiptMismatch(TransactionVariant.Withdraw, _receipt.onchainTx);
+            revert TransactionReceiptMismatch(TransactionVariant.Withdraw, _receipt.onchainTxId);
         }
     }
 
@@ -73,13 +73,13 @@ library Receipts {
         CreateProver memory proverReceipt = abi.decode(_receipt.action, (CreateProver));
 
         if (prover.prover != proverReceipt.prover) {
-            revert TransactionReceiptMismatch(TransactionVariant.CreateProver, _receipt.onchainTx);
+            revert TransactionReceiptMismatch(TransactionVariant.CreateProver, _receipt.onchainTxId);
         }
         if (prover.owner != proverReceipt.owner) {
-            revert TransactionReceiptMismatch(TransactionVariant.CreateProver, _receipt.onchainTx);
+            revert TransactionReceiptMismatch(TransactionVariant.CreateProver, _receipt.onchainTxId);
         }
         if (prover.stakerFeeBips != proverReceipt.stakerFeeBips) {
-            revert TransactionReceiptMismatch(TransactionVariant.CreateProver, _receipt.onchainTx);
+            revert TransactionReceiptMismatch(TransactionVariant.CreateProver, _receipt.onchainTxId);
         }
     }
 }

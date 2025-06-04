@@ -52,7 +52,7 @@ contract SuccinctVAppDelegateTest is SuccinctVAppTest {
         publicValues1.receipts[0] = VAppReceipt({
             variant: TransactionVariant.CreateProver,
             status: TransactionStatus.Completed,
-            onchainTx: SuccinctVApp(VAPP).currentOnchainTxId(),
+            onchainTxId: SuccinctVApp(VAPP).currentOnchainTxId(),
             action: expectedProverData
         });
 

@@ -54,7 +54,7 @@ contract SuccinctVAppDepositTest is SuccinctVAppTest {
         publicValues.receipts[0] = TxReceipt({
             variant: TransactionVariant.Deposit,
             status: TransactionStatus.Completed,
-            onchainTx: 1,
+            onchainTxId: 1,
             action: data
         });
 
@@ -103,7 +103,7 @@ contract SuccinctVAppDepositTest is SuccinctVAppTest {
         publicValues.receipts[0] = TxReceipt({
             variant: TransactionVariant.Deposit,
             status: TransactionStatus.Completed,
-            onchainTx: 1,
+            onchainTxId: 1,
             action: data
         });
 

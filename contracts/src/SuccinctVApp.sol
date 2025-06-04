@@ -363,7 +363,7 @@ contract SuccinctVApp is
         transactions[onchainTx] = Transaction({
             variant: _transactionVariant,
             status: TransactionStatus.Pending,
-            onchainTx: onchainTx,
+            onchainTxId: onchainTx,
             action: _data
         });
 
@@ -375,13 +375,13 @@ contract SuccinctVApp is
         // Execute the receipts.
         for (uint64 i = 0; i < _publicValues.receipts.length; i++) {
             // Increment the finalized onchain transaction ID.
-            uint64 onchainTx = ++finalizedOnchainTxId;
+            uint64 onchainTxId = ++finalizedOnchainTxId;
 
             // Ensure that the receipt is consistent with the transaction.
-            Receipts.assertEq(transactions[onchainTx], _publicValues.receipts[i]);
+            Receipts.assertEq(transactions[onchainTxId], _publicValues.receipts[i]);
 
             // Ensure that the receipt is the next one to be processed.
-            if (onchainTx != _publicValues.receipts[i].onchainTx) {
+            if (onchainTxId != _publicValues.receipts[i].onchainTxId) {
                 revert ReceiptOutOfOrder();
             }
 
@@ -392,12 +392,12 @@ contract SuccinctVApp is
             }
 
             // Update the transaction status.
-            transactions[_publicValues.receipts[i].onchainTx].status = status;
+            transactions[onchainTxId].status = status;
 
             // If the transaction failed, emit the revert event and skip the rest of the loop.
             TransactionVariant variant = _publicValues.receipts[i].variant;
             if (status == TransactionStatus.Reverted) {
-                emit TransactionReverted(onchainTx, variant, _publicValues.receipts[i].action);
+                emit TransactionReverted(onchainTxId, variant, _publicValues.receipts[i].action);
                 continue;
             }
 
@@ -414,7 +414,7 @@ contract SuccinctVApp is
             }
 
             // Emit the completed event.
-            emit TransactionCompleted(onchainTx, variant, _publicValues.receipts[i].action);
+            emit TransactionCompleted(onchainTxId, variant, _publicValues.receipts[i].action);
         }
     }
 

@@ -41,7 +41,7 @@ contract SuccinctVAppWithdrawTest is SuccinctVAppTest {
         depositPublicValues.receipts[0] = TxReceipt({
             variant: TransactionVariant.Deposit,
             status: TransactionStatus.Completed,
-            onchainTx: depositReceipt,
+            onchainTxId: depositReceipt,
             action: depositData
         });
 
@@ -82,7 +82,7 @@ contract SuccinctVAppWithdrawTest is SuccinctVAppTest {
         withdrawPublicValues.receipts[0] = TxReceipt({
             variant: TransactionVariant.Withdraw,
             status: TransactionStatus.Completed,
-            onchainTx: withdrawReceipt,
+            onchainTxId: withdrawReceipt,
             action: withdrawData
         });
 
@@ -143,7 +143,7 @@ contract SuccinctVAppWithdrawTest is SuccinctVAppTest {
         depositPublicValues.receipts[0] = TxReceipt({
             variant: TransactionVariant.Deposit,
             status: TransactionStatus.Completed,
-            onchainTx: depositReceipt,
+            onchainTxId: depositReceipt,
             action: depositData
         });
 
