@@ -1,20 +1,14 @@
-use crate::{
-    hooks::{Hook, Hooks},
-    recorder::get_or_init_prometheus,
-    version::VersionInfo,
-};
+use crate::{hooks::Hooks, recorder::get_or_init_prometheus, version::VersionInfo};
+use axum::{extract::State, response::IntoResponse, routing::get, Router};
 use eyre::WrapErr;
 use metrics_process::Collector;
-use std::{net::SocketAddr, sync::Arc};
+use std::net::SocketAddr;
 use tokio::{
-    io::AsyncWriteExt,
-    select,
-    signal::{
-        ctrl_c,
-        unix::{signal, SignalKind},
-    },
     spawn,
-    sync::oneshot::{self, Sender},
+    sync::{
+        broadcast,
+        oneshot::{self, Sender},
+    },
 };
 use tracing::{debug, error, info, warn};
 
@@ -31,6 +25,18 @@ pub struct MetricServerConfig {
     ready_signal: Option<Sender<()>>,
 }
 
+impl Clone for MetricServerConfig {
+    fn clone(&self) -> Self {
+        Self {
+            listen_addr: self.listen_addr,
+            version_info: self.version_info.clone(),
+            hooks: self.hooks.clone(),
+            service_name: self.service_name.clone(),
+            ready_signal: None,
+        }
+    }
+}
+
 /// The metrics server must be initialized and running BEFORE any metrics are recorded.
 /// This ensures proper registration with the Prometheus recorder.
 ///
@@ -38,10 +44,11 @@ pub struct MetricServerConfig {
 /// ```ignore
 /// // 1. Create and spawn metrics server first
 /// let (ready_tx, ready_rx) = oneshot::channel();
+/// let (shutdown_tx, shutdown_rx) = broadcast::channel(1);
 /// let config = MetricServerConfig::new(addr, version_info, "my-service".to_string())
 ///     .with_ready_signal(ready_tx);
 /// let server = MetricServer::new(config);
-/// let handle = tokio::spawn(async move { server.serve().await });
+/// let handle = tokio::spawn(async move { server.serve(shutdown_rx).await });
 ///
 /// // 2. Wait for server to be ready
 /// ready_rx.await?;
@@ -68,7 +75,7 @@ impl MetricServerConfig {
 }
 
 /// [`MetricServer`] responsible for serving the metrics endpoint.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct MetricServer {
     config: MetricServerConfig,
 }
@@ -79,21 +86,16 @@ impl MetricServer {
         Self { config }
     }
 
-    /// Spawns the metrics server.
-    pub async fn serve(self) -> eyre::Result<()> {
-        let (shutdown_tx, shutdown_rx) = oneshot::channel();
-
-        // Clone hooks before creating the closure.
-        let hooks = self.config.hooks.clone();
+    /// Spawns the metrics server with an external shutdown signal.
+    ///
+    /// This version of serve takes a broadcast receiver that can be used to trigger
+    /// shutdown from the outside, avoiding race conditions with signal handlers.
+    pub async fn serve(self, mut shutdown_signal: broadcast::Receiver<()>) -> eyre::Result<()> {
+        let (internal_shutdown_tx, internal_shutdown_rx) = oneshot::channel();
 
         // Start the endpoint before moving out ready_signal.
         let server_handle = self
-            .start_endpoint(
-                self.config.listen_addr,
-                self.config.service_name.clone(),
-                Arc::new(move || hooks.iter().for_each(|hook| hook())),
-                shutdown_rx,
-            )
+            .start_endpoint(internal_shutdown_rx)
             .await
             .wrap_err("could not start prometheus endpoint")?;
 
@@ -111,23 +113,13 @@ impl MetricServer {
         self.config.version_info.register_version_metrics();
         describe_io_stats();
 
-        // Handle shutdown signals.
-        spawn(async move {
-            select! {
-                _ = ctrl_c() => {
-                    info!("ctrl-c received, initiating graceful shutdown...");
+        // Listen for the external shutdown signal
+        tokio::spawn(async move {
+            if shutdown_signal.recv().await.is_ok() {
+                info!("received external shutdown signal, initiating graceful shutdown...");
+                if internal_shutdown_tx.send(()).is_err() {
+                    warn!("failed to send shutdown signal to metrics server");
                 }
-                _ = async {
-                    signal(SignalKind::terminate())
-                        .expect("failed to install signal handler")
-                        .recv()
-                        .await;
-                } => {
-                    info!("SIGTERM received, initiating graceful shutdown...");
-                }
-            }
-            if shutdown_tx.send(()).is_err() {
-                warn!("failed to send shutdown signal to metrics server");
             }
         });
 
@@ -138,66 +130,45 @@ impl MetricServer {
         Ok(())
     }
 
-    async fn start_endpoint<F: Hook + 'static>(
+    async fn start_endpoint(
         &self,
-        listen_addr: SocketAddr,
-        service_name: String,
-        hook: Arc<F>,
-        mut shutdown_rx: oneshot::Receiver<()>,
+        shutdown_rx: oneshot::Receiver<()>,
     ) -> eyre::Result<tokio::task::JoinHandle<()>> {
-        let listener = tokio::net::TcpListener::bind(listen_addr)
-            .await
-            .wrap_err("could not bind to address")?;
-
         // Initialize the prometheus recorder.
-        get_or_init_prometheus(&service_name);
+        get_or_init_prometheus(&self.config.service_name);
+
+        let app = Router::new()
+            .route("/", get(Self::metrics_handler))
+            .route("/metrics", get(Self::metrics_handler))
+            .with_state(self.clone());
+
+        let listen_addr = self.config.listen_addr;
         info!("metrics server listening on {}", listen_addr);
 
         // Spawn a task to accept connections.
         Ok(spawn(async move {
-            loop {
-                select! {
-                    // Handle shutdown signal.
-                    _ = &mut shutdown_rx => {
+            // Use axum's built-in server functionality with simplified shutdown
+            if let Err(err) =
+                axum::serve(tokio::net::TcpListener::bind(listen_addr).await.unwrap(), app)
+                    .with_graceful_shutdown(async {
+                        let _ = shutdown_rx.await;
                         info!("shutdown signal received for metrics server");
-                        break;
-                    }
-                    // Accept incoming connections.
-                    accept_result = listener.accept() => {
-                        match accept_result {
-                            Ok((mut stream, _remote_addr)) => {
-                                let hook = hook.clone();
-                                let service_name = service_name.clone();
-
-                                // Spawn a new task to handle the connection.
-                                spawn(async move {
-                                    (hook)();
-                                    let handle = get_or_init_prometheus(&service_name);
-                                    let metrics = handle.render();
-
-                                    let response = format!(
-                                        "HTTP/1.1 200 OK\r\nContent-Type: text/plain; charset=utf-8\r\nContent-Length: {}\r\n\r\n{}",
-                                        metrics.len(),
-                                        metrics
-                                    );
-
-                                    if let Err(err) = stream.write_all(response.as_bytes()).await {
-                                        error!(%err, "failed to write response");
-                                    }
-                                    if let Err(err) = stream.flush().await {
-                                        error!(%err, "failed to flush response");
-                                    }
-                                });
-                            }
-                            Err(err) => {
-                                error!(%err, "failed to accept connection");
-                                continue;
-                            }
-                        }
-                    }
-                }
+                    })
+                    .await
+            {
+                error!(%err, "metrics server error");
             }
         }))
+    }
+
+    /// Handler for the metrics endpoint.
+    async fn metrics_handler(State(server): State<Self>) -> impl IntoResponse {
+        // Execute all hooks
+        server.config.hooks.iter().for_each(|hook| hook());
+
+        // Get metrics from prometheus
+        let handle = get_or_init_prometheus(&server.config.service_name);
+        handle.render()
     }
 }
 
@@ -248,9 +219,12 @@ mod tests {
         let listen_addr = get_random_available_addr();
         let config = MetricServerConfig::new(listen_addr, version_info, "test".to_string());
 
+        // Create a shutdown channel for the server
+        let (_shutdown_tx, shutdown_rx) = broadcast::channel(1);
+
         // Start server in separate task
         let server = MetricServer::new(config);
-        let server_handle = tokio::spawn(async move { server.serve().await });
+        let server_handle = tokio::spawn(async move { server.serve(shutdown_rx).await });
 
         // Give the server a moment to start
         tokio::time::sleep(std::time::Duration::from_millis(100)).await;
