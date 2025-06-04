@@ -15,22 +15,23 @@ import {
     CreateProverTransaction
 } from "../src/libraries/PublicValues.sol";
 import {ISuccinctVApp} from "../src/interfaces/ISuccinctVApp.sol";
+import {console} from "../lib/forge-std/src/console.sol";
 
 contract SuccinctVAppStateTest is SuccinctVAppTest {
     function test_UpdateState_WhenValid() public {
         mockCall(true);
 
         assertEq(SuccinctVApp(VAPP).blockNumber(), 0);
-        assertEq(SuccinctVApp(VAPP).roots(0), bytes32(0));
+        assertEq(SuccinctVApp(VAPP).roots(0), fixture.oldRoot);
         assertEq(SuccinctVApp(VAPP).roots(1), bytes32(0));
-        assertEq(SuccinctVApp(VAPP).root(), bytes32(0));
+        assertEq(SuccinctVApp(VAPP).root(), fixture.oldRoot);
 
         vm.expectEmit(true, true, true, true);
         emit ISuccinctVApp.Block(1, fixture.newRoot, fixture.oldRoot);
         SuccinctVApp(VAPP).step(jsonFixture.publicValues, jsonFixture.proof);
 
         assertEq(SuccinctVApp(VAPP).blockNumber(), 1);
-        assertEq(SuccinctVApp(VAPP).roots(0), bytes32(0));
+        assertEq(SuccinctVApp(VAPP).roots(0), fixture.oldRoot);
         assertEq(SuccinctVApp(VAPP).roots(1), fixture.newRoot);
         assertEq(SuccinctVApp(VAPP).root(), fixture.newRoot);
     }
@@ -41,7 +42,7 @@ contract SuccinctVAppStateTest is SuccinctVAppTest {
         SuccinctVApp(VAPP).step(jsonFixture.publicValues, jsonFixture.proof);
 
         assertEq(SuccinctVApp(VAPP).blockNumber(), 1);
-        assertEq(SuccinctVApp(VAPP).roots(0), bytes32(0));
+        assertEq(SuccinctVApp(VAPP).roots(0), fixture.oldRoot);
         assertEq(SuccinctVApp(VAPP).roots(1), fixture.newRoot);
         assertEq(SuccinctVApp(VAPP).roots(2), bytes32(0));
         assertEq(SuccinctVApp(VAPP).root(), fixture.newRoot);
@@ -58,7 +59,7 @@ contract SuccinctVAppStateTest is SuccinctVAppTest {
         SuccinctVApp(VAPP).step(abi.encode(publicValues), jsonFixture.proof);
 
         assertEq(SuccinctVApp(VAPP).blockNumber(), 2);
-        assertEq(SuccinctVApp(VAPP).roots(0), bytes32(0));
+        assertEq(SuccinctVApp(VAPP).roots(0), fixture.oldRoot);
         assertEq(SuccinctVApp(VAPP).roots(1), fixture.newRoot);
         assertEq(SuccinctVApp(VAPP).roots(2), publicValues.newRoot);
         assertEq(SuccinctVApp(VAPP).root(), publicValues.newRoot);
@@ -93,7 +94,7 @@ contract SuccinctVAppStateTest is SuccinctVAppTest {
 
         PublicValuesStruct memory publicValues = PublicValuesStruct({
             receipts: new TxReceipt[](0),
-            oldRoot: bytes32(uint256(999)),
+            oldRoot: bytes32(0),
             newRoot: bytes32(uint256(2)),
             timestamp: uint64(block.timestamp)
         });
@@ -108,7 +109,7 @@ contract SuccinctVAppStateTest is SuccinctVAppTest {
         // Create public values with a future timestamp
         PublicValuesStruct memory publicValues = PublicValuesStruct({
             receipts: new TxReceipt[](0),
-            oldRoot: bytes32(0),
+            oldRoot: fixture.oldRoot,
             newRoot: bytes32(uint256(1)),
             timestamp: uint64(block.timestamp + 1 days) // Timestamp in the future
         });
@@ -124,7 +125,7 @@ contract SuccinctVAppStateTest is SuccinctVAppTest {
         uint64 initialTime = uint64(block.timestamp);
         PublicValuesStruct memory initialPublicValues = PublicValuesStruct({
             receipts: new TxReceipt[](0),
-            oldRoot: bytes32(0),
+            oldRoot: fixture.oldRoot,
             newRoot: bytes32(uint256(1)),
             timestamp: initialTime
         });

@@ -31,8 +31,8 @@ contract SuccinctVAppForkTest is SuccinctVAppTest {
         mockCall(true);
 
         vm.expectEmit(true, true, true, true);
-        emit ISuccinctVApp.Block(1, newRoot, bytes32(0));
-        emit ISuccinctVApp.Fork(newVkey, 1, newRoot, bytes32(0));
+        emit ISuccinctVApp.Block(1, newRoot, fixture.oldRoot);
+        emit ISuccinctVApp.Fork(newVkey, 1, newRoot, fixture.oldRoot);
 
         (uint64 _block, bytes32 returnedNewRoot, bytes32 returnedOldRoot) =
             SuccinctVApp(VAPP).fork(newVkey, newRoot);
@@ -42,7 +42,7 @@ contract SuccinctVAppForkTest is SuccinctVAppTest {
         assertEq(SuccinctVApp(VAPP).roots(1), newRoot);
         assertEq(_block, 1);
         assertEq(returnedNewRoot, newRoot);
-        assertEq(returnedOldRoot, bytes32(0));
+        assertEq(returnedOldRoot, fixture.oldRoot);
     }
 
     function test_Fork_WhenValidAfterUpdateState() public {
@@ -51,7 +51,7 @@ contract SuccinctVAppForkTest is SuccinctVAppTest {
 
         PublicValuesStruct memory publicValues1 = PublicValuesStruct({
             receipts: new TxReceipt[](0),
-            oldRoot: bytes32(0),
+            oldRoot: fixture.oldRoot,
             newRoot: bytes32(uint256(1)),
             timestamp: uint64(block.timestamp)
         });

@@ -34,7 +34,7 @@ contract SuccinctVAppWithdrawTest is SuccinctVAppTest {
             abi.encode(DepositTransaction({account: REQUESTER_1, amount: amount}));
         PublicValuesStruct memory depositPublicValues = PublicValuesStruct({
             receipts: new TxReceipt[](1),
-            oldRoot: bytes32(0),
+            oldRoot: fixture.oldRoot,
             newRoot: bytes32(uint256(1)),
             timestamp: uint64(block.timestamp)
         });
@@ -133,7 +133,7 @@ contract SuccinctVAppWithdrawTest is SuccinctVAppTest {
             abi.encode(DepositTransaction({account: REQUESTER_1, amount: amount}));
         PublicValuesStruct memory depositPublicValues = PublicValuesStruct({
             receipts: new TxReceipt[](1),
-            oldRoot: bytes32(0),
+            oldRoot: fixture.oldRoot,
             newRoot: bytes32(uint256(1)),
             timestamp: uint64(block.timestamp)
         });
@@ -150,6 +150,7 @@ contract SuccinctVAppWithdrawTest is SuccinctVAppTest {
         emit ISuccinctVApp.TransactionCompleted(depositReceipt, TransactionVariant.Deposit, depositData);
         vm.expectEmit(true, true, true, true);
         emit ISuccinctVApp.Block(1, depositPublicValues.newRoot, depositPublicValues.oldRoot);
+
         SuccinctVApp(VAPP).step(abi.encode(depositPublicValues), jsonFixture.proof);
 
         // TODO

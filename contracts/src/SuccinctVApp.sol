@@ -274,10 +274,10 @@ contract SuccinctVApp is
         roots[_block] = publicValues.newRoot;
         timestamps[_block] = publicValues.timestamp;
 
-        emit Block(_block, publicValues.newRoot, publicValues.oldRoot);
-
-        // Commit the actions.
+           // Commit the actions.
         _handleActions(publicValues);
+
+        emit Block(_block, publicValues.newRoot, publicValues.oldRoot);     
 
         return (_block, publicValues.newRoot, publicValues.oldRoot);
     }

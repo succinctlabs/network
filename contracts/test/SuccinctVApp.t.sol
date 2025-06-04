@@ -104,8 +104,8 @@ contract SuccinctVAppTest is Test, FixtureLoader {
             VERIFIER,
             jsonFixture.vkey,
             FREEZE_DURATION,
-            bytes32(0), // genesisStateRoot
-            uint64(block.timestamp) // genesisTimestamp
+            fixture.oldRoot, // genesisStateRoot
+            uint64(0) // genesisTimestamp
         );
         MockStaking(STAKING).setVApp(VAPP);
     }

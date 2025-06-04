@@ -48,7 +48,7 @@ contract SuccinctVAppDepositTest is SuccinctVAppTest {
         // Update state with deposit action
         PublicValuesStruct memory publicValues = PublicValuesStruct({
             receipts: new TxReceipt[](1),
-            oldRoot: bytes32(0),
+            oldRoot: fixture.oldRoot,
             newRoot: bytes32(uint256(1)),
             timestamp: uint64(block.timestamp)
         });
@@ -98,7 +98,7 @@ contract SuccinctVAppDepositTest is SuccinctVAppTest {
         // Update state with deposit action
         PublicValuesStruct memory publicValues = PublicValuesStruct({
             receipts: new TxReceipt[](1),
-            oldRoot: bytes32(0),
+            oldRoot: fixture.oldRoot,
             newRoot: bytes32(uint256(1)),
             timestamp: uint64(block.timestamp)
         });

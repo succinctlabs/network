@@ -40,7 +40,7 @@ contract SuccinctVAppDelegateTest is SuccinctVAppTest {
         // Process the first setDelegatedSigner action through state update
         PublicValuesStruct memory publicValues1 = PublicValuesStruct({
             receipts: new VAppReceipt[](1),
-            oldRoot: bytes32(0),
+            oldRoot: fixture.oldRoot,
             newRoot: bytes32(uint256(1)),
             timestamp: uint64(block.timestamp)
         });
@@ -51,7 +51,7 @@ contract SuccinctVAppDelegateTest is SuccinctVAppTest {
             data: expectedProverData
         });
 
-        // mockCall(true);
+        mockCall(true);
         vm.expectEmit(true, true, true, true);
         emit ISuccinctVApp.Block(1, publicValues1.newRoot, publicValues1.oldRoot);
         SuccinctVApp(VAPP).step(abi.encode(publicValues1), jsonFixture.proof);
