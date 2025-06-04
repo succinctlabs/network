@@ -1,5 +1,7 @@
 //! This exposes SPN's version information over prometheus.
+
 use metrics::{describe_gauge, gauge};
+
 /// Contains version information for the application.
 #[derive(Debug, Clone)]
 pub struct VersionInfo {
