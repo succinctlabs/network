@@ -145,7 +145,7 @@ impl MetricServer {
         let listen_addr = self.config.listen_addr;
         info!("metrics server listening on {}", listen_addr);
 
-        // Spawn a task to serve the application
+        // Spawn a task to accept connections.
         Ok(spawn(async move {
             // Use axum's built-in server functionality with simplified shutdown
             if let Err(err) =
@@ -219,7 +219,7 @@ mod tests {
         let listen_addr = get_random_available_addr();
         let config = MetricServerConfig::new(listen_addr, version_info, "test".to_string());
 
-        // Create a shutdown channel. for the server
+        // Create a shutdown channel for the server
         let (_shutdown_tx, shutdown_rx) = broadcast::channel(1);
 
         // Start server in separate task
