@@ -8,10 +8,9 @@ import {
     Receipt,
     Transaction,
     TransactionVariant,
-    DepositTransaction,
-    WithdrawTransaction,
-    CreateProverTransaction,
-    DecodedReceipts
+    Deposit,
+    Withdraw,
+    CreateProver
 } from "./libraries/PublicValues.sol";
 import {ISuccinctVApp} from "./interfaces/ISuccinctVApp.sol";
 import {ISuccinctStaking} from "./interfaces/ISuccinctStaking.sol";
@@ -67,10 +66,13 @@ contract SuccinctVApp is
     uint256 public override minDepositAmount;
 
     /// @inheritdoc ISuccinctVApp
-    uint64 public override currentOnchainTx;
+    uint64 public override txId;
 
     /// @inheritdoc ISuccinctVApp
-    uint64 public override finalizedOnchainTx;
+    uint64 public override currentOnchainTxId;
+
+    /// @inheritdoc ISuccinctVApp
+    uint64 public override finalizedOnchainTxId;
 
     /// @inheritdoc ISuccinctVApp
     mapping(address => uint256) public override claimableWithdrawal;
@@ -238,7 +240,7 @@ contract SuccinctVApp is
 
         // Create the receipt.
         bytes memory data = abi.encode(
-            CreateProverTransaction({prover: _prover, owner: _owner, stakerFeeBips: _stakerFeeBips})
+            CreateProver({prover: _prover, owner: _owner, stakerFeeBips: _stakerFeeBips})
         );
         receipt = _createTransaction(TransactionVariant.CreateProver, data);
     }
@@ -333,7 +335,7 @@ contract SuccinctVApp is
         }
 
         // Create the receipt.
-        bytes memory data = abi.encode(DepositTransaction({account: _from, amount: _amount}));
+        bytes memory data = abi.encode(Deposit({account: _from, amount: _amount}));
         receipt = _createTransaction(TransactionVariant.Deposit, data);
 
         // Transfer $PROVE from the sender to the VApp.
@@ -353,7 +355,7 @@ contract SuccinctVApp is
 
         // Create the receipt.
         bytes memory data =
-            abi.encode(WithdrawTransaction({account: _from, to: _to, amount: _amount}));
+            abi.encode(Withdraw({account: _from, to: _to, amount: _amount}));
         receipt = _createTransaction(TransactionVariant.Withdraw, data);
     }
 
@@ -362,12 +364,12 @@ contract SuccinctVApp is
         internal
         returns (uint64 onchainTx)
     {
-        onchainTx = ++currentOnchainTx;
+        onchainTx = ++currentOnchainTxId;
         transactions[onchainTx] = Transaction({
             variant: _transactionVariant,
             status: TransactionStatus.Pending,
-            onchainTx: onchainTx,
-            data: _data
+            onchainTxId: onchainTx,
+            action: _data
         });
 
         emit TransactionPending(onchainTx, _transactionVariant, _data);
@@ -378,13 +380,13 @@ contract SuccinctVApp is
         // Execute the receipts.
         for (uint64 i = 0; i < _publicValues.receipts.length; i++) {
             // Increment the finalized onchain transaction ID.
-            uint64 onchainTx = ++finalizedOnchainTx;
+            uint64 onchainTxId = ++finalizedOnchainTxId;
 
             // Ensure that the receipt is consistent with the transaction.
-            Receipts.assertEq(transactions[onchainTx], _publicValues.receipts[i]);
+            Receipts.assertEq(transactions[onchainTxId], _publicValues.receipts[i]);
 
             // Ensure that the receipt is the next one to be processed.
-            if (onchainTx != _publicValues.receipts[i].onchainTx) {
+            if (onchainTxId != _publicValues.receipts[i].onchainTxId) {
                 revert ReceiptOutOfOrder();
             }
 
@@ -395,12 +397,12 @@ contract SuccinctVApp is
             }
 
             // Update the transaction status.
-            transactions[finalizedOnchainTx].status = status;
+            transactions[finalizedOnchainTxId].status = status;
 
             // If the transaction failed, emit the revert event and skip the rest of the loop.
             TransactionVariant variant = _publicValues.receipts[i].variant;
             if (status == TransactionStatus.Reverted) {
-                emit TransactionReverted(onchainTx, variant, _publicValues.receipts[i].data);
+                emit TransactionReverted(onchainTxId, variant, _publicValues.receipts[i].action);
                 continue;
             }
 
@@ -408,8 +410,7 @@ contract SuccinctVApp is
             if (variant == TransactionVariant.Deposit) {
                 // No-op.
             } else if (variant == TransactionVariant.Withdraw) {
-                WithdrawTransaction memory withdraw =
-                    abi.decode(_publicValues.receipts[i].data, (WithdrawTransaction));
+                Withdraw memory withdraw = abi.decode(_publicValues.receipts[i].action, (Withdraw));
                 _processWithdraw(withdraw.to, withdraw.amount);
             } else if (variant == TransactionVariant.CreateProver) {
                 // No-op.
@@ -418,7 +419,7 @@ contract SuccinctVApp is
             }
 
             // Emit the completed event.
-            emit TransactionCompleted(onchainTx, variant, _publicValues.receipts[i].data);
+            emit TransactionCompleted(onchainTxId, variant, _publicValues.receipts[i].action);
         }
     }
 

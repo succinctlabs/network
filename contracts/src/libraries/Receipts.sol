@@ -4,10 +4,9 @@ pragma solidity ^0.8.28;
 import {
     TransactionVariant,
     TransactionStatus,
-    DecodedReceipts,
-    DepositTransaction,
-    WithdrawTransaction,
-    CreateProverTransaction,
+    Deposit,
+    Withdraw,
+    CreateProver,
     Transaction,
     Receipt
 } from "./PublicValues.sol";
@@ -38,14 +37,14 @@ library Receipts {
         internal
         pure
     {
-        DepositTransaction memory deposit = abi.decode(_transaction.data, (DepositTransaction));
-        DepositTransaction memory depositReceipt = abi.decode(_receipt.data, (DepositTransaction));
+        Deposit memory deposit = abi.decode(_transaction.action, (Deposit));
+        Deposit memory depositReceipt = abi.decode(_receipt.action, (Deposit));
 
         if (deposit.account != depositReceipt.account) {
-            revert TransactionReceiptMismatch(TransactionVariant.Deposit, _receipt.onchainTx);
+            revert TransactionReceiptMismatch(TransactionVariant.Deposit, _receipt.onchainTxId);
         }
         if (deposit.amount != depositReceipt.amount) {
-            revert TransactionReceiptMismatch(TransactionVariant.Deposit, _receipt.onchainTx);
+            revert TransactionReceiptMismatch(TransactionVariant.Deposit, _receipt.onchainTxId);
         }
     }
 
@@ -54,18 +53,17 @@ library Receipts {
         internal
         pure
     {
-        WithdrawTransaction memory withdraw = abi.decode(_transaction.data, (WithdrawTransaction));
-        WithdrawTransaction memory withdrawReceipt =
-            abi.decode(_receipt.data, (WithdrawTransaction));
+        Withdraw memory withdraw = abi.decode(_transaction.action, (Withdraw));
+        Withdraw memory withdrawReceipt = abi.decode(_receipt.action, (Withdraw));
 
         if (withdraw.account != withdrawReceipt.account) {
-            revert TransactionReceiptMismatch(TransactionVariant.Withdraw, _receipt.onchainTx);
+            revert TransactionReceiptMismatch(TransactionVariant.Withdraw, _receipt.onchainTxId);
         }
         if (withdraw.amount != withdrawReceipt.amount) {
-            revert TransactionReceiptMismatch(TransactionVariant.Withdraw, _receipt.onchainTx);
+            revert TransactionReceiptMismatch(TransactionVariant.Withdraw, _receipt.onchainTxId);
         }
         if (withdraw.to != withdrawReceipt.to) {
-            revert TransactionReceiptMismatch(TransactionVariant.Withdraw, _receipt.onchainTx);
+            revert TransactionReceiptMismatch(TransactionVariant.Withdraw, _receipt.onchainTxId);
         }
     }
 
@@ -74,19 +72,17 @@ library Receipts {
         internal
         pure
     {
-        CreateProverTransaction memory prover =
-            abi.decode(_transaction.data, (CreateProverTransaction));
-        CreateProverTransaction memory proverReceipt =
-            abi.decode(_receipt.data, (CreateProverTransaction));
+        CreateProver memory prover = abi.decode(_transaction.action, (CreateProver));
+        CreateProver memory proverReceipt = abi.decode(_receipt.action, (CreateProver));
 
         if (prover.prover != proverReceipt.prover) {
-            revert TransactionReceiptMismatch(TransactionVariant.CreateProver, _receipt.onchainTx);
+            revert TransactionReceiptMismatch(TransactionVariant.CreateProver, _receipt.onchainTxId);
         }
         if (prover.owner != proverReceipt.owner) {
-            revert TransactionReceiptMismatch(TransactionVariant.CreateProver, _receipt.onchainTx);
+            revert TransactionReceiptMismatch(TransactionVariant.CreateProver, _receipt.onchainTxId);
         }
         if (prover.stakerFeeBips != proverReceipt.stakerFeeBips) {
-            revert TransactionReceiptMismatch(TransactionVariant.CreateProver, _receipt.onchainTx);
+            revert TransactionReceiptMismatch(TransactionVariant.CreateProver, _receipt.onchainTxId);
         }
     }
 }
