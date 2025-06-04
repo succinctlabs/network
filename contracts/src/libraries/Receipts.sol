@@ -4,11 +4,10 @@ pragma solidity ^0.8.28;
 import {
     TransactionVariant,
     TransactionStatus,
-    DecodedReceipts,
-    DepositTransaction,
-    WithdrawTransaction,
-    CreateProverTransaction,
     Transaction,
+    Deposit,
+    Withdraw,
+    CreateProver,
     Receipt
 } from "./PublicValues.sol";
 
@@ -38,8 +37,8 @@ library Receipts {
         internal
         pure
     {
-        DepositTransaction memory deposit = abi.decode(_transaction.data, (DepositTransaction));
-        DepositTransaction memory depositReceipt = abi.decode(_receipt.data, (DepositTransaction));
+        Deposit memory deposit = abi.decode(_transaction.action, (Deposit));
+        Deposit memory depositReceipt = abi.decode(_receipt.action, (Deposit));
 
         if (deposit.account != depositReceipt.account) {
             revert TransactionReceiptMismatch(TransactionVariant.Deposit, _receipt.onchainTx);
@@ -54,9 +53,8 @@ library Receipts {
         internal
         pure
     {
-        WithdrawTransaction memory withdraw = abi.decode(_transaction.data, (WithdrawTransaction));
-        WithdrawTransaction memory withdrawReceipt =
-            abi.decode(_receipt.data, (WithdrawTransaction));
+        Withdraw memory withdraw = abi.decode(_transaction.action, (Withdraw));
+        Withdraw memory withdrawReceipt = abi.decode(_receipt.action, (Withdraw));
 
         if (withdraw.account != withdrawReceipt.account) {
             revert TransactionReceiptMismatch(TransactionVariant.Withdraw, _receipt.onchainTx);
@@ -71,10 +69,8 @@ library Receipts {
         internal
         pure
     {
-        CreateProverTransaction memory prover =
-            abi.decode(_transaction.data, (CreateProverTransaction));
-        CreateProverTransaction memory proverReceipt =
-            abi.decode(_receipt.data, (CreateProverTransaction));
+        CreateProver memory prover = abi.decode(_transaction.action, (CreateProver));
+        CreateProver memory proverReceipt = abi.decode(_receipt.action, (CreateProver));
 
         if (prover.prover != proverReceipt.prover) {
             revert TransactionReceiptMismatch(TransactionVariant.CreateProver, _receipt.onchainTx);

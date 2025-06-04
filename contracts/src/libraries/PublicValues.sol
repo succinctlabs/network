@@ -45,30 +45,22 @@ enum TransactionStatus {
 }
 
 /// @notice The action data for a deposit.
-struct DepositTransaction {
+struct Deposit {
     address account;
     uint256 amount;
 }
 
 /// @notice The action data for a withdraw.
-struct WithdrawTransaction {
+struct Withdraw {
     address account;
     uint256 amount;
 }
 
 /// @notice The action data for an add signer.
-struct CreateProverTransaction {
+struct CreateProver {
     address prover;
     address owner;
     uint256 stakerFeeBips;
-}
-
-/// @notice Internal decoded actions
-struct DecodedReceipts {
-    uint64 lastTxId;
-    DepositTransaction[] deposits;
-    WithdrawTransaction[] withdrawals;
-    CreateProverTransaction[] provers;
 }
 
 /// @notice The public values encoded as a struct that can be easily deserialized inside Solidity.

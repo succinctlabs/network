@@ -10,9 +10,9 @@ import {
     TransactionStatus,
     Receipt as TxReceipt,
     TransactionVariant,
-    DepositTransaction,
-    WithdrawTransaction,
-    CreateProverTransaction
+    Deposit,
+    Withdraw,
+    CreateProver
 } from "../src/libraries/PublicValues.sol";
 import {ISuccinctVApp} from "../src/interfaces/ISuccinctVApp.sol";
 import {MockERC20} from "./utils/MockERC20.sol";
@@ -24,7 +24,7 @@ contract SuccinctVAppDepositTest is SuccinctVAppTest {
 
         assertEq(MockERC20(PROVE).balanceOf(REQUESTER_1), amount);
         assertEq(MockERC20(PROVE).balanceOf(VAPP), 0);
-        assertEq(SuccinctVApp(VAPP).currentOnchainTx(), 0);
+        assertEq(SuccinctVApp(VAPP).currentOnchainTxId(), 0);
         (, TransactionStatus status,,) = SuccinctVApp(VAPP).transactions(1);
         assertEq(uint8(status), uint8(TransactionStatus.None));
 
@@ -32,7 +32,7 @@ contract SuccinctVAppDepositTest is SuccinctVAppTest {
         MockERC20(PROVE).approve(VAPP, amount);
 
         // Deposit
-        bytes memory data = abi.encode(DepositTransaction({account: REQUESTER_1, amount: amount}));
+        bytes memory data = abi.encode(Deposit({account: REQUESTER_1, amount: amount}));
         vm.expectEmit(true, true, true, true);
         emit ISuccinctVApp.TransactionPending(1, TransactionVariant.Deposit, data);
         SuccinctVApp(VAPP).deposit(amount);
@@ -40,7 +40,7 @@ contract SuccinctVAppDepositTest is SuccinctVAppTest {
 
         assertEq(MockERC20(PROVE).balanceOf(REQUESTER_1), 0);
         assertEq(MockERC20(PROVE).balanceOf(VAPP), amount);
-        assertEq(SuccinctVApp(VAPP).currentOnchainTx(), 1);
+        assertEq(SuccinctVApp(VAPP).currentOnchainTxId(), 1);
         (, status,,) = SuccinctVApp(VAPP).transactions(1);
         assertEq(uint8(status), uint8(TransactionStatus.Pending));
 
@@ -72,7 +72,7 @@ contract SuccinctVAppDepositTest is SuccinctVAppTest {
         assertEq(uint8(status), uint8(TransactionStatus.Completed));
 
         // Verify finalizedReceipt updated
-        assertEq(SuccinctVApp(VAPP).finalizedOnchainTx(), 1);
+        assertEq(SuccinctVApp(VAPP).finalizedOnchainTxId(), 1);
     }
 
     function test_PermitAndDeposit_WhenValid() public {
@@ -82,14 +82,14 @@ contract SuccinctVAppDepositTest is SuccinctVAppTest {
         // Deposit
         (uint8 v, bytes32 r, bytes32 s) =
             _signPermit(REQUESTER_1_PK, REQUESTER_1, amount, block.timestamp + 1 days);
-        bytes memory data = abi.encode(DepositTransaction({account: REQUESTER_1, amount: amount}));
+        bytes memory data = abi.encode(Deposit({account: REQUESTER_1, amount: amount}));
         vm.expectEmit(true, true, true, true);
         emit ISuccinctVApp.TransactionPending(1, TransactionVariant.Deposit, data);
         SuccinctVApp(VAPP).permitAndDeposit(REQUESTER_1, amount, block.timestamp + 1 days, v, r, s);
 
         assertEq(MockERC20(PROVE).balanceOf(REQUESTER_1), 0);
         assertEq(MockERC20(PROVE).balanceOf(VAPP), amount);
-        assertEq(SuccinctVApp(VAPP).currentOnchainTx(), 1);
+        assertEq(SuccinctVApp(VAPP).currentOnchainTxId(), 1);
         (, TransactionStatus status,,) = SuccinctVApp(VAPP).transactions(1);
         assertEq(uint8(status), uint8(TransactionStatus.Pending));
 
@@ -121,7 +121,7 @@ contract SuccinctVAppDepositTest is SuccinctVAppTest {
         assertEq(uint8(status), uint8(TransactionStatus.Completed));
 
         // Verify finalizedReceipt updated
-        assertEq(SuccinctVApp(VAPP).finalizedOnchainTx(), 1);
+        assertEq(SuccinctVApp(VAPP).finalizedOnchainTxId(), 1);
     }
 
     function test_RevertDeposit_WhenBelowMinimum() public {
@@ -142,6 +142,6 @@ contract SuccinctVAppDepositTest is SuccinctVAppTest {
         vm.stopPrank();
 
         // Verify no deposit receipt was created
-        assertEq(SuccinctVApp(VAPP).currentOnchainTx(), 0);
+        assertEq(SuccinctVApp(VAPP).currentOnchainTxId(), 0);
     }
 }

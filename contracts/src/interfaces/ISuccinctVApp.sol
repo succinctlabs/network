@@ -145,7 +145,7 @@ interface ISuccinctVApp {
     function timestamp() external view returns (uint64);
 
     /// @notice Tracks the incrementing onchainTx counter.
-    function currentOnchainTx() external view returns (uint64);
+    function currentOnchainTxId() external view returns (uint64);
 
     /// @notice The onchainTx of the last finalized deposit.
     function finalizedOnchainTxId() external view returns (uint64);

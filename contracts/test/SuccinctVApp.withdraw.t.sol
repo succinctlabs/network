@@ -10,9 +10,9 @@ import {
     TransactionStatus,
     Receipt as TxReceipt,
     TransactionVariant,
-    DepositTransaction,
-    WithdrawTransaction,
-    CreateProverTransaction
+    Deposit,
+    Withdraw,
+    CreateProver
 } from "../src/libraries/PublicValues.sol";
 import {ISuccinctVApp} from "../src/interfaces/ISuccinctVApp.sol";
 import {MockERC20} from "./utils/MockERC20.sol";
@@ -100,7 +100,7 @@ contract SuccinctVAppWithdrawTest is SuccinctVAppTest {
         assertEq(SuccinctVApp(VAPP).claimableWithdrawal(REQUESTER_2), amount);
 
         // Verify finalizedReceipt updated
-        assertEq(SuccinctVApp(VAPP).finalizedOnchainTx(), 2);
+        assertEq(SuccinctVApp(VAPP).finalizedOnchainTxId(), 2);
 
         // Claim withdrawal
         assertEq(MockERC20(PROVE).balanceOf(REQUESTER_2), 0);
@@ -170,7 +170,7 @@ contract SuccinctVAppWithdrawTest is SuccinctVAppTest {
         vm.stopPrank();
 
         // Verify no withdrawal receipt was created
-        assertEq(SuccinctVApp(VAPP).currentOnchainTx(), 0);
+        assertEq(SuccinctVApp(VAPP).currentOnchainTxId(), 0);
     }
 
     function test_RevertWithdraw_WhenBelowMinimum() public {
@@ -187,7 +187,7 @@ contract SuccinctVAppWithdrawTest is SuccinctVAppTest {
         vm.stopPrank();
 
         // Verify no withdrawal receipt was created
-        assertEq(SuccinctVApp(VAPP).currentOnchainTx(), 0);
+        assertEq(SuccinctVApp(VAPP).currentOnchainTxId(), 0);
     }
 
     // TODO: This worked when multiple tokens (e.g. USDC) were supported, but since

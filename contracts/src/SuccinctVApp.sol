@@ -8,10 +8,9 @@ import {
     Receipt,
     Transaction,
     TransactionVariant,
-    DepositTransaction,
-    WithdrawTransaction,
-    CreateProverTransaction,
-    DecodedReceipts
+    Deposit,
+    Withdraw,
+    CreateProver
 } from "./libraries/PublicValues.sol";
 import {ISuccinctVApp} from "./interfaces/ISuccinctVApp.sol";
 import {ISuccinctStaking} from "./interfaces/ISuccinctStaking.sol";
@@ -237,9 +236,7 @@ contract SuccinctVApp is
         if (_owner != ISuccinctStaking(staking).ownerOf(_prover)) revert ProverNotOwned();
 
         // Create the receipt.
-        bytes memory data = abi.encode(
-            CreateProverTransaction({prover: _prover, owner: _owner, stakerFeeBips: _stakerFeeBips})
-        );
+        bytes memory data = abi.encode(CreateProver({prover: _prover, owner: _owner, stakerFeeBips: _stakerFeeBips}));
         receipt = _createTransaction(TransactionVariant.CreateProver, data);
     }
 
@@ -334,7 +331,7 @@ contract SuccinctVApp is
         }
 
         // Create the receipt.
-        bytes memory data = abi.encode(DepositTransaction({account: _from, amount: _amount}));
+        bytes memory data = abi.encode(Deposit({account: _from, amount: _amount}));
         receipt = _createTransaction(TransactionVariant.Deposit, data);
 
         // Transfer $PROVE from the sender to the VApp.
@@ -362,7 +359,7 @@ contract SuccinctVApp is
         internal
         returns (uint64 onchainTx)
     {
-        onchainTx = ++currentOnchainTx;
+        onchainTx = ++currentOnchainTxId;
         transactions[onchainTx] = Transaction({
             variant: _transactionVariant,
             status: TransactionStatus.Pending,
@@ -395,7 +392,7 @@ contract SuccinctVApp is
             }
 
             // Update the transaction status.
-            transactions[finalizedOnchainTx].status = status;
+            transactions[_publicValues.receipts[i].onchainTx].status = status;
 
             // If the transaction failed, emit the revert event and skip the rest of the loop.
             TransactionVariant variant = _publicValues.receipts[i].variant;
