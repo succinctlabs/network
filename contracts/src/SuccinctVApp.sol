@@ -3,7 +3,7 @@ pragma solidity ^0.8.28;
 
 import {Receipts} from "./libraries/Receipts.sol";
 import {
-    Step,
+    StepPublicValues,
     TransactionStatus,
     Receipt,
     Transaction,
@@ -67,10 +67,10 @@ contract SuccinctVApp is
     uint256 public override minDepositAmount;
 
     /// @inheritdoc ISuccinctVApp
-    uint64 public override currentOnchainTx;
+    uint64 public override currentOnchainTxId;
 
     /// @inheritdoc ISuccinctVApp
-    uint64 public override finalizedOnchainTx;
+    uint64 public override finalizedOnchainTxId;
 
     /// @inheritdoc ISuccinctVApp
     mapping(address => uint256) public override claimableWithdrawal;
@@ -136,7 +136,7 @@ contract SuccinctVApp is
         // Approve the $iPROVE contract to transfer $PROVE from this contract during prover withdrawal.
         IERC20(prove).approve(_iProve, type(uint256).max);
 
-        emit Fork(_vappProgramVKey, blockNumber, _genesisStateRoot, bytes32(0));
+        emit Fork(blockNumber, _genesisStateRoot, bytes32(0), _vappProgramVKey);
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -251,7 +251,7 @@ contract SuccinctVApp is
     {
         // Verify the proof.
         ISP1Verifier(verifier).verifyProof(vappProgramVKey, _publicValues, _proofBytes);
-        Step memory publicValues = abi.decode(_publicValues, (Step));
+        StepPublicValues memory publicValues = abi.decode(_publicValues, (StepPublicValues));
         if (publicValues.newRoot == bytes32(0)) revert InvalidRoot();
 
         // Verify the old root.
@@ -300,8 +300,9 @@ contract SuccinctVApp is
         uint64 _block = ++blockNumber;
         roots[_block] = _newRoot;
 
+        // Emit the events.
         emit Block(_block, _newRoot, oldRoot);
-        emit Fork(vappProgramVKey, _block, _newRoot, oldRoot);
+        emit Fork(_block, _newRoot, oldRoot, vappProgramVKey);
 
         return (_block, _newRoot, oldRoot);
     }
@@ -373,7 +374,7 @@ contract SuccinctVApp is
     }
 
     /// @dev Handles committed actions, reverts if the actions are invalid
-    function _handleReceipts(Step memory _publicValues) internal {
+    function _handleReceipts(StepPublicValues memory _publicValues) internal {
         // Execute the receipts.
         for (uint64 i = 0; i < _publicValues.receipts.length; i++) {
             // Increment the finalized onchain transaction ID.

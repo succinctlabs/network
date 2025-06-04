@@ -6,7 +6,7 @@ import {SuccinctVApp} from "../src/SuccinctVApp.sol";
 import {ISuccinctVApp} from "../src/interfaces/ISuccinctVApp.sol";
 import {Receipts} from "../src/libraries/Receipts.sol";
 import {
-    Step,
+    StepPublicValues,
     TransactionStatus,
     Receipt as TxReceipt,
     TransactionVariant,
@@ -32,8 +32,7 @@ contract SuccinctVAppWithdrawTest is SuccinctVAppTest {
         // Update state after deposit
         bytes memory depositData =
             abi.encode(Deposit({account: REQUESTER_1, amount: amount}));
-        Step memory depositPublicValues = Step({
-            txId: 1,
+        StepPublicValues memory depositPublicValues = StepPublicValues({
             receipts: new TxReceipt[](1),
             oldRoot: fixture.oldRoot,
             newRoot: bytes32(uint256(1)),
@@ -74,8 +73,7 @@ contract SuccinctVAppWithdrawTest is SuccinctVAppTest {
         assertEq(data, withdrawData);
 
         // Update state after withdraw
-        Step memory withdrawPublicValues = Step({
-            txId: 2,
+        StepPublicValues memory withdrawPublicValues = StepPublicValues({
             receipts: new TxReceipt[](1),
             oldRoot: bytes32(uint256(1)),
             newRoot: bytes32(uint256(2)),
@@ -136,8 +134,7 @@ contract SuccinctVAppWithdrawTest is SuccinctVAppTest {
         // Update state after deposit
         bytes memory depositData =
             abi.encode(Deposit({account: REQUESTER_1, amount: amount}));
-        Step memory depositPublicValues = Step({
-            txId: 2,
+        StepPublicValues memory depositPublicValues = StepPublicValues({
             receipts: new TxReceipt[](1),
             oldRoot: fixture.oldRoot,
             newRoot: bytes32(uint256(1)),

@@ -6,12 +6,10 @@ import {TransactionStatus} from "../libraries/PublicValues.sol";
 
 interface ISuccinctVApp {
     /// @notice Emitted when the program was forked.
-    event Fork(
-        bytes32 indexed vkey, uint64 indexed block, bytes32 indexed newRoot, bytes32 oldRoot
-    );
+    event Fork(uint64 indexed block, bytes32 indexed newRoot, bytes32 oldRoot, bytes32 vkey);
 
     /// @notice Emitted when a new block was committed.
-    event Block(uint64 indexed block, bytes32 indexed newRoot, bytes32 indexed oldRoot);
+    event Block(uint64 indexed block, bytes32 indexed newRoot, bytes32 oldRoot);
 
     /// @notice Emitted when a receipt is completed.
     event TransactionCompleted(

@@ -6,7 +6,7 @@ import {SuccinctVApp} from "../src/SuccinctVApp.sol";
 import {ISuccinctVApp} from "../src/interfaces/ISuccinctVApp.sol";
 import {Receipts} from "../src/libraries/Receipts.sol";
 import {
-    Step,
+    StepPublicValues,
     TransactionStatus,
     Receipt as TxReceipt,
     TransactionVariant,
@@ -47,8 +47,7 @@ contract SuccinctVAppStateTest is SuccinctVAppTest {
         assertEq(SuccinctVApp(VAPP).roots(2), bytes32(0));
         assertEq(SuccinctVApp(VAPP).root(), fixture.newRoot);
 
-        Step memory publicValues = Step({
-            txId: 2,
+        StepPublicValues memory publicValues = StepPublicValues({
             receipts: new TxReceipt[](0),
             oldRoot: fixture.newRoot,
             newRoot: bytes32(uint256(2)),
@@ -75,8 +74,7 @@ contract SuccinctVAppStateTest is SuccinctVAppTest {
     }
 
     function test_RevertUpdateState_WhenInvalidRoot() public {
-        Step memory publicValues = Step({
-            txId: 2,
+        StepPublicValues memory publicValues = StepPublicValues({
             receipts: new TxReceipt[](0),
             oldRoot: bytes32(0),
             newRoot: bytes32(0),
@@ -94,8 +92,7 @@ contract SuccinctVAppStateTest is SuccinctVAppTest {
         assertEq(SuccinctVApp(VAPP).blockNumber(), 1);
         assertEq(SuccinctVApp(VAPP).root(), fixture.newRoot);
 
-        Step memory publicValues = Step({
-            txId: 2,
+        StepPublicValues memory publicValues = StepPublicValues({
             receipts: new TxReceipt[](0),
             oldRoot: bytes32(0),
             newRoot: bytes32(uint256(2)),
@@ -110,8 +107,7 @@ contract SuccinctVAppStateTest is SuccinctVAppTest {
         mockCall(true);
 
         // Create public values with a future timestamp
-        Step memory publicValues = Step({
-            txId: 2,
+        StepPublicValues memory publicValues = StepPublicValues({
             receipts: new TxReceipt[](0),
             oldRoot: fixture.oldRoot,
             newRoot: bytes32(uint256(1)),
@@ -127,8 +123,7 @@ contract SuccinctVAppStateTest is SuccinctVAppTest {
 
         // First update with current timestamp
         uint64 initialTime = uint64(block.timestamp);
-        Step memory initialPublicValues = Step({
-            txId: 2,
+        StepPublicValues memory initialPublicValues = StepPublicValues({
             receipts: new TxReceipt[](0),
             oldRoot: fixture.oldRoot,
             newRoot: bytes32(uint256(1)),
@@ -142,8 +137,7 @@ contract SuccinctVAppStateTest is SuccinctVAppTest {
         uint64 recordedTimestamp = SuccinctVApp(VAPP).timestamps(1);
 
         // Create public values with a timestamp earlier than the previous block
-        Step memory publicValues = Step({
-            txId: 1,
+        StepPublicValues memory publicValues = StepPublicValues({
             receipts: new TxReceipt[](0),
             oldRoot: bytes32(uint256(1)),
             newRoot: bytes32(uint256(2)),
