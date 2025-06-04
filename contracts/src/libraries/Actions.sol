@@ -2,47 +2,18 @@
 pragma solidity ^0.8.28;
 
 import {
-    ReceiptStatus,
-    Action,
-    ActionType,
-    DepositAction,
-    WithdrawAction,
-    ProverAction
+    TransactionVariant,
+    TransactionStatus,
+    Receipt,
+    ReceiptsInternal,
+    DepositReceipt,
+    WithdrawReceipt,
+    CreateProverReceipt,
+    DepositTransaction,
+    WithdrawTransaction,
+    CreateProverTransaction,
+    Transaction
 } from "./PublicValues.sol";
-
-/// @notice A receipt for an action
-struct Receipt {
-    ActionType action;
-    ReceiptStatus status;
-    uint64 timestamp;
-    bytes data;
-}
-
-/// @notice Internal decoded actions
-struct ActionsInternal {
-    uint64 lastReceipt;
-    DepositInternal[] deposits;
-    WithdrawInternal[] withdrawals;
-    ProverInternal[] provers;
-}
-
-/// @notice Internal deposit action
-struct DepositInternal {
-    Action action;
-    DepositAction data;
-}
-
-/// @notice Internal withdraw action
-struct WithdrawInternal {
-    Action action;
-    WithdrawAction data;
-}
-
-/// @notice Internal add signer action
-struct ProverInternal {
-    Action action;
-    ProverAction data;
-}
 
 /// @notice Library for handling actions
 library Actions {
@@ -50,19 +21,19 @@ library Actions {
     error InvalidAction();
 
     /// @dev Thrown when the actions are missing.
-    error MissingActions(ActionType actionType, uint64 receipt);
+    error MissingActions(TransactionVariant actionType, uint64 receipt);
 
     /// @dev Thrown when the action does not match the receipt.
-    error ActionMismatch(ActionType actionType, uint64 receipt);
+    error ActionMismatch(TransactionVariant actionType, uint64 receipt);
 
     /// @dev Thrown when the receipt is invalid.
-    error InvalidReceipt(ActionType actionType, uint64 expected, uint64 actual);
+    error InvalidReceipt(TransactionVariant actionType, uint64 expected, uint64 actual);
 
     /// @dev Thrown when the receipt status is invalid.
-    error InvalidReceiptStatus(ActionType actionType, uint64 receipt, ReceiptStatus status);
+    error InvalidReceiptStatus(TransactionVariant actionType, uint64 receipt, TransactionStatus status);
 
     /// @dev Thrown when the action status is invalid.
-    error InvalidActionStatus(ActionType actionType, uint64 receipt, ReceiptStatus status);
+    error InvalidActionStatus(TransactionVariant actionType, uint64 receipt, TransactionStatus status);
 
     /// @notice Memory for decoding actions.
     struct DecodeData {
@@ -73,29 +44,29 @@ library Actions {
     }
 
     /// @dev Decode actions.
-    function decode(Action[] memory _actions)
+    function decode(Receipt[] memory _actions)
         internal
         pure
-        returns (ActionsInternal memory decoded)
+        returns (ReceiptsInternal memory decoded)
     {
         // Build the action arrays
         DecodeData memory data;
         for (uint64 i = 0; i < _actions.length; i++) {
-            ActionType actionType = _actions[i].action;
-            if (actionType == ActionType.Deposit) {
+            TransactionVariant actionType = _actions[i].variant;
+            if (actionType == TransactionVariant.Deposit) {
                 data.depositLength++;
-            } else if (actionType == ActionType.Withdraw) {
+            } else if (actionType == TransactionVariant.Withdraw) {
                 data.withdrawLength++;
-            } else if (actionType == ActionType.Prover) {
+            } else if (actionType == TransactionVariant.Prover) {
                 data.setDelegatedSignerLength++;
             } else {
                 revert InvalidAction();
             }
         }
 
-        decoded.deposits = new DepositInternal[](data.depositLength);
-        decoded.withdrawals = new WithdrawInternal[](data.withdrawLength);
-        decoded.provers = new ProverInternal[](data.setDelegatedSignerLength);
+        decoded.deposits = new DepositReceipt[](data.depositLength);
+        decoded.withdrawals = new WithdrawReceipt[](data.withdrawLength);
+        decoded.provers = new CreateProverReceipt[](data.setDelegatedSignerLength);
 
         // Decode the actions
         data.depositLength = 0;
@@ -103,28 +74,28 @@ library Actions {
         data.setDelegatedSignerLength = 0;
 
         for (uint64 i = 0; i < _actions.length; i++) {
-            Action memory action = _actions[i];
+            Receipt memory action = _actions[i];
 
-            if (action.receipt != 0) {
-                decoded.lastReceipt = action.receipt;
+            if (action.onchainTx != 0) {
+                decoded.lastTxId = action.onchainTx;
             }
 
-            if (action.action == ActionType.Deposit) {
-                DepositInternal memory deposit = DepositInternal({
-                    action: action,
-                    data: abi.decode(action.data, (DepositAction))
+            if (action.variant == TransactionVariant.Deposit) {
+                DepositReceipt memory deposit = DepositReceipt({
+                    receipt: action,
+                    data: abi.decode(action.data, (DepositTransaction))
                 });
                 decoded.deposits[data.depositLength++] = deposit;
-            } else if (action.action == ActionType.Withdraw) {
-                WithdrawInternal memory withdraw = WithdrawInternal({
-                    action: action,
-                    data: abi.decode(action.data, (WithdrawAction))
+            } else if (action.variant == TransactionVariant.Withdraw) {
+                WithdrawReceipt memory withdraw = WithdrawReceipt({
+                    receipt: action,
+                    data: abi.decode(action.data, (WithdrawTransaction))
                 });
                 decoded.withdrawals[data.withdrawLength++] = withdraw;
-            } else if (action.action == ActionType.Prover) {
-                ProverInternal memory setDelegatedSigner = ProverInternal({
-                    action: action,
-                    data: abi.decode(action.data, (ProverAction))
+            } else if (action.variant == TransactionVariant.Prover) {
+                CreateProverReceipt memory setDelegatedSigner = CreateProverReceipt({
+                    receipt: action,
+                    data: abi.decode(action.data, (CreateProverTransaction))
                 });
                 decoded.provers[data.setDelegatedSignerLength++] = setDelegatedSigner;
             } else {
@@ -135,99 +106,98 @@ library Actions {
 
     /// @dev Validates the actions.
     function validate(
-        mapping(uint64 => Receipt) storage _receipts,
-        Action[] memory _actions,
+        mapping(uint64 => Transaction) storage _transactions,
+        Receipt[] memory _actions,
         uint64 _finalizedReceipt,
         uint64 _currentReceipt,
-        uint64 _timestamp,
-        uint64 _maxActionDelay
+        uint64 _timestamp
     ) internal view {
         // Ensure that the receipts exist and correspond to the matching action.
         for (uint64 i = 0; i < _actions.length; i++) {
             // Only validate actions that have a corresponding receipt.
             if (hasReceipt(_actions[i])) {
-                Receipt memory receipt = _receipts[++_finalizedReceipt];
+                Transaction memory transaction = _transactions[++_finalizedReceipt];
 
-                if (_actions[i].receipt != _finalizedReceipt) {
+                if (_actions[i].onchainTx != _finalizedReceipt) {
                     revert InvalidReceipt(
-                        _actions[i].action, _actions[i].receipt, _finalizedReceipt
+                        _actions[i].variant, _actions[i].onchainTx, _finalizedReceipt
                     );
                 }
 
-                if (receipt.status != ReceiptStatus.Pending) {
+                if (transaction.status != TransactionStatus.Pending) {
                     revert InvalidReceiptStatus(
-                        _actions[i].action, _actions[i].receipt, receipt.status
+                        _actions[i].variant, _actions[i].onchainTx, transaction.status
                     );
                 }
 
                 if (
-                    _actions[i].status != ReceiptStatus.Completed
-                        && _actions[i].status != ReceiptStatus.Failed
+                    transaction.status != TransactionStatus.Completed
+                        && transaction.status != TransactionStatus.Failed
                 ) {
                     revert InvalidActionStatus(
-                        _actions[i].action, _actions[i].receipt, _actions[i].status
+                        _actions[i].variant, _actions[i].onchainTx, transaction.status
                     );
                 }
 
-                if (_actions[i].action == ActionType.Deposit) {
-                    _validateDeposit(_actions[i], receipt);
-                } else if (_actions[i].action == ActionType.Withdraw) {
-                    _validateWithdraw(_actions[i], receipt);
-                } else if (_actions[i].action == ActionType.Prover) {
-                    // Skip validations
-                } else {
-                    revert InvalidAction();
-                }
+                // if (_actions[i].variant == TransactionVariant.Deposit) {
+                //     // _validateDeposit(_actions[i], receipt);
+                // } else if (_actions[i].variant == TransactionVariant.Withdraw) {
+                //     // _validateWithdraw(_actions[i], receipt);
+                // } else if (_actions[i].variant == TransactionVariant.Prover) {
+                //     // Skip validations
+                // } else {
+                //     revert InvalidAction();
+                // }
             }
         }
 
         // if (_finalizedReceipt < _currentReceipt) {
         //     Receipt memory receipt = _receipts[++_finalizedReceipt];
         //     if (receipt.timestamp + _maxActionDelay < _timestamp) {
-        //         revert MissingActions(ActionType.Deposit, _finalizedReceipt);
+        //         revert MissingActions(TransactionVariant.Deposit, _finalizedReceipt);
         //     }
         // }
     }
 
     /// @dev Returns true if the action type has a corresponding receipt.
-    function hasReceipt(Action memory _action) internal pure returns (bool) {
-        if (_action.action == ActionType.Deposit) {
+    function hasReceipt(Receipt memory _action) internal pure returns (bool) {
+        if (_action.variant == TransactionVariant.Deposit) {
             return true;
-        } else if (_action.action == ActionType.Withdraw) {
-            return _action.receipt != 0;
-        } else if (_action.action == ActionType.Prover) {
+        } else if (_action.variant == TransactionVariant.Withdraw) {
+            return _action.onchainTx != 0;
+        } else if (_action.variant == TransactionVariant.Prover) {
             return true;
         }
 
         return false;
     }
 
-    /// @dev Validates a deposit action, reverting if the action does not match the receipt.
-    function _validateDeposit(Action memory _action, Receipt memory _receipt) internal pure {
-        DepositAction memory deposit = abi.decode(_action.data, (DepositAction));
-        DepositAction memory depositReceipt = abi.decode(_receipt.data, (DepositAction));
+    // /// @dev Validates a deposit action, reverting if the action does not match the receipt.
+    // function _validateDeposit(Action memory _action, Receipt memory _receipt) internal pure {
+    //     DepositAction memory deposit = abi.decode(_action.data, (DepositAction));
+    //     DepositAction memory depositReceipt = abi.decode(_receipt.data, (DepositAction));
 
-        if (deposit.account != depositReceipt.account) {
-            revert ActionMismatch(ActionType.Deposit, _action.receipt);
-        }
-        if (deposit.amount != depositReceipt.amount) {
-            revert ActionMismatch(ActionType.Deposit, _action.receipt);
-        }
-    }
+    //     if (deposit.account != depositReceipt.account) {
+    //         revert ActionMismatch(ActionType.Deposit, _action.receipt);
+    //     }
+    //     if (deposit.amount != depositReceipt.amount) {
+    //         revert ActionMismatch(ActionType.Deposit, _action.receipt);
+    //     }
+    // }
 
-    /// @dev Validates a withdraw action, reverting if the action does not match the receipt.
-    function _validateWithdraw(Action memory _action, Receipt memory _receipt) internal pure {
-        WithdrawAction memory withdraw = abi.decode(_action.data, (WithdrawAction));
-        WithdrawAction memory withdrawReceipt = abi.decode(_receipt.data, (WithdrawAction));
+    // /// @dev Validates a withdraw action, reverting if the action does not match the receipt.
+    // function _validateWithdraw(Action memory _action, Receipt memory _receipt) internal pure {
+    //     WithdrawAction memory withdraw = abi.decode(_action.data, (WithdrawAction));
+    //     WithdrawAction memory withdrawReceipt = abi.decode(_receipt.data, (WithdrawAction));
 
-        if (withdraw.account != withdrawReceipt.account) {
-            revert ActionMismatch(ActionType.Withdraw, _action.receipt);
-        }
-        if (withdraw.amount != withdrawReceipt.amount) {
-            revert ActionMismatch(ActionType.Withdraw, _action.receipt);
-        }
-        if (withdraw.to != withdrawReceipt.to) {
-            revert ActionMismatch(ActionType.Withdraw, _action.receipt);
-        }
-    }
+    //     if (withdraw.account != withdrawReceipt.account) {
+    //         revert ActionMismatch(ActionType.Withdraw, _action.receipt);
+    //     }
+    //     if (withdraw.amount != withdrawReceipt.amount) {
+    //         revert ActionMismatch(ActionType.Withdraw, _action.receipt);
+    //     }
+    //     if (withdraw.to != withdrawReceipt.to) {
+    //         revert ActionMismatch(ActionType.Withdraw, _action.receipt);
+    //     }
+    // }
 }

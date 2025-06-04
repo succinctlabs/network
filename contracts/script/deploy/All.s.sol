@@ -70,11 +70,11 @@ contract AllScript is BaseScript, FixtureLoader {
             PROVE,
             I_PROVE,
             STAKING,
-            FEE_VAULT,
             VERIFIER,
             VKEY,
-            MAX_ACTION_DELAY,
-            PROTOCOL_FEE_BIPS
+            0,
+            bytes32(0),
+            0
         );
 
         return VAPP;

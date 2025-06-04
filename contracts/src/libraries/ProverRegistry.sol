@@ -108,7 +108,7 @@ abstract contract ProverRegistry is IProverRegistry {
         provers[prover] = true;
 
         // Register the prover with the VApp.
-        ISuccinctVApp(vapp).registerProver(prover, _owner, _stakerFeeBips);
+        ISuccinctVApp(vapp).createProver(prover, _owner, _stakerFeeBips);
 
         // Approve the prover as a spender so that $iPROVE can be transferred to the prover during\
         // stake().

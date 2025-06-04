@@ -18,12 +18,12 @@ pragma solidity ^0.8.28;
 // import {ISP1Verifier} from "../src/interfaces/ISP1Verifier.sol";
 // import {
 //     PublicValuesStruct,
-//     ReceiptStatus,
-//     Action,
-//     ActionType,
-//     DepositAction,
-//     WithdrawAction,
-//     ProverAction
+//     TransactionStatus,
+//     Receipt,
+//     TransactionVariant,
+//     DepositTransaction,
+//     WithdrawTransaction,
+//     CreateProverTransaction
 //     RemoveSignerAction
 // } from "../src/libraries/PublicValues.sol";
 
@@ -262,19 +262,19 @@ pragma solidity ^0.8.28;
 
 //         // Prepare reward action for ALICE_PROVER
 //         bytes memory rewardData =
-//             abi.encode(RewardAction({prover: ALICE_PROVER, amount: rewardAmount}));
+//             abi.encode(RewardTransaction({prover: ALICE_PROVER, amount: rewardAmount}));
 
 //         PublicValuesStruct memory publicValues = PublicValuesStruct({
-//             actions: new Action[](1),
+//             receipts: new Receipt[](1),
 //             oldRoot: SuccinctVApp(VAPP).root(), // Current root (should be bytes32(0) initially)
 //             newRoot: bytes32(uint256(0xbeef)), // New root after reward
 //             timestamp: uint64(block.timestamp)
 //         });
 
-//         publicValues.actions[0] = Action({
-//             action: ActionType.Reward,
-//             status: ReceiptStatus.Completed,
-//             receipt: 1, // Receipt ID for the reward action
+//         publicValues.receipts[0] = Receipt({
+//             variant: TransactionVariant.Reward,
+//             status: TransactionStatus.Completed,
+//             txId: 1, // Receipt ID for the reward action
 //             data: rewardData
 //         });
 
@@ -364,18 +364,18 @@ pragma solidity ^0.8.28;
 //         // Prepare reward action for ALICE_PROVER
 //         uint256 rewardAmount = 5e18;
 //         bytes memory rewardData =
-//             abi.encode(RewardAction({prover: ALICE_PROVER, amount: rewardAmount}));
+//             abi.encode(RewardTransaction({prover: ALICE_PROVER, amount: rewardAmount}));
 
 //         PublicValuesStruct memory publicValues = PublicValuesStruct({
-//             actions: new Action[](1),
+//             receipts: new Receipt[](1),
 //             oldRoot: SuccinctVApp(VAPP).root(),
 //             newRoot: bytes32(uint256(0xbeef)),
 //             timestamp: uint64(block.timestamp)
 //         });
-//         publicValues.actions[0] = Action({
-//             action: ActionType.Reward,
-//             status: ReceiptStatus.Completed,
-//             receipt: 1, // Receipt ID for the reward action
+//         publicValues.receipts[0] = Receipt({
+//             variant: TransactionVariant.Reward,
+//             status: TransactionStatus.Completed,
+//             txId: 1, // Receipt ID for the reward action
 //             data: rewardData
 //         });
 
@@ -387,24 +387,24 @@ pragma solidity ^0.8.28;
 //         // Prepare reward action for ALICE_PROVER
 //         uint256 rewardAmount = 5e18;
 //         bytes memory rewardData =
-//             abi.encode(RewardAction({prover: ALICE_PROVER, amount: rewardAmount}));
+//             abi.encode(RewardTransaction({prover: ALICE_PROVER, amount: rewardAmount}));
 
 //         PublicValuesStruct memory publicValues = PublicValuesStruct({
-//             actions: new Action[](2),
+//             receipts: new Receipt[](2),
 //             oldRoot: SuccinctVApp(VAPP).root(),
 //             newRoot: bytes32(uint256(0xbeef)),
 //             timestamp: uint64(block.timestamp)
 //         });
-//         publicValues.actions[0] = Action({
-//             action: ActionType.Reward,
-//             status: ReceiptStatus.Completed,
-//             receipt: 1, // Receipt ID for the reward action
+//         publicValues.receipts[0] = Receipt({
+//             variant: TransactionVariant.Reward,
+//             status: TransactionStatus.Completed,
+//             txId: 1, // Receipt ID for the reward action
 //             data: rewardData
 //         });
-//         publicValues.actions[1] = Action({
-//             action: ActionType.Reward,
-//             status: ReceiptStatus.Completed,
-//             receipt: 2, // Receipt ID for the reward action
+//         publicValues.receipts[1] = Receipt({
+//             variant: TransactionVariant.Reward,
+//             status: TransactionStatus.Completed,
+//             txId: 2, // Receipt ID for the reward action
 //             data: rewardData
 //         });
 

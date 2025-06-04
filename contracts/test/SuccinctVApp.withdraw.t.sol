@@ -7,12 +7,12 @@ import {ISuccinctVApp} from "../src/interfaces/ISuccinctVApp.sol";
 import {Actions} from "../src/libraries/Actions.sol";
 import {
     PublicValuesStruct,
-    ReceiptStatus,
-    Action,
-    ActionType,
-    DepositAction,
-    WithdrawAction,
-    ProverAction
+    TransactionStatus,
+    Receipt as TxReceipt,
+    TransactionVariant,
+    DepositTransaction,
+    WithdrawTransaction,
+    CreateProverTransaction
 } from "../src/libraries/PublicValues.sol";
 import {ISuccinctVApp} from "../src/interfaces/ISuccinctVApp.sol";
 import {MockERC20} from "./utils/MockERC20.sol";
@@ -31,73 +31,73 @@ contract SuccinctVAppWithdrawTest is SuccinctVAppTest {
 
         // Update state after deposit
         bytes memory depositData =
-            abi.encode(DepositAction({account: REQUESTER_1, amount: amount, token: PROVE}));
+            abi.encode(DepositTransaction({account: REQUESTER_1, amount: amount}));
         PublicValuesStruct memory depositPublicValues = PublicValuesStruct({
-            actions: new Action[](1),
+            receipts: new TxReceipt[](1),
             oldRoot: bytes32(0),
             newRoot: bytes32(uint256(1)),
             timestamp: uint64(block.timestamp)
         });
-        depositPublicValues.actions[0] = Action({
-            action: ActionType.Deposit,
-            status: ReceiptStatus.Completed,
-            receipt: depositReceipt,
+        depositPublicValues.receipts[0] = TxReceipt({
+            variant: TransactionVariant.Deposit,
+            status: TransactionStatus.Completed,
+            onchainTx: depositReceipt,
             data: depositData
         });
 
         mockCall(true);
 
         vm.expectEmit(true, true, true, true);
-        emit ISuccinctVApp.ReceiptCompleted(depositReceipt, ActionType.Deposit, depositData);
+        emit ISuccinctVApp.TransactionCompleted(depositReceipt, TransactionVariant.Deposit, depositData);
         vm.expectEmit(true, true, true, true);
         emit ISuccinctVApp.Block(1, depositPublicValues.newRoot, depositPublicValues.oldRoot);
-        SuccinctVApp(VAPP).updateState(abi.encode(depositPublicValues), jsonFixture.proof);
+        SuccinctVApp(VAPP).step(abi.encode(depositPublicValues), jsonFixture.proof);
 
         // Withdraw
         vm.startPrank(REQUESTER_2);
         bytes memory withdrawData = abi.encode(
-            WithdrawAction({account: REQUESTER_2, amount: amount, to: REQUESTER_2, token: PROVE})
+            WithdrawTransaction({account: REQUESTER_2, to: REQUESTER_2, amount: amount})
         );
 
         vm.expectEmit(true, true, true, true);
-        emit ISuccinctVApp.ReceiptPending(2, ActionType.Withdraw, withdrawData);
+        emit ISuccinctVApp.TransactionPending(2, TransactionVariant.Withdraw, withdrawData);
         uint64 withdrawReceipt = SuccinctVApp(VAPP).requestWithdraw(REQUESTER_2, amount);
         vm.stopPrank();
 
         assertEq(withdrawReceipt, 2);
-        (ActionType actionType, ReceiptStatus status,, bytes memory data) =
-            SuccinctVApp(VAPP).receipts(withdrawReceipt);
-        assertEq(uint8(actionType), uint8(ActionType.Withdraw));
-        assertEq(uint8(status), uint8(ReceiptStatus.Pending));
+        (TransactionVariant actionType, TransactionStatus status,, bytes memory data) =
+            SuccinctVApp(VAPP).transactions(withdrawReceipt);
+        assertEq(uint8(actionType), uint8(TransactionVariant.Withdraw));
+        assertEq(uint8(status), uint8(TransactionStatus.Pending));
         assertEq(data, withdrawData);
 
         // Update state after withdraw
         PublicValuesStruct memory withdrawPublicValues = PublicValuesStruct({
-            actions: new Action[](1),
+            receipts: new TxReceipt[](1),
             oldRoot: bytes32(uint256(1)),
             newRoot: bytes32(uint256(2)),
             timestamp: uint64(block.timestamp)
         });
-        withdrawPublicValues.actions[0] = Action({
-            action: ActionType.Withdraw,
-            status: ReceiptStatus.Completed,
-            receipt: withdrawReceipt,
+        withdrawPublicValues.receipts[0] = TxReceipt({
+            variant: TransactionVariant.Withdraw,
+            status: TransactionStatus.Completed,
+            onchainTx: withdrawReceipt,
             data: withdrawData
         });
 
         mockCall(true);
 
         vm.expectEmit(true, true, true, true);
-        emit ISuccinctVApp.ReceiptCompleted(withdrawReceipt, ActionType.Withdraw, withdrawData);
+        emit ISuccinctVApp.TransactionCompleted(withdrawReceipt, TransactionVariant.Withdraw, withdrawData);
         vm.expectEmit(true, true, true, true);
         emit ISuccinctVApp.Block(2, withdrawPublicValues.newRoot, withdrawPublicValues.oldRoot);
-        SuccinctVApp(VAPP).updateState(abi.encode(withdrawPublicValues), jsonFixture.proof);
+        SuccinctVApp(VAPP).step(abi.encode(withdrawPublicValues), jsonFixture.proof);
 
         // Verify withdrawal claims created
         assertEq(SuccinctVApp(VAPP).claimableWithdrawal(REQUESTER_2), amount);
 
         // Verify finalizedReceipt updated
-        assertEq(SuccinctVApp(VAPP).finalizedReceipt(), 2);
+        assertEq(SuccinctVApp(VAPP).finalizedOnchainTx(), 2);
 
         // Claim withdrawal
         assertEq(MockERC20(PROVE).balanceOf(REQUESTER_2), 0);
@@ -130,27 +130,27 @@ contract SuccinctVAppWithdrawTest is SuccinctVAppTest {
 
         // Update state after deposit
         bytes memory depositData =
-            abi.encode(DepositAction({account: REQUESTER_1, amount: amount, token: PROVE}));
+            abi.encode(DepositTransaction({account: REQUESTER_1, amount: amount}));
         PublicValuesStruct memory depositPublicValues = PublicValuesStruct({
-            actions: new Action[](1),
+            receipts: new TxReceipt[](1),
             oldRoot: bytes32(0),
             newRoot: bytes32(uint256(1)),
             timestamp: uint64(block.timestamp)
         });
-        depositPublicValues.actions[0] = Action({
-            action: ActionType.Deposit,
-            status: ReceiptStatus.Completed,
-            receipt: depositReceipt,
+        depositPublicValues.receipts[0] = TxReceipt({
+            variant: TransactionVariant.Deposit,
+            status: TransactionStatus.Completed,
+            onchainTx: depositReceipt,
             data: depositData
         });
 
         mockCall(true);
 
         vm.expectEmit(true, true, true, true);
-        emit ISuccinctVApp.ReceiptCompleted(depositReceipt, ActionType.Deposit, depositData);
+        emit ISuccinctVApp.TransactionCompleted(depositReceipt, TransactionVariant.Deposit, depositData);
         vm.expectEmit(true, true, true, true);
         emit ISuccinctVApp.Block(1, depositPublicValues.newRoot, depositPublicValues.oldRoot);
-        SuccinctVApp(VAPP).updateState(abi.encode(depositPublicValues), jsonFixture.proof);
+        SuccinctVApp(VAPP).step(abi.encode(depositPublicValues), jsonFixture.proof);
 
         // TODO
     }
@@ -164,7 +164,7 @@ contract SuccinctVAppWithdrawTest is SuccinctVAppTest {
         vm.stopPrank();
 
         // Verify no withdrawal receipt was created
-        assertEq(SuccinctVApp(VAPP).currentReceipt(), 0);
+        assertEq(SuccinctVApp(VAPP).currentOnchainTx(), 0);
     }
 
     function test_RevertWithdraw_WhenBelowMinimum() public {
@@ -181,7 +181,7 @@ contract SuccinctVAppWithdrawTest is SuccinctVAppTest {
         vm.stopPrank();
 
         // Verify no withdrawal receipt was created
-        assertEq(SuccinctVApp(VAPP).currentReceipt(), 0);
+        assertEq(SuccinctVApp(VAPP).currentOnchainTx(), 0);
     }
 
     // TODO: This worked when multiple tokens (e.g. USDC) were supported, but since

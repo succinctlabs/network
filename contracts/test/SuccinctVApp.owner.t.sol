@@ -6,12 +6,12 @@ import {SuccinctVApp} from "../src/SuccinctVApp.sol";
 import {ISuccinctVApp} from "../src/interfaces/ISuccinctVApp.sol";
 import {
     PublicValuesStruct,
-    ReceiptStatus,
-    Action,
-    ActionType,
-    DepositAction,
-    WithdrawAction,
-    ProverAction
+    TransactionStatus,
+    Receipt,
+    TransactionVariant,
+    DepositTransaction,
+    WithdrawTransaction,
+    CreateProverTransaction
 } from "../src/libraries/PublicValues.sol";
 import {ISuccinctVApp} from "../src/interfaces/ISuccinctVApp.sol";
 import {Ownable} from "../lib/openzeppelin-contracts/contracts/access/Ownable.sol";
@@ -57,27 +57,7 @@ contract SuccinctVAppOwnerTest is SuccinctVAppTest {
         vm.prank(REQUESTER_1);
         SuccinctVApp(VAPP).updateVerifier(address(1));
     }
-
-    function test_UpdateActionDelay_WhenValid() public {
-        uint64 oldDelay = ISuccinctVApp(VAPP).maxActionDelay();
-        uint64 newDelay = 2 days;
-
-        vm.expectEmit(true, true, true, true);
-        emit ISuccinctVApp.MaxActionDelayUpdate(oldDelay, newDelay);
-        vm.prank(OWNER);
-        SuccinctVApp(VAPP).updateActionDelay(newDelay);
-
-        assertEq(SuccinctVApp(VAPP).maxActionDelay(), newDelay);
-    }
-
-    function test_RevertUpdateActionDelay_WhenNotOwner() public {
-        vm.expectRevert(
-            abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, REQUESTER_1)
-        );
-        vm.prank(REQUESTER_1);
-        SuccinctVApp(VAPP).updateActionDelay(2 days);
-    }
-
+ 
     function test_SetTransferBelowMinimum_WhenValid() public {
         uint256 oldMinAmount = ISuccinctVApp(VAPP).minDepositAmount();
         uint256 newMinAmount = 10e6; // 10 PROVE
@@ -112,25 +92,5 @@ contract SuccinctVAppOwnerTest is SuccinctVAppTest {
         );
         vm.prank(REQUESTER_1);
         SuccinctVApp(VAPP).updateMinDepositAmount(10e6);
-    }
-
-    function test_SetProtocolFeeBips_WhenValid() public {
-        uint256 oldProtocolFeeBips = ISuccinctVApp(VAPP).protocolFeeBips();
-        uint256 newProtocolFeeBips = PROTOCOL_FEE_BIPS + 1; // 10%
-
-        vm.expectEmit(true, true, true, true);
-        emit ISuccinctVApp.ProtocolFeeBipsUpdate(oldProtocolFeeBips, newProtocolFeeBips);
-        vm.prank(OWNER);
-        SuccinctVApp(VAPP).updateProtocolFeeBips(newProtocolFeeBips);
-
-        assertEq(SuccinctVApp(VAPP).protocolFeeBips(), newProtocolFeeBips);
-    }
-
-    function test_RevertSetProtocolFeeBips_WhenNotOwner() public {
-        vm.expectRevert(
-            abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, REQUESTER_1)
-        );
-        vm.prank(REQUESTER_1);
-        SuccinctVApp(VAPP).updateProtocolFeeBips(1000);
     }
 }

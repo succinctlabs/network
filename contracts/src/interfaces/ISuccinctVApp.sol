@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.28;
 
-import {ActionType} from "../libraries/PublicValues.sol";
-import {ReceiptStatus} from "../libraries/Actions.sol";
+import {TransactionVariant} from "../libraries/PublicValues.sol";
+import {TransactionStatus} from "../libraries/PublicValues.sol";
 
 interface ISuccinctVApp {
     /// @notice Emitted when the program was forked.
@@ -14,13 +14,13 @@ interface ISuccinctVApp {
     event Block(uint64 indexed block, bytes32 indexed newRoot, bytes32 indexed oldRoot);
 
     /// @notice Emitted when a receipt is completed.
-    event ReceiptCompleted(uint64 indexed receipt, ActionType indexed action, bytes data);
+    event TransactionCompleted(uint64 indexed onchainTxId, TransactionVariant indexed action, bytes data);
 
     /// @notice Emitted when a receipt is failed.
-    event ReceiptFailed(uint64 indexed receipt, ActionType indexed action, bytes data);
+    event TransactionFailed(uint64 indexed onchainTxId, TransactionVariant indexed action, bytes data);
 
     /// @notice Emitted when a receipt is pending.
-    event ReceiptPending(uint64 indexed receipt, ActionType indexed action, bytes data);
+    event TransactionPending(uint64 indexed onchainTxId, TransactionVariant indexed action, bytes data);
 
     /// @notice Emitted when a withdrawal is claimed.
     event Withdrawal(address indexed account, uint256 amount);
@@ -116,23 +116,14 @@ interface ISuccinctVApp {
     ///      https://github.com/succinctlabs/sp1-contracts/tree/main/contracts/deployments
     function verifier() external view returns (address);
 
-    /// @notice The address of the fee vault, where protocol fees are sent.
-    function feeVault() external view returns (address);
-
     /// @notice The verification key for the vApp program.
     function vappProgramVKey() external view returns (bytes32);
 
     /// @notice The block number of the last state update.
     function blockNumber() external view returns (uint64);
 
-    /// @notice The maximum delay for actions to be committed, in seconds.
-    function maxActionDelay() external view returns (uint64);
-
     /// @notice The minimum amount for deposit/withdraw operations.
     function minDepositAmount() external view returns (uint256);
-
-    /// @notice The protocol fee in basis points.
-    function protocolFeeBips() external view returns (uint256);
 
     /// @notice The state root for the current block.
     function root() external view returns (bytes32);
@@ -140,11 +131,11 @@ interface ISuccinctVApp {
     /// @notice The timestamp for the current block.
     function timestamp() external view returns (uint64);
 
-    /// @notice Tracks the incrementing receipt counter.
-    function currentReceipt() external view returns (uint64);
+    /// @notice Tracks the incrementing onchainTx counter.
+    function currentOnchainTx() external view returns (uint64);
 
-    /// @notice The receipt of the last finalized deposit.
-    function finalizedReceipt() external view returns (uint64);
+    /// @notice The onchainTx of the last finalized deposit.
+    function finalizedOnchainTx() external view returns (uint64);
 
     /// @notice State root for each block.
     function roots(uint64 block) external view returns (bytes32);
@@ -155,11 +146,11 @@ interface ISuccinctVApp {
     /// @notice The claimable withdrawal amount for each account.
     function claimableWithdrawal(address account) external view returns (uint256);
 
-    /// @notice Receipts for pending actions
-    function receipts(uint64 receipt)
+    /// @notice Transactions for pending actions
+    function transactions(uint64 onchainTx)
         external
         view
-        returns (ActionType action, ReceiptStatus status, uint64 timestamp, bytes memory data);
+        returns (TransactionVariant action, TransactionStatus status, uint64 timestamp, bytes memory data);
 
     /// @notice Deposit funds into the vApp, must have already approved the contract as a spender.
     /// @param amount The amount of $PROVE to deposit.
@@ -202,29 +193,25 @@ interface ISuccinctVApp {
     /// @param prover The address of the prover.
     /// @param owner The address of the prover owner.
     /// @param stakerFeeBips The staker fee in basis points.
-    function registerProver(address prover, address owner, uint256 stakerFeeBips) external returns (uint64 receipt);
+    function createProver(address prover, address owner, uint256 stakerFeeBips) external returns (uint64 receipt);
 
     /// @notice Update the state of the vApp.
     /// @dev Reverts if the committed actions are invalid.
     /// @param publicValues The public values for the state update.
     /// @param proofBytes The proof bytes for the state update.
     /// @return The block number, the new state root, and the old state root.
-    function updateState(bytes calldata publicValues, bytes calldata proofBytes)
+    function step(bytes calldata publicValues, bytes calldata proofBytes)
         external
         returns (uint64, bytes32, bytes32);
 
     /// @notice Updates the vapp program verification key, forks the state root.
     /// @dev Only callable by the owner, executes a state update.
     /// @param vkey The new vkey.
-    /// @param newOldRoot The old root committed by the new program.
-    /// @param publicValues The encoded public values.
-    /// @param proofBytes The encoded proof.
+    /// @param newRoot The new root committed by the new program.
     /// @return The block number, the new state root, and the old state root.
     function fork(
         bytes32 vkey,
-        bytes32 newOldRoot,
-        bytes calldata publicValues,
-        bytes calldata proofBytes
+        bytes32 newRoot
     ) external returns (uint64, bytes32, bytes32);
 
     /// @notice Updates the succinct staking contract address.
@@ -237,23 +224,8 @@ interface ISuccinctVApp {
     /// @param verifier The new verifier address.
     function updateVerifier(address verifier) external;
 
-    /// @notice Updates the fee vault address.
-    /// @dev Only callable by the owner.
-    /// @param feeVault The new fee vault address.
-    function updateFeeVault(address feeVault) external;
-
-    /// @notice Updates the max action delay.
-    /// @dev Only callable by the owner.
-    /// @param delay The new max action delay.
-    function updateActionDelay(uint64 delay) external;
-
     /// @notice Updates the minimum amount for deposit/withdraw operations.
     /// @dev Only callable by the owner.
     /// @param amount The new minimum amount.
     function updateMinDepositAmount(uint256 amount) external;
-
-    /// @notice Updates the protocol fee in basis points.
-    /// @dev Only callable by the owner.
-    /// @param protocolFeeBips The new protocol fee in basis points.
-    function updateProtocolFeeBips(uint256 protocolFeeBips) external;
 }

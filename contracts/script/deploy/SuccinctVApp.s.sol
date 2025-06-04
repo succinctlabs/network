@@ -39,10 +39,10 @@ contract SuccinctVAppScript is BaseScript, FixtureLoader {
             I_PROVE,
             STAKING,
             VERIFIER,
-            FEE_VAULT,
             VKEY,
-            MAX_ACTION_DELAY,
-            PROTOCOL_FEE_BIPS
+            0,
+            bytes32(uint256(0)),
+            0
         );
 
         // Write address

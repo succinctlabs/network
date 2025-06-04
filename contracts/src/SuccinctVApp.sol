@@ -1,22 +1,20 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.28;
 
-import {
-    Receipt,
-    Actions,
-    ActionsInternal,
-    DepositInternal,
-    WithdrawInternal,
-    ProverInternal
-} from "./libraries/Actions.sol";
+import {Actions} from "./libraries/Actions.sol";
 import {
     PublicValuesStruct,
-    ReceiptStatus,
-    Action,
-    ActionType,
-    DepositAction,
-    WithdrawAction,
-    ProverAction
+    TransactionStatus,
+    Receipt,
+    Transaction,
+    TransactionVariant,
+    DepositTransaction,
+    WithdrawTransaction,
+    CreateProverTransaction,
+    ReceiptsInternal,
+    DepositReceipt,
+    WithdrawReceipt,
+    CreateProverReceipt
 } from "./libraries/PublicValues.sol";
 import {ISuccinctVApp} from "./interfaces/ISuccinctVApp.sol";
 import {ISuccinctStaking} from "./interfaces/ISuccinctStaking.sol";
@@ -55,14 +53,12 @@ contract SuccinctVApp is
 
     /// @inheritdoc ISuccinctVApp
     address public override iProve;
+
     /// @inheritdoc ISuccinctVApp
     address public override staking;
 
     /// @inheritdoc ISuccinctVApp
     address public override verifier;
-
-    /// @inheritdoc ISuccinctVApp
-    address public override feeVault;
 
     /// @inheritdoc ISuccinctVApp
     bytes32 public override vappProgramVKey;
@@ -71,19 +67,13 @@ contract SuccinctVApp is
     uint64 public override blockNumber;
 
     /// @inheritdoc ISuccinctVApp
-    uint64 public override maxActionDelay;
-
-    /// @inheritdoc ISuccinctVApp
     uint256 public override minDepositAmount;
 
     /// @inheritdoc ISuccinctVApp
-    uint256 public override protocolFeeBips;
+    uint64 public override currentOnchainTx;
 
     /// @inheritdoc ISuccinctVApp
-    uint64 public override currentReceipt;
-
-    /// @inheritdoc ISuccinctVApp
-    uint64 public override finalizedReceipt;
+    uint64 public override finalizedOnchainTx;
 
     /// @inheritdoc ISuccinctVApp
     mapping(address => uint256) public override claimableWithdrawal;
@@ -95,7 +85,7 @@ contract SuccinctVApp is
     mapping(uint64 => uint64) public override timestamps;
 
     /// @inheritdoc ISuccinctVApp
-    mapping(uint64 => Receipt) public override receipts;
+    mapping(uint64 => Transaction) public override transactions;
 
     /// @dev Modifier to ensure that the caller is the staking contract.
     modifier onlyStaking() {
@@ -119,17 +109,14 @@ contract SuccinctVApp is
         address _iProve,
         address _staking,
         address _verifier,
-        address _feeVault,
         bytes32 _vappProgramVKey,
-        uint64 _maxActionDelay,
         uint64 _freezeDuration,
-        uint256 _protocolFeeBips,
         bytes32 _genesisStateRoot,
         uint64 _genesisTimestamp
     ) external initializer {
         if (
             _owner == address(0) || _prove == address(0) || _staking == address(0)
-                || _verifier == address(0) || _feeVault == address(0)
+                || _verifier == address(0)
         ) {
             revert ZeroAddress();
         }
@@ -141,10 +128,7 @@ contract SuccinctVApp is
         iProve = _iProve;
         staking = _staking;
         verifier = _verifier;
-        feeVault = _feeVault;
         vappProgramVKey = _vappProgramVKey;
-        maxActionDelay = _maxActionDelay;
-        protocolFeeBips = _protocolFeeBips;
 
         // Set the genesis state root.
         roots[0] = _genesisStateRoot;
@@ -153,14 +137,11 @@ contract SuccinctVApp is
 
         _updateStaking(_staking);
         _updateVerifier(_verifier);
-        _updateFeeVault(_feeVault);
-        _updateActionDelay(_maxActionDelay);
-        _updateProtocolFeeBips(_protocolFeeBips);
 
         // Approve the $iPROVE contract to transfer $PROVE from this contract during prover withdrawal.
         IERC20(prove).approve(_iProve, type(uint256).max);
 
-        emit Fork(_vappProgramVKey, 0, _genesisStateRoot, bytes32(0));
+        emit Fork(_vappProgramVKey, blockNumber, _genesisStateRoot, bytes32(0));
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -207,6 +188,7 @@ contract SuccinctVApp is
         override
         returns (uint64 receipt)
     {
+        // TODO(jtguibas): maybe consider simplifying this in the future
         // Validate.
         if (_to == address(0)) revert ZeroAddress();
         if (_amount < minDepositAmount) revert TransferBelowMinimum();
@@ -251,7 +233,7 @@ contract SuccinctVApp is
     }
 
     /// @inheritdoc ISuccinctVApp
-    function registerProver(address _prover, address _owner, uint256 _stakerFeeBips)
+    function createProver(address _prover, address _owner, uint256 _stakerFeeBips)
         external
         onlyStaking
         returns (uint64 receipt)
@@ -261,12 +243,12 @@ contract SuccinctVApp is
         if (_owner != ISuccinctStaking(staking).ownerOf(_prover)) revert ProverNotOwned();
 
         // Create the receipt.
-        bytes memory data = abi.encode(ProverAction({prover: _prover, owner: _owner, stakerFeeBips: _stakerFeeBips}));
-        receipt = _createReceipt(ActionType.Prover, data);
+        bytes memory data = abi.encode(CreateProverTransaction({prover: _prover, owner: _owner, stakerFeeBips: _stakerFeeBips}));
+        receipt = _createTransaction(TransactionVariant.Prover, data);
     }
 
     /// @inheritdoc ISuccinctVApp
-    function updateState(bytes calldata _publicValues, bytes calldata _proofBytes)
+    function step(bytes calldata _publicValues, bytes calldata _proofBytes)
         public
         nonReentrant
         returns (uint64, bytes32, bytes32)
@@ -292,10 +274,10 @@ contract SuccinctVApp is
         roots[_block] = publicValues.newRoot;
         timestamps[_block] = publicValues.timestamp;
 
+        emit Block(_block, publicValues.newRoot, publicValues.oldRoot);
+
         // Commit the actions.
         _handleActions(publicValues);
-
-        emit Block(_block, publicValues.newRoot, publicValues.oldRoot);
 
         return (_block, publicValues.newRoot, publicValues.oldRoot);
     }
@@ -307,25 +289,22 @@ contract SuccinctVApp is
     /// @inheritdoc ISuccinctVApp
     function fork(
         bytes32 _vkey,
-        bytes32 _newOldRoot,
-        bytes calldata _publicValues,
-        bytes calldata _proofBytes
+        bytes32 _newRoot
     ) external override onlyOwner returns (uint64, bytes32, bytes32) {
         // Update the vkey.
         vappProgramVKey = _vkey;
 
+        // Get the old root.
+        bytes32 _oldRoot = roots[blockNumber];
+
         // Update the root and produce a new block.
-        bytes32 _oldRoot = bytes32(0);
-        uint64 _block = blockNumber;
-        if (_block != 0) {
-            _oldRoot = roots[_block];
-        }
-        roots[++_block] = _newOldRoot;
+        uint64 _block = ++blockNumber;
+        roots[_block] = _newRoot;
 
-        emit Block(_block, _newOldRoot, _oldRoot);
-        emit Fork(vappProgramVKey, _block, _newOldRoot, _oldRoot);
+        emit Block(_block, _newRoot, _oldRoot);
+        emit Fork(vappProgramVKey, _block, _newRoot, _oldRoot);
 
-        return updateState(_publicValues, _proofBytes);
+        return (_block, _newRoot, _oldRoot);
     }
 
     /// @inheritdoc ISuccinctVApp
@@ -339,23 +318,8 @@ contract SuccinctVApp is
     }
 
     /// @inheritdoc ISuccinctVApp
-    function updateFeeVault(address _feeVault) external override onlyOwner {
-        _updateFeeVault(_feeVault);
-    }
-
-    /// @inheritdoc ISuccinctVApp
-    function updateActionDelay(uint64 _maxActionDelay) external override onlyOwner {
-        _updateActionDelay(_maxActionDelay);
-    }
-
-    /// @inheritdoc ISuccinctVApp
     function updateMinDepositAmount(uint256 _amount) external override onlyOwner {
         _updateMinDepositAmount(_amount);
-    }
-
-    /// @inheritdoc ISuccinctVApp
-    function updateProtocolFeeBips(uint256 _protocolFeeBips) external override onlyOwner {
-        _updateProtocolFeeBips(_protocolFeeBips);
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -371,8 +335,8 @@ contract SuccinctVApp is
 
         // Create the receipt.
         bytes memory data =
-            abi.encode(DepositAction({account: _from, amount: _amount, token: prove}));
-        receipt = _createReceipt(ActionType.Deposit, data);
+            abi.encode(DepositTransaction({account: _from, amount: _amount}));
+        receipt = _createTransaction(TransactionVariant.Deposit, data);
 
         // Transfer $PROVE from the sender to the VApp.
         IERC20(prove).safeTransferFrom(_from, address(this), _amount);
@@ -391,98 +355,97 @@ contract SuccinctVApp is
 
         // Create the receipt.
         bytes memory data =
-            abi.encode(WithdrawAction({account: _from, amount: _amount, to: _to, token: prove}));
-        receipt = _createReceipt(ActionType.Withdraw, data);
+            abi.encode(WithdrawTransaction({account: _from, to: _to, amount: _amount}));
+        receipt = _createTransaction(TransactionVariant.Withdraw, data);
     }
 
     /// @dev Creates a receipt for an action.
-    function _createReceipt(ActionType _actionType, bytes memory _data)
+    function _createTransaction(TransactionVariant _transactionVariant, bytes memory _data)
         internal
-        returns (uint64 receipt)
+        returns (uint64 onchainTx)
     {
-        receipt = ++currentReceipt;
-        receipts[receipt] = Receipt({
-            action: _actionType,
-            status: ReceiptStatus.Pending,
-            timestamp: uint64(block.timestamp),
+        onchainTx = ++currentOnchainTx;
+        transactions[onchainTx] = Transaction({
+            variant: _transactionVariant,
+            status: TransactionStatus.Pending,
+            onchainTx: onchainTx,
             data: _data
         });
 
-        emit ReceiptPending(receipt, _actionType, _data);
+        emit TransactionPending(onchainTx, _transactionVariant, _data);
     }
 
     /// @dev Handles committed actions, reverts if the actions are invalid
     function _handleActions(PublicValuesStruct memory _publicValues) internal {
         // Validate the actions.
         Actions.validate(
-            receipts,
-            _publicValues.actions,
-            finalizedReceipt,
-            currentReceipt,
-            uint64(block.timestamp),
-            maxActionDelay
+            transactions,
+            _publicValues.receipts,
+            finalizedOnchainTx,
+            currentOnchainTx,
+            uint64(block.timestamp)
         );
 
         // Execute the actions.
-        ActionsInternal memory decoded = Actions.decode(_publicValues.actions);
-        _depositActions(decoded.deposits);
-        _requestWithdrawActions(decoded.withdrawals);
-        _setProverActions(decoded.provers);
+        ReceiptsInternal memory decoded = Actions.decode(_publicValues.receipts);
+        // _depositActions(decoded.deposits);
+        // _requestWithdrawActions(decoded.withdrawals);
+        // _setProverActions(decoded.provers);
 
         // Update the last finalized receipt.
-        if (decoded.lastReceipt != 0) {
-            finalizedReceipt = decoded.lastReceipt;
-        }
+        // if (decoded.lastTxId != 0) {
+        //     finalizedOnchainTx = decoded.lastTxId;
+        // }
     }
 
     /// @dev Handles deposit actions.
-    function _depositActions(DepositInternal[] memory _actions) internal {
+    function _depositActions(DepositReceipt[] memory _actions) internal {
         for (uint64 i = 0; i < _actions.length; i++) {
-            receipts[_actions[i].action.receipt].status = _actions[i].action.status;
+            transactions[_actions[i].receipt.onchainTx].status = _actions[i].receipt.status;
 
-            emit ReceiptCompleted(
-                _actions[i].action.receipt, ActionType.Deposit, _actions[i].action.data
+            emit TransactionCompleted(
+                _actions[i].receipt.onchainTx, TransactionVariant.Deposit, _actions[i].receipt.data
             );
         }
     }
 
     /// @dev Handles withdraw actions.
-    function _requestWithdrawActions(WithdrawInternal[] memory _actions) internal {
+    function _requestWithdrawActions(WithdrawReceipt[] memory _actions) internal {
         for (uint64 i = 0; i < _actions.length; i++) {
             // Only update if there is a corresponding receipt.
-            if (_actions[i].action.receipt != 0) {
-                receipts[_actions[i].action.receipt].status = _actions[i].action.status;
+            if (_actions[i].receipt.onchainTx != 0) {
+                transactions[_actions[i].receipt.onchainTx].status = _actions[i].receipt.status;
 
-                if (_actions[i].action.status == ReceiptStatus.Failed) {
-                    emit ReceiptFailed(
-                        _actions[i].action.receipt, ActionType.Withdraw, _actions[i].action.data
+                if (_actions[i].receipt.status == TransactionStatus.Failed) {
+                    emit TransactionFailed(
+                        _actions[i].receipt.onchainTx, TransactionVariant.Withdraw, _actions[i].receipt.data
                     );
                 }
             }
 
             // Handle the action status.
-            if (_actions[i].action.status == ReceiptStatus.Completed) {
+            if (_actions[i].receipt.status == TransactionStatus.Completed) {
                 // Process the withdrawal.
                 _processWithdraw(_actions[i].data.to, _actions[i].data.amount);
 
-                emit ReceiptCompleted(
-                    _actions[i].action.receipt, ActionType.Withdraw, _actions[i].action.data
+                emit TransactionCompleted(
+                    _actions[i].receipt.onchainTx, TransactionVariant.Withdraw, _actions[i].receipt.data
                 );
             }
         }
     }
 
     /// @dev Handles add signer actions.
-    function _setProverActions(ProverInternal[] memory _actions) internal {
+    function _setProverActions(CreateProverReceipt[] memory _actions) internal {
         for (uint64 i = 0; i < _actions.length; i++) {
-            receipts[_actions[i].action.receipt].status = _actions[i].action.status;
+            transactions[_actions[i].receipt.onchainTx].status = _actions[i].receipt.status;
 
-            if (_actions[i].action.status == ReceiptStatus.Completed) {
+            if (_actions[i].receipt.status == TransactionStatus.Completed) {
 
-                emit ReceiptCompleted(
-                    _actions[i].action.receipt,
-                    ActionType.Prover,
-                    _actions[i].action.data
+                emit TransactionCompleted(
+                    _actions[i].receipt.onchainTx,
+                    TransactionVariant.Prover,
+                    _actions[i].receipt.data
                 );
             }
         }
@@ -508,32 +471,11 @@ contract SuccinctVApp is
         verifier = _verifier;
     }
 
-    /// @dev Updates the fee vault.
-    function _updateFeeVault(address _feeVault) internal {
-        emit FeeVaultUpdate(feeVault, _feeVault);
-
-        feeVault = _feeVault;
-    }
-
-    /// @dev Updates the action delay.
-    function _updateActionDelay(uint64 _maxActionDelay) internal {
-        emit MaxActionDelayUpdate(maxActionDelay, _maxActionDelay);
-
-        maxActionDelay = _maxActionDelay;
-    }
-
     /// @dev Updates the minimum amount for deposit/withdraw operations.
     function _updateMinDepositAmount(uint256 _amount) internal {
         emit MinDepositAmountUpdate(minDepositAmount, _amount);
 
         minDepositAmount = _amount;
-    }
-
-    /// @dev Updates the protocol fee in basis points.
-    function _updateProtocolFeeBips(uint256 _protocolFeeBips) internal {
-        emit ProtocolFeeBipsUpdate(protocolFeeBips, _protocolFeeBips);
-
-        protocolFeeBips = _protocolFeeBips;
     }
 
     /// @dev Authorizes an ERC1967 proxy upgrade to a new implementation contract.

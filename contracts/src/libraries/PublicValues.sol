@@ -1,55 +1,87 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.28;
 
-/// @notice The type of action to be taken.
-enum ActionType {
+/// @notice The type of transaction.
+enum TransactionVariant {
     Deposit,
     Withdraw,
     Prover
 }
 
-/// @notice The status of a receipt
-enum ReceiptStatus {
+/// @notice The status of a transaction.
+enum TransactionStatus {
     None,
     Pending,
     Completed,
     Failed
 }
-/// @notice The public values encoded as a struct that can be easily deserialized inside Solidity.
 
-struct PublicValuesStruct {
-    bytes32 oldRoot;
-    bytes32 newRoot;
-    uint64 timestamp;
-    Action[] actions;
-}
-
-/// @notice The action to be taken.
-struct Action {
-    ActionType action;
-    ReceiptStatus status;
-    uint64 receipt;
+/// @notice A transaction.
+struct Transaction {
+    TransactionVariant variant;
+    TransactionStatus status;
+    uint64 onchainTx;
     bytes data;
 }
 
 /// @notice The action data for a deposit.
-struct DepositAction {
+struct DepositTransaction {
     address account;
-    address token; // TODO: Remove, only $PROVE is supported
     uint256 amount;
 }
 
 /// @notice The action data for a withdraw.
-struct WithdrawAction {
+struct WithdrawTransaction {
     address account;
     address to;
-    address token; // TODO: Remove, only $PROVE is supported
     uint256 amount;
 }
 
 /// @notice The action data for an add signer.
-struct ProverAction {
+struct CreateProverTransaction {
     address prover;
     address owner;
     uint256 stakerFeeBips;
+}
+
+/// @notice The receipt for a transaction.
+struct Receipt {
+    TransactionVariant variant;
+    TransactionStatus status;
+    uint64 onchainTx;
+    bytes data;
+}
+
+/// @notice Internal decoded actions
+struct ReceiptsInternal {
+    uint64 lastTxId;
+    DepositReceipt[] deposits;
+    WithdrawReceipt[] withdrawals;
+    CreateProverReceipt[] provers;
+}
+
+/// @notice Internal deposit action
+struct DepositReceipt {
+    Receipt receipt;
+    DepositTransaction data;
+}
+
+/// @notice Internal withdraw action
+struct WithdrawReceipt {
+    Receipt receipt;
+    WithdrawTransaction data;
+}
+
+/// @notice Internal add signer action
+struct CreateProverReceipt {
+    Receipt receipt;
+    CreateProverTransaction data;
+}
+
+/// @notice The public values encoded as a struct that can be easily deserialized inside Solidity.
+struct PublicValuesStruct {
+    bytes32 oldRoot;
+    bytes32 newRoot;
+    uint64 timestamp;
+    Receipt[] receipts;
 }

@@ -7,57 +7,58 @@ import {ISuccinctVApp} from "../src/interfaces/ISuccinctVApp.sol";
 import {Actions} from "../src/libraries/Actions.sol";
 import {
     PublicValuesStruct,
-    ReceiptStatus,
-    Action,
-    ActionType,
-    DepositAction,
-    WithdrawAction,
-    ProverAction
+    TransactionStatus,
+    Receipt,
+    TransactionVariant,
+    DepositTransaction,
+    WithdrawTransaction,
+    CreateProverTransaction
 } from "../src/libraries/PublicValues.sol";
 import {ISuccinctVApp} from "../src/interfaces/ISuccinctVApp.sol";
 import {MockStaking} from "../src/mocks/MockStaking.sol";
+import {console} from "forge-std/console.sol";
 
 contract SuccinctVAppDelegateTest is SuccinctVAppTest {
     function test_Prover_WhenProverCreated() public {
 		// Create the prover, this emits a Prover action for the prover owner being
 		// a delegate of the prover.
 		vm.expectEmit(true, true, true, false);
-        emit ISuccinctVApp.ReceiptPending(1, ActionType.Prover, bytes(""));
+        emit ISuccinctVApp.TransactionPending(1, TransactionVariant.Prover, bytes(""));
         vm.prank(ALICE);
         address aliceProver = MockStaking(STAKING).createProver(ALICE, STAKER_FEE_BIPS);
 
 		// The expected action data for alice creating a prover.
         bytes memory expectedProverData =
-            abi.encode(ProverAction({prover: aliceProver, owner: ALICE, stakerFeeBips: STAKER_FEE_BIPS}));
+            abi.encode(CreateProverTransaction({prover: aliceProver, owner: ALICE, stakerFeeBips: STAKER_FEE_BIPS}));
 
-        (ActionType actionType, ReceiptStatus status,, bytes memory data) =
-            SuccinctVApp(VAPP).receipts(SuccinctVApp(VAPP).currentReceipt());
-        assertEq(uint8(actionType), uint8(ActionType.Prover));
-        assertEq(uint8(status), uint8(ReceiptStatus.Pending));
+        (TransactionVariant actionType, TransactionStatus status,, bytes memory data) =
+            SuccinctVApp(VAPP).transactions(SuccinctVApp(VAPP).currentOnchainTx());
+        assertEq(uint8(actionType), uint8(TransactionVariant.Prover));
+        assertEq(uint8(status), uint8(TransactionStatus.Pending));
         assertEq(data, expectedProverData);
 
         // Process the first setDelegatedSigner action through state update
         PublicValuesStruct memory publicValues1 = PublicValuesStruct({
-            actions: new Action[](1),
+            receipts: new TxReceipt[](1),
             oldRoot: bytes32(0),
             newRoot: bytes32(uint256(1)),
             timestamp: uint64(block.timestamp)
         });
-        publicValues1.actions[0] = Action({
-            action: ActionType.Prover,
-            status: ReceiptStatus.Completed,
-            receipt: SuccinctVApp(VAPP).currentReceipt(),
+        publicValues1.receipts[0] = Receipt({
+            variant: TransactionVariant.Prover,
+            status: TransactionStatus.Completed,
+            onchainTx: SuccinctVApp(VAPP).currentOnchainTx(),
             data: expectedProverData
         });
 
-        mockCall(true);
+        // mockCall(true);
         vm.expectEmit(true, true, true, true);
         emit ISuccinctVApp.Block(1, publicValues1.newRoot, publicValues1.oldRoot);
-        SuccinctVApp(VAPP).updateState(abi.encode(publicValues1), jsonFixture.proof);
+        SuccinctVApp(VAPP).step(abi.encode(publicValues1), jsonFixture.proof);
 
         // Verify receipt status updated
-        (, status,,) = SuccinctVApp(VAPP).receipts(SuccinctVApp(VAPP).currentReceipt());
-        assertEq(uint8(status), uint8(ReceiptStatus.Completed));
-        assertEq(SuccinctVApp(VAPP).finalizedReceipt(), 1);
+        (, status,,) = SuccinctVApp(VAPP).transactions(SuccinctVApp(VAPP).currentOnchainTx());
+        assertEq(uint8(status), uint8(TransactionStatus.Completed));
+        assertEq(SuccinctVApp(VAPP).finalizedOnchainTx(), 1);
     }
 }

@@ -8,12 +8,12 @@ import {ISuccinctVApp} from "../src/interfaces/ISuccinctVApp.sol";
 import {Actions} from "../src/libraries/Actions.sol";
 import {
     PublicValuesStruct,
-    ReceiptStatus,
-    Action,
-    ActionType,
-    DepositAction,
-    WithdrawAction,
-    ProverAction
+    TransactionStatus,
+    Receipt,
+    TransactionVariant,
+    DepositTransaction,
+    WithdrawTransaction,
+    CreateProverTransaction
 } from "../src/libraries/PublicValues.sol";
 import {MockStaking} from "../src/mocks/MockStaking.sol";
 import {MockVerifier} from "../src/mocks/MockVerifier.sol";
@@ -32,6 +32,7 @@ contract SuccinctVAppTest is Test, FixtureLoader {
     // Constants
     uint256 constant FEE_UNIT = 10000;
     uint64 constant MAX_ACTION_DELAY = 1 days;
+    uint64 constant FREEZE_DURATION = 7 days;
     uint256 constant PROTOCOL_FEE_BIPS = 30; // 0.3%
     uint256 constant STAKER_FEE_BIPS = 1000; // 10%
     // Fixtures
@@ -64,8 +65,8 @@ contract SuccinctVAppTest is Test, FixtureLoader {
             abi.decode(jsonFixture.publicValues, (PublicValuesStruct));
         fixture.oldRoot = _fixture.oldRoot;
         fixture.newRoot = _fixture.newRoot;
-        for (uint256 i = 0; i < _fixture.actions.length; i++) {
-            fixture.actions.push(_fixture.actions[i]);
+        for (uint256 i = 0; i < _fixture.receipts.length; i++) {
+            fixture.receipts.push(_fixture.receipts[i]);
         }
 
         // Create owner
@@ -101,10 +102,10 @@ contract SuccinctVAppTest is Test, FixtureLoader {
             I_PROVE,
             STAKING,
             VERIFIER,
-            FEE_VAULT,
             jsonFixture.vkey,
-            MAX_ACTION_DELAY,
-            PROTOCOL_FEE_BIPS
+            FREEZE_DURATION,
+            bytes32(0), // genesisStateRoot
+            uint64(block.timestamp) // genesisTimestamp
         );
         MockStaking(STAKING).setVApp(VAPP);
     }
@@ -154,10 +155,10 @@ contract SuccinctVAppSetupTests is SuccinctVAppTest {
         assertEq(SuccinctVApp(VAPP).iProve(), I_PROVE);
         assertEq(SuccinctVApp(VAPP).staking(), STAKING);
         assertEq(SuccinctVApp(VAPP).verifier(), VERIFIER);
-        assertEq(SuccinctVApp(VAPP).feeVault(), FEE_VAULT);
+        // assertEq(SuccinctVApp(VAPP).feeVault(), FEE_VAULT);
         assertEq(SuccinctVApp(VAPP).vappProgramVKey(), jsonFixture.vkey);
-        assertEq(SuccinctVApp(VAPP).maxActionDelay(), 1 days);
-        assertEq(SuccinctVApp(VAPP).protocolFeeBips(), PROTOCOL_FEE_BIPS);
+        // assertEq(SuccinctVApp(VAPP).maxActionDelay(), 1 days);
+        // assertEq(SuccinctVApp(VAPP).protocolFeeBips(), PROTOCOL_FEE_BIPS);
         assertEq(SuccinctVApp(VAPP).blockNumber(), 0);
     }
 
@@ -169,10 +170,10 @@ contract SuccinctVAppSetupTests is SuccinctVAppTest {
             I_PROVE,
             STAKING,
             VERIFIER,
-            FEE_VAULT,
             jsonFixture.vkey,
-            MAX_ACTION_DELAY,
-            PROTOCOL_FEE_BIPS
+            FREEZE_DURATION,
+            bytes32(0), // genesisStateRoot
+            uint64(block.timestamp) // genesisTimestamp
         );
     }
 }
