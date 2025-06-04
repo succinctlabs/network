@@ -1,0 +1,28 @@
+[package]
+name = "spn-metrics"
+description = ""
+readme = "README.md"
+version = { workspace = true }
+edition = { workspace = true }
+license = { workspace = true }
+repository = { workspace = true }
+keywords = { workspace = true }
+categories = { workspace = true }
+
+[dependencies]
+metrics = { workspace = true }
+eyre = { workspace = true }
+metrics-exporter-prometheus = { workspace = true }
+metrics-process = { workspace = true }
+metrics-util = { workspace = true }
+metrics-derive = { workspace = true }
+tokio = { workspace = true }
+tracing = { workspace = true }
+once_cell = { workspace = true }
+
+[target.'cfg(target_os = "linux")'.dependencies]
+procfs = "0.16.0"
+
+[dev-dependencies]
+reqwest = { workspace = true }
+socket2 = { workspace = true }
