@@ -48,6 +48,7 @@ contract SuccinctVAppStateTest is SuccinctVAppTest {
         assertEq(SuccinctVApp(VAPP).root(), fixture.newRoot);
 
         PublicValuesStruct memory publicValues = PublicValuesStruct({
+            txId: 1,
             receipts: new TxReceipt[](0),
             oldRoot: fixture.newRoot,
             newRoot: bytes32(uint256(2)),
@@ -75,6 +76,7 @@ contract SuccinctVAppStateTest is SuccinctVAppTest {
 
     function test_RevertUpdateState_WhenInvalidRoot() public {
         PublicValuesStruct memory publicValues = PublicValuesStruct({
+            txId: 1,
             receipts: new TxReceipt[](0),
             oldRoot: bytes32(0),
             newRoot: bytes32(0),
@@ -93,6 +95,7 @@ contract SuccinctVAppStateTest is SuccinctVAppTest {
         assertEq(SuccinctVApp(VAPP).root(), fixture.newRoot);
 
         PublicValuesStruct memory publicValues = PublicValuesStruct({
+            txId: 1,
             receipts: new TxReceipt[](0),
             oldRoot: bytes32(0),
             newRoot: bytes32(uint256(2)),
@@ -108,6 +111,7 @@ contract SuccinctVAppStateTest is SuccinctVAppTest {
 
         // Create public values with a future timestamp
         PublicValuesStruct memory publicValues = PublicValuesStruct({
+            txId: 1,
             receipts: new TxReceipt[](0),
             oldRoot: fixture.oldRoot,
             newRoot: bytes32(uint256(1)),
@@ -124,6 +128,7 @@ contract SuccinctVAppStateTest is SuccinctVAppTest {
         // First update with current timestamp
         uint64 initialTime = uint64(block.timestamp);
         PublicValuesStruct memory initialPublicValues = PublicValuesStruct({
+            txId: 1,
             receipts: new TxReceipt[](0),
             oldRoot: fixture.oldRoot,
             newRoot: bytes32(uint256(1)),
@@ -138,6 +143,7 @@ contract SuccinctVAppStateTest is SuccinctVAppTest {
 
         // Create public values with a timestamp earlier than the previous block
         PublicValuesStruct memory publicValues = PublicValuesStruct({
+            txId: 2,
             receipts: new TxReceipt[](0),
             oldRoot: bytes32(uint256(1)),
             newRoot: bytes32(uint256(2)),

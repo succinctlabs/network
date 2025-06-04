@@ -352,8 +352,7 @@ contract SuccinctVApp is
         }
 
         // Create the receipt.
-        bytes memory data =
-            abi.encode(WithdrawTransaction({account: _from, to: _to, amount: _amount}));
+        bytes memory data = abi.encode(Withdraw({account: _from, amount: _amount}));
         receipt = _createTransaction(TransactionVariant.Withdraw, data);
     }
 
@@ -408,9 +407,8 @@ contract SuccinctVApp is
             if (variant == TransactionVariant.Deposit) {
                 // No-op.
             } else if (variant == TransactionVariant.Withdraw) {
-                WithdrawTransaction memory withdraw =
-                    abi.decode(_publicValues.receipts[i].data, (WithdrawTransaction));
-                _processWithdraw(withdraw.to, withdraw.amount);
+                Withdraw memory withdraw = abi.decode(_publicValues.receipts[i].action, (Withdraw));
+                _processWithdraw(withdraw.account, withdraw.amount);
             } else if (variant == TransactionVariant.CreateProver) {
                 // No-op.
             } else {
@@ -423,9 +421,9 @@ contract SuccinctVApp is
     }
 
     /// @dev Processes a withdrawal by creating a claim for the amount.
-    function _processWithdraw(address _to, uint256 _amount) internal {
+    function _processWithdraw(address _account, uint256 _amount) internal {
         // Update the state.
-        claimableWithdrawal[_to] += _amount;
+        claimableWithdrawal[_account] += _amount;
     }
 
     /// @dev Updates the staking contract.

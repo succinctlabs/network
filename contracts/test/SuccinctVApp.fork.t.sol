@@ -43,6 +43,7 @@ contract SuccinctVAppForkTest is SuccinctVAppTest {
         mockCall(true);
 
         PublicValuesStruct memory publicValues1 = PublicValuesStruct({
+            txId: 1,
             receipts: new TxReceipt[](0),
             oldRoot: fixture.oldRoot,
             newRoot: bytes32(uint256(1)),

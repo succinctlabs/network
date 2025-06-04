@@ -53,7 +53,6 @@ struct DepositTransaction {
 /// @notice The action data for a withdraw.
 struct WithdrawTransaction {
     address account;
-    address to;
     uint256 amount;
 }
 

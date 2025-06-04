@@ -44,6 +44,7 @@ contract SuccinctVAppDelegateTest is SuccinctVAppTest {
 
         // Process the first setDelegatedSigner action through state update
         PublicValuesStruct memory publicValues1 = PublicValuesStruct({
+            txId: 1,
             receipts: new VAppReceipt[](1),
             oldRoot: fixture.oldRoot,
             newRoot: bytes32(uint256(1)),

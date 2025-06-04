@@ -64,9 +64,6 @@ library Receipts {
         if (withdraw.amount != withdrawReceipt.amount) {
             revert TransactionReceiptMismatch(TransactionVariant.Withdraw, _receipt.onchainTx);
         }
-        if (withdraw.to != withdrawReceipt.to) {
-            revert TransactionReceiptMismatch(TransactionVariant.Withdraw, _receipt.onchainTx);
-        }
     }
 
     /// @dev Asserts that the prover transaction matches the receipt.
