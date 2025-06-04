@@ -52,8 +52,8 @@ contract SuccinctVAppDelegateTest is SuccinctVAppTest {
         publicValues1.receipts[0] = VAppReceipt({
             variant: TransactionVariant.CreateProver,
             status: TransactionStatus.Completed,
-            onchainTx: SuccinctVApp(VAPP).currentOnchainTx(),
-            data: expectedProverData
+            onchainTx: SuccinctVApp(VAPP).currentOnchainTxId(),
+            action: expectedProverData
         });
 
         mockCall(true);
@@ -64,6 +64,6 @@ contract SuccinctVAppDelegateTest is SuccinctVAppTest {
         // Verify receipt status updated
         (, status,,) = SuccinctVApp(VAPP).transactions(SuccinctVApp(VAPP).currentOnchainTx());
         assertEq(uint8(status), uint8(TransactionStatus.Completed));
-        // assertEq(SuccinctVApp(VAPP).finalizedOnchainTx(), 1);
+        // assertEq(SuccinctVApp(VAPP).finalizedOnchainTxId(), 1);
     }
 }

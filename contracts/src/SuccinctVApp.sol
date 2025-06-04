@@ -367,7 +367,7 @@ contract SuccinctVApp is
             variant: _transactionVariant,
             status: TransactionStatus.Pending,
             onchainTx: onchainTx,
-            data: _data
+            action: _data
         });
 
         emit TransactionPending(onchainTx, _transactionVariant, _data);
@@ -378,7 +378,7 @@ contract SuccinctVApp is
         // Execute the receipts.
         for (uint64 i = 0; i < _publicValues.receipts.length; i++) {
             // Increment the finalized onchain transaction ID.
-            uint64 onchainTx = ++finalizedOnchainTx;
+            uint64 onchainTx = ++finalizedOnchainTxId;
 
             // Ensure that the receipt is consistent with the transaction.
             Receipts.assertEq(transactions[onchainTx], _publicValues.receipts[i]);
@@ -400,7 +400,7 @@ contract SuccinctVApp is
             // If the transaction failed, emit the revert event and skip the rest of the loop.
             TransactionVariant variant = _publicValues.receipts[i].variant;
             if (status == TransactionStatus.Reverted) {
-                emit TransactionReverted(onchainTx, variant, _publicValues.receipts[i].data);
+                emit TransactionReverted(onchainTx, variant, _publicValues.receipts[i].action);
                 continue;
             }
 
@@ -417,7 +417,7 @@ contract SuccinctVApp is
             }
 
             // Emit the completed event.
-            emit TransactionCompleted(onchainTx, variant, _publicValues.receipts[i].data);
+            emit TransactionCompleted(onchainTx, variant, _publicValues.receipts[i].action);
         }
     }
 

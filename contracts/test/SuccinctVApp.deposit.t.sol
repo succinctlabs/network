@@ -55,7 +55,7 @@ contract SuccinctVAppDepositTest is SuccinctVAppTest {
             variant: TransactionVariant.Deposit,
             status: TransactionStatus.Completed,
             onchainTx: 1,
-            data: data
+            action: data
         });
 
         mockCall(true);
@@ -104,7 +104,7 @@ contract SuccinctVAppDepositTest is SuccinctVAppTest {
             variant: TransactionVariant.Deposit,
             status: TransactionStatus.Completed,
             onchainTx: 1,
-            data: data
+            action: data
         });
 
         mockCall(true);

@@ -42,7 +42,7 @@ contract SuccinctVAppWithdrawTest is SuccinctVAppTest {
             variant: TransactionVariant.Deposit,
             status: TransactionStatus.Completed,
             onchainTx: depositReceipt,
-            data: depositData
+            action: depositData
         });
 
         mockCall(true);
@@ -83,7 +83,7 @@ contract SuccinctVAppWithdrawTest is SuccinctVAppTest {
             variant: TransactionVariant.Withdraw,
             status: TransactionStatus.Completed,
             onchainTx: withdrawReceipt,
-            data: withdrawData
+            action: withdrawData
         });
 
         mockCall(true);
@@ -144,7 +144,7 @@ contract SuccinctVAppWithdrawTest is SuccinctVAppTest {
             variant: TransactionVariant.Deposit,
             status: TransactionStatus.Completed,
             onchainTx: depositReceipt,
-            data: depositData
+            action: depositData
         });
 
         mockCall(true);

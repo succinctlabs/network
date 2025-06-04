@@ -1,6 +1,30 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.28;
 
+/// @notice A transaction.
+struct Transaction {
+    /// @notice The variant of the transaction.
+    TransactionVariant variant;
+    /// @notice The status of the transaction.
+    TransactionStatus status;
+    /// @notice The onchain transaction ID.
+    uint64 onchainTx;
+    /// @notice The action of one of {Deposit, Withdraw, CreateProver}.
+    bytes action;
+}
+
+/// @notice The receipt for a transaction.
+struct Receipt {
+    /// @notice The variant of the transaction.
+    TransactionVariant variant;
+    /// @notice The status of the transaction.
+    TransactionStatus status;
+    /// @notice The onchain transaction ID.
+    uint64 onchainTx;
+    /// @notice The action of one of {Deposit, Withdraw, CreateProver}.
+    bytes action;
+}
+
 /// @notice The type of transaction.
 enum TransactionVariant {
     Deposit,
@@ -18,30 +42,6 @@ enum TransactionStatus {
     Completed,
     /// The transaction reverted during execution.
     Reverted
-}
-
-/// @notice A transaction.
-struct Transaction {
-    /// @notice The variant of the transaction.
-    TransactionVariant variant;
-    /// @notice The status of the transaction.
-    TransactionStatus status;
-    /// @notice The onchain transaction ID.
-    uint64 onchainTx;
-    /// @notice The data of one of {DepositTransaction, WithdrawTransaction, CreateProverTransaction}.
-    bytes data;
-}
-
-/// @notice The receipt for a transaction.
-struct Receipt {
-    /// @notice The variant of the transaction.
-    TransactionVariant variant;
-    /// @notice The status of the transaction.
-    TransactionStatus status;
-    /// @notice The onchain transaction ID.
-    uint64 onchainTx;
-    /// @notice The data of one of {DepositTransaction, WithdrawTransaction, CreateProverTransaction}.
-    bytes data;
 }
 
 /// @notice The action data for a deposit.
