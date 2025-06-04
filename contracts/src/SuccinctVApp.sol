@@ -377,14 +377,13 @@ contract SuccinctVApp is
 
     /// @dev Handles committed actions, reverts if the actions are invalid
     function _handleReceipts(PublicValuesStruct memory _publicValues) internal {
-        // Validate that the receipts are consistent with the transactions we send and are
-        // the ones we expect to be processed.
-        Receipts.validate(transactions, _publicValues.receipts, finalizedOnchainTx);
-
         // Execute the receipts.
         for (uint64 i = 0; i < _publicValues.receipts.length; i++) {
             // Increment the finalized onchain transaction ID.
             uint64 onchainTx = ++finalizedOnchainTx;
+
+            // Ensure that the receipt is consistent with the transaction.
+            Receipts.assertEq(transactions[onchainTx], _publicValues.receipts[i]);
 
             // Ensure that the receipt is the next one to be processed.
             if (onchainTx != _publicValues.receipts[i].onchainTx) {
