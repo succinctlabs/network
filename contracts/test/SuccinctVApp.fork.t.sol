@@ -6,7 +6,7 @@ import {SuccinctVApp} from "../src/SuccinctVApp.sol";
 import {ISuccinctVApp} from "../src/interfaces/ISuccinctVApp.sol";
 import {Receipts} from "../src/libraries/Receipts.sol";
 import {
-    PublicValuesStruct,
+    Step,
     TransactionStatus,
     Receipt as TxReceipt,
     TransactionVariant,
@@ -42,8 +42,8 @@ contract SuccinctVAppForkTest is SuccinctVAppTest {
         // Update state
         mockCall(true);
 
-        PublicValuesStruct memory publicValues1 = PublicValuesStruct({
-            txId: 1,
+        Step memory publicValues1 = Step({
+            txId: 2,
             receipts: new TxReceipt[](0),
             oldRoot: fixture.oldRoot,
             newRoot: bytes32(uint256(1)),

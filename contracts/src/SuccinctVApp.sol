@@ -3,7 +3,7 @@ pragma solidity ^0.8.28;
 
 import {Receipts} from "./libraries/Receipts.sol";
 import {
-    PublicValuesStruct,
+    Step,
     TransactionStatus,
     Receipt,
     Transaction,
@@ -251,7 +251,7 @@ contract SuccinctVApp is
     {
         // Verify the proof.
         ISP1Verifier(verifier).verifyProof(vappProgramVKey, _publicValues, _proofBytes);
-        PublicValuesStruct memory publicValues = abi.decode(_publicValues, (PublicValuesStruct));
+        Step memory publicValues = abi.decode(_publicValues, (Step));
         if (publicValues.newRoot == bytes32(0)) revert InvalidRoot();
 
         // Verify the old root.
@@ -373,7 +373,7 @@ contract SuccinctVApp is
     }
 
     /// @dev Handles committed actions, reverts if the actions are invalid
-    function _handleReceipts(PublicValuesStruct memory _publicValues) internal {
+    function _handleReceipts(Step memory _publicValues) internal {
         // Execute the receipts.
         for (uint64 i = 0; i < _publicValues.receipts.length; i++) {
             // Increment the finalized onchain transaction ID.

@@ -72,7 +72,8 @@ struct DecodedReceipts {
 }
 
 /// @notice The public values encoded as a struct that can be easily deserialized inside Solidity.
-struct PublicValuesStruct {
+struct Step {
+    uint64 txId;
     bytes32 oldRoot;
     bytes32 newRoot;
     uint64 timestamp;

@@ -7,7 +7,7 @@ import {SuccinctVApp} from "../src/SuccinctVApp.sol";
 import {ISuccinctVApp} from "../src/interfaces/ISuccinctVApp.sol";
 import {Receipts} from "../src/libraries/Receipts.sol";
 import {
-    PublicValuesStruct,
+    Step,
     TransactionStatus,
     Receipt,
     TransactionVariant,
@@ -36,7 +36,7 @@ contract SuccinctVAppTest is Test, FixtureLoader {
     uint256 constant STAKER_FEE_BIPS = 1000; // 10%
     // Fixtures
     SP1ProofFixtureJson public jsonFixture;
-    PublicValuesStruct public fixture;
+    Step public fixture;
 
     // EOAs
     address OWNER;
@@ -59,7 +59,7 @@ contract SuccinctVAppTest is Test, FixtureLoader {
 
     function setUp() public {
         // Load fixtures
-        fixture.txId = 0;
+        fixture.txId = 1;
         fixture.oldRoot = bytes32(uint256(5346634509));
         fixture.newRoot = bytes32(uint256(3402673290));
         fixture.timestamp = uint64(1);

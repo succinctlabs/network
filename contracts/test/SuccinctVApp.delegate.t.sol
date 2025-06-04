@@ -6,7 +6,7 @@ import {SuccinctVApp} from "../src/SuccinctVApp.sol";
 import {ISuccinctVApp} from "../src/interfaces/ISuccinctVApp.sol";
 import {Receipts} from "../src/libraries/Receipts.sol";
 import {
-    PublicValuesStruct,
+    Step,
     TransactionStatus,
     Receipt as VAppReceipt,
     TransactionVariant,
@@ -43,8 +43,8 @@ contract SuccinctVAppDelegateTest is SuccinctVAppTest {
         assertEq(data, expectedProverData);
 
         // Process the first setDelegatedSigner action through state update
-        PublicValuesStruct memory publicValues1 = PublicValuesStruct({
-            txId: 1,
+        Step memory publicValues1 = Step({
+            txId: 2,
             receipts: new VAppReceipt[](1),
             oldRoot: fixture.oldRoot,
             newRoot: bytes32(uint256(1)),
