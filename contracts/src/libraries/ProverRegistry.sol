@@ -82,7 +82,10 @@ abstract contract ProverRegistry is IProverRegistry {
     }
 
     /// @dev Uses CREATE2 to deploy an instance of SuccinctProver and adds it to the mapping.
-    function _deployProver(address _owner, uint256 _stakerFeeBips) internal returns (address prover) {
+    function _deployProver(address _owner, uint256 _stakerFeeBips)
+        internal
+        returns (address prover)
+    {
         // Ensure that the contract is initialized.
         if (iProve == address(0)) {
             revert NotInitialized();
@@ -108,7 +111,7 @@ abstract contract ProverRegistry is IProverRegistry {
         provers[prover] = true;
 
         // Register the prover with the VApp.
-        ISuccinctVApp(vapp).registerProver(prover, _owner, _stakerFeeBips);
+        ISuccinctVApp(vapp).createProver(prover, _owner, _stakerFeeBips);
 
         // Approve the prover as a spender so that $iPROVE can be transferred to the prover during\
         // stake().
