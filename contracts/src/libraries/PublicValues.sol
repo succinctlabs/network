@@ -53,7 +53,6 @@ struct Deposit {
 /// @notice The action data for a withdraw.
 struct Withdraw {
     address account;
-    address to;
     uint256 amount;
 }
 
@@ -65,8 +64,7 @@ struct CreateProver {
 }
 
 /// @notice The public values encoded as a struct that can be easily deserialized inside Solidity.
-struct PublicValuesStruct {
-    uint64 txId;
+struct StepPublicValues {
     bytes32 oldRoot;
     bytes32 newRoot;
     uint64 timestamp;

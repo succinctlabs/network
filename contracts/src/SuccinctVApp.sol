@@ -3,7 +3,7 @@ pragma solidity ^0.8.28;
 
 import {Receipts} from "./libraries/Receipts.sol";
 import {
-    PublicValuesStruct,
+    StepPublicValues,
     TransactionStatus,
     Receipt,
     Transaction,
@@ -64,9 +64,6 @@ contract SuccinctVApp is
 
     /// @inheritdoc ISuccinctVApp
     uint256 public override minDepositAmount;
-
-    /// @inheritdoc ISuccinctVApp
-    uint64 public override txId;
 
     /// @inheritdoc ISuccinctVApp
     uint64 public override currentOnchainTxId;
@@ -138,7 +135,7 @@ contract SuccinctVApp is
         // Approve the $iPROVE contract to transfer $PROVE from this contract during prover withdrawal.
         IERC20(prove).approve(_iProve, type(uint256).max);
 
-        emit Fork(_vappProgramVKey, blockNumber, _genesisStateRoot, bytes32(0));
+        emit Fork(blockNumber, _genesisStateRoot, bytes32(0), _vappProgramVKey);
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -239,9 +236,7 @@ contract SuccinctVApp is
         if (_owner != ISuccinctStaking(staking).ownerOf(_prover)) revert ProverNotOwned();
 
         // Create the receipt.
-        bytes memory data = abi.encode(
-            CreateProver({prover: _prover, owner: _owner, stakerFeeBips: _stakerFeeBips})
-        );
+        bytes memory data = abi.encode(CreateProver({prover: _prover, owner: _owner, stakerFeeBips: _stakerFeeBips}));
         receipt = _createTransaction(TransactionVariant.CreateProver, data);
     }
 
@@ -253,7 +248,7 @@ contract SuccinctVApp is
     {
         // Verify the proof.
         ISP1Verifier(verifier).verifyProof(vappProgramVKey, _publicValues, _proofBytes);
-        PublicValuesStruct memory publicValues = abi.decode(_publicValues, (PublicValuesStruct));
+        StepPublicValues memory publicValues = abi.decode(_publicValues, (StepPublicValues));
         if (publicValues.newRoot == bytes32(0)) revert InvalidRoot();
 
         // Verify the old root.
@@ -302,8 +297,9 @@ contract SuccinctVApp is
         uint64 _block = ++blockNumber;
         roots[_block] = _newRoot;
 
+        // Emit the events.
         emit Block(_block, _newRoot, oldRoot);
-        emit Fork(vappProgramVKey, _block, _newRoot, oldRoot);
+        emit Fork(_block, _newRoot, oldRoot, vappProgramVKey);
 
         return (_block, _newRoot, oldRoot);
     }
@@ -354,8 +350,7 @@ contract SuccinctVApp is
         }
 
         // Create the receipt.
-        bytes memory data =
-            abi.encode(Withdraw({account: _from, to: _to, amount: _amount}));
+        bytes memory data = abi.encode(Withdraw({account: _from, amount: _amount}));
         receipt = _createTransaction(TransactionVariant.Withdraw, data);
     }
 
@@ -376,7 +371,7 @@ contract SuccinctVApp is
     }
 
     /// @dev Handles committed actions, reverts if the actions are invalid
-    function _handleReceipts(PublicValuesStruct memory _publicValues) internal {
+    function _handleReceipts(StepPublicValues memory _publicValues) internal {
         // Execute the receipts.
         for (uint64 i = 0; i < _publicValues.receipts.length; i++) {
             // Increment the finalized onchain transaction ID.
@@ -397,7 +392,7 @@ contract SuccinctVApp is
             }
 
             // Update the transaction status.
-            transactions[finalizedOnchainTxId].status = status;
+            transactions[onchainTxId].status = status;
 
             // If the transaction failed, emit the revert event and skip the rest of the loop.
             TransactionVariant variant = _publicValues.receipts[i].variant;
@@ -411,7 +406,7 @@ contract SuccinctVApp is
                 // No-op.
             } else if (variant == TransactionVariant.Withdraw) {
                 Withdraw memory withdraw = abi.decode(_publicValues.receipts[i].action, (Withdraw));
-                _processWithdraw(withdraw.to, withdraw.amount);
+                _processWithdraw(withdraw.account, withdraw.amount);
             } else if (variant == TransactionVariant.CreateProver) {
                 // No-op.
             } else {
@@ -424,9 +419,9 @@ contract SuccinctVApp is
     }
 
     /// @dev Processes a withdrawal by creating a claim for the amount.
-    function _processWithdraw(address _to, uint256 _amount) internal {
+    function _processWithdraw(address _account, uint256 _amount) internal {
         // Update the state.
-        claimableWithdrawal[_to] += _amount;
+        claimableWithdrawal[_account] += _amount;
     }
 
     /// @dev Updates the staking contract.

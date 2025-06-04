@@ -6,7 +6,7 @@ import {SuccinctVApp} from "../src/SuccinctVApp.sol";
 import {ISuccinctVApp} from "../src/interfaces/ISuccinctVApp.sol";
 import {Receipts} from "../src/libraries/Receipts.sol";
 import {
-    PublicValuesStruct,
+    StepPublicValues,
     TransactionStatus,
     Receipt as TxReceipt,
     TransactionVariant,
@@ -32,7 +32,7 @@ contract SuccinctVAppWithdrawTest is SuccinctVAppTest {
         // Update state after deposit
         bytes memory depositData =
             abi.encode(Deposit({account: REQUESTER_1, amount: amount}));
-        PublicValuesStruct memory depositPublicValues = PublicValuesStruct({
+        StepPublicValues memory depositPublicValues = StepPublicValues({
             receipts: new TxReceipt[](1),
             oldRoot: fixture.oldRoot,
             newRoot: bytes32(uint256(1)),
@@ -58,7 +58,7 @@ contract SuccinctVAppWithdrawTest is SuccinctVAppTest {
         // Withdraw
         vm.startPrank(REQUESTER_2);
         bytes memory withdrawData =
-            abi.encode(Withdraw({account: REQUESTER_2, to: REQUESTER_2, amount: amount}));
+            abi.encode(Withdraw({account: REQUESTER_2, amount: amount}));
 
         vm.expectEmit(true, true, true, true);
         emit ISuccinctVApp.TransactionPending(2, TransactionVariant.Withdraw, withdrawData);
@@ -73,7 +73,7 @@ contract SuccinctVAppWithdrawTest is SuccinctVAppTest {
         assertEq(data, withdrawData);
 
         // Update state after withdraw
-        PublicValuesStruct memory withdrawPublicValues = PublicValuesStruct({
+        StepPublicValues memory withdrawPublicValues = StepPublicValues({
             receipts: new TxReceipt[](1),
             oldRoot: bytes32(uint256(1)),
             newRoot: bytes32(uint256(2)),
@@ -134,7 +134,7 @@ contract SuccinctVAppWithdrawTest is SuccinctVAppTest {
         // Update state after deposit
         bytes memory depositData =
             abi.encode(Deposit({account: REQUESTER_1, amount: amount}));
-        PublicValuesStruct memory depositPublicValues = PublicValuesStruct({
+        StepPublicValues memory depositPublicValues = StepPublicValues({
             receipts: new TxReceipt[](1),
             oldRoot: fixture.oldRoot,
             newRoot: bytes32(uint256(1)),

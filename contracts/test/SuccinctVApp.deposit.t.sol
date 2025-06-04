@@ -6,7 +6,7 @@ import {SuccinctVApp} from "../src/SuccinctVApp.sol";
 import {ISuccinctVApp} from "../src/interfaces/ISuccinctVApp.sol";
 import {Receipts} from "../src/libraries/Receipts.sol";
 import {
-    PublicValuesStruct,
+    StepPublicValues,
     TransactionStatus,
     Receipt as TxReceipt,
     TransactionVariant,
@@ -45,7 +45,7 @@ contract SuccinctVAppDepositTest is SuccinctVAppTest {
         assertEq(uint8(status), uint8(TransactionStatus.Pending));
 
         // Update state with deposit action
-        PublicValuesStruct memory publicValues = PublicValuesStruct({
+        StepPublicValues memory publicValues = StepPublicValues({
             receipts: new TxReceipt[](1),
             oldRoot: fixture.oldRoot,
             newRoot: bytes32(uint256(1)),
@@ -94,7 +94,7 @@ contract SuccinctVAppDepositTest is SuccinctVAppTest {
         assertEq(uint8(status), uint8(TransactionStatus.Pending));
 
         // Update state with deposit action
-        PublicValuesStruct memory publicValues = PublicValuesStruct({
+        StepPublicValues memory publicValues = StepPublicValues({
             receipts: new TxReceipt[](1),
             oldRoot: fixture.oldRoot,
             newRoot: bytes32(uint256(1)),

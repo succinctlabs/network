@@ -4,10 +4,10 @@ pragma solidity ^0.8.28;
 import {
     TransactionVariant,
     TransactionStatus,
+    Transaction,
     Deposit,
     Withdraw,
     CreateProver,
-    Transaction,
     Receipt
 } from "./PublicValues.sol";
 
@@ -60,9 +60,6 @@ library Receipts {
             revert TransactionReceiptMismatch(TransactionVariant.Withdraw, _receipt.onchainTxId);
         }
         if (withdraw.amount != withdrawReceipt.amount) {
-            revert TransactionReceiptMismatch(TransactionVariant.Withdraw, _receipt.onchainTxId);
-        }
-        if (withdraw.to != withdrawReceipt.to) {
             revert TransactionReceiptMismatch(TransactionVariant.Withdraw, _receipt.onchainTxId);
         }
     }

@@ -6,7 +6,7 @@ import {SuccinctVApp} from "../src/SuccinctVApp.sol";
 import {ISuccinctVApp} from "../src/interfaces/ISuccinctVApp.sol";
 import {Receipts} from "../src/libraries/Receipts.sol";
 import {
-    PublicValuesStruct,
+    StepPublicValues,
     TransactionStatus,
     Receipt as TxReceipt,
     TransactionVariant,
@@ -25,7 +25,7 @@ contract SuccinctVAppForkTest is SuccinctVAppTest {
 
         vm.expectEmit(true, true, true, true);
         emit ISuccinctVApp.Block(1, newRoot, fixture.oldRoot);
-        emit ISuccinctVApp.Fork(newVkey, 1, newRoot, fixture.oldRoot);
+        emit ISuccinctVApp.Fork(1, newRoot, fixture.oldRoot, newVkey);
 
         (uint64 _block, bytes32 returnedNewRoot, bytes32 returnedOldRoot) =
             SuccinctVApp(VAPP).fork(newVkey, newRoot);
@@ -42,7 +42,7 @@ contract SuccinctVAppForkTest is SuccinctVAppTest {
         // Update state
         mockCall(true);
 
-        PublicValuesStruct memory publicValues1 = PublicValuesStruct({
+        StepPublicValues memory publicValues1 = StepPublicValues({
             receipts: new TxReceipt[](0),
             oldRoot: fixture.oldRoot,
             newRoot: bytes32(uint256(1)),
@@ -61,7 +61,7 @@ contract SuccinctVAppForkTest is SuccinctVAppTest {
 
         vm.expectEmit(true, true, true, true);
         emit ISuccinctVApp.Block(2, newRoot, bytes32(uint256(1)));
-        emit ISuccinctVApp.Fork(newVkey, 2, newRoot, bytes32(uint256(1)));
+        emit ISuccinctVApp.Fork(2, newRoot, bytes32(uint256(1)), newVkey);
 
         (uint64 blockNum, bytes32 returnedNewRoot, bytes32 returnedOldRoot) =
             SuccinctVApp(VAPP).fork(newVkey, newRoot);

@@ -5,7 +5,7 @@ import {SuccinctVAppTest} from "./SuccinctVApp.t.sol";
 import {SuccinctVApp} from "../src/SuccinctVApp.sol";
 import {ISuccinctVApp} from "../src/interfaces/ISuccinctVApp.sol";
 import {
-    PublicValuesStruct,
+    StepPublicValues,
     TransactionStatus,
     Receipt,
     TransactionVariant,

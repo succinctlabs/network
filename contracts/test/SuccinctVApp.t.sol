@@ -7,7 +7,7 @@ import {SuccinctVApp} from "../src/SuccinctVApp.sol";
 import {ISuccinctVApp} from "../src/interfaces/ISuccinctVApp.sol";
 import {Receipts} from "../src/libraries/Receipts.sol";
 import {
-    PublicValuesStruct,
+    StepPublicValues,
     TransactionStatus,
     Receipt,
     TransactionVariant,
@@ -36,7 +36,7 @@ contract SuccinctVAppTest is Test, FixtureLoader {
     uint256 constant STAKER_FEE_BIPS = 1000; // 10%
     // Fixtures
     SP1ProofFixtureJson public jsonFixture;
-    PublicValuesStruct public fixture;
+    StepPublicValues public fixture;
 
     // EOAs
     address OWNER;
@@ -59,14 +59,10 @@ contract SuccinctVAppTest is Test, FixtureLoader {
 
     function setUp() public {
         // Load fixtures
-        jsonFixture = loadFixture(vm, Fixture.Groth16);
-        PublicValuesStruct memory _fixture =
-            abi.decode(jsonFixture.publicValues, (PublicValuesStruct));
-        fixture.oldRoot = _fixture.oldRoot;
-        fixture.newRoot = _fixture.newRoot;
-        for (uint256 i = 0; i < _fixture.receipts.length; i++) {
-            fixture.receipts.push(_fixture.receipts[i]);
-        }
+        fixture.oldRoot = bytes32(uint256(5346634509));
+        fixture.newRoot = bytes32(uint256(3402673290));
+        fixture.timestamp = uint64(1);
+        jsonFixture.publicValues = abi.encode(fixture);
 
         // Create owner
         // OWNER = makeAddr("OWNER");
