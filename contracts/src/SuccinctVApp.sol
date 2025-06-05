@@ -14,7 +14,7 @@ import {
 } from "./libraries/PublicValues.sol";
 import {ISuccinctVApp} from "./interfaces/ISuccinctVApp.sol";
 import {ISuccinctStaking} from "./interfaces/ISuccinctStaking.sol";
-import {ISP1Verifier} from "./interfaces/ISP1Verifier.sol";
+import {ISP1Verifier} from "../lib/sp1-contracts/contracts/src/ISP1Verifier.sol";
 import {Initializable} from
     "../lib/openzeppelin-contracts-upgradeable/contracts/proxy/utils/Initializable.sol";
 import {ReentrancyGuardUpgradeable} from
