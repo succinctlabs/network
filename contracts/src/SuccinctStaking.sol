@@ -208,15 +208,15 @@ contract SuccinctStaking is
             UnstakeClaim({stPROVE: _stPROVE, timestamp: block.timestamp})
         );
 
-        // Trigger a withdrawal on the prover so that any pending rewards are
-        // are sent to the prover vault by the time the unstake is finished.
+        // Trigger a withdrawal on the prover so that any pending rewards are sent to the prover
+        // vault by the time the unstake is finished.
         ISuccinctVApp(vapp).requestWithdraw(prover, type(uint256).max);
 
         emit UnstakeRequest(msg.sender, prover, _stPROVE);
     }
 
     /// @inheritdoc ISuccinctStaking
-    function finishUnstake() external override returns (uint256 PROVE_) {
+    function finishUnstake() external override returns (uint256 PROVE) {
         // Get the prover that the staker is staked with.
         address prover = stakerToProver[msg.sender];
         if (prover == address(0)) revert NotStaked();
@@ -235,7 +235,7 @@ contract SuccinctStaking is
         }
 
         // Process the available unstake claims.
-        PROVE_ += _finishUnstake(prover, claims);
+        PROVE += _finishUnstake(prover, claims);
 
         // If the staker has no remaining balance with this prover, remove the staker's delegate.
         // This allows them to choose a different prover if they stake again.
@@ -304,7 +304,7 @@ contract SuccinctStaking is
         onlyForProver(_prover)
         returns (uint256 iPROVE)
     {
-        // Get the slash claim
+        // Get the slash claim.
         SlashClaim storage claim = slashClaims[_prover][_index];
 
         // Ensure that the time has passed since the claim was created.
@@ -319,10 +319,11 @@ contract SuccinctStaking is
         }
         slashClaims[_prover].pop();
 
-        // Burn the $iPROVE and $PROVE from the prover, decreasing the balance of the prover.
-        uint256 PROVE_ = IIntermediateSuccinct(iProve).burn(_prover, iPROVE);
+        // Burn the $iPROVE and $PROVE from the prover, decreasing the staked $PROVE balance of the
+        // prover and all of it's stakers.
+        uint256 PROVE = IIntermediateSuccinct(iProve).burn(_prover, iPROVE);
 
-        emit Slash(_prover, PROVE_, iPROVE, _index);
+        emit Slash(_prover, PROVE, iPROVE, _index);
     }
 
     /// @inheritdoc ISuccinctStaking
@@ -358,9 +359,8 @@ contract SuccinctStaking is
                                  INTERNAL
     //////////////////////////////////////////////////////////////*/
 
-    /// @dev Deposit $PROVE into the staking contract, minting $iPROVE, then depositing $iPROVE
-    ///      into the prover to mint $PROVER-N, then minting $stPROVE to the staker (because
-    ///      $stPROVE always stays in sync with $PROVER-N balance).
+    /// @dev Deposit a staker's $PROVE to mint $iPROVE, then deposit $iPROVE to mint $PROVER-N, and
+    ///      then directly mint $stPROVE to the staker, which acts as the receipt token for staking.
     function _stake(address _staker, address _prover, uint256 _PROVE)
         internal
         stakingOperation
@@ -398,8 +398,8 @@ contract SuccinctStaking is
         emit Stake(_staker, _prover, _PROVE, iPROVE, stPROVE);
     }
 
-    /// @dev Burn $stPROVE and withdraw $PROVER-N from the prover, receiving $iPROVE, then
-    ///      withdraw $iPROVE to receive $PROVE.
+    /// @dev Burn a staker's $stPROVE and withdraw $PROVER-N to receive $iPROVE, then withdraw
+    ///      $iPROVE to receive $PROVE, which gets sent to the staker.
     function _unstake(address _staker, address _prover, uint256 _stPROVE)
         internal
         stakingOperation
@@ -419,7 +419,8 @@ contract SuccinctStaking is
         emit Unstake(_staker, _prover, PROVE, iPROVE, _stPROVE);
     }
 
-    /// @dev Iterate over the claims, processing each one that has passed the unstake period.
+    /// @dev Iterate over the unstake claims, processing each one that has passed the unstake
+    ///      period.
     function _finishUnstake(address _prover, UnstakeClaim[] storage _claims)
         internal
         returns (uint256 PROVE)

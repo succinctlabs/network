@@ -15,7 +15,7 @@ string constant SYMBOL = "stPROVE";
 /// @author Succinct Labs
 /// @notice The terminal receipt token for staking in the Succinct Prover Network.
 /// @dev This contract balance stays 1:1 with all $PROVER-N vaults to give one unified
-///      source of truth to track delegated staked $PROVE.
+///      source of truth to track staked $PROVE.
 abstract contract StakedSuccinct is ERC20, ERC20Permit, ERC20Votes {
     error NonTransferable();
 
@@ -40,7 +40,7 @@ abstract contract StakedSuccinct is ERC20, ERC20Permit, ERC20Votes {
 
     /// @dev Only can update balances when staking operations are occuring. This is equivalent to
     /// the only staking checks that we have on $iPROVE and $PROVER-N tokens.
-    function _update(address from, address to, uint256 value)
+    function _update(address _from, address _to, uint256 _value)
         internal
         override(ERC20, ERC20Votes)
     {
@@ -48,7 +48,7 @@ abstract contract StakedSuccinct is ERC20, ERC20Permit, ERC20Votes {
             revert NonTransferable();
         }
 
-        super._update(from, to, value);
+        super._update(_from, _to, _value);
     }
 
     // The following functions are overrides required by Solidity.
