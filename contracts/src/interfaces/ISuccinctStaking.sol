@@ -10,7 +10,7 @@ interface ISuccinctStaking is IProverRegistry {
         uint256 timestamp;
     }
 
-    /// @dev Represents a claim to slash a prover.
+    /// @dev Represents a claim to slash a prover for some amount of $iPROVE.
     struct SlashClaim {
         uint256 iPROVE;
         uint256 timestamp;
@@ -92,10 +92,10 @@ interface ISuccinctStaking is IProverRegistry {
     /// @notice The minimum amount of time needed between requestSlash() and finishSlash().
     function slashPeriod() external view returns (uint256);
 
-    /// @notice The dispense rate.
+    /// @notice The maximum amount of $PROVE that can be dispensed per second.
     function dispenseRate() external view returns (uint256);
 
-    /// @notice The last dispense timestamp.
+    /// @notice The last time $PROVE was dispensed.
     function lastDispenseTimestamp() external view returns (uint256);
 
     /// @notice The prover that a staker is staked with.
@@ -141,8 +141,8 @@ interface ISuccinctStaking is IProverRegistry {
     function maxDispense() external view returns (uint256);
 
     /// @notice Stake $PROVE to a prover. Must have approved $PROVE with this contract as the spender.
-    /// @dev Deposits $PROVE into the iPROVE to mint $iPROVE, then deposits $iPROVE into the chosen
-    ///      prover to mint $PROVER-N/$stPROVE.
+    /// @dev Deposits $PROVE into the iPROVE vault to mint $iPROVE, then deposits $iPROVE into the
+    ///      chosen prover to mint $PROVER-N/$stPROVE.
     /// @param prover The address of the prover to delegate $iPROVE to.
     /// @param PROVE The amount of $PROVE to deposit.
     /// @return The amount of $stPROVE received.
@@ -171,15 +171,17 @@ interface ISuccinctStaking is IProverRegistry {
     ) external returns (uint256);
 
     /// @notice Creates a request to unstake $stPROVE from the prover for the specified amount.
-    /// @dev The staker must have enough $stPROVE that is not already in the unclaim queue.
+    /// @dev The staker must have enough $stPROVE that is not already in the unclaim queue. This
+    ///      will also request a withdrawal of the balance a prover has in the VApp, so as to
+    ///      complete the withdrawal of any rewards before the unstake is finished.
     /// @param stPROVE The amount of $stPROVE to unstake.
     function requestUnstake(uint256 stPROVE) external;
 
     /// @notice Finishes the unstaking process. Must have first called requestUnstake() and waited
     ///         for the unstake period to pass.
     /// @dev For each claim, the staker withdraws $stPROVE/$PROVER to receive $iPROVE, then
-    ///      withdraws $iPROVE to receive $PROVE. This also claims any rewards earned, equivalent to
-    ///      calling `claimReward()`.
+    ///      withdraws $iPROVE to receive $PROVE. If the prover has any claimable rewards, it will
+    ///      be withdrawn to the prover's vaults before the unstake occurs.
     /// @return The amount of $PROVE received.
     function finishUnstake() external returns (uint256);
 
