@@ -32,26 +32,25 @@ FOUNDRY_PROFILE=deploy forge snapshot
 
 ## Deployment
 
-
 ### Setup
 
-To deploy the contracts, first make a copy of the [.env.example](./.env.example):
+First make a copy of the [.env.example](./.env.example):
 
 ```sh
 cp .env.example .env
 ```
 
-And then configure your `.env` file with all the variables needed for configuring the contracts.
+And then fill in your `.env` file with all the variables needed for configuring the contracts.
 
-Also set these terminal parameters needed to deploy to a specific chain:
+Also, set these terminal parameters needed to deploy to a specific chain:
 
 ```sh
-PRIVATE_KEY=
-ETH_RPC_URL=
-ETHERSCAN_API_KEY=
+export PRIVATE_KEY=
+export ETH_RPC_URL=
+export ETHERSCAN_API_KEY=
 ```
 
-Then, add a `{CHAIN_ID}.json` file in the [deployments](./deployments) directory for the chain you are deploying to. This will create it with an empty JSON `{}` if it doesn't exist:
+Then add a `{CHAIN_ID}.json` file in the [deployments](./deployments) directory for the chain you are deploying to. This command will automatically create it with an empty JSON `{}` if it doesn't exist:
 
 ```sh
 CHAIN_ID=$(cast chain-id --rpc-url $ETH_RPC_URL); mkdir -p ./deployments && [ -f "./deployments/${CHAIN_ID}.json" ] || echo '{}' > "./deployments/${CHAIN_ID}.json"
