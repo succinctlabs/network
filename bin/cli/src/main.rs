@@ -51,12 +51,12 @@ struct ProveArgs {
     /// The RPC URL for the network.
     #[arg(long)]
     rpc_url: String,
-    /// The estimated throughput of the prover.
+    /// The amount of proving gas units (PGUs) per second your prover can process.
     #[arg(long)]
     throughput: f64,
-    /// The bid amount for the prover.
+    /// The $PROVE price per billion proving gas units (PGUs) your prover is willing to bid.
     #[arg(long)]
-    bid_amount: u64,
+    bid: f64,
     /// The private key for the prover.
     #[arg(long)]
     private_key: String,
@@ -152,7 +152,7 @@ async fn main() -> Result<()> {
             let results_data = vec![
                 CalibrationResultsTable {
                     name: "Estimated Throughput".to_string(),
-                    value: format!("{} pgus/second", metrics.pgus_per_second.round()),
+                    value: format!("{} PGUs/second", metrics.pgus_per_second.round()),
                 },
                 CalibrationResultsTable {
                     name: "Estimated Bid Price".to_string(),
@@ -185,7 +185,7 @@ async fn main() -> Result<()> {
             let ctx = SerialContext::new(network, signer);
 
             // Setup the bidder.
-            let bidder = SerialBidder::new(U256::from(args.bid_amount), args.throughput);
+            let bidder = SerialBidder::new(U256::from(args.bid), args.throughput);
 
             // Setup the prover
             let prover = SerialProver::new();
@@ -198,7 +198,7 @@ async fn main() -> Result<()> {
                 wallet = %ctx.signer().address(),
                 rpc = %args.rpc_url,
                 throughput = %args.throughput,
-                bid_amount = %args.bid_amount,
+                bid = %args.bid,
                 "Starting Node on Succinct Network..."
             );
             let node = Node::new(ctx, bidder, prover, monitor);
