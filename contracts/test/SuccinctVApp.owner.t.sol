@@ -15,7 +15,8 @@ import {
 } from "../src/libraries/PublicValues.sol";
 import {ISuccinctVApp} from "../src/interfaces/ISuccinctVApp.sol";
 import {Ownable} from "../lib/openzeppelin-contracts/contracts/access/Ownable.sol";
-import {PausableUpgradeable} from "../lib/openzeppelin-contracts-upgradeable/contracts/utils/PausableUpgradeable.sol";
+import {PausableUpgradeable} from
+    "../lib/openzeppelin-contracts-upgradeable/contracts/utils/PausableUpgradeable.sol";
 
 // Tests onlyOwner / setter functions.
 contract SuccinctVAppOwnerTest is SuccinctVAppTest {
@@ -113,7 +114,7 @@ contract SuccinctVAppOwnerTest is SuccinctVAppTest {
     }
 
     function test_Unpause_WhenValid() public {
-		vm.prank(OWNER);
+        vm.prank(OWNER);
         SuccinctVApp(VAPP).pause();
 
         vm.expectEmit(true, true, true, true);
@@ -124,15 +125,14 @@ contract SuccinctVAppOwnerTest is SuccinctVAppTest {
         assertEq(PausableUpgradeable(VAPP).paused(), false);
     }
 
-	function test_RevertUnpause_WhenNotOwner() public {
-		vm.prank(OWNER);
+    function test_RevertUnpause_WhenNotOwner() public {
+        vm.prank(OWNER);
         SuccinctVApp(VAPP).pause();
 
-		vm.expectRevert(
-			abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, REQUESTER_1)
-		);
-		vm.prank(REQUESTER_1);
-		SuccinctVApp(VAPP).unpause();
-	}
-
+        vm.expectRevert(
+            abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, REQUESTER_1)
+        );
+        vm.prank(REQUESTER_1);
+        SuccinctVApp(VAPP).unpause();
+    }
 }
