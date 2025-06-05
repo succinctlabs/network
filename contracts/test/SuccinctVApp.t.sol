@@ -17,7 +17,7 @@ import {
 } from "../src/libraries/PublicValues.sol";
 import {MockStaking} from "../src/mocks/MockStaking.sol";
 import {MockVerifier} from "../src/mocks/MockVerifier.sol";
-import {ISP1Verifier} from "../src/interfaces/ISP1Verifier.sol";
+import {ISP1Verifier} from "../lib/sp1-contracts/contracts/src/ISP1Verifier.sol";
 import {FixtureLoader, Fixture, SP1ProofFixtureJson} from "./utils/FixtureLoader.sol";
 import {MockERC20} from "./utils/MockERC20.sol";
 import {ERC1967Proxy} from "../lib/openzeppelin-contracts/contracts/proxy/ERC1967/ERC1967Proxy.sol";

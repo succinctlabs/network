@@ -29,11 +29,7 @@ contract SuccinctVAppDelegateTest is SuccinctVAppTest {
 
         // The expected action data for alice creating a prover.
         bytes memory expectedProverData = abi.encode(
-            CreateProver({
-                prover: aliceProver,
-                owner: ALICE,
-                stakerFeeBips: STAKER_FEE_BIPS
-            })
+            CreateProver({prover: aliceProver, owner: ALICE, stakerFeeBips: STAKER_FEE_BIPS})
         );
 
         (TransactionVariant actionType, TransactionStatus status,, bytes memory data) =

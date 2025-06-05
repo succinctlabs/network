@@ -231,7 +231,7 @@ contract SuccinctStaking is
         // If the prover has any claimable withdrawal, withdraw it *before* unstaking
         // from the prover vault.
         if (ISuccinctVApp(vapp).claimableWithdrawal(prover) > 0) {
-            ISuccinctVApp(vapp).finishWithdrawal(prover);
+            ISuccinctVApp(vapp).finishWithdraw(prover);
         }
 
         // Process the available unstake claims.

@@ -15,7 +15,6 @@ import {
     CreateProver
 } from "../src/libraries/PublicValues.sol";
 import {ISuccinctVApp} from "../src/interfaces/ISuccinctVApp.sol";
-import {console} from "../lib/forge-std/src/console.sol";
 
 contract SuccinctVAppStateTest is SuccinctVAppTest {
     function test_UpdateState_WhenValid() public {

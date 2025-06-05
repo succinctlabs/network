@@ -233,7 +233,7 @@ contract SuccinctStakingTest is Test {
 
     function _withdrawFromVApp(address _account, uint256 _amount) internal {
         MockVApp(VAPP).requestWithdraw(_account, _amount);
-        MockVApp(VAPP).finishWithdrawal(_account);
+        MockVApp(VAPP).finishWithdraw(_account);
     }
 }
 

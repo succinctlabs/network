@@ -54,16 +54,17 @@ contract AllScript is BaseScript, FixtureLoader {
         // Read config
         address VERIFIER = SP1_VERIFIER_GATEWAY_GROTH16;
 
-        // Load fixture
-        SP1ProofFixtureJson memory fixture = loadFixture(vm, Fixture.Groth16);
-        bytes32 VKEY = fixture.vkey;
+        bytes32 VKEY = bytes32(0x004a38f8086f29b885cbb1c36a31ba540a7fdb97e43c10e52edb3e88373cc7a1);
+        bytes32 genesisStateRoot =
+            bytes32(0xbd80a17ca4b24913817da39707526bd5cd95b61a1e50c39e59481ccca363452c);
+        uint64 genesisTimestamp = 0;
 
         // Deploy contract
         address vappImpl = address(new SuccinctVApp{salt: salt}());
         address VAPP =
             address(SuccinctVApp(payable(address(new ERC1967Proxy{salt: salt}(vappImpl, "")))));
         SuccinctVApp(VAPP).initialize(
-            msg.sender, PROVE, I_PROVE, STAKING, VERIFIER, VKEY, bytes32(0), 0
+            msg.sender, PROVE, I_PROVE, STAKING, VERIFIER, VKEY, genesisStateRoot, genesisTimestamp
         );
 
         return VAPP;
