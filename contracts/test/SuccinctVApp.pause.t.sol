@@ -15,26 +15,31 @@ import {
     CreateProver
 } from "../src/libraries/PublicValues.sol";
 import {ISuccinctVApp} from "../src/interfaces/ISuccinctVApp.sol";
-import {PausableUpgradeable} from "../lib/openzeppelin-contracts-upgradeable/contracts/utils/PausableUpgradeable.sol";
+import {PausableUpgradeable} from
+    "../lib/openzeppelin-contracts-upgradeable/contracts/utils/PausableUpgradeable.sol";
 
 // Tests that functions that are marked as whenNotPaused revert when paused.
 contract SuccinctVAppPauseTest is SuccinctVAppTest {
     function test_RevertDeposit_WhenPaused() public {
+        uint256 amount = SuccinctVApp(VAPP).minDepositAmount();
+
         vm.prank(OWNER);
         SuccinctVApp(VAPP).pause();
 
         vm.expectRevert(abi.encodeWithSelector(PausableUpgradeable.EnforcedPause.selector));
         vm.prank(REQUESTER_1);
-        SuccinctVApp(VAPP).deposit(100);
+        SuccinctVApp(VAPP).deposit(amount);
     }
 
     function test_RevertRequestWithdrawal_WhenPaused() public {
+        uint256 amount = SuccinctVApp(VAPP).minDepositAmount();
+
         vm.prank(OWNER);
         SuccinctVApp(VAPP).pause();
 
         vm.expectRevert(abi.encodeWithSelector(PausableUpgradeable.EnforcedPause.selector));
         vm.prank(REQUESTER_1);
-        SuccinctVApp(VAPP).requestWithdraw(REQUESTER_1, 100);
+        SuccinctVApp(VAPP).requestWithdraw(REQUESTER_1, amount);
     }
 
     function test_RevertFinishWithdrawal_WhenPaused() public {
@@ -52,7 +57,7 @@ contract SuccinctVAppPauseTest is SuccinctVAppTest {
 
         vm.expectRevert(abi.encodeWithSelector(PausableUpgradeable.EnforcedPause.selector));
         vm.prank(REQUESTER_1);
-        ISuccinctStaking(STAKING).createProver(100);
+        ISuccinctStaking(STAKING).createProver(STAKER_FEE_BIPS);
     }
 
     function test_RevertStep_WhenPaused() public {
