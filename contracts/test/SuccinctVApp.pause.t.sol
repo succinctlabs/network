@@ -19,48 +19,48 @@ import {PausableUpgradeable} from "../lib/openzeppelin-contracts-upgradeable/con
 
 // Tests that functions that are marked as whenNotPaused revert when paused.
 contract SuccinctVAppPauseTest is SuccinctVAppTest {
-	function test_RevertDeposit_WhenPaused() public {
-		vm.prank(OWNER);
-		SuccinctVApp(VAPP).pause();
+    function test_RevertDeposit_WhenPaused() public {
+        vm.prank(OWNER);
+        SuccinctVApp(VAPP).pause();
 
-		vm.expectRevert(abi.encodeWithSelector(PausableUpgradeable.EnforcedPause.selector));
-		vm.prank(REQUESTER_1);
-		SuccinctVApp(VAPP).deposit(100);
-	}
+        vm.expectRevert(abi.encodeWithSelector(PausableUpgradeable.EnforcedPause.selector));
+        vm.prank(REQUESTER_1);
+        SuccinctVApp(VAPP).deposit(100);
+    }
 
-	function test_RevertRequestWithdrawal_WhenPaused() public {
-		vm.prank(OWNER);
-		SuccinctVApp(VAPP).pause();
+    function test_RevertRequestWithdrawal_WhenPaused() public {
+        vm.prank(OWNER);
+        SuccinctVApp(VAPP).pause();
 
-		vm.expectRevert(abi.encodeWithSelector(PausableUpgradeable.EnforcedPause.selector));
-		vm.prank(REQUESTER_1);
-		SuccinctVApp(VAPP).requestWithdraw(REQUESTER_1, 100);
-	}
+        vm.expectRevert(abi.encodeWithSelector(PausableUpgradeable.EnforcedPause.selector));
+        vm.prank(REQUESTER_1);
+        SuccinctVApp(VAPP).requestWithdraw(REQUESTER_1, 100);
+    }
 
-	function test_RevertFinishWithdrawal_WhenPaused() public {
-		vm.prank(OWNER);
-		SuccinctVApp(VAPP).pause();
+    function test_RevertFinishWithdrawal_WhenPaused() public {
+        vm.prank(OWNER);
+        SuccinctVApp(VAPP).pause();
 
-		vm.expectRevert(abi.encodeWithSelector(PausableUpgradeable.EnforcedPause.selector));
-		vm.prank(REQUESTER_1);
-		SuccinctVApp(VAPP).finishWithdraw(REQUESTER_1);
-	}
+        vm.expectRevert(abi.encodeWithSelector(PausableUpgradeable.EnforcedPause.selector));
+        vm.prank(REQUESTER_1);
+        SuccinctVApp(VAPP).finishWithdraw(REQUESTER_1);
+    }
 
-	function test_RevertCreateProver_WhenPaused() public {
-		vm.prank(OWNER);
-		SuccinctVApp(VAPP).pause();
+    function test_RevertCreateProver_WhenPaused() public {
+        vm.prank(OWNER);
+        SuccinctVApp(VAPP).pause();
 
-		vm.expectRevert(abi.encodeWithSelector(PausableUpgradeable.EnforcedPause.selector));
-		vm.prank(REQUESTER_1);
-		ISuccinctStaking(STAKING).createProver(100);
-	}
+        vm.expectRevert(abi.encodeWithSelector(PausableUpgradeable.EnforcedPause.selector));
+        vm.prank(REQUESTER_1);
+        ISuccinctStaking(STAKING).createProver(100);
+    }
 
-	function test_RevertStep_WhenPaused() public {
-		vm.prank(OWNER);
-		SuccinctVApp(VAPP).pause();
+    function test_RevertStep_WhenPaused() public {
+        vm.prank(OWNER);
+        SuccinctVApp(VAPP).pause();
 
-		vm.expectRevert(abi.encodeWithSelector(PausableUpgradeable.EnforcedPause.selector));
-		vm.prank(REQUESTER_1);
-		SuccinctVApp(VAPP).step(hex"00", hex"00");
-	}
+        vm.expectRevert(abi.encodeWithSelector(PausableUpgradeable.EnforcedPause.selector));
+        vm.prank(REQUESTER_1);
+        SuccinctVApp(VAPP).step(hex"00", hex"00");
+    }
 }
