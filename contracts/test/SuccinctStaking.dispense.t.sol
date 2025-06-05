@@ -293,4 +293,59 @@ contract SuccinctStakingDispenseTests is SuccinctStakingTest {
         vm.expectRevert(abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, ALICE));
         SuccinctStaking(STAKING).updateDispenseRate(newRate);
     }
+
+    // Dispense using type(uint256).max should dispense exactly maxDispense()
+    function test_Dispense_MaxUint_DispatchesAllAvailable() public {
+        // Stake some amount so the contract has state for dispensing
+        _permitAndStake(STAKER_1, STAKER_1_PK, ALICE_PROVER, STAKER_PROVE_AMOUNT);
+
+        // Advance time so that some dispenseable amount accumulates
+        uint256 waitTime = 2 days;
+        skip(waitTime);
+
+        // Compute how much should be available
+        uint256 available = SuccinctStaking(STAKING).maxDispense();
+        assertEq(available, waitTime * DISPENSE_RATE);
+
+        // Remember I_PROVE’s existing PROVE balance (from staking)
+        uint256 oldVaultBalance = IERC20(PROVE).balanceOf(I_PROVE);
+
+        // Fund the staking contract with exactly 'available' PROVE tokens
+        deal(PROVE, STAKING, available);
+
+        // Owner calls dispense with max uint256 sentinel
+        vm.prank(OWNER);
+        SuccinctStaking(STAKING).dispense(type(uint256).max);
+
+        // After dispensing, maxDispense() should be zero (or ≤ 1 due to rounding)
+        assertLe(SuccinctStaking(STAKING).maxDispense(), 1);
+
+        // The I_PROVE vault’s new balance should equal old + available
+        uint256 newVaultBalance = IERC20(PROVE).balanceOf(I_PROVE);
+        assertEq(newVaultBalance, oldVaultBalance + available);
+    }
+
+    // Dispense using type(uint256).max when there is no stake should still work
+    function test_Dispense_MaxUint_NoStakeStillWorks() public {
+        // Advance time so that dispenseable amount accumulates
+        uint256 waitTime = 1 days;
+        skip(waitTime);
+
+        // Compute available (even with no stake, time passes)
+        uint256 available = SuccinctStaking(STAKING).maxDispense();
+        assertEq(available, waitTime * DISPENSE_RATE);
+
+        // Fund the staking contract
+        deal(PROVE, STAKING, available);
+
+        // Owner calls dispense with max uint256 sentinel
+        vm.prank(OWNER);
+        SuccinctStaking(STAKING).dispense(type(uint256).max);
+
+        // I_PROVE vault should have received exactly 'available' PROVE
+        assertEq(IERC20(PROVE).balanceOf(I_PROVE), available);
+
+        // After dispensing, there should be no more available
+        assertLe(SuccinctStaking(STAKING).maxDispense(), 1);
+    }
 }
