@@ -203,10 +203,11 @@ interface ISuccinctStaking is IProverRegistry {
     /// @return The amount of $iPROVE slashed.
     function finishSlash(address prover, uint256 index) external returns (uint256);
 
-    /// @notice Rewards all $iPROVE holders with $PROVE. Only callable by the the owner.
-    /// @dev The amount MUST be less than or equal to maxDispense(), and the amount MUST be less than
-    ///      or equal to the amount of $PROVE balance of this contract.
-    /// @param PROVE The amount of $PROVE to dispense.
+    /// @notice Rewards all stakers ($iPROVE holders) with $PROVE. Only callable by the the owner.
+    /// @dev The amount MUST be less than or equal to maxDispense() (if not type(uint256).max), and
+    ///      the amount MUST be less than or equal to the amount of $PROVE balance of this contract.
+    /// @param PROVE The amount of $PROVE to dispense. If PROVE is type(uint256).max, dispense the
+    ///        maximum available amount.
     function dispense(uint256 PROVE) external;
 
     /// @notice Updates the dispense rate. Only callable by the owner.

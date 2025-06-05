@@ -327,22 +327,26 @@ contract SuccinctStaking is
 
     /// @inheritdoc ISuccinctStaking
     function dispense(uint256 _PROVE) external override onlyOwner {
-        // Ensure dispensing a non-zero amount.
-        if (_PROVE == 0) revert ZeroAmount();
-
-        // Ensure the amount is less than or equal to the maximum dispenseable amount.
+        // Get the maximum amount of $PROVE that can be dispensed.
         uint256 available = maxDispense();
-        if (_PROVE > available) revert AmountExceedsAvailableDispense();
 
-        // Update the timestamp based on dispensed amount.
-        uint256 timeConsumed = _PROVE / dispenseRate;
+        // If caller passed in type(uint256).max, attempt to dispense the full available amount.
+        uint256 amount = _PROVE == type(uint256).max ? available : _PROVE;
+
+        // Ensure dispensing a non‐zero amount.
+        if (amount == 0) revert ZeroAmount();
+
+        // If caller passed a specific number, make sure it doesn’t exceed available
+        if (amount > available) revert AmountExceedsAvailableDispense();
+
+        // Update the timestamp based on the (possibly‐adjusted) amount
+        uint256 timeConsumed = amount / dispenseRate;
         lastDispenseTimestamp += timeConsumed;
 
-        // Transfer escrowed $PROVE to the iPROVE vault. Will revert if
-        // not enough $PROVE is owned by this contract.
-        IERC20(prove).safeTransfer(iProve, _PROVE);
+        // Transfer the amount to the iPROVE vault. This distributes the $PROVE to all stakers.
+        IERC20(prove).safeTransfer(iProve, amount);
 
-        emit Dispense(_PROVE);
+        emit Dispense(amount);
     }
 
     /// @inheritdoc ISuccinctStaking
