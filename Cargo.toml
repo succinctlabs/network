@@ -45,10 +45,10 @@ aws-sdk-s3 = "1.38.0"
 aws-smithy-async = { version = "1.2.1", features = ["rt-tokio"] }
 
 # alloy
-alloy = { version = "0.11.0", features = ["full"] }
-alloy-signer = "0.11.0"
-alloy-primitives = "1.0"
-alloy-signer-local = "0.11.0"
+alloy = { version = "0.15.10", features = ["full"] }
+alloy-signer = "0.15.10"
+alloy-primitives = "1.2.0"
+alloy-signer-local = "0.15.10"
 
 # tracing
 tracing = "0.1"
