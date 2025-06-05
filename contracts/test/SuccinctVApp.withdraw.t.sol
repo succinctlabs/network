@@ -107,7 +107,7 @@ contract SuccinctVAppWithdrawTest is SuccinctVAppTest {
         vm.startPrank(REQUESTER_2);
         vm.expectEmit(true, true, true, true);
         emit ISuccinctVApp.Withdrawal(REQUESTER_2, amount);
-        uint256 claimedAmount = SuccinctVApp(VAPP).finishWithdrawal(REQUESTER_2);
+        uint256 claimedAmount = SuccinctVApp(VAPP).finishWithdraw(REQUESTER_2);
         vm.stopPrank();
 
         assertEq(claimedAmount, amount);
@@ -117,7 +117,7 @@ contract SuccinctVAppWithdrawTest is SuccinctVAppTest {
         // Reattempt claim
         vm.startPrank(REQUESTER_2);
         vm.expectRevert(abi.encodeWithSelector(ISuccinctVApp.NoWithdrawalToClaim.selector));
-        SuccinctVApp(VAPP).finishWithdrawal(REQUESTER_2);
+        SuccinctVApp(VAPP).finishWithdraw(REQUESTER_2);
         vm.stopPrank();
     }
 
@@ -232,7 +232,7 @@ contract SuccinctVAppWithdrawTest is SuccinctVAppTest {
 
     //     // Claim withdrawal
     //     assertEq(ERC20(testUsdc).balanceOf(user), 0);
-    //     SuccinctVApp(VAPP).finishWithdrawal(user);
+    //     SuccinctVApp(VAPP).finishWithdraw(user);
     //     assertEq(ERC20(testUsdc).balanceOf(user), 100);
     //     vm.stopPrank();
     // }

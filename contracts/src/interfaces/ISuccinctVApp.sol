@@ -205,7 +205,7 @@ interface ISuccinctVApp {
     /// @notice Claim a pending withdrawal from the contract.
     /// @param to The address to claim the withdrawal to.
     /// @return amount The amount claimed.
-    function finishWithdrawal(address to) external returns (uint256 amount);
+    function finishWithdraw(address to) external returns (uint256 amount);
 
     /// @notice Register a newly created prover. Only callable by the staking contract.
     /// @param prover The address of the prover.
@@ -245,4 +245,12 @@ interface ISuccinctVApp {
     /// @dev Only callable by the owner.
     /// @param amount The new minimum amount.
     function updateMinDepositAmount(uint256 amount) external;
+
+    /// @notice Pauses deposit, withdrawal, prover creation, and step.
+    /// @dev Only callable by the owner.
+    function pause() external;
+
+    /// @notice Unpauses deposit, withdrawal, prover creation, and step.
+    /// @dev Only callable by the owner.
+    function unpause() external;
 }

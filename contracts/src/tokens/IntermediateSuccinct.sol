@@ -56,7 +56,7 @@ contract IntermediateSuccinct is ERC4626, IIntermediateSuccinct {
     ///      1b. The staking contract needs to transfer $iPROVE to a prover during unstake().
     ///         - $PROVER-N.redeem() - transfer from prover to staking
     ///         - $iPROVE.redeem() - transfer from staking to address(0)
-    ///      2. The vApp needs to transfer $iPROVE to a prover during finishWithdrawal(to),
+    ///      2. The vApp needs to transfer $iPROVE to a prover during finishWithdraw(to),
     ///         when `to` is a prover.
     ///         - $iPROVE.deposit() - transfer from address(0) to VApp
     ///         - $iPROVE.transfer() - transfer from VApp to prover

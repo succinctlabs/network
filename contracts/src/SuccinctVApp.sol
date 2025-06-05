@@ -17,8 +17,6 @@ import {ISuccinctStaking} from "./interfaces/ISuccinctStaking.sol";
 import {ISP1Verifier} from "../lib/sp1-contracts/contracts/src/ISP1Verifier.sol";
 import {Initializable} from
     "../lib/openzeppelin-contracts-upgradeable/contracts/proxy/utils/Initializable.sol";
-import {ReentrancyGuardUpgradeable} from
-    "../lib/openzeppelin-contracts-upgradeable/contracts/utils/ReentrancyGuardUpgradeable.sol";
 import {OwnableUpgradeable} from
     "../lib/openzeppelin-contracts-upgradeable/contracts/access/OwnableUpgradeable.sol";
 import {MerkleProof} from
@@ -30,6 +28,7 @@ import {IERC20Permit} from
     "../lib/openzeppelin-contracts/contracts/token/ERC20/extensions/IERC20Permit.sol";
 import {IERC20} from "../lib/openzeppelin-contracts/contracts/interfaces/IERC20.sol";
 import {IERC4626} from "../lib/openzeppelin-contracts/contracts/interfaces/IERC4626.sol";
+import { PausableUpgradeable } from "../lib/openzeppelin-contracts-upgradeable/contracts/utils/PausableUpgradeable.sol";
 
 /// @title SuccinctVApp
 /// @author Succinct Labs
@@ -37,8 +36,8 @@ import {IERC4626} from "../lib/openzeppelin-contracts/contracts/interfaces/IERC4
 /// @dev Processes actions resulting from state transitions.
 contract SuccinctVApp is
     Initializable,
-    ReentrancyGuardUpgradeable,
     OwnableUpgradeable,
+    PausableUpgradeable,
     UUPSUpgradeable,
     ISuccinctVApp
 {
@@ -116,7 +115,6 @@ contract SuccinctVApp is
             revert ZeroAddress();
         }
 
-        __ReentrancyGuard_init();
         __Ownable_init(_owner);
 
         prove = _prove;
@@ -157,7 +155,7 @@ contract SuccinctVApp is
     //////////////////////////////////////////////////////////////*/
 
     /// @inheritdoc ISuccinctVApp
-    function deposit(uint256 _amount) external override returns (uint64 receipt) {
+    function deposit(uint256 _amount) external override whenNotPaused returns (uint64 receipt) {
         return _deposit(msg.sender, _amount);
     }
 
@@ -169,7 +167,7 @@ contract SuccinctVApp is
         uint8 _v,
         bytes32 _r,
         bytes32 _s
-    ) external override returns (uint64 receipt) {
+    ) external override whenNotPaused returns (uint64 receipt) {
         // Approve this contract to spend the $PROVE from the depositor.
         IERC20Permit(prove).permit(_from, address(this), _amount, _deadline, _v, _r, _s);
 
@@ -180,6 +178,7 @@ contract SuccinctVApp is
     function requestWithdraw(address _to, uint256 _amount)
         external
         override
+        whenNotPaused
         returns (uint64 receipt)
     {
         // Validate.
@@ -196,7 +195,7 @@ contract SuccinctVApp is
     }
 
     /// @inheritdoc ISuccinctVApp
-    function finishWithdrawal(address _to) external override returns (uint256 amount) {
+    function finishWithdraw(address _to) external override whenNotPaused returns (uint256 amount) {
         // Validate.
         amount = claimableWithdrawal[_to];
         if (amount == 0) revert NoWithdrawalToClaim();
@@ -229,6 +228,7 @@ contract SuccinctVApp is
     function createProver(address _prover, address _owner, uint256 _stakerFeeBips)
         external
         onlyStaking
+        whenNotPaused
         returns (uint64 receipt)
     {
         // Validate.
@@ -242,8 +242,8 @@ contract SuccinctVApp is
 
     /// @inheritdoc ISuccinctVApp
     function step(bytes calldata _publicValues, bytes calldata _proofBytes)
-        public
-        nonReentrant
+        external
+        whenNotPaused
         returns (uint64, bytes32, bytes32)
     {
         // Verify the proof.
@@ -317,6 +317,16 @@ contract SuccinctVApp is
     /// @inheritdoc ISuccinctVApp
     function updateMinDepositAmount(uint256 _amount) external override onlyOwner {
         _updateMinDepositAmount(_amount);
+    }
+
+    /// @inheritdoc ISuccinctVApp
+    function pause() external override onlyOwner whenNotPaused {
+        _pause();
+    }
+
+    /// @inheritdoc ISuccinctVApp
+    function unpause() external override onlyOwner whenPaused {
+        _unpause();
     }
 
     /*//////////////////////////////////////////////////////////////

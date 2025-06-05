@@ -97,7 +97,7 @@ contract MockVApp {
         return 1;
     }
 
-    function finishWithdrawal(address account) external {
+    function finishWithdraw(address account) external {
         uint256 amount = withdrawClaims[account];
         if (amount == 0) {
             revert("No withdrawal claim");
