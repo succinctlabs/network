@@ -230,6 +230,8 @@ impl<C: NodeContext> NodeBidder<C> for SerialBidder {
                         request_id: hex::decode(request_id.clone())
                             .context("failed to decode request_id")?,
                         amount: self.bid.to_string(),
+                        domain: todo!(),
+                        prover: todo!(),
                     };
                     let bid_request = BidRequest {
                         format: MessageFormat::Binary.into(),
@@ -718,6 +720,7 @@ impl<C: NodeContext> NodeProver<C> for SerialProver {
                                                 request_id: request.request_id.clone(),
                                                 proof: proof_bytes.clone(),
                                                 reserved_metadata: None,
+                                                domain: todo!(),
                                             };
                                             let fulfill_request = FulfillProofRequest {
                                                 format: MessageFormat::Binary.into(),

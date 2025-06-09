@@ -1,0 +1,10 @@
+[package]
+name = "vapp-stf-program"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+spn-vapp = { workspace = true }
+alloy-primitives = { workspace = true, features = ["k256", "tiny-keccak"] }
+alloy-sol-types = { workspace = true }
+sp1-zkvm = { version = "4.2.0", features = ["verify"] }
