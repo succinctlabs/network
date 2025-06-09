@@ -14,8 +14,7 @@ use std::sync::LazyLock;
 
 use alloy_primitives::B256;
 use alloy_sol_types::eip712_domain;
-use anyhow::{Result, anyhow};
-
+use anyhow::{anyhow, Result};
 
 /// The [Eip712Domain] separator for the vApp on Sepolia.
 pub static SPN_SEPOLIA_V1_DOMAIN: LazyLock<B256> = LazyLock::new(|| {

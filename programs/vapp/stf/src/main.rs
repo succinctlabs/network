@@ -115,5 +115,4 @@ pub fn main() {
 
     // Commit to the public values of the program.
     sp1_zkvm::io::commit_slice(&bytes);
-
 }

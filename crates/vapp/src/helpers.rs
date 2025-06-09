@@ -8,7 +8,10 @@ pub mod signers {
     use alloy_primitives::{keccak256, PrimitiveSignature, U256};
     use prost::Message;
     use spn_network_types::{
-        BidRequest, BidRequestBody, ExecuteProofRequest, ExecuteProofRequestBody, ExecutionStatus, FulfillProofRequest, FulfillProofRequestBody, HashableWithSender, MessageFormat, RequestProofRequest, RequestProofRequestBody, SetDelegationRequest, SetDelegationRequestBody, SettleRequest, SettleRequestBody
+        BidRequest, BidRequestBody, ExecuteProofRequest, ExecuteProofRequestBody, ExecutionStatus,
+        FulfillProofRequest, FulfillProofRequestBody, HashableWithSender, MessageFormat,
+        RequestProofRequest, RequestProofRequestBody, SetDelegationRequest,
+        SetDelegationRequestBody, SettleRequest, SettleRequestBody,
     };
     use spn_utils::SPN_SEPOLIA_V1_DOMAIN;
 
