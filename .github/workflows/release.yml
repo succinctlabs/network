@@ -1,0 +1,48 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Setup CI
+        uses: ./.github/actions/setup
+
+      - name: Install Foundry
+        uses: foundry-rs/foundry-toolchain@v1
+        with:
+          version: stable
+
+      - name: Build RISC-V ELFs
+        run: |
+          ./x.sh
+
+      - name: Build contracts
+        run: forge build --root contracts
+
+      - name: Run tests
+        run: forge test --gas-report --root contracts
+
+      - name: Check formatting
+        run: forge fmt --check --root contracts
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          generate_release_notes: true
+          files: |
+            elf/spn-vapp-stf
+            elf/spn-vapp-aggregation
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -93,7 +93,7 @@ pub fn main() {
         oldRoot: input.root,
         newRoot: new_root,
         timestamp: input.timestamp,
-        receipts: receipts.into_iter().map(|action| action.sol()).collect(),
+        receipts: receipts.into_iter().map(|receipt| receipt.sol()).collect(),
     };
     let bytes = StepPublicValues::abi_encode(&public_values);
 
