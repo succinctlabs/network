@@ -52,7 +52,7 @@ contract AllScript is BaseScript, FixtureLoader {
     {
         // Read config
         address VERIFIER = vm.envOr("VERIFIER", address(0));
-        bytes32 VKEY = bytes32(0x0027860ee5a98f9ad361de3622d6eaf4a9caf2c2354395332fc95254eddab0f6);
+        bytes32 VKEY = bytes32(0x007b96060034a8d1532207d114c67ae0c9ebb7fc2a0d8765a52f280bdd3f4df1);
         bytes32 GENESIS_STATE_ROOT =
             bytes32(0x4b15a7d34ea0ec471d0d6ab9170cc2910f590819ee168e2a799e25244e327116);
         uint64 GENESIS_TIMESTAMP = 0;
