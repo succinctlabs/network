@@ -1,19 +1,17 @@
 //! Errors.
 //!
-//! This module contains the errors that can occur during the execution of the vApp.
+//! This module contains error types that can be emitted by the crate.
 
 use alloy_primitives::{Address, B256, U256};
 use std::error::Error as StdError;
 use thiserror::Error;
 
-/// The error that can occur during a state transition of the vApp.
-///
-/// These errors are typically produced via the [crate::state::VAppState::execute] method.
+/// The error that can be emitted during [crate::state::VAppState::execute].
 #[derive(Debug)]
 pub enum VAppError {
-    /// Recoverable errors.
+    /// A recoverable error that will be recorded in the ledger.
     Revert(VAppRevert),
-    /// Unrecoverable errors.
+    /// Unrecoverable errors that will stop inclusion in the ledger.
     Panic(VAppPanic),
 }
 
@@ -22,26 +20,23 @@ pub enum VAppError {
 #[allow(missing_docs)]
 pub enum VAppRevert {
     #[error("Insufficient balance for withdrawal: {account}: {amount} > {balance}")]
-    InsufficientBalanceForWithdrawal { account: Address, amount: U256, balance: U256 },
+    InsufficientBalance { account: Address, amount: U256, balance: U256 },
 
-    #[error("Account does not exist: {account}")]
-    AccountDoesNotExist { account: Address },
+    #[error("Account does not exist: {prover}")]
+    ProverDoesNotExist { prover: Address },
 }
 
 /// An unrecoverable error that will prevent a transaction from being included in the ledger.
 #[derive(Debug, Error, PartialEq)]
 #[allow(missing_docs)]
 pub enum VAppPanic {
-    #[error("EIP-712 domain already initialized")]
-    Eip712DomainAlreadyInitialized,
+    #[error("Out of order onchain tx {expected} != {actual}")]
+    OnchainTxOutOfOrder { expected: u64, actual: u64 },
 
-    #[error("Out of order receipt {expected} != {actual}")]
-    ReceiptOutOfOrder { expected: u64, actual: u64 },
-
-    #[error("Out of order block number {expected} != {actual}")]
+    #[error("Out of order onchain block {expected} != {actual}")]
     BlockNumberOutOfOrder { expected: u64, actual: u64 },
 
-    #[error("Out of order log index: {current} >= {next}")]
+    #[error("Out of order onchain log index: {current} >= {next}")]
     LogIndexOutOfOrder { current: u64, next: u64 },
 
     #[error("Insufficient balance for account {account}: {amount} > {balance}")]
@@ -65,11 +60,11 @@ pub enum VAppPanic {
     #[error("Invalid proto signature for transfer")]
     InvalidTransferSignature,
 
-    #[error("Missing proto body")]
-    MissingProtoBody,
-
     #[error("Invalid proto signature for delegation")]
     InvalidDelegationSignature,
+
+    #[error("Missing proto body")]
+    MissingProtoBody,
 
     #[error("Only owner can delegate")]
     OnlyOwnerCanDelegate,
@@ -92,11 +87,8 @@ pub enum VAppPanic {
     #[error("Gas limit exceeded in execute in clear")]
     GasLimitExceeded { gas_used: u64, gas_limit: u64 },
 
-    #[error("Invalid account")]
-    InvalidAccount,
-
-    #[error("Requester can't afford the cost of the proof: {account}: {amount} > {balance}")]
-    RequesterBalanceTooLow { account: Address, amount: U256, balance: U256 },
+    #[error("Account does not exist: {account}")]
+    AccountDoesNotExist { account: Address },
 
     #[error("Prover not in whitelist")]
     ProverNotInWhitelist { prover: Address },
@@ -104,11 +96,8 @@ pub enum VAppPanic {
     #[error("Execution failed")]
     ExecutionFailed { status: i32 },
 
-    #[error("Request already consumed for address {address}: {nonce}")]
-    RequestAlreadyConsumed { address: Address, nonce: u64 },
-
-    #[error("Invalid proof mode: {mode}")]
-    InvalidProofMode { mode: i32 },
+    #[error("Request already consumed: {id}")]
+    RequestAlreadyConsumed { id: String },
 
     #[error("Unsupported proof mode: {mode}")]
     UnsupportedProofMode { mode: i32 },
@@ -170,8 +159,8 @@ impl StdError for VAppError {
 impl std::fmt::Display for VAppError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            VAppError::Revert(err) => write!(f, "VApp revert: {}", err),
-            VAppError::Panic(err) => write!(f, "VApp panic: {}", err),
+            VAppError::Revert(err) => write!(f, "VApp Revert: {}", err),
+            VAppError::Panic(err) => write!(f, "VApp Panic: {}", err),
         }
     }
 }

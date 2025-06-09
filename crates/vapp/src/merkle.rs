@@ -403,11 +403,9 @@ impl<K: StorageKey, V: SolValue + Clone, H: MerkleTreeHasher> MerkleStorage<K, V
             updated_value_map.insert(k.index(), v);
         }
 
-        println!("cycle-tracker-report-start: verify proofs");
         for proof in proofs {
             Self::verify_proof(old_root, proof)?;
         }
-        println!("cycle-tracker-report-end: verify proof");
 
         // Ensure that every updated key comes with a proof. Without it we cannot
         // rebalance the tree because we would lack the required sibling hashes

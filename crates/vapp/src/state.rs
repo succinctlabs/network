@@ -12,10 +12,10 @@ use spn_network_types::{ExecutionStatus, HashableWithSender, ProofMode};
 
 use crate::{
     errors::{VAppError, VAppPanic, VAppRevert},
-    fee::calculate_fee_split,
+    fee::fee,
     merkle::{MerkleStorage, MerkleTreeHasher},
     receipts::{OnchainReceipt, VAppReceipt},
-    signing::{proto_verify, verify_ethereum_personal_sign},
+    signing::{proto_verify, eth_sign_verify},
     sol::{Account, RequestId, TransactionStatus, VAppStateContainer},
     sparse::SparseStorage,
     storage::Storage,
@@ -150,7 +150,7 @@ impl<A: Storage<Address, Account>, R: Storage<RequestId, bool>> VAppState<A, R> 
     ) -> Result<(), VAppError> {
         debug!("check l1 tx is not out of order");
         if l1_tx != self.onchain_tx_id {
-            return Err(VAppPanic::ReceiptOutOfOrder {
+            return Err(VAppPanic::OnchainTxOutOfOrder {
                 expected: self.onchain_tx_id,
                 actual: l1_tx,
             }
@@ -235,7 +235,7 @@ impl<A: Storage<Address, Account>, R: Storage<RequestId, bool>> VAppState<A, R> 
                     balance
                 } else {
                     if balance < withdraw.action.amount {
-                        return Err(VAppRevert::InsufficientBalanceForWithdrawal {
+                        return Err(VAppRevert::InsufficientBalance {
                             account: withdraw.action.account,
                             amount: withdraw.action.amount,
                             balance,
@@ -315,7 +315,7 @@ impl<A: Storage<Address, Account>, R: Storage<RequestId, bool>> VAppState<A, R> 
                 let prover = if let Some(prover) = self.accounts.get_mut(&prover) {
                     prover
                 } else {
-                    return Err(VAppRevert::AccountDoesNotExist { account: prover }.into());
+                    return Err(VAppRevert::ProverDoesNotExist { prover }.into());
                 };
 
                 // Verify that the signer of the delegation is the owner of the prover.
@@ -423,8 +423,7 @@ impl<A: Storage<Address, Account>, R: Storage<RequestId, bool>> VAppState<A, R> 
                 // Check that this request ID has not been consumed yet.
                 if self.requests.get(&request_id).copied().unwrap_or_default() {
                     return Err(VAppPanic::RequestAlreadyConsumed {
-                        address: request_signer,
-                        nonce: request.nonce,
+                        id: hex::encode(request_id),
                     }
                     .into());
                 }
@@ -508,7 +507,7 @@ impl<A: Storage<Address, Account>, R: Storage<RequestId, bool>> VAppState<A, R> 
                 // Verify the proof.
                 println!("cycle-tracker-report-start: proof verification");
                 let mode = ProofMode::try_from(request.mode)
-                    .map_err(|_| VAppPanic::InvalidProofMode { mode: request.mode })?;
+                    .map_err(|_| VAppPanic::UnsupportedProofMode { mode: request.mode })?;
                 let vk = bytes_to_words_be(&request.vk_hash.clone().try_into().unwrap());
                 match mode {
                     ProofMode::Compressed => {
@@ -530,7 +529,7 @@ impl<A: Storage<Address, Account>, R: Storage<RequestId, bool>> VAppState<A, R> 
                             .hash_with_signer(fulfill_signer.as_slice())
                             .map_err(|_| VAppPanic::HashingBodyFailed)?;
                         let verifier =
-                            verify_ethereum_personal_sign(&fulfillment_id, &clear.verify)
+                            eth_sign_verify(&fulfillment_id, &clear.verify)
                                 .map_err(|_| VAppPanic::InvalidVerifierSignature)?;
                         if verifier != self.verifier {
                             return Err(VAppPanic::InvalidVerifierSignature.into());
@@ -571,9 +570,11 @@ impl<A: Storage<Address, Account>, R: Storage<RequestId, bool>> VAppState<A, R> 
                 // Ensure the user can afford the cost of the proof.
                 println!("cycle-tracker-report-start: requester balance checks");
                 let account =
-                    self.accounts.get(&request_signer).ok_or(VAppPanic::InvalidAccount)?;
+                    self.accounts.get(&request_signer).ok_or(VAppPanic::AccountDoesNotExist {
+                        account: request_signer,
+                    })?;
                 if account.get_balance() < cost {
-                    return Err(VAppPanic::RequesterBalanceTooLow {
+                    return Err(VAppPanic::InsufficientBalance {
                         account: request_signer,
                         amount: cost,
                         balance: account.get_balance(),
@@ -614,12 +615,14 @@ impl<A: Storage<Address, Account>, R: Storage<RequestId, bool>> VAppState<A, R> 
 
                 // Get the staker fee from the prover account.
                 let prover_account =
-                    self.accounts.get(&prover_address).ok_or(VAppPanic::InvalidAccount)?;
+                    self.accounts.get(&prover_address).ok_or(VAppPanic::AccountDoesNotExist {
+                        account: prover_address,
+                    })?;
                 let staker_fee_bips = prover_account.get_staker_fee_bips();
 
                 // Calculate the fee split for the protocol, prover vault stakers, and prover owner.
                 let (protocol_fee, prover_staker_fee, prover_owner_fee) =
-                    calculate_fee_split(cost, protocol_fee_bips, staker_fee_bips);
+                    fee(cost, protocol_fee_bips, staker_fee_bips);
 
                 self.accounts.entry(protocol_address).or_default().add_balance(protocol_fee);
                 info!(
