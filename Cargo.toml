@@ -49,6 +49,7 @@ alloy = { version = "0.15.10", features = ["full"] }
 alloy-signer = "0.15.10"
 alloy-primitives = "1.2.0"
 alloy-signer-local = "0.15.10"
+alloy-sol-types = "1.0.0"
 
 # tracing
 tracing = "0.1"

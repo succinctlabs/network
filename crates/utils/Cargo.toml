@@ -9,6 +9,8 @@ keywords = { workspace = true }
 categories = { workspace = true }
 
 [dependencies]
+alloy-sol-types = { workspace = true }
+alloy-primitives = { workspace = true }
 anyhow = { workspace = true }
 serde = { workspace = true }
 tracing-subscriber = { workspace = true }
