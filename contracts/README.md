@@ -61,7 +61,7 @@ CHAIN_ID=$(cast chain-id --rpc-url $ETH_RPC_URL); mkdir -p ./deployments && [ -f
 Deploy all contracts:
 
 ```sh
-FOUNDRY_PROFILE=deploy forge script AllScript --private-key $PRIVATE_KEY --broadcast --rpc-url $ETH_RPC_URL --verify --verifier etherscan --etherscan-api-key $ETHERSCAN_API_KEY
+FOUNDRY_PROFILE=deploy forge script AllScript --private-key $PRIVATE_KEY --broadcast --rpc-url $ETH_RPC_URL
 ```
 
 Then mint some $PROVE tokens (assuming you made the $OWNER the same as the $PRIVATE_KEY address):
@@ -73,8 +73,10 @@ FOUNDRY_PROFILE=deploy forge script MintScript --private-key $PRIVATE_KEY --broa
 Then create a prover and stake:
 
 ```sh
-FOUNDRY_PROFILE=deploy forge script CreateProverAndStakeScript --private-key $PRIVATE_KEY --broadcast --rpc-url $ETH_RPC_URL --verify --verifier etherscan --etherscan-api-key $ETHERSCAN_API_KEY
+FOUNDRY_PROFILE=deploy forge script CreateProverAndStakeScript --private-key $PRIVATE_KEY --broadcast --rpc-url $ETH_RPC_URL
 ```
+
+You can append `--verify --verifier etherscan --etherscan-api-key $ETHERSCAN_API_KEY` to the above commands to verify the contracts on Etherscan.
 
 ## Other Operations
 
@@ -91,11 +93,11 @@ cast send $PROVE "mint(address,uint256)" $(cast wallet address --private-key $PR
 ```
 
 ```sh
-cast send $PROVE "approve(address,uint256)" $VAPP 50e18 --private-key $PRIVATE_KEY --rpc-url $ETH_RPC_URL
+cast send $PROVE "approve(address,uint256)" $VAPP 10000e18 --private-key $PRIVATE_KEY --rpc-url $ETH_RPC_URL
 ```
 
 ```sh
-cast send $VAPP "deposit(uint256)" 50e18 --private-key $PRIVATE_KEY --rpc-url $ETH_RPC_URL
+cast send $VAPP "deposit(uint256)" 100e18 --private-key $PRIVATE_KEY --rpc-url $ETH_RPC_URL
 ```
 
 ### Create a Prover
