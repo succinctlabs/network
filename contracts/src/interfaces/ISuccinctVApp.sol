@@ -35,17 +35,8 @@ interface ISuccinctVApp {
     /// @notice Emitted when the verifier address was updated.
     event VerifierUpdate(address oldVerifier, address newVerifier);
 
-    /// @notice Emitted when the fee vault was updated.
-    event FeeVaultUpdate(address oldFeeVault, address newFeeVault);
-
-    /// @notice Emitted when the max action delay was updated.
-    event MaxActionDelayUpdate(uint64 oldMaxActionDelay, uint64 newMaxActionDelay);
-
     /// @notice Emitted when the minimum deposit was updated.
     event MinDepositAmountUpdate(uint256 oldMinDepositAmount, uint256 newMinDepositAmount);
-
-    /// @notice Emitted when the protocol fee was updated.
-    event ProtocolFeeBipsUpdate(uint256 oldProtocolFeeBips, uint256 newProtocolFeeBips);
 
     /// @dev Thrown when the caller is not the staking contract.
     error NotStaking();
