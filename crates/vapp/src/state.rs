@@ -1,3 +1,7 @@
+//! State.
+//!
+//! This module contains the state and the logic of the state transition function of the vApp.
+
 use alloy_primitives::{Address, B256, U256};
 use eyre::Result;
 use serde::{Deserialize, Serialize};
@@ -7,18 +11,21 @@ use spn_network_types::{ExecutionStatus, HashableWithSender, ProofMode};
 
 use crate::{
     errors::{VAppError, VAppPanic, VAppRevert},
-    fee::calculate_fee_split,
+    fee::fee,
     merkle::{MerkleStorage, MerkleTreeHasher},
     receipts::{OnchainReceipt, VAppReceipt},
-    signing::{proto_verify, verify_ethereum_personal_sign},
-    sol::{Account, RequestId, TransactionStatus, VAppStateContainer},
+    signing::{eth_sign_verify, proto_verify},
+    sol::{Account,  TransactionStatus, VAppStateContainer},
     sparse::SparseStorage,
-    storage::Storage,
+    storage::{RequestId, Storage},
     transactions::{OnchainTransaction, VAppTransaction},
     utils::{address, bytes_to_words_be},
     verifier::VAppVerifier,
 };
 
+/// The state of the Succinct Prover Network vApp.
+///
+/// This state is used to keep track of the accounts, requests, and other data in the vApp.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct VAppState<A: Storage<Address, Account>, R: Storage<RequestId, bool>> {
     /// The domain separator, used to avoid replay attacks.
@@ -108,7 +115,7 @@ impl VAppState<SparseStorage<Address, Account>, SparseStorage<RequestId, bool>> 
 }
 
 impl<A: Storage<Address, Account>, R: Storage<RequestId, bool>> VAppState<A, R> {
-    /// Creates a new [State].
+    /// Creates a new [VAppState].
     pub fn new(
         domain: B256,
         treasury: Address,
@@ -131,7 +138,7 @@ impl<A: Storage<Address, Account>, R: Storage<RequestId, bool>> VAppState<A, R> 
         }
     }
 
-    /// Validates a [Receipt].
+    /// Validates a [OnchainTransaction].
     ///
     /// Checks for basic invariants such as the EIP-712 domain being initialized and that the
     /// block number, log index, and timestamp are all increasing.
@@ -142,7 +149,7 @@ impl<A: Storage<Address, Account>, R: Storage<RequestId, bool>> VAppState<A, R> 
     ) -> Result<(), VAppError> {
         debug!("check l1 tx is not out of order");
         if l1_tx != self.onchain_tx_id {
-            return Err(VAppPanic::ReceiptOutOfOrder {
+            return Err(VAppPanic::OnchainTxOutOfOrder {
                 expected: self.onchain_tx_id,
                 actual: l1_tx,
             }
@@ -170,8 +177,7 @@ impl<A: Storage<Address, Account>, R: Storage<RequestId, bool>> VAppState<A, R> 
         Ok(())
     }
 
-    /// Executes an [VAppEvent] and returns an optional [Action] and whether the transaction should
-    /// be skipped.
+    /// Executes an [VAppTransaction] and returns an optional [VAppReceipt].
     pub fn execute<V: VAppVerifier>(
         &mut self,
         event: &VAppTransaction,
@@ -213,21 +219,24 @@ impl<A: Storage<Address, Account>, R: Storage<RequestId, bool>> VAppState<A, R> 
                 info!("TX {}: WITHDRAW({:?})", self.tx_id, withdraw);
 
                 // Validate the receipt.
+                debug!("validate receipt");
                 self.validate_onchain_tx(withdraw, withdraw.onchain_tx)?;
 
                 // Update the current receipt, block, and log index.
+                debug!("update l1 tx, block, and log index");
                 self.onchain_tx_id += 1;
                 self.onchain_block = withdraw.block;
                 self.onchain_log_index = withdraw.log_index;
 
                 // If the maximum value of an U256 is used, drain the entire balance.
+                debug!("deduct balance");
                 let account = self.accounts.entry(withdraw.action.account).or_default();
                 let balance = account.get_balance();
                 let withdrawal_amount = if withdraw.action.amount == U256::MAX {
                     balance
                 } else {
                     if balance < withdraw.action.amount {
-                        return Err(VAppRevert::InsufficientBalanceForWithdrawal {
+                        return Err(VAppRevert::InsufficientBalance {
                             account: withdraw.action.account,
                             amount: withdraw.action.amount,
                             balance,
@@ -253,9 +262,11 @@ impl<A: Storage<Address, Account>, R: Storage<RequestId, bool>> VAppState<A, R> 
                 info!("TX {}: CREATE_PROVER({:?})", self.tx_id, prover);
 
                 // Validate the onchain transaction.
+                debug!("validate receipt");
                 self.validate_onchain_tx(prover, prover.onchain_tx)?;
 
                 // Update the current onchain transaction, block, and log index.
+                debug!("update l1 tx, block, and log index");
                 self.onchain_tx_id += 1;
                 self.onchain_block = prover.block;
                 self.onchain_log_index = prover.log_index;
@@ -264,6 +275,7 @@ impl<A: Storage<Address, Account>, R: Storage<RequestId, bool>> VAppState<A, R> 
                 //
                 // We set the owner as the signer so that they can immediately start running their
                 // prover with the owner key without having to delegate.
+                debug!("set owner, signer, and staker fee");
                 self.accounts
                     .entry(prover.action.prover)
                     .or_default()
@@ -283,10 +295,12 @@ impl<A: Storage<Address, Account>, R: Storage<RequestId, bool>> VAppState<A, R> 
                 info!("TX {}: DELEGATE({:?})", self.tx_id, delegation);
 
                 // Make sure the delegation body is present.
+                debug!("validate proto body");
                 let body =
                     delegation.delegation.body.as_ref().ok_or(VAppPanic::MissingProtoBody)?;
 
                 // Verify the domain.
+                debug!("verify domain");
                 let domain = B256::try_from(body.domain.as_slice())
                     .map_err(|_| VAppPanic::DomainDeserializationFailed)?;
                 if domain != self.domain {
@@ -296,30 +310,36 @@ impl<A: Storage<Address, Account>, R: Storage<RequestId, bool>> VAppState<A, R> 
                 }
 
                 // Verify the proto signature.
+                debug!("verify proto signature");
                 let signer = proto_verify(body, &delegation.delegation.signature)
                     .map_err(|_| VAppPanic::InvalidDelegationSignature)?;
 
                 // Extract the prover address.
+                debug!("extract prover address");
                 let prover = Address::try_from(body.prover.as_slice())
                     .map_err(|_| VAppPanic::AddressDeserializationFailed)?;
 
                 // Verify that the prover exists.
+                debug!("verify prover exists");
                 let prover = if let Some(prover) = self.accounts.get_mut(&prover) {
                     prover
                 } else {
-                    return Err(VAppRevert::AccountDoesNotExist { account: prover }.into());
+                    return Err(VAppRevert::ProverDoesNotExist { prover }.into());
                 };
 
                 // Verify that the signer of the delegation is the owner of the prover.
+                debug!("verify signer is owner");
                 if signer != prover.get_owner() {
                     return Err(VAppPanic::OnlyOwnerCanDelegate.into());
                 }
 
                 // Extract the delegate address.
+                debug!("extract delegate address");
                 let delegate = Address::try_from(body.delegate.as_slice())
                     .map_err(|_| VAppPanic::AddressDeserializationFailed)?;
 
                 // Set the delegate as a signer for the prover's account.
+                debug!("set delegate as signer");
                 prover.set_signer(delegate);
 
                 // No action returned since delegation is off-chain.
@@ -330,13 +350,16 @@ impl<A: Storage<Address, Account>, R: Storage<RequestId, bool>> VAppState<A, R> 
                 info!("TX {}: TRANSFER({:?})", self.tx_id, transfer);
 
                 // Make sure the transfer body is present.
+                debug!("validate proto body");
                 let body = transfer.transfer.body.as_ref().ok_or(VAppPanic::MissingProtoBody)?;
 
                 // Verify the proto signature.
+                debug!("verify proto signature");
                 let from = proto_verify(body, &transfer.transfer.signature)
                     .map_err(|_| VAppPanic::InvalidTransferSignature)?;
 
                 // Verify the domain.
+                debug!("verify domain");
                 let domain = B256::try_from(body.domain.as_slice())
                     .map_err(|_| VAppPanic::DomainDeserializationFailed)?;
                 if domain != self.domain {
@@ -346,6 +369,7 @@ impl<A: Storage<Address, Account>, R: Storage<RequestId, bool>> VAppState<A, R> 
                 }
 
                 // Transfer the amount from the requester to the recipient.
+                debug!("extract to address");
                 let to = Address::try_from(body.to.as_slice())
                     .map_err(|_| VAppPanic::AddressDeserializationFailed)?;
                 let amount = body.amount.parse::<U256>().map_err(|_| {
@@ -353,6 +377,7 @@ impl<A: Storage<Address, Account>, R: Storage<RequestId, bool>> VAppState<A, R> 
                 })?;
 
                 // Validate that the from account has sufficient balance.
+                debug!("validate from account has sufficient balance");
                 let balance = self.accounts.entry(from).or_default().get_balance();
                 if balance < amount {
                     return Err(
@@ -370,16 +395,15 @@ impl<A: Storage<Address, Account>, R: Storage<RequestId, bool>> VAppState<A, R> 
             }
             VAppTransaction::Clear(clear) => {
                 // Make sure all the proto bodies are present.
-                println!("cycle-tracker-report-start: proto body checks");
+                debug!("validate proto bodies");
                 let request = clear.request.body.as_ref().ok_or(VAppPanic::MissingProtoBody)?;
                 let bid = clear.bid.body.as_ref().ok_or(VAppPanic::MissingProtoBody)?;
                 let settle = clear.settle.body.as_ref().ok_or(VAppPanic::MissingProtoBody)?;
                 let execute = clear.execute.body.as_ref().ok_or(VAppPanic::MissingProtoBody)?;
                 let fulfill = clear.fulfill.body.as_ref().ok_or(VAppPanic::MissingProtoBody)?;
-                println!("cycle-tracker-report-end: proto body checks");
 
                 // Verify the proto signatures.
-                println!("cycle-tracker-report-start: proto signature checks");
+                debug!("verify proto signatures");
                 let request_signer = proto_verify(request, &clear.request.signature)
                     .map_err(|_| VAppPanic::InvalidRequestSignature)?;
                 let bid_signer = proto_verify(bid, &clear.bid.signature)
@@ -388,10 +412,9 @@ impl<A: Storage<Address, Account>, R: Storage<RequestId, bool>> VAppState<A, R> 
                     .map_err(|_| VAppPanic::InvalidSettleSignature)?;
                 let execute_signer = proto_verify(execute, &clear.execute.signature)
                     .map_err(|_| VAppPanic::InvalidExecuteSignature)?;
-                println!("cycle-tracker-report-end: proto signature checks");
 
                 // Verify the domain.
-                println!("cycle-tracker-report-start: domain checks");
+                debug!("verify domains");
                 for domain in
                     [&request.domain, &bid.domain, &settle.domain, &execute.domain, &fulfill.domain]
                 {
@@ -405,24 +428,24 @@ impl<A: Storage<Address, Account>, R: Storage<RequestId, bool>> VAppState<A, R> 
                         .into());
                     }
                 }
-                println!("cycle-tracker-report-end: domain checks");
 
                 // Hash the request to get the request ID.
+                debug!("hash request to get request ID");
                 let request_id: RequestId = request
                     .hash_with_signer(request_signer.as_slice())
                     .map_err(|_| VAppPanic::HashingBodyFailed)?;
 
                 // Check that this request ID has not been consumed yet.
+                debug!("check that request ID has not been consumed yet");
                 if self.requests.get(&request_id).copied().unwrap_or_default() {
                     return Err(VAppPanic::RequestAlreadyConsumed {
-                        address: request_signer,
-                        nonce: request.nonce,
+                        id: hex::encode(request_id),
                     }
                     .into());
                 }
-                println!("cycle-tracker-report-end: request reuse checks");
 
                 // Validate that the request ID is the same for all proto bodies.
+                debug!("validate that request ID is the same for all proto bodies");
                 if request_id.as_slice() != bid.request_id.as_slice() ||
                     request_id.as_slice() != settle.request_id.as_slice() ||
                     request_id.as_slice() != execute.request_id.as_slice() ||
@@ -437,10 +460,9 @@ impl<A: Storage<Address, Account>, R: Storage<RequestId, bool>> VAppState<A, R> 
                     }
                     .into());
                 }
-                println!("cycle-tracker-report-end: request id checks");
 
                 // Validate the the bidder has the right to bid on behalf of the prover.
-                println!("cycle-tracker-report-start: prover checks");
+                debug!("validate bidder has right to bid on behalf of prover");
                 let prover_address = address(bid.prover.as_slice())?;
                 let prover_account = self.accounts.entry(prover_address).or_default();
                 let prover_owner = prover_account.get_owner();
@@ -451,19 +473,17 @@ impl<A: Storage<Address, Account>, R: Storage<RequestId, bool>> VAppState<A, R> 
                     }
                     .into());
                 }
-                println!("cycle-tracker-report-end: prover checks");
 
                 // Validate that the prover is in the request whitelist, if a whitelist is provided.
-                println!("cycle-tracker-report-start: whitelist checks");
+                debug!("validate prover is in whitelist");
                 if !request.whitelist.is_empty() &&
                     !request.whitelist.contains(&prover_address.to_vec())
                 {
                     return Err(VAppPanic::ProverNotInWhitelist { prover: prover_address }.into());
                 }
-                println!("cycle-tracker-report-end: whitelist checks");
 
                 // Validate that the request, settle, and auctioneer addresses match.
-                println!("cycle-tracker-report-start: request, settle, and auctioneer checks");
+                debug!("validate request, settle, and auctioneer addresses match");
                 let request_auctioneer = address(request.auctioneer.as_slice())?;
                 if request_auctioneer != settle_signer && settle_signer != self.auctioneer {
                     return Err(VAppPanic::AuctioneerMismatch {
@@ -473,10 +493,9 @@ impl<A: Storage<Address, Account>, R: Storage<RequestId, bool>> VAppState<A, R> 
                     }
                     .into());
                 }
-                println!("cycle-tracker-report-end: request, settle, and auctioneer checks");
 
                 // Validate that the request, execute, and executor addresses match.
-                println!("cycle-tracker-report-start: request, execute, and executor checks");
+                debug!("validate request, execute, and executor addresses match");
                 let request_executor = address(request.executor.as_slice())?;
                 if request_executor != execute_signer && request_executor != self.executor {
                     return Err(VAppPanic::ExecutorMismatch {
@@ -486,21 +505,19 @@ impl<A: Storage<Address, Account>, R: Storage<RequestId, bool>> VAppState<A, R> 
                     }
                     .into());
                 }
-                println!("cycle-tracker-report-end: request, execute, and executor checks");
 
                 // Validate that the execution status is successful.
-                println!("cycle-tracker-report-start: execution status checks");
+                debug!("validate execution status is successful");
                 if execute.execution_status != ExecutionStatus::Executed as i32 {
                     return Err(
                         VAppPanic::ExecutionFailed { status: execute.execution_status }.into()
                     );
                 }
-                println!("cycle-tracker-report-end: execution status checks");
 
                 // Verify the proof.
-                println!("cycle-tracker-report-start: proof verification");
+                debug!("verify proof");
                 let mode = ProofMode::try_from(request.mode)
-                    .map_err(|_| VAppPanic::InvalidProofMode { mode: request.mode })?;
+                    .map_err(|_| VAppPanic::UnsupportedProofMode { mode: request.mode })?;
                 let vk = bytes_to_words_be(&request.vk_hash.clone().try_into().unwrap());
                 match mode {
                     ProofMode::Compressed => {
@@ -522,7 +539,7 @@ impl<A: Storage<Address, Account>, R: Storage<RequestId, bool>> VAppState<A, R> 
                             .hash_with_signer(fulfill_signer.as_slice())
                             .map_err(|_| VAppPanic::HashingBodyFailed)?;
                         let verifier =
-                            verify_ethereum_personal_sign(&fulfillment_id, &clear.verify)
+                            eth_sign_verify(&fulfillment_id, &clear.verify)
                                 .map_err(|_| VAppPanic::InvalidVerifierSignature)?;
                         if verifier != self.verifier {
                             return Err(VAppPanic::InvalidVerifierSignature.into());
@@ -532,25 +549,22 @@ impl<A: Storage<Address, Account>, R: Storage<RequestId, bool>> VAppState<A, R> 
                         return Err(VAppPanic::UnsupportedProofMode { mode: request.mode }.into());
                     }
                 }
-                println!("cycle-tracker-report-end: proof verification");
 
                 // Parse the bid price.
-                println!("cycle-tracker-report-start: bid price checks");
+                debug!("parse bid price");
                 let price = bid
                     .amount
                     .parse::<U256>()
                     .map_err(|_| VAppPanic::InvalidBidAmount { amount: bid.amount.clone() })?;
-                println!("cycle-tracker-report-end: bid price checks");
 
                 // Calculate the cost of the proof.
-                println!("cycle-tracker-report-start: gas used checks");
                 // TODO(jtguibas): rename to gas_used to pgus
+                debug!("calculate cost of proof");
                 let pgus = execute.gas_used.ok_or(VAppPanic::MissingGasUsed)?;
                 let cost = price * U256::from(pgus);
-                println!("cycle-tracker-report-end: gas used checks");
 
                 // Validate that the execute gas_used was lower than the request gas_limit.
-                println!("cycle-tracker-report-start: gas limit checks");
+                debug!("validate execute gas_used was lower than request gas_limit");
                 if pgus > request.gas_limit {
                     return Err(VAppPanic::GasLimitExceeded {
                         gas_used: pgus,
@@ -558,24 +572,24 @@ impl<A: Storage<Address, Account>, R: Storage<RequestId, bool>> VAppState<A, R> 
                     }
                     .into());
                 }
-                println!("cycle-tracker-report-end: gas limit checks");
 
                 // Ensure the user can afford the cost of the proof.
-                println!("cycle-tracker-report-start: requester balance checks");
+                debug!("ensure user can afford cost of proof");
                 let account =
-                    self.accounts.get(&request_signer).ok_or(VAppPanic::InvalidAccount)?;
+                    self.accounts.get(&request_signer).ok_or(VAppPanic::AccountDoesNotExist {
+                        account: request_signer,
+                    })?;
                 if account.get_balance() < cost {
-                    return Err(VAppPanic::RequesterBalanceTooLow {
+                    return Err(VAppPanic::InsufficientBalance {
                         account: request_signer,
                         amount: cost,
                         balance: account.get_balance(),
                     }
                     .into());
                 }
-                println!("cycle-tracker-report-end: requester balance checks");
 
                 // Log the clear event.
-                println!("cycle-tracker-report-start: log clear event");
+                debug!("log clear event");
                 let request_id: [u8; 32] =
                     clear.fulfill.body.as_ref().unwrap().request_id.clone().try_into().unwrap();
                 info!(
@@ -586,12 +600,12 @@ impl<A: Storage<Address, Account>, R: Storage<RequestId, bool>> VAppState<A, R> 
                     prover_address,
                     cost
                 );
-                println!("cycle-tracker-report-end: log clear event");
 
                 // Log the calculation of the requester fee.
                 info!("├── Requester Fee = {} PGUs × {} $PROVE/PGU = {} $PROVE", pgus, price, cost);
 
                 // Mark request as consumed before processing payment.
+                debug!("mark request as consumed before processing payment");
                 self.requests.entry(request_id).or_insert(true);
 
                 // Deduct the cost from the requester.
@@ -599,37 +613,43 @@ impl<A: Storage<Address, Account>, R: Storage<RequestId, bool>> VAppState<A, R> 
                 self.accounts.entry(request_signer).or_default().deduct_balance(cost);
 
                 // Deposit the cost into the protocol, prover vault, and prover owner.
+                debug!("deposit cost into protocol, prover vault, and prover owner");
 
                 // Get the protocol fee.
+                debug!("get protocol fee");
                 let protocol_address = self.treasury;
                 let protocol_fee_bips = U256::from(30); // 0.3%
 
                 // Get the staker fee from the prover account.
+                debug!("get staker fee from prover account");
                 let prover_account =
-                    self.accounts.get(&prover_address).ok_or(VAppPanic::InvalidAccount)?;
+                    self.accounts.get(&prover_address).ok_or(VAppPanic::AccountDoesNotExist {
+                        account: prover_address,
+                    })?;
                 let staker_fee_bips = prover_account.get_staker_fee_bips();
 
                 // Calculate the fee split for the protocol, prover vault stakers, and prover owner.
+                debug!("calculate fee split for protocol, prover vault stakers, and prover owner");
                 let (protocol_fee, prover_staker_fee, prover_owner_fee) =
-                    calculate_fee_split(cost, protocol_fee_bips, staker_fee_bips);
+                    fee(cost, protocol_fee_bips, staker_fee_bips);
 
-                self.accounts.entry(protocol_address).or_default().add_balance(protocol_fee);
                 info!(
                     "├── Account({}): + {} $PROVE (Protocol Fee)",
                     protocol_address, protocol_fee
                 );
+                self.accounts.entry(protocol_address).or_default().add_balance(protocol_fee);
 
-                self.accounts.entry(prover_address).or_default().add_balance(prover_staker_fee);
                 info!(
                     "├── Account({}): + {} $PROVE (Staker Reward)",
                     prover_address, prover_staker_fee
                 );
+                self.accounts.entry(prover_address).or_default().add_balance(prover_staker_fee);
 
-                self.accounts.entry(prover_owner).or_default().add_balance(prover_owner_fee);
                 info!(
                     "├── Account({}): + {} $PROVE (Owner Reward)",
                     prover_owner, prover_owner_fee
                 );
+                self.accounts.entry(prover_owner).or_default().add_balance(prover_owner_fee);
 
                 Ok(None)
             }
@@ -643,27 +663,24 @@ impl<A: Storage<Address, Account>, R: Storage<RequestId, bool>> VAppState<A, R> 
 }
 
 #[cfg(test)]
-pub mod tests {
+mod tests {
     use crate::{
-        helpers::{
-            signers::{clear_vapp_event, delegate_vapp_event},
-            test_utils::setup,
-        },
         sol::{CreateProver, Deposit, Withdraw},
         transactions::{DelegateTransaction, OnchainTransaction, VAppTransaction},
+        utils::tests::{
+            signers::{clear_vapp_event, delegate_vapp_event, proto_sign, signer},
+            test_utils::setup,
+        },
         verifier::MockVerifier,
     };
     use alloy_primitives::{address, U256};
-    use once_cell::sync::Lazy;
-    use spn_network_types::{ExecutionStatus, FulfillmentStrategy, RequestProofRequestBody};
+    use spn_network_types::{
+        ExecutionStatus, FulfillmentStrategy, MessageFormat, RequestProofRequestBody,
+        SetDelegationRequest, SetDelegationRequestBody,
+    };
     use spn_utils::SPN_SEPOLIA_V1_DOMAIN;
 
     use super::*;
-
-    pub static CONTRACT: Lazy<Address> =
-        Lazy::new(|| address!("0xB4e16d0168e52d35CaCD2c6185b44281Ec28C9Dc"));
-    pub static TOKEN: Lazy<Address> =
-        Lazy::new(|| address!("0x0000000000000000000000000000000000000000"));
 
     #[test]
     fn test_deposit() {
@@ -846,7 +863,6 @@ pub mod tests {
     #[test]
     fn test_complex_workflow() {
         let mut test = setup();
-        use crate::helpers::signers::signer;
 
         // Counters for maintaining event ordering.
         let mut receipt_counter = 0;
@@ -1121,9 +1137,6 @@ pub mod tests {
 
     #[test]
     fn test_delegation_domain_mismatch() {
-        use crate::helpers::signers::proto_sign;
-        use spn_network_types::{MessageFormat, SetDelegationRequest, SetDelegationRequestBody};
-
         let mut test = setup();
         let prover_owner = &test.signers[0];
         let prover_address = test.signers[1].address();

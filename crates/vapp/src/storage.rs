@@ -1,6 +1,10 @@
+//! Storage.
+//!
+//! This module contains the traits for the storage of the vApp.
+
 use std::collections::btree_map::Entry;
 
-use alloy_primitives::U256;
+use alloy_primitives::{Address, U256};
 use alloy_sol_types::SolValue;
 
 /// Storage trait providing basic operations matching those available on MerkleStore.
@@ -33,5 +37,40 @@ pub trait StorageKey: Clone + Eq + std::hash::Hash + Ord {
     fn bits() -> usize;
 }
 
-/// Trait for types that can be used as values in a [MerkleTree].
+impl StorageKey for U256 {
+    fn index(&self) -> U256 {
+        *self
+    }
+
+    fn bits() -> usize {
+        256
+    }
+}
+
+impl StorageKey for Address {
+    fn index(&self) -> U256 {
+        U256::from_be_slice(&self.0 .0)
+    }
+
+    fn bits() -> usize {
+        160
+    }
+}
+
+/// The unique identifier hash of a [spn_network_types::RequestProofRequestBody].
+pub type RequestId = [u8; 32];
+
+impl StorageKey for RequestId {
+    fn index(&self) -> U256 {
+        U256::from_be_slice(&self[..16])
+    }
+
+    fn bits() -> usize {
+        128
+    }
+}
+
+/// Trait for types that can be used as values in a [crate::merkle::MerkleTree].
 pub trait StorageValue: SolValue + Clone {}
+
+impl<V: SolValue + Clone> StorageValue for V {}

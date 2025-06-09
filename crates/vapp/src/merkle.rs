@@ -1,9 +1,14 @@
+//! Merkelized Storage.
+//!
+//! This module contains implementations of the [MerkleStorage] data structure, which is used to
+//! store and retrieve data inside the vApp while keeping all leaves in memory.
+
 use std::{
     collections::{btree_map::Entry, BTreeMap, BTreeSet},
     marker::PhantomData,
 };
 
-use alloy_primitives::{keccak256, Address, Keccak256, B256, U256};
+use alloy_primitives::{keccak256, Keccak256, B256, U256};
 use alloy_sol_types::SolValue;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
@@ -13,11 +18,10 @@ use crate::{
     storage::{Storage, StorageKey, StorageValue},
 };
 
-/// Universal sparse merkle tree with key type K and value type V.
+/// Merkle tree with key type K and value type V.
 ///
-/// This implementation supports 2^K::bits() possible indices and uses sparse storage to
-/// efficiently handle large address spaces. Empty subtrees are optimized using precomputed zero
-/// hashes.
+/// This implementation supports 2^K::bits() possible indices and uses sparse storage to efficiently
+/// handle large address spaces. Empty subtrees are optimized using precomputed zero hashes.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MerkleStorage<K: StorageKey, V: StorageValue, H: MerkleTreeHasher = Keccak256> {
     /// Sparse storage for non-empty leaves (key -> value).
@@ -38,6 +42,7 @@ pub struct MerkleStorage<K: StorageKey, V: StorageValue, H: MerkleTreeHasher = K
 
 /// Errors that can occur during [MerkleStorage] operations.
 #[derive(Debug, Error, PartialEq, Serialize, Deserialize)]
+#[allow(missing_docs)]
 pub enum MerkleStorageError {
     #[error("Index {index} out of bounds for {num_bits} bits")]
     IndexOutOfBounds { index: U256, num_bits: usize },
@@ -52,7 +57,7 @@ pub enum MerkleStorageError {
     FailedToComputeNewRoot,
 }
 
-/// A merkle proof for a key-value pair.
+/// A merkle proof for a key-value pair in the [MerkleStorage].
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MerkleProof<K: StorageKey, V: StorageValue, H: MerkleTreeHasher = Keccak256> {
     /// The key being accessed.
@@ -387,21 +392,19 @@ impl<K: StorageKey, V: SolValue + Clone, H: MerkleTreeHasher> MerkleStorage<K, V
             return Ok(old_root);
         }
 
-        // --------------------------------------------------------------------
+        // -----------------------------------------------------------------------------------------
         // 1. Verify that every supplied proof is valid with respect to the old root. While we do
         //    this, also build a fast-lookup table that tells us whether a particular key has an
         //    updated value or not.
-        // --------------------------------------------------------------------
+        // -----------------------------------------------------------------------------------------
         let mut updated_value_map: BTreeMap<U256, &V> = BTreeMap::new();
         for (k, v) in new_values {
             updated_value_map.insert(k.index(), v);
         }
 
-        println!("cycle-tracker-report-start: verify proofs");
         for proof in proofs {
             Self::verify_proof(old_root, proof)?;
         }
-        println!("cycle-tracker-report-end: verify proof");
 
         // Ensure that every updated key comes with a proof. Without it we cannot
         // rebalance the tree because we would lack the required sibling hashes
@@ -412,11 +415,11 @@ impl<K: StorageKey, V: SolValue + Clone, H: MerkleTreeHasher> MerkleStorage<K, V
             }
         }
 
-        // --------------------------------------------------------------------
+        // -----------------------------------------------------------------------------------------
         // 2. Collect all nodes that are known after the update. We build a map keyed by (level,
         //    index) -> hash. Level 0 corresponds to leaves, a larger level means a node that is
         //    further up the tree.  The map is gradually filled while we walk over all proofs.
-        // --------------------------------------------------------------------
+        // -----------------------------------------------------------------------------------------
         let num_bits = K::bits();
         let mut nodes: BTreeMap<(usize, U256), B256> = BTreeMap::new();
 
@@ -464,11 +467,11 @@ impl<K: StorageKey, V: SolValue + Clone, H: MerkleTreeHasher> MerkleStorage<K, V
             }
         }
 
-        // --------------------------------------------------------------------
+        // -----------------------------------------------------------------------------------------
         // 3. The root resides at `level == num_bits` and `index == 0` after all proofs have been
         //    processed.  We stored/overwrote that entry during the previous loop, so we can read it
         //    directly.
-        // --------------------------------------------------------------------
+        // -----------------------------------------------------------------------------------------
         nodes
             .get(&(num_bits, U256::ZERO))
             .copied()
@@ -573,28 +576,6 @@ impl<K: StorageKey, V: SolValue + Clone, H: MerkleTreeHasher> Storage<K, V>
         self.leaves.get_mut(&index)
     }
 }
-
-impl StorageKey for U256 {
-    fn index(&self) -> U256 {
-        *self
-    }
-
-    fn bits() -> usize {
-        256
-    }
-}
-
-impl StorageKey for Address {
-    fn index(&self) -> U256 {
-        U256::from_be_slice(&self.0 .0)
-    }
-
-    fn bits() -> usize {
-        160
-    }
-}
-
-impl<V: SolValue + Clone> StorageValue for V {}
 
 impl MerkleTreeHasher for Keccak256 {
     fn hash<V: StorageValue>(value: &V) -> B256 {

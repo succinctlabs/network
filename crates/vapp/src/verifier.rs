@@ -1,12 +1,20 @@
+//! Verifier.
+//!
+//! This module contains the traits and implementations for proof verifiers in the vApp.
+
 use thiserror::Error;
 
+/// Errors that can occur during proof verification.
 #[derive(Error, Debug)]
+#[allow(missing_docs)]
 pub enum VAppVerifierError {
     #[error("invalid proof")]
     InvalidProof,
 }
 
+/// A trait for verifying proofs.
 pub trait VAppVerifier: Default + Send + Sync {
+    /// Verifies a proof.
     fn verify(
         &self,
         vk_digest_array: [u32; 8],
@@ -14,6 +22,7 @@ pub trait VAppVerifier: Default + Send + Sync {
     ) -> Result<(), VAppVerifierError>;
 }
 
+/// A mock verifier for testing.
 #[derive(Debug, Clone, Default)]
 pub struct MockVerifier;
 

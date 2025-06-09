@@ -1,8 +1,10 @@
+//! Solidity types.
+//!
+//! This module contains the types for the Solidity contracts that are used by the vApp.
+
 use alloy_primitives::{Address, U256};
 use alloy_sol_types::sol;
 use serde::{Deserialize, Serialize};
-
-use crate::storage::StorageKey;
 
 sol! {
     /// @notice A transaction.
@@ -34,8 +36,11 @@ sol! {
     /// @notice The type of transaction.
     #[derive(Debug)]
     enum TransactionVariant {
+        /// @notice The variant for a deposit transaction.
         Deposit,
+        /// @notice The variant for a withdraw transaction.
         Withdraw,
+        /// @notice The variant for a create prover transaction.
         CreateProver
     }
 
@@ -173,16 +178,3 @@ impl Account {
     }
 }
 
-/// A unique identifier for a request.
-pub type RequestId = [u8; 32];
-
-impl StorageKey for RequestId {
-    fn index(&self) -> U256 {
-        // Use the first 16 bytes of the 32-byte request ID directly.
-        U256::from_be_slice(&self[..16])
-    }
-
-    fn bits() -> usize {
-        128
-    }
-}

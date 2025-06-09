@@ -12,7 +12,7 @@ use anyhow::{Context, Result};
 use chrono::{self, DateTime};
 use nvml_wrapper::Nvml;
 use sp1_sdk::{EnvProver, SP1ProofMode, SP1Stdin};
-use spn_artifacts::{ extract_artifact_name, Artifact};
+use spn_artifacts::{extract_artifact_name, Artifact};
 use spn_network_types::{
     prover_network_client::ProverNetworkClient, BidRequest, BidRequestBody, ExecutionStatus,
     FailFulfillmentRequest, FailFulfillmentRequestBody, FulfillProofRequest,
@@ -593,8 +593,9 @@ impl<C: NodeContext> NodeProver<C> for SerialProver {
                 label: "program".to_string(),
                 expiry: None,
             };
-            let program: Vec<u8> =
-                program_artifact.download_program_from_uri(&request.program_public_uri, todo!()).await?;
+            let program: Vec<u8> = program_artifact
+                .download_program_from_uri(&request.program_public_uri, todo!())
+                .await?;
             info!(program_size = %program.len(), artifact_id = %hex::encode(program_artifact_id), "{SERIAL_PROVER_TAG} Downloaded program.");
 
             // Download the stdin.

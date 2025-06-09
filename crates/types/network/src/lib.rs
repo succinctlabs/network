@@ -6,11 +6,9 @@ pub use network::*;
 mod types;
 pub use types::*;
 
-use alloy_primitives::Keccak256;
-use alloy::primitives::PrimitiveSignature;
+use alloy_primitives::{Keccak256, PrimitiveSignature};
 use alloy_signer::SignerSync;
 use prost::Message;
-use serde::{Deserialize, Serialize};
 
 pub trait Signable: Message {
     fn sign<S: SignerSync>(&self, signer: &S) -> PrimitiveSignature;
