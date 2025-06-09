@@ -6,8 +6,6 @@ use alloy_primitives::{Address, U256};
 use alloy_sol_types::sol;
 use serde::{Deserialize, Serialize};
 
-use crate::storage::StorageKey;
-
 sol! {
     /// @notice A transaction.
     #[derive(Debug)]
@@ -180,16 +178,3 @@ impl Account {
     }
 }
 
-/// A unique identifier for a request.
-pub type RequestId = [u8; 32];
-
-impl StorageKey for RequestId {
-    fn index(&self) -> U256 {
-        // Use the first 16 bytes of the 32-byte request ID directly.
-        U256::from_be_slice(&self[..16])
-    }
-
-    fn bits() -> usize {
-        128
-    }
-}

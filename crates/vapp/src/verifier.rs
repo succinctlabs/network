@@ -1,6 +1,6 @@
 //! Verifier.
 //!
-//! This module contains the traits and implementations for the verifier of the vApp.
+//! This module contains the traits and implementations for proof verifiers in the vApp.
 
 use thiserror::Error;
 

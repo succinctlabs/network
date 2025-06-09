@@ -213,8 +213,9 @@ pub mod tests {
 
         use crate::{
             merkle::MerkleStorage,
-            sol::{Account, RequestId},
+            sol::Account,
             state::VAppState,
+            storage::RequestId,
         };
 
         use super::signers::signer;
