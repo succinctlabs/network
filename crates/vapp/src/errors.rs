@@ -1,5 +1,5 @@
 //! Errors.
-//! 
+//!
 //! This module contains the errors that can occur during the execution of the vApp.
 
 use alloy_primitives::{Address, B256, U256};

@@ -1,5 +1,5 @@
 //! Merkelized Storage.
-//! 
+//!
 //! This module contains implementations of the [MerkleStorage] data structure, which is used to
 //! store and retrieve data inside the vApp while keeping all leaves in memory.
 

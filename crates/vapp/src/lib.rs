@@ -1,6 +1,6 @@
 //! Succinct Prover Network Verifiable Application Core Library.
-//! 
-//! The system is designed as a verifiable application (vApp), meaning it uses a RISC-V zkVM like 
+//!
+//! The system is designed as a verifiable application (vApp), meaning it uses a RISC-V zkVM like
 //! SP1 to generate proofs for its state-transition function. It interacts with an Ethereum L1 smart
 //! contract to manage balances and maintain system state.
 
@@ -47,7 +47,6 @@ use crate::{
     state::VAppState,
     transactions::VAppTransaction,
 };
-
 
 /// Input structure for the VApp zkVM program.
 #[derive(Debug, Clone, Serialize, Deserialize)]

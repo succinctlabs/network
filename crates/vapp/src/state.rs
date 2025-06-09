@@ -1,6 +1,6 @@
 //! State.
 //!
-//! This module contains the state and the logic of the state-transition-function of the Succinct 
+//! This module contains the state and the logic of the state-transition-function of the Succinct
 //! Prover Network vApp.
 
 use alloy_primitives::{Address, B256, U256};
@@ -653,13 +653,19 @@ impl<A: Storage<Address, Account>, R: Storage<RequestId, bool>> VAppState<A, R> 
 #[cfg(test)]
 mod tests {
     use crate::{
-        sol::{CreateProver, Deposit, Withdraw}, transactions::{DelegateTransaction, OnchainTransaction, VAppTransaction}, utils::tests::{
+        sol::{CreateProver, Deposit, Withdraw},
+        transactions::{DelegateTransaction, OnchainTransaction, VAppTransaction},
+        utils::tests::{
             signers::{clear_vapp_event, delegate_vapp_event, proto_sign, signer},
             test_utils::setup,
-        }, verifier::MockVerifier
+        },
+        verifier::MockVerifier,
     };
     use alloy_primitives::{address, U256};
-    use spn_network_types::{ExecutionStatus, FulfillmentStrategy, MessageFormat, RequestProofRequestBody, SetDelegationRequest, SetDelegationRequestBody};
+    use spn_network_types::{
+        ExecutionStatus, FulfillmentStrategy, MessageFormat, RequestProofRequestBody,
+        SetDelegationRequest, SetDelegationRequestBody,
+    };
     use spn_utils::SPN_SEPOLIA_V1_DOMAIN;
 
     use super::*;
