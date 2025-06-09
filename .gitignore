@@ -41,3 +41,6 @@ out/
 
 # Ignores broadcast logs
 broadcast/
+
+# Ignore ELF files
+elf/

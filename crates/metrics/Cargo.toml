@@ -18,8 +18,9 @@ metrics-util = { workspace = true }
 metrics-derive = { workspace = true }
 tokio = { workspace = true }
 tracing = { workspace = true }
-once_cell = { workspace = true }
 axum = { workspace = true }
+once_cell = "1.18.0"
+socket2 = { version = "0.5", default-features = false }
 
 [target.'cfg(target_os = "linux")'.dependencies]
 procfs = "0.16.0"

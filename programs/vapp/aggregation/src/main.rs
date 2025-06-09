@@ -6,12 +6,12 @@ use sha2::{Digest, Sha256};
 use sp1_zkvm::lib::verify::verify_sp1_proof;
 use spn_vapp::sol::StepPublicValues;
 
-pub fn main() {
-    // Read the STF verification key.
-    //
-    // TODO(jtguibas): have this as a constant in the program.
-    let stf_vkey = sp1_zkvm::io::read::<[u32; 8]>();
+use crate::key::STF_VKEY;
 
+#[rustfmt::skip]
+mod key;
+
+pub fn main() {
     // Read the public values from each STF proof.
     let public_values = sp1_zkvm::io::read::<Vec<Vec<u8>>>();
 
@@ -21,7 +21,7 @@ pub fn main() {
     // Verify all STF proofs.
     for public_value in &public_values {
         let public_values_digest = Sha256::digest(public_value);
-        verify_sp1_proof(&stf_vkey, &public_values_digest.into());
+        verify_sp1_proof(&STF_VKEY, &public_values_digest.into());
     }
 
     // Decode all StepPublicValues and validate state transitions.

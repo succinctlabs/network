@@ -1,19 +1,27 @@
+#[cfg(feature = "network")]
 #[rustfmt::skip]
 mod network;
+
+#[cfg(feature = "network")]
 pub use network::*;
 
 #[rustfmt::skip]
 mod types;
 pub use types::*;
 
-use alloy_primitives::{Keccak256, PrimitiveSignature};
+use alloy_primitives::{Keccak256};
+#[cfg(feature = "network")]
+use alloy_primitives::{PrimitiveSignature};
+#[cfg(feature = "network")]
 use alloy_signer::SignerSync;
 use prost::Message;
 
+#[cfg(feature = "network")]
 pub trait Signable: Message {
     fn sign<S: SignerSync>(&self, signer: &S) -> PrimitiveSignature;
 }
 
+#[cfg(feature = "network")]
 impl<T: Message> Signable for T {
     fn sign<S: SignerSync>(&self, signer: &S) -> PrimitiveSignature {
         signer.sign_message_sync(&self.encode_to_vec()).unwrap()
