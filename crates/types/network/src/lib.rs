@@ -10,8 +10,7 @@ use alloy_primitives::Keccak256;
 use alloy::primitives::PrimitiveSignature;
 use alloy_signer::SignerSync;
 use prost::Message;
-pub use serde::{Deserialize, Serialize};
-pub use types::*;
+use serde::{Deserialize, Serialize};
 
 pub trait Signable: Message {
     fn sign<S: SignerSync>(&self, signer: &S) -> PrimitiveSignature;
