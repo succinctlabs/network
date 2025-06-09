@@ -34,10 +34,10 @@ spn-utils = { path = "crates/utils" }
 spn-rpc = { path = "crates/rpc" }
 
 # sp1
-sp1-sdk = { git = "https://github.com/succinctlabs/sp1.git", rev = "ad212dd52bdf8f630ea47f2b58aa94d5b6e79904", features = ["native-gnark"] }
-sp1-prover = { git = "https://github.com/succinctlabs/sp1.git", rev = "ad212dd52bdf8f630ea47f2b58aa94d5b6e79904" }
-sp1-zkvm = { git = "https://github.com/succinctlabs/sp1.git", rev = "ad212dd52bdf8f630ea47f2b58aa94d5b6e79904" }
-sp1-build = { git = "https://github.com/succinctlabs/sp1.git", rev = "ad212dd52bdf8f630ea47f2b58aa94d5b6e79904" }
+sp1-sdk = { git = "https://github.com/succinctlabs/sp1.git", branch = "chris/wip-digest", features = ["native-gnark"] }
+sp1-prover = { git = "https://github.com/succinctlabs/sp1.git", branch = "chris/wip-digest" }
+sp1-zkvm = { git = "https://github.com/succinctlabs/sp1.git", branch = "chris/wip-digest" }
+sp1-build = { git = "https://github.com/succinctlabs/sp1.git", branch = "chris/wip-digest" }
 
 # aws
 aws-config = "1.5.3"
