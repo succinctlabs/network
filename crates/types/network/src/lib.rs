@@ -8,6 +8,7 @@ use alloy_signer::SignerSync;
 pub use network::*;
 use prost::Message;
 pub use serde::{Deserialize, Serialize};
+pub use types::*;
 
 pub trait Signable: Message {
     fn sign<S: SignerSync>(&self, signer: &S) -> PrimitiveSignature;
