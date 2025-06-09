@@ -1,0 +1,76 @@
+#![allow(clippy::large_enum_variant)]
+
+use alloy_primitives::B256;
+use serde::{Deserialize, Serialize};
+use spn_network_types::{
+    BidRequest, ExecuteProofRequest, FulfillProofRequest, RequestProofRequest,
+    SetDelegationRequest, SettleRequest, TransferRequest,
+};
+
+use crate::sol::{CreateProver, Deposit, Withdraw};
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum VAppTransaction {
+    // Contract (on-chain).
+    /// A deposit from the vApp contract.
+    ///
+    /// The currency of the deposit is the $PROVE token.
+    Deposit(OnchainTransaction<Deposit>),
+
+    /// A withdraw from the vApp contract.
+    ///
+    /// The currency of the withdraw is the $PROVE token.
+    Withdraw(OnchainTransaction<Withdraw>),
+
+    /// A set delegated signer from the vApp contract.
+    ///
+    /// This allows an EOA to sign on the behalf of a prover. Specifically, this EOA can now
+    /// bid in proof request auctions using the prover's staked $PROVE.
+    CreateProver(OnchainTransaction<CreateProver>),
+
+    // Node (off-chain).
+    /// A delegation event from off-chain signed transaction.
+    ///
+    /// This allows a prover owner to delegate signing authority to another account,
+    /// enabling the delegate to bid on proof requests using the prover's staked $PROVE.
+    Delegate(DelegateTransaction),
+
+    /// Transfers $PROVE from an account to another.
+    Transfer(TransferTransaction),
+
+    /// Clears a proof.
+    ///
+    /// Verifies the request, bid, assign, execute, and the proof itself. Deducts the request fee
+    /// from the requester and transfers proving fees to the prover.
+    Clear(ClearTransaction),
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OnchainTransaction<T> {
+    pub tx_hash: Option<B256>,
+    pub block: u64,
+    pub log_index: u64,
+    pub onchain_tx: u64,
+    pub action: T,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DelegateTransaction {
+    pub delegation: SetDelegationRequest,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TransferTransaction {
+    pub transfer: TransferRequest,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ClearTransaction {
+    pub request: RequestProofRequest,
+    pub bid: BidRequest,
+    pub settle: SettleRequest,
+    pub execute: ExecuteProofRequest,
+    pub fulfill: FulfillProofRequest,
+    pub verify: Vec<u8>,
+    pub vk: Option<Vec<u8>>,
+}

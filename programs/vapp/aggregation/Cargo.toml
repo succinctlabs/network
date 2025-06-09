@@ -1,0 +1,10 @@
+[package]
+name = "vapp-aggregation-program"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+spn-vapp = { workspace = true }
+alloy-sol-types = { workspace = true }
+sha2 = { workspace = true }
+sp1-zkvm = { version = "4.2.0", features = ["verify"] }

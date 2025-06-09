@@ -1,0 +1,32 @@
+[package]
+name = "spn-vapp"
+version = "0.1.0"
+edition = "2021"
+
+[features]
+network = ["alloy"]
+
+[dependencies]
+# spn
+spn-network-types = { workspace = true }
+spn-utils = { workspace = true }
+
+# alloy
+alloy = { workspace = true, optional = true }
+alloy-primitives = { workspace = true, features = ["k256", "serde"] }
+alloy-sol-types = { workspace = true }
+
+# misc
+serde = { workspace = true }
+serde_json = { workspace = true }
+prost = { workspace = true }
+thiserror = { workspace = true }
+eyre = { workspace = true }
+hex = { workspace = true }
+sha2 = "=0.10.8"
+sha3 = { workspace = true }
+once_cell = { workspace = true }
+tracing = { workspace = true }
+
+[dev-dependencies]
+alloy = { workspace = true }
