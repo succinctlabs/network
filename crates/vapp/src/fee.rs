@@ -1,3 +1,7 @@
+//! Fee Calculation.
+//! 
+//! This module contains the logic for calculating the fee split for a total reward.
+
 use alloy_primitives::U256;
 
 /// Basis points denominator (10000 = 100%).

@@ -1,3 +1,7 @@
+//! Storage.
+//!
+//! This module contains the traits for the storage of the vApp.
+
 use std::collections::btree_map::Entry;
 
 use alloy_primitives::U256;

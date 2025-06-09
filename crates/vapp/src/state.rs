@@ -1,3 +1,8 @@
+//! State.
+//!
+//! This module contains the state and the logic of the state-transition-function of the Succinct 
+//! Prover Network vApp.
+
 use alloy_primitives::{Address, B256, U256};
 use eyre::Result;
 use serde::{Deserialize, Serialize};
@@ -19,6 +24,9 @@ use crate::{
     verifier::VAppVerifier,
 };
 
+/// The state of the Succinct Prover Network vApp.
+///
+/// This state is used to keep track of the accounts, requests, and other data in the vApp.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct VAppState<A: Storage<Address, Account>, R: Storage<RequestId, bool>> {
     /// The domain separator, used to avoid replay attacks.
@@ -643,27 +651,18 @@ impl<A: Storage<Address, Account>, R: Storage<RequestId, bool>> VAppState<A, R> 
 }
 
 #[cfg(test)]
-pub mod tests {
+mod tests {
     use crate::{
-        helpers::{
-            signers::{clear_vapp_event, delegate_vapp_event},
+        sol::{CreateProver, Deposit, Withdraw}, transactions::{DelegateTransaction, OnchainTransaction, VAppTransaction}, utils::tests::{
+            signers::{clear_vapp_event, delegate_vapp_event, proto_sign, signer},
             test_utils::setup,
-        },
-        sol::{CreateProver, Deposit, Withdraw},
-        transactions::{DelegateTransaction, OnchainTransaction, VAppTransaction},
-        verifier::MockVerifier,
+        }, verifier::MockVerifier
     };
     use alloy_primitives::{address, U256};
-    use once_cell::sync::Lazy;
-    use spn_network_types::{ExecutionStatus, FulfillmentStrategy, RequestProofRequestBody};
+    use spn_network_types::{ExecutionStatus, FulfillmentStrategy, MessageFormat, RequestProofRequestBody, SetDelegationRequest, SetDelegationRequestBody};
     use spn_utils::SPN_SEPOLIA_V1_DOMAIN;
 
     use super::*;
-
-    pub static CONTRACT: Lazy<Address> =
-        Lazy::new(|| address!("0xB4e16d0168e52d35CaCD2c6185b44281Ec28C9Dc"));
-    pub static TOKEN: Lazy<Address> =
-        Lazy::new(|| address!("0x0000000000000000000000000000000000000000"));
 
     #[test]
     fn test_deposit() {
@@ -846,7 +845,6 @@ pub mod tests {
     #[test]
     fn test_complex_workflow() {
         let mut test = setup();
-        use crate::helpers::signers::signer;
 
         // Counters for maintaining event ordering.
         let mut receipt_counter = 0;
@@ -1121,9 +1119,6 @@ pub mod tests {
 
     #[test]
     fn test_delegation_domain_mismatch() {
-        use crate::helpers::signers::proto_sign;
-        use spn_network_types::{MessageFormat, SetDelegationRequest, SetDelegationRequestBody};
-
         let mut test = setup();
         let prover_owner = &test.signers[0];
         let prover_address = test.signers[1].address();

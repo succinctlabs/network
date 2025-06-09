@@ -1,3 +1,7 @@
+//! Solidity types.
+//!
+//! This module contains the types for the Solidity contracts that are used by the vApp.
+
 use alloy_primitives::{Address, U256};
 use alloy_sol_types::sol;
 use serde::{Deserialize, Serialize};
@@ -34,8 +38,11 @@ sol! {
     /// @notice The type of transaction.
     #[derive(Debug)]
     enum TransactionVariant {
+        /// @notice The variant for a deposit transaction.
         Deposit,
+        /// @notice The variant for a withdraw transaction.
         Withdraw,
+        /// @notice The variant for a create prover transaction.
         CreateProver
     }
 

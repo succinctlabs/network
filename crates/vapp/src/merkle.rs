@@ -1,3 +1,8 @@
+//! Merkelized Storage.
+//! 
+//! This module contains implementations of the [MerkleStorage] data structure, which is used to
+//! store and retrieve data inside the vApp while keeping all leaves in memory.
+
 use std::{
     collections::{btree_map::Entry, BTreeMap, BTreeSet},
     marker::PhantomData,
@@ -13,7 +18,7 @@ use crate::{
     storage::{Storage, StorageKey, StorageValue},
 };
 
-/// Universal sparse merkle tree with key type K and value type V.
+/// Merkle tree with key type K and value type V.
 ///
 /// This implementation supports 2^K::bits() possible indices and uses sparse storage to
 /// efficiently handle large address spaces. Empty subtrees are optimized using precomputed zero
@@ -38,6 +43,7 @@ pub struct MerkleStorage<K: StorageKey, V: StorageValue, H: MerkleTreeHasher = K
 
 /// Errors that can occur during [MerkleStorage] operations.
 #[derive(Debug, Error, PartialEq, Serialize, Deserialize)]
+#[allow(missing_docs)]
 pub enum MerkleStorageError {
     #[error("Index {index} out of bounds for {num_bits} bits")]
     IndexOutOfBounds { index: U256, num_bits: usize },

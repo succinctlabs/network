@@ -1,3 +1,7 @@
+//! Signing.
+//!
+//! This module contains the functions for signing and verifying messages.
+
 use alloy_primitives::{Address, PrimitiveSignature};
 use alloy_sol_types::{eip712_domain, Eip712Domain};
 use eyre::Result;
