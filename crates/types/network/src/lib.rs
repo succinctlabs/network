@@ -1,5 +1,7 @@
 #[rustfmt::skip]
 mod network;
+#[rustfmt::skip]
+mod types;
 
 use alloy::primitives::PrimitiveSignature;
 use alloy_signer::SignerSync;
