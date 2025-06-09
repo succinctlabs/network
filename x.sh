@@ -30,3 +30,10 @@ cd programs/vapp/aggregation
 cargo prove build --elf-name spn-vapp-aggregation $USE_DOCKER --tag v4.0.0 --output-directory ../../../elf
 cd ../../..
 echo "Done!"
+echo ""
+
+# Compute the SHA-512 hash of the ELF files.
+echo "Computing SHA-512 hash of ELF files..."
+shasum -a 512 elf/spn-vapp-stf
+shasum -a 512 elf/spn-vapp-aggregation
+echo "Done!"
