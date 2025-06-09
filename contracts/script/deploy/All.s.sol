@@ -75,17 +75,3 @@ contract AllScript is BaseScript, FixtureLoader {
         return (VERIFIER, VAPP);
     }
 }
-
-//     at bin/vapp/src/main.rs:79
-
-//   2025-06-07T01:20:49.943576Z  INFO spn_vapp::driver: stf vkey bytes32: "0x0071c8d938846d01d3b3ef216192c1848be9077c74ce0a32c95e7c703b8c442a"
-//     at bin/vapp/src/driver.rs:142
-
-//   2025-06-07T01:20:50.462312Z  INFO spn_vapp::driver: aggregation vkey bytes32: "0x0027860ee5a98f9ad361de3622d6eaf4a9caf2c2354395332fc95254eddab0f6"
-//     at bin/vapp/src/driver.rs:146
-
-//   2025-06-07T01:20:50.462474Z  INFO spn_vapp::driver: genesis state root: 0x4b15a7d34ea0ec471d0d6ab9170cc2910f590819ee168e2a799e25244e327116
-//     at bin/vapp/src/driver.rs:158
-
-//   2025-06-07T01:20:50.647385Z  INFO spn_vapp::driver: Initialized with genesis state 4b15a7d34ea0ec471d0d6ab9170cc2910f590819ee168e2a799e25244e327116 at cursor 1
-//     at bin/vapp/src/driver.rs:348
