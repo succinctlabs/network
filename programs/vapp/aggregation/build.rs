@@ -3,13 +3,13 @@ use std::fs;
 
 fn main() {
     // Fetch the ELF.
-    let elf = include_bytes!("../../../elf/spn-vapp-stf");
+    let elf = fs::read("../../../elf/spn-vapp-stf").expect("failed to read elf");
 
     // Setup the prover client.
     let client = ProverClient::from_env();
 
     // Setup the program.
-    let (_, vk) = client.setup(elf);
+    let (_, vk) = client.setup(&elf);
     let hash = vk.hash_u32();
     
     // Create key.rs file with the hash as [u32; 8]
