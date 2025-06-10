@@ -120,7 +120,7 @@ sol! {
 
 impl Account {
     /// Returns the balance of the account.
-    pub fn get_balance(&self) -> U256 {
+    #[must_use] pub fn get_balance(&self) -> U256 {
         self.balance
     }
 
@@ -141,17 +141,17 @@ impl Account {
     }
 
     /// Get the owner of the account.
-    pub fn get_owner(&self) -> Address {
+    #[must_use] pub fn get_owner(&self) -> Address {
         self.owner
     }
 
     /// Checks whether the signer is the delegated signer of the account.
-    pub fn is_signer(&self, signer: Address) -> bool {
+    #[must_use] pub fn is_signer(&self, signer: Address) -> bool {
         self.delegatedSigner == signer
     }
 
     /// Get the delegated signer of the account.
-    pub fn get_signer(&self) -> Address {
+    #[must_use] pub fn get_signer(&self) -> Address {
         self.delegatedSigner
     }
 
@@ -167,7 +167,7 @@ impl Account {
     }
 
     /// Get the staker fee in basis points.
-    pub fn get_staker_fee_bips(&self) -> U256 {
+    #[must_use] pub fn get_staker_fee_bips(&self) -> U256 {
         self.stakerFeeBips
     }
 
@@ -177,4 +177,3 @@ impl Account {
         self
     }
 }
-

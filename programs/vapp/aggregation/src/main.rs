@@ -4,7 +4,7 @@ sp1_zkvm::entrypoint!(main);
 use alloy_sol_types::SolType;
 use sha2::{Digest, Sha256};
 use sp1_zkvm::lib::verify::verify_sp1_proof;
-use spn_vapp::sol::StepPublicValues;
+use spn_vapp_core::sol::StepPublicValues;
 
 use crate::key::STF_VKEY;
 

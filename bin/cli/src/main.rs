@@ -77,7 +77,7 @@ struct VkeyArgs {
 async fn main() -> Result<()> {
     // Setup ring.
     ring::default_provider().install_default().expect("failed to install rustls crypto provider.");
- 
+
     // Parse the arguments.
     let cli = Args::parse();
 
@@ -218,7 +218,7 @@ async fn main() -> Result<()> {
             let hash = vk.bytes32();
 
             // Print the verification key.
-            println!("Verification Key (Bytes32): {:?}", hash);
+            println!("Verification Key (Bytes32): {hash:?}");
         }
     }
 

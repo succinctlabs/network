@@ -7,16 +7,16 @@ use serde::{Deserialize, Serialize};
 
 use crate::sol::{CreateProver, Deposit, Receipt, TransactionStatus, TransactionVariant, Withdraw};
 
-/// VApp Receipts represent the succesful execution of a [crate::transactions::VAppTransaction].
+/// `VApp` Receipts represent the succesful execution of a [`crate::transactions::VAppTransaction`].
 ///
 /// These receipts are used to invoke follow up transactions on the settlement contract.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum VAppReceipt {
-    /// A receipt for a [crate::transactions::VAppTransaction::Deposit] transaction.
+    /// A receipt for a [`crate::transactions::VAppTransaction::Deposit`] transaction.
     Deposit(OnchainReceipt<Deposit>),
-    /// A receipt for a [crate::transactions::VAppTransaction::Withdraw] transaction.
+    /// A receipt for a [`crate::transactions::VAppTransaction::Withdraw`] transaction.
     Withdraw(OnchainReceipt<Withdraw>),
-    /// A receipt for a [crate::transactions::VAppTransaction::CreateProver] transaction.
+    /// A receipt for a [`crate::transactions::VAppTransaction::CreateProver`] transaction.
     CreateProver(OnchainReceipt<CreateProver>),
 }
 
@@ -32,8 +32,8 @@ pub struct OnchainReceipt<T> {
 }
 
 impl VAppReceipt {
-    /// Converts the [VAppReceipt] to a [Receipt] struct for onchain interaction and verification.
-    pub fn sol(&self) -> Receipt {
+    /// Converts the [`VAppReceipt`] to a [Receipt] struct for onchain interaction and verification.
+    #[must_use] pub fn sol(&self) -> Receipt {
         match self {
             VAppReceipt::Deposit(receipt) => Receipt {
                 variant: TransactionVariant::Deposit,

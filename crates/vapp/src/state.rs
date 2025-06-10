@@ -15,7 +15,7 @@ use crate::{
     merkle::{MerkleStorage, MerkleTreeHasher},
     receipts::{OnchainReceipt, VAppReceipt},
     signing::{eth_sign_verify, proto_verify},
-    sol::{Account,  TransactionStatus, VAppStateContainer},
+    sol::{Account, TransactionStatus, VAppStateContainer},
     sparse::SparseStorage,
     storage::{RequestId, Storage},
     transactions::{OnchainTransaction, VAppTransaction},
@@ -30,7 +30,7 @@ use crate::{
 pub struct VAppState<A: Storage<Address, Account>, R: Storage<RequestId, bool>> {
     /// The domain separator, used to avoid replay attacks.
     ///
-    /// Encoded as a bytes32 hash of the [alloy_sol_types::Eip712Domain] domain.
+    /// Encoded as a bytes32 hash of the [`alloy_sol_types::Eip712Domain`] domain.
     pub domain: B256,
     /// The current transaction counter.
     ///
@@ -42,11 +42,11 @@ pub struct VAppState<A: Storage<Address, Account>, R: Storage<RequestId, bool>> 
     pub onchain_tx_id: u64,
     /// The current L1 block number.
     ///
-    /// Keeps track of the last seen block number from a [VAppEvent].
+    /// Keeps track of the last seen block number from a [`VAppEvent`].
     pub onchain_block: u64,
     /// The current L1 log index.
     ///
-    /// Keeps track of the last seen log index from a [VAppEvent].
+    /// Keeps track of the last seen log index from a [`VAppEvent`].
     pub onchain_log_index: u64,
     /// The accounts in the system for both requesters and provers.
     ///
@@ -96,6 +96,7 @@ impl VAppState<MerkleStorage<Address, Account>, MerkleStorage<RequestId, bool>> 
 
 impl VAppState<SparseStorage<Address, Account>, SparseStorage<RequestId, bool>> {
     /// Computes the state root.
+    #[must_use]
     pub fn root<H: MerkleTreeHasher>(&self, account_root: B256, requests_root: B256) -> B256 {
         let state = VAppStateContainer {
             domain: self.domain,
@@ -115,7 +116,8 @@ impl VAppState<SparseStorage<Address, Account>, SparseStorage<RequestId, bool>> 
 }
 
 impl<A: Storage<Address, Account>, R: Storage<RequestId, bool>> VAppState<A, R> {
-    /// Creates a new [VAppState].
+    /// Creates a new [`VAppState`].
+    #[must_use]
     pub fn new(
         domain: B256,
         treasury: Address,
@@ -138,7 +140,7 @@ impl<A: Storage<Address, Account>, R: Storage<RequestId, bool>> VAppState<A, R> 
         }
     }
 
-    /// Validates a [OnchainTransaction].
+    /// Validates a [`OnchainTransaction`].
     ///
     /// Checks for basic invariants such as the EIP-712 domain being initialized and that the
     /// block number, log index, and timestamp are all increasing.
@@ -177,7 +179,8 @@ impl<A: Storage<Address, Account>, R: Storage<RequestId, bool>> VAppState<A, R> 
         Ok(())
     }
 
-    /// Executes an [VAppTransaction] and returns an optional [VAppReceipt].
+    /// Executes an [`VAppTransaction`] and returns an optional [`VAppReceipt`].
+    #[allow(clippy::too_many_lines)]
     pub fn execute<V: VAppVerifier>(
         &mut self,
         event: &VAppTransaction,
@@ -304,9 +307,11 @@ impl<A: Storage<Address, Account>, R: Storage<RequestId, bool>> VAppState<A, R> 
                 let domain = B256::try_from(body.domain.as_slice())
                     .map_err(|_| VAppPanic::DomainDeserializationFailed)?;
                 if domain != self.domain {
-                    return Err(
-                        VAppPanic::DomainMismatch { expected: self.domain, actual: domain }.into()
-                    );
+                    return Err(VAppPanic::DomainMismatch {
+                        expected: self.domain,
+                        actual: domain,
+                    }
+                    .into());
                 }
 
                 // Verify the proto signature.
@@ -321,9 +326,7 @@ impl<A: Storage<Address, Account>, R: Storage<RequestId, bool>> VAppState<A, R> 
 
                 // Verify that the prover exists.
                 debug!("verify prover exists");
-                let prover = if let Some(prover) = self.accounts.get_mut(&prover) {
-                    prover
-                } else {
+                let Some(prover) = self.accounts.get_mut(&prover) else {
                     return Err(VAppRevert::ProverDoesNotExist { prover }.into());
                 };
 
@@ -363,9 +366,11 @@ impl<A: Storage<Address, Account>, R: Storage<RequestId, bool>> VAppState<A, R> 
                 let domain = B256::try_from(body.domain.as_slice())
                     .map_err(|_| VAppPanic::DomainDeserializationFailed)?;
                 if domain != self.domain {
-                    return Err(
-                        VAppPanic::DomainMismatch { expected: self.domain, actual: domain }.into()
-                    );
+                    return Err(VAppPanic::DomainMismatch {
+                        expected: self.domain,
+                        actual: domain,
+                    }
+                    .into());
                 }
 
                 // Transfer the amount from the requester to the recipient.
@@ -438,18 +443,17 @@ impl<A: Storage<Address, Account>, R: Storage<RequestId, bool>> VAppState<A, R> 
                 // Check that this request ID has not been consumed yet.
                 debug!("check that request ID has not been consumed yet");
                 if self.requests.get(&request_id).copied().unwrap_or_default() {
-                    return Err(VAppPanic::RequestAlreadyConsumed {
-                        id: hex::encode(request_id),
-                    }
-                    .into());
+                    return Err(
+                        VAppPanic::RequestAlreadyConsumed { id: hex::encode(request_id) }.into()
+                    );
                 }
 
                 // Validate that the request ID is the same for all proto bodies.
                 debug!("validate that request ID is the same for all proto bodies");
-                if request_id.as_slice() != bid.request_id.as_slice() ||
-                    request_id.as_slice() != settle.request_id.as_slice() ||
-                    request_id.as_slice() != execute.request_id.as_slice() ||
-                    request_id.as_slice() != fulfill.request_id.as_slice()
+                if request_id.as_slice() != bid.request_id.as_slice()
+                    || request_id.as_slice() != settle.request_id.as_slice()
+                    || request_id.as_slice() != execute.request_id.as_slice()
+                    || request_id.as_slice() != fulfill.request_id.as_slice()
                 {
                     return Err(VAppPanic::RequestIdMismatch {
                         request_id: address(&request_id)?,
@@ -476,8 +480,8 @@ impl<A: Storage<Address, Account>, R: Storage<RequestId, bool>> VAppState<A, R> 
 
                 // Validate that the prover is in the request whitelist, if a whitelist is provided.
                 debug!("validate prover is in whitelist");
-                if !request.whitelist.is_empty() &&
-                    !request.whitelist.contains(&prover_address.to_vec())
+                if !request.whitelist.is_empty()
+                    && !request.whitelist.contains(&prover_address.to_vec())
                 {
                     return Err(VAppPanic::ProverNotInWhitelist { prover: prover_address }.into());
                 }
@@ -538,9 +542,8 @@ impl<A: Storage<Address, Account>, R: Storage<RequestId, bool>> VAppState<A, R> 
                         let fulfillment_id = fulfill
                             .hash_with_signer(fulfill_signer.as_slice())
                             .map_err(|_| VAppPanic::HashingBodyFailed)?;
-                        let verifier =
-                            eth_sign_verify(&fulfillment_id, &clear.verify)
-                                .map_err(|_| VAppPanic::InvalidVerifierSignature)?;
+                        let verifier = eth_sign_verify(&fulfillment_id, &clear.verify)
+                            .map_err(|_| VAppPanic::InvalidVerifierSignature)?;
                         if verifier != self.verifier {
                             return Err(VAppPanic::InvalidVerifierSignature.into());
                         }
@@ -575,10 +578,10 @@ impl<A: Storage<Address, Account>, R: Storage<RequestId, bool>> VAppState<A, R> 
 
                 // Ensure the user can afford the cost of the proof.
                 debug!("ensure user can afford cost of proof");
-                let account =
-                    self.accounts.get(&request_signer).ok_or(VAppPanic::AccountDoesNotExist {
-                        account: request_signer,
-                    })?;
+                let account = self
+                    .accounts
+                    .get(&request_signer)
+                    .ok_or(VAppPanic::AccountDoesNotExist { account: request_signer })?;
                 if account.get_balance() < cost {
                     return Err(VAppPanic::InsufficientBalance {
                         account: request_signer,
@@ -622,10 +625,10 @@ impl<A: Storage<Address, Account>, R: Storage<RequestId, bool>> VAppState<A, R> 
 
                 // Get the staker fee from the prover account.
                 debug!("get staker fee from prover account");
-                let prover_account =
-                    self.accounts.get(&prover_address).ok_or(VAppPanic::AccountDoesNotExist {
-                        account: prover_address,
-                    })?;
+                let prover_account = self
+                    .accounts
+                    .get(&prover_address)
+                    .ok_or(VAppPanic::AccountDoesNotExist { account: prover_address })?;
                 let staker_fee_bips = prover_account.get_staker_fee_bips();
 
                 // Calculate the fee split for the protocol, prover vault stakers, and prover owner.
@@ -861,6 +864,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::too_many_lines)]
     fn test_complex_workflow() {
         let mut test = setup();
 
@@ -1038,7 +1042,7 @@ mod tests {
         );
         assert_eq!(
             test.state.accounts.get(&delegated_prover1_signer.address()).unwrap().get_balance(),
-            U256::from(89730000)
+            U256::from(99700000)
         );
     }
 

@@ -1,12 +1,13 @@
 //! Inputs.
-//! 
+//!
 //! This module contains types used as inputs into the programs that run inside the SP1 RISC-V zkVM.
 
 use alloy_primitives::{Address, B256};
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    merkle::MerkleProof, sol::Account, sparse::SparseStorage, state::VAppState, storage::RequestId, transactions::VAppTransaction
+    merkle::MerkleProof, sol::Account, sparse::SparseStorage, state::VAppState, storage::RequestId,
+    transactions::VAppTransaction,
 };
 
 /// The inputs necessary to prove the state-transition-function of the vApp.

@@ -277,7 +277,7 @@ impl SerialProver {
         } else {
             info!("no CUDA support detected, using CPU prover");
             env::set_var("SP1_PROVER", "cpu");
-        };
+        }
 
         Self {
             prover: Arc::new(EnvProver::new()),
@@ -593,9 +593,8 @@ impl<C: NodeContext> NodeProver<C> for SerialProver {
                 label: "program".to_string(),
                 expiry: None,
             };
-            let program: Vec<u8> = program_artifact
-                .download_program_from_uri(&request.program_public_uri, "")
-                .await?;
+            let program: Vec<u8> =
+                program_artifact.download_program_from_uri(&request.program_public_uri, "").await?;
             info!(program_size = %program.len(), artifact_id = %hex::encode(program_artifact_id), "{SERIAL_PROVER_TAG} Downloaded program.");
 
             // Download the stdin.

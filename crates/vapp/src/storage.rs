@@ -7,7 +7,7 @@ use std::collections::btree_map::Entry;
 use alloy_primitives::{Address, U256};
 use alloy_sol_types::SolValue;
 
-/// Storage trait providing basic operations matching those available on MerkleStore.
+/// Storage trait providing basic operations matching those available on `MerkleStore`.
 pub trait Storage<K: StorageKey, V: StorageValue> {
     /// Creates a new empty storage.
     fn new() -> Self;
@@ -28,7 +28,7 @@ pub trait Storage<K: StorageKey, V: StorageValue> {
     fn get_mut(&mut self, key: &K) -> Option<&mut V>;
 }
 
-/// Trait for types that can be used as keys in a [MerkleTree].
+/// Trait for types that can be used as keys in a [`MerkleTree`].
 pub trait StorageKey: Clone + Eq + std::hash::Hash + Ord {
     /// Converts the key to a [U256] index for the merkle tree.
     fn index(&self) -> U256;
@@ -57,7 +57,7 @@ impl StorageKey for Address {
     }
 }
 
-/// The unique identifier hash of a [spn_network_types::RequestProofRequestBody].
+/// The unique identifier hash of a [`spn_network_types::RequestProofRequestBody`].
 pub type RequestId = [u8; 32];
 
 impl StorageKey for RequestId {
@@ -70,7 +70,7 @@ impl StorageKey for RequestId {
     }
 }
 
-/// Trait for types that can be used as values in a [crate::merkle::MerkleTree].
+/// Trait for types that can be used as values in a [`crate::merkle::MerkleTree`].
 pub trait StorageValue: SolValue + Clone {}
 
 impl<V: SolValue + Clone> StorageValue for V {}

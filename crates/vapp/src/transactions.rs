@@ -11,12 +11,11 @@ use spn_network_types::{
 
 use crate::sol::{CreateProver, Deposit, Withdraw};
 
-/// A transaction that can be executed and update the [crate::state::VAppState].
+/// A transaction that can be executed and update the [`crate::state::VAppState`].
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[allow(clippy::large_enum_variant)]
 pub enum VAppTransaction {
     // Contract (on-chain).
-
     /// A deposit from the vApp contract.
     ///
     /// The currency of the deposit is the $PROVE token.
@@ -34,7 +33,6 @@ pub enum VAppTransaction {
     CreateProver(OnchainTransaction<CreateProver>),
 
     // Node (off-chain).
-
     /// A delegation event from off-chain signed transaction.
     ///
     /// This allows a prover owner to delegate signing authority to another account,
