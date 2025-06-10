@@ -1,11 +1,8 @@
 # Succinct Prover Network
 
-<div align="center">
-  <img src=".github/assets/banner.png" alt="Succinct Banner" />
-
-&nbsp;
-
-[![Github Actions][gha-badge]][gha-url] [![Telegram Chat][tg-badge]][tg-url] 
+<div>
+  <img src="" alt="Succinct Banner" />
+  &nbsp;
 
 [gha-badge]: https://img.shields.io/github/actions/workflow/status/succinctlabs/network/pr.yml?branch=main
 [gha-url]: https://github.com/foundry-rs/foundry/actions
@@ -14,8 +11,7 @@
 
 [Install](https://getfoundry.sh/getting-started/installation)
 | [Docs](https://docs.succinct.xyz/docs/network/introduction)
-| [Protocol Specification](./PROTOCOL.md)
-| [Contributing](./CONTRIBUTING.md)
+| [Explorer](https://explorer.succinct.xyz/)
 
 </div>
 
@@ -35,16 +31,36 @@ management, proof clearing, and more, is implemented as verifiable RISC-V progra
 - **Reference Prover**: We provide a reference prover implementation that demonstrates a basic 
 interaction with the network, including bidding and generating a proof.
 
-More in-depth documentation is available in our [docs](https://docs.succinct.xyz/docs/network/introduction)
-and also in the READMEs in each relevant folder.
+## Getting Started
 
-## For Developers
 
-## For Provers
+To get started, you will need to install the following prerequisites:
 
-## Protocol
 
-We maintain an up-to-date specification about the protocol architecture of the network [here](./PROTOCOL.md).
+- [Foundry](https://book.getfoundry.sh/)
+- [Rust](https://www.rust-lang.org/tools/install)
+- [SP1](https://docs.succinct.xyz/docs/sp1/getting-started/install)
+
+Then, clone the repository:
+
+```bash
+git clone https://github.com/succinctlabs/network.git
+cd network
+```
+
+To build the prover node and rust crates, run:
+
+```bash
+cargo build --release
+./target/release/node --help
+```
+
+To build and test the contracts, run:
+
+```bash
+cd contracts
+forge test
+```
 
 ## License
 
