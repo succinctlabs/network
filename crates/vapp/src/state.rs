@@ -814,6 +814,7 @@ mod tests {
             auctioneer: test.auctioneer.address().to_vec(),
             executor: test.executor.address().to_vec(),
             verifier: test.verifier.address().to_vec(),
+            public_values_hash: None,
         };
         let proof = vec![
             17, 182, 160, 157, 40, 242, 129, 34, 129, 204, 131, 191, 247, 169, 187, 69, 119, 90,
@@ -1008,6 +1009,7 @@ mod tests {
             auctioneer: test.auctioneer.address().to_vec(),
             executor: test.executor.address().to_vec(),
             verifier: test.verifier.address().to_vec(),
+            public_values_hash: None,
         };
 
         let clear_event1 = clear_vapp_event(

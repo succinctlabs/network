@@ -58,6 +58,8 @@ message RequestProofRequestBody {
   bytes executor = 14;
   // The verifier address.
   bytes verifier = 15;
+  // The optional public values hash.
+  optional bytes public_values_hash = 16;
 }
 
 message RequestProofResponse {
