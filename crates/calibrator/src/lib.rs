@@ -115,7 +115,7 @@ mod tests {
         let elf = SPN_FIBONACCI_ELF.to_vec();
 
         // Create the input stream.
-        let n: u32 = 20;
+        let n: u64 = 20;
         let mut stdin = SP1Stdin::new();
         stdin.write(&n);
 

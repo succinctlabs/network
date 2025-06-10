@@ -801,7 +801,7 @@ mod tests {
 
     #[test]
     fn tree_supports_default_constructor() {
-        let mut tree: U256Tree = Default::default();
+        let mut tree: U256Tree = MerkleStorage::default();
         let mut empty_tree = U256Tree::new();
         assert_eq!(tree.root(), empty_tree.root());
     }

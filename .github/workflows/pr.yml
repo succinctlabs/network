@@ -1,118 +1,103 @@
 name: PR
 
 on:
-    push:
-        branches: [main]
-    pull_request:
-        branches:
-            - '**'
-        paths:
-            - 'contracts/**'
-            - 'crates/**'
-            - 'bin/**'
-            - 'Cargo.toml'
-            - '.github/workflows/**'
-    merge_group:
+  push:
+    branches: [main]
+  pull_request:
+    branches:
+      - "**"
+    paths:
+      - "contracts/**"
+      - "crates/**"
+      - "bin/**"
+      - "Cargo.toml"
+      - ".github/workflows/**"
+  merge_group:
 
 concurrency:
-    group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
-    cancel-in-progress: true
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
 
 jobs:
-    foundry-test:
-        strategy:
-          fail-fast: true
-    
-        name: Foundry project
-        runs-on: ubuntu-latest
-        steps:
-          - uses: actions/checkout@v4
-            with:
-              submodules: recursive
-    
-          - name: Install Foundry
-            uses: foundry-rs/foundry-toolchain@v1.4.0
-    
-          - name: Show Forge version
-            run: |
-              forge --version
-    
-          # 'forge fmt' doesn't work with the `transient` keyword yet https://github.com/foundry-rs/foundry/issues/9088
-          # - name: Run Forge fmt
-          #   run: |
-          #     forge fmt --check
-          #   id: fmt
-    
-          - name: Run Forge build
-            run: |
-              cd contracts
-              FOUNDRY_PROFILE=deploy forge build --sizes
-            id: build
-    
-          - name: Run Forge tests
-            run: |
-              cd contracts
-              FOUNDRY_PROFILE=deploy forge test -vvv
-            id: test
+  foundry-checks:
+    name: Foundry Checks
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
 
-    cargo-test:
-        name: Cargo Test
-        runs-on:
-            [
-                runs-on,
-                runner=64cpu-linux-x64,
-                spot=false,
-                'run-id=${{ github.run_id }}',
-            ]
+      - name: Install Foundry
+        uses: foundry-rs/foundry-toolchain@v1
+        with:
+          version: stable
+
+      - name: Run Forge build
+        run: FOUNDRY_PROFILE=deploy forge build --sizes --root contracts
+
+      - name: Run tests
+        run: FOUNDRY_PROFILE=deploy forge test -vvv --root contracts
+
+      - name: Run Forge fmt
+        run: forge fmt --check --root contracts
+
+  cargo-test:
+    name: Cargo Test
+    runs-on:
+      [
+        runs-on,
+        runner=64cpu-linux-x64,
+        spot=false,
+        "run-id=${{ github.run_id }}",
+      ]
+    env:
+      CARGO_NET_GIT_FETCH_WITH_CLI: "true"
+
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v4
+        with:
+          submodules: true
+
+      - name: Setup CI
+        uses: ./.github/actions/setup
+
+      - name: Run cargo test
+        uses: actions-rs/cargo@v1
+        with:
+          command: test
+          toolchain: 1.85.0
+          args: --release
         env:
-            CARGO_NET_GIT_FETCH_WITH_CLI: 'true'
+          RUST_BACKTRACE: 1
+          RUSTUP_TOOLCHAIN: 1.85.0
 
-        steps:
-            - name: Checkout sources
-              uses: actions/checkout@v4
-              with:
-                  submodules: true
+  cargo-lint:
+    name: Cargo Lint
+    runs-on: [runs-on, runner=8cpu-linux-x64, "run-id=${{ github.run_id }}"]
+    env:
+      CARGO_NET_GIT_FETCH_WITH_CLI: "true"
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v4
+        with:
+          submodules: true
 
-            - name: Setup CI
-              uses: ./.github/actions/setup
+      - name: Setup CI
+        uses: ./.github/actions/setup
 
-            - name: Run cargo test
-              uses: actions-rs/cargo@v1
-              with:
-                  command: test
-                  toolchain: 1.85.0
-                  args: --release
-              env:
-                  RUST_BACKTRACE: 1
-                  RUSTUP_TOOLCHAIN: 1.85.0
-
-    cargo-lint:
-        name: Cargo Lint
-        runs-on: [runs-on, runner=8cpu-linux-x64, 'run-id=${{ github.run_id }}']
+      - name: Run cargo fmt
+        uses: actions-rs/cargo@v1
+        with:
+          command: fmt
+          args: --all -- --check
         env:
-            CARGO_NET_GIT_FETCH_WITH_CLI: 'true'
-        steps:
-            - name: Checkout sources
-              uses: actions/checkout@v4
-              with:
-                  submodules: true
+          CARGO_INCREMENTAL: 1
 
-            - name: Setup CI
-              uses: ./.github/actions/setup
-
-            - name: Run cargo fmt
-              uses: actions-rs/cargo@v1
-              with:
-                  command: fmt
-                  toolchain: nightly
-                  args: --all -- --check
-              env:
-                  CARGO_INCREMENTAL: 1
-
-            - name: Run cargo clippy
-              uses: actions-rs/cargo@v1
-              with:
-                  command: clippy
-                  args: --all-features --all-targets -- -D warnings -A incomplete-features
-              env:
-                  CARGO_INCREMENTAL: 1
+      - name: Run cargo clippy
+        uses: actions-rs/cargo@v1
+        with:
+          command: clippy
+          args: --all-features --all-targets --release -- -D warnings -A incomplete-features
+        env:
+          CARGO_INCREMENTAL: 1

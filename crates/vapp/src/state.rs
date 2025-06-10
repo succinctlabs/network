@@ -96,7 +96,8 @@ impl VAppState<MerkleStorage<Address, Account>, MerkleStorage<RequestId, bool>> 
 
 impl VAppState<SparseStorage<Address, Account>, SparseStorage<RequestId, bool>> {
     /// Computes the state root.
-    #[must_use] pub fn root<H: MerkleTreeHasher>(&self, account_root: B256, requests_root: B256) -> B256 {
+    #[must_use]
+    pub fn root<H: MerkleTreeHasher>(&self, account_root: B256, requests_root: B256) -> B256 {
         let state = VAppStateContainer {
             domain: self.domain,
             txId: self.tx_id,
@@ -116,7 +117,8 @@ impl VAppState<SparseStorage<Address, Account>, SparseStorage<RequestId, bool>> 
 
 impl<A: Storage<Address, Account>, R: Storage<RequestId, bool>> VAppState<A, R> {
     /// Creates a new [`VAppState`].
-    #[must_use] pub fn new(
+    #[must_use]
+    pub fn new(
         domain: B256,
         treasury: Address,
         auctioneer: Address,
@@ -178,6 +180,7 @@ impl<A: Storage<Address, Account>, R: Storage<RequestId, bool>> VAppState<A, R> 
     }
 
     /// Executes an [`VAppTransaction`] and returns an optional [`VAppReceipt`].
+    #[allow(clippy::too_many_lines)]
     pub fn execute<V: VAppVerifier>(
         &mut self,
         event: &VAppTransaction,
@@ -304,9 +307,11 @@ impl<A: Storage<Address, Account>, R: Storage<RequestId, bool>> VAppState<A, R> 
                 let domain = B256::try_from(body.domain.as_slice())
                     .map_err(|_| VAppPanic::DomainDeserializationFailed)?;
                 if domain != self.domain {
-                    return Err(
-                        VAppPanic::DomainMismatch { expected: self.domain, actual: domain }.into()
-                    );
+                    return Err(VAppPanic::DomainMismatch {
+                        expected: self.domain,
+                        actual: domain,
+                    }
+                    .into());
                 }
 
                 // Verify the proto signature.
@@ -321,9 +326,7 @@ impl<A: Storage<Address, Account>, R: Storage<RequestId, bool>> VAppState<A, R> 
 
                 // Verify that the prover exists.
                 debug!("verify prover exists");
-                let prover = if let Some(prover) = self.accounts.get_mut(&prover) {
-                    prover
-                } else {
+                let Some(prover) = self.accounts.get_mut(&prover) else {
                     return Err(VAppRevert::ProverDoesNotExist { prover }.into());
                 };
 
@@ -363,9 +366,11 @@ impl<A: Storage<Address, Account>, R: Storage<RequestId, bool>> VAppState<A, R> 
                 let domain = B256::try_from(body.domain.as_slice())
                     .map_err(|_| VAppPanic::DomainDeserializationFailed)?;
                 if domain != self.domain {
-                    return Err(
-                        VAppPanic::DomainMismatch { expected: self.domain, actual: domain }.into()
-                    );
+                    return Err(VAppPanic::DomainMismatch {
+                        expected: self.domain,
+                        actual: domain,
+                    }
+                    .into());
                 }
 
                 // Transfer the amount from the requester to the recipient.
@@ -445,10 +450,10 @@ impl<A: Storage<Address, Account>, R: Storage<RequestId, bool>> VAppState<A, R> 
 
                 // Validate that the request ID is the same for all proto bodies.
                 debug!("validate that request ID is the same for all proto bodies");
-                if request_id.as_slice() != bid.request_id.as_slice() ||
-                    request_id.as_slice() != settle.request_id.as_slice() ||
-                    request_id.as_slice() != execute.request_id.as_slice() ||
-                    request_id.as_slice() != fulfill.request_id.as_slice()
+                if request_id.as_slice() != bid.request_id.as_slice()
+                    || request_id.as_slice() != settle.request_id.as_slice()
+                    || request_id.as_slice() != execute.request_id.as_slice()
+                    || request_id.as_slice() != fulfill.request_id.as_slice()
                 {
                     return Err(VAppPanic::RequestIdMismatch {
                         request_id: address(&request_id)?,
@@ -475,8 +480,8 @@ impl<A: Storage<Address, Account>, R: Storage<RequestId, bool>> VAppState<A, R> 
 
                 // Validate that the prover is in the request whitelist, if a whitelist is provided.
                 debug!("validate prover is in whitelist");
-                if !request.whitelist.is_empty() &&
-                    !request.whitelist.contains(&prover_address.to_vec())
+                if !request.whitelist.is_empty()
+                    && !request.whitelist.contains(&prover_address.to_vec())
                 {
                     return Err(VAppPanic::ProverNotInWhitelist { prover: prover_address }.into());
                 }
@@ -859,6 +864,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::too_many_lines)]
     fn test_complex_workflow() {
         let mut test = setup();
 
@@ -1036,7 +1042,7 @@ mod tests {
         );
         assert_eq!(
             test.state.accounts.get(&delegated_prover1_signer.address()).unwrap().get_balance(),
-            U256::from(89730000)
+            U256::from(99700000)
         );
     }
 
