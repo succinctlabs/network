@@ -1,5 +1,9 @@
 #!/bin/bash
 
+# Exit on any error and make pipelines fail if any command fails.
+set -e
+set -o pipefail
+
 # Parse command line arguments.
 USE_DOCKER=""
 while [[ $# -gt 0 ]]; do

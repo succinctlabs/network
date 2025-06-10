@@ -19,23 +19,26 @@ jobs:
       - name: Setup CI
         uses: ./.github/actions/setup
 
-      - name: Install Foundry
-        uses: foundry-rs/foundry-toolchain@v1
-        with:
-          version: stable
+      - name: Install protobuf compiler
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y protobuf-compiler
 
       - name: Build RISC-V ELFs
         run: |
-          ./x.sh --docker
+          ./x.sh
 
-      - name: Build contracts
-        run: forge build --root contracts
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-east-2
 
-      - name: Run tests
-        run: forge test --gas-report --root contracts
-
-      - name: Check formatting
-        run: forge fmt --check --root contracts
+      - name: Upload ELFs to S3
+        run: |
+          aws s3 cp elf/spn-vapp-stf s3://spn-elfs/releases/${{ github.ref_name }}/spn-vapp-stf
+          aws s3 cp elf/spn-vapp-aggregation s3://spn-elfs/releases/${{ github.ref_name }}/spn-vapp-aggregation
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
