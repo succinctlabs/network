@@ -1,6 +1,9 @@
 # Succinct Prover Network
 
 <div>
+  <img src=".github/assets/banner.png" alt="Succinct Banner" />
+
+  &nbsp;
 
 [gha-badge]: https://img.shields.io/github/actions/workflow/status/succinctlabs/network/pr.yml?branch=main
 [gha-url]: https://github.com/foundry-rs/foundry/actions
