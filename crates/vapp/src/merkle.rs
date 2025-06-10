@@ -288,7 +288,8 @@ impl<K: StorageKey, V: SolValue + Clone, H: MerkleTreeHasher> MerkleStorage<K, V
     }
 
     /// Get the set of keys that have been touched (read or written).
-    #[must_use] pub fn get_touched_keys(&self) -> &BTreeSet<K> {
+    #[must_use]
+    pub fn get_touched_keys(&self) -> &BTreeSet<K> {
         &self.touched_keys
     }
 
@@ -334,7 +335,8 @@ impl<K: StorageKey, V: SolValue + Clone, H: MerkleTreeHasher> MerkleStorage<K, V
     }
 
     /// Verify a merkle proof with a pre-computed leaf hash.
-    #[must_use] pub fn verify_proof_with_hash(
+    #[must_use]
+    pub fn verify_proof_with_hash(
         root: B256,
         index: U256,
         leaf_hash: B256,

@@ -77,7 +77,8 @@ impl<K: StorageKey, V: StorageValue> Storage<K, V> for SparseStorage<K, V> {
 
 impl<K: StorageKey, V: StorageValue> SparseStorage<K, V> {
     /// Check if the storage is empty.
-    #[must_use] pub fn is_empty(&self) -> bool {
+    #[must_use]
+    pub fn is_empty(&self) -> bool {
         self.inner.is_empty()
     }
 
