@@ -7,7 +7,7 @@ edition = "2021"
 spn-vapp-core = { workspace = true }
 alloy-sol-types = { workspace = true }
 sha2 = { workspace = true }
-sp1-zkvm = { version = "4.2.0", features = ["verify"] }
+sp1-zkvm = { version = "5.0.0", features = ["verify"] }
 
 [build-dependencies]
 sp1-sdk = { workspace = true }
