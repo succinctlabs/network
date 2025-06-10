@@ -211,12 +211,7 @@ pub mod tests {
         use alloy_primitives::Address;
         use spn_utils::SPN_SEPOLIA_V1_DOMAIN;
 
-        use crate::{
-            merkle::MerkleStorage,
-            sol::Account,
-            state::VAppState,
-            storage::RequestId,
-        };
+        use crate::{merkle::MerkleStorage, sol::Account, state::VAppState, storage::RequestId};
 
         use super::signers::signer;
 

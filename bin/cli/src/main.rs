@@ -77,7 +77,7 @@ struct VkeyArgs {
 async fn main() -> Result<()> {
     // Setup ring.
     ring::default_provider().install_default().expect("failed to install rustls crypto provider.");
- 
+
     // Parse the arguments.
     let cli = Args::parse();
 

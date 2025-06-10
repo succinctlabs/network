@@ -9,9 +9,9 @@ pub use network::*;
 mod types;
 pub use types::*;
 
-use alloy_primitives::{Keccak256};
+use alloy_primitives::Keccak256;
 #[cfg(feature = "network")]
-use alloy_primitives::{PrimitiveSignature};
+use alloy_primitives::PrimitiveSignature;
 #[cfg(feature = "network")]
 use alloy_signer::SignerSync;
 use prost::Message;

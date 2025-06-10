@@ -26,6 +26,7 @@
 
 pub mod errors;
 pub mod fee;
+pub mod input;
 pub mod merkle;
 pub mod receipts;
 pub mod signing;
@@ -36,4 +37,3 @@ pub mod storage;
 pub mod transactions;
 pub mod utils;
 pub mod verifier;
-pub mod input;

@@ -15,7 +15,7 @@ use crate::{
     merkle::{MerkleStorage, MerkleTreeHasher},
     receipts::{OnchainReceipt, VAppReceipt},
     signing::{eth_sign_verify, proto_verify},
-    sol::{Account,  TransactionStatus, VAppStateContainer},
+    sol::{Account, TransactionStatus, VAppStateContainer},
     sparse::SparseStorage,
     storage::{RequestId, Storage},
     transactions::{OnchainTransaction, VAppTransaction},
@@ -438,10 +438,9 @@ impl<A: Storage<Address, Account>, R: Storage<RequestId, bool>> VAppState<A, R> 
                 // Check that this request ID has not been consumed yet.
                 debug!("check that request ID has not been consumed yet");
                 if self.requests.get(&request_id).copied().unwrap_or_default() {
-                    return Err(VAppPanic::RequestAlreadyConsumed {
-                        id: hex::encode(request_id),
-                    }
-                    .into());
+                    return Err(
+                        VAppPanic::RequestAlreadyConsumed { id: hex::encode(request_id) }.into()
+                    );
                 }
 
                 // Validate that the request ID is the same for all proto bodies.
@@ -538,9 +537,8 @@ impl<A: Storage<Address, Account>, R: Storage<RequestId, bool>> VAppState<A, R> 
                         let fulfillment_id = fulfill
                             .hash_with_signer(fulfill_signer.as_slice())
                             .map_err(|_| VAppPanic::HashingBodyFailed)?;
-                        let verifier =
-                            eth_sign_verify(&fulfillment_id, &clear.verify)
-                                .map_err(|_| VAppPanic::InvalidVerifierSignature)?;
+                        let verifier = eth_sign_verify(&fulfillment_id, &clear.verify)
+                            .map_err(|_| VAppPanic::InvalidVerifierSignature)?;
                         if verifier != self.verifier {
                             return Err(VAppPanic::InvalidVerifierSignature.into());
                         }
@@ -575,10 +573,10 @@ impl<A: Storage<Address, Account>, R: Storage<RequestId, bool>> VAppState<A, R> 
 
                 // Ensure the user can afford the cost of the proof.
                 debug!("ensure user can afford cost of proof");
-                let account =
-                    self.accounts.get(&request_signer).ok_or(VAppPanic::AccountDoesNotExist {
-                        account: request_signer,
-                    })?;
+                let account = self
+                    .accounts
+                    .get(&request_signer)
+                    .ok_or(VAppPanic::AccountDoesNotExist { account: request_signer })?;
                 if account.get_balance() < cost {
                     return Err(VAppPanic::InsufficientBalance {
                         account: request_signer,
@@ -622,10 +620,10 @@ impl<A: Storage<Address, Account>, R: Storage<RequestId, bool>> VAppState<A, R> 
 
                 // Get the staker fee from the prover account.
                 debug!("get staker fee from prover account");
-                let prover_account =
-                    self.accounts.get(&prover_address).ok_or(VAppPanic::AccountDoesNotExist {
-                        account: prover_address,
-                    })?;
+                let prover_account = self
+                    .accounts
+                    .get(&prover_address)
+                    .ok_or(VAppPanic::AccountDoesNotExist { account: prover_address })?;
                 let staker_fee_bips = prover_account.get_staker_fee_bips();
 
                 // Calculate the fee split for the protocol, prover vault stakers, and prover owner.

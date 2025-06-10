@@ -177,4 +177,3 @@ impl Account {
         self
     }
 }
-

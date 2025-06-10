@@ -6,10 +6,10 @@ use alloy_sol_types::SolType;
 use sp1_zkvm::lib::verify::verify_sp1_proof;
 use spn_vapp::{
     errors::VAppError,
+    input::VAppStfInput,
     merkle::MerkleStorage,
     sol::StepPublicValues,
     verifier::{VAppVerifier, VAppVerifierError},
-    input::VAppStfInput,
 };
 
 #[derive(Debug, Clone, Default)]
