@@ -51,7 +51,7 @@ contract SuccinctVAppWithdrawTest is SuccinctVAppTest {
             depositReceipt, TransactionVariant.Deposit, depositData
         );
         vm.expectEmit(true, true, true, true);
-        emit ISuccinctVApp.Block(1, depositPublicValues.newRoot, depositPublicValues.oldRoot);
+        emit ISuccinctVApp.Block(1, depositPublicValues.oldRoot, depositPublicValues.newRoot);
         SuccinctVApp(VAPP).step(abi.encode(depositPublicValues), jsonFixture.proof);
 
         // Withdraw
@@ -91,7 +91,7 @@ contract SuccinctVAppWithdrawTest is SuccinctVAppTest {
             withdrawReceipt, TransactionVariant.Withdraw, withdrawData
         );
         vm.expectEmit(true, true, true, true);
-        emit ISuccinctVApp.Block(2, withdrawPublicValues.newRoot, withdrawPublicValues.oldRoot);
+        emit ISuccinctVApp.Block(2, withdrawPublicValues.oldRoot, withdrawPublicValues.newRoot);
         SuccinctVApp(VAPP).step(abi.encode(withdrawPublicValues), jsonFixture.proof);
 
         // Verify withdrawal claims created
@@ -151,7 +151,7 @@ contract SuccinctVAppWithdrawTest is SuccinctVAppTest {
             depositReceipt, TransactionVariant.Deposit, depositData
         );
         vm.expectEmit(true, true, true, true);
-        emit ISuccinctVApp.Block(1, depositPublicValues.newRoot, depositPublicValues.oldRoot);
+        emit ISuccinctVApp.Block(1, depositPublicValues.oldRoot, depositPublicValues.newRoot);
 
         SuccinctVApp(VAPP).step(abi.encode(depositPublicValues), jsonFixture.proof);
 

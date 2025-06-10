@@ -134,7 +134,9 @@ contract SuccinctVApp is
         // Approve the $iPROVE contract to transfer $PROVE from this contract during prover withdrawal.
         IERC20(prove).approve(_iProve, type(uint256).max);
 
-        emit Fork(blockNumber, _genesisStateRoot, bytes32(0), _vappProgramVKey);
+        // Emit the events.
+        emit Fork(0, bytes32(0), _vappProgramVKey);
+        emit Block(0, bytes32(0), _genesisStateRoot);
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -266,17 +268,17 @@ contract SuccinctVApp is
         }
 
         // Update the state root.
-        uint64 _block = ++blockNumber;
-        roots[_block] = publicValues.newRoot;
-        timestamps[_block] = publicValues.timestamp;
+        uint64 newBlock = ++blockNumber;
+        roots[newBlock] = publicValues.newRoot;
+        timestamps[newBlock] = publicValues.timestamp;
 
         // Handle the receipts.
         _handleReceipts(publicValues);
 
-        // Emit the block event.
-        emit Block(_block, publicValues.newRoot, publicValues.oldRoot);
+        // Emit the event.
+        emit Block(newBlock, publicValues.oldRoot, publicValues.newRoot);
 
-        return (_block, publicValues.newRoot, publicValues.oldRoot);
+        return (newBlock, publicValues.oldRoot, publicValues.newRoot);
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -284,12 +286,15 @@ contract SuccinctVApp is
     //////////////////////////////////////////////////////////////*/
 
     /// @inheritdoc ISuccinctVApp
-    function fork(bytes32 _vkey, bytes32 _newRoot)
+    function fork(bytes32 _vkey, bytes32 _root)
         external
         override
         onlyOwner
         returns (uint64, bytes32, bytes32)
     {
+        // Save the old vkey for event.
+        bytes32 oldVkey = vappProgramVKey;
+
         // Update the vkey.
         vappProgramVKey = _vkey;
 
@@ -297,14 +302,14 @@ contract SuccinctVApp is
         bytes32 oldRoot = roots[blockNumber];
 
         // Update the root and produce a new block.
-        uint64 _block = ++blockNumber;
-        roots[_block] = _newRoot;
+        uint64 newBlock = ++blockNumber;
+        roots[newBlock] = _root;
 
         // Emit the events.
-        emit Block(_block, _newRoot, oldRoot);
-        emit Fork(_block, _newRoot, oldRoot, vappProgramVKey);
+        emit Fork(newBlock, oldVkey, _vkey);
+        emit Block(newBlock, oldRoot, _root);
 
-        return (_block, _newRoot, oldRoot);
+        return (newBlock, oldRoot, _root);
     }
 
     /// @inheritdoc ISuccinctVApp
