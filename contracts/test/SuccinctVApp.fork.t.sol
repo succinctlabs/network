@@ -18,22 +18,24 @@ import {ISuccinctVApp} from "../src/interfaces/ISuccinctVApp.sol";
 
 contract SuccinctVAppForkTest is SuccinctVAppTest {
     function test_Fork_WhenValid() public {
+        bytes32 oldVkey = SuccinctVApp(VAPP).vappProgramVKey();
         bytes32 newVkey = bytes32(uint256(1));
         bytes32 newRoot = bytes32(uint256(2));
 
         mockCall(true);
 
         vm.expectEmit(true, true, true, true);
-        emit ISuccinctVApp.Block(1, newRoot, fixture.oldRoot);
-        emit ISuccinctVApp.Fork(1, newRoot, fixture.oldRoot, newVkey);
+        emit ISuccinctVApp.Fork(1, oldVkey, newVkey);
+        vm.expectEmit(true, true, true, true);
+        emit ISuccinctVApp.Block(1, fixture.oldRoot, newRoot);
 
-        (uint64 _block, bytes32 returnedNewRoot, bytes32 returnedOldRoot) =
+        (uint64 newblock, bytes32 returnedOldRoot, bytes32 returnedNewRoot) =
             SuccinctVApp(VAPP).fork(newVkey, newRoot);
 
         assertEq(SuccinctVApp(VAPP).vappProgramVKey(), newVkey);
         assertEq(SuccinctVApp(VAPP).blockNumber(), 1);
         assertEq(SuccinctVApp(VAPP).roots(1), newRoot);
-        assertEq(_block, 1);
+        assertEq(newblock, 1);
         assertEq(returnedNewRoot, newRoot);
         assertEq(returnedOldRoot, fixture.oldRoot);
     }
@@ -56,31 +58,25 @@ contract SuccinctVAppForkTest is SuccinctVAppTest {
         assertEq(SuccinctVApp(VAPP).vappProgramVKey(), jsonFixture.vkey);
 
         // Fork
+        bytes32 oldVkey = SuccinctVApp(VAPP).vappProgramVKey();
+        bytes32 oldRoot = SuccinctVApp(VAPP).roots(1);
         bytes32 newVkey = bytes32(uint256(99));
         bytes32 newRoot = bytes32(uint256(2));
 
         vm.expectEmit(true, true, true, true);
-        emit ISuccinctVApp.Block(2, newRoot, bytes32(uint256(1)));
-        emit ISuccinctVApp.Fork(2, newRoot, bytes32(uint256(1)), newVkey);
+        emit ISuccinctVApp.Fork(2, oldVkey, newVkey);
+        vm.expectEmit(true, true, true, true);
+        emit ISuccinctVApp.Block(2, oldRoot, newRoot);
 
-        (uint64 blockNum, bytes32 returnedNewRoot, bytes32 returnedOldRoot) =
+        (uint64 newBlock, bytes32 returnedOldRoot, bytes32 returnedNewRoot) =
             SuccinctVApp(VAPP).fork(newVkey, newRoot);
 
         assertEq(SuccinctVApp(VAPP).vappProgramVKey(), newVkey);
         assertEq(SuccinctVApp(VAPP).blockNumber(), 2);
         assertEq(SuccinctVApp(VAPP).roots(1), bytes32(uint256(1)));
         assertEq(SuccinctVApp(VAPP).roots(2), newRoot);
-        assertEq(blockNum, 2);
+        assertEq(newBlock, 2);
         assertEq(returnedNewRoot, newRoot);
         assertEq(returnedOldRoot, bytes32(uint256(1)));
-    }
-
-    function test_RevertFork_WhenUnauthorized() public {
-        bytes32 newVkey = bytes32(uint256(1));
-        bytes32 newRoot = bytes32(uint256(2));
-
-        vm.prank(REQUESTER_1);
-        vm.expectRevert(abi.encodeWithSignature("OwnableUnauthorizedAccount(address)", REQUESTER_1));
-        SuccinctVApp(VAPP).fork(newVkey, newRoot);
     }
 }

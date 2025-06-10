@@ -26,7 +26,7 @@ contract SuccinctVAppStateTest is SuccinctVAppTest {
         assertEq(SuccinctVApp(VAPP).root(), fixture.oldRoot);
 
         vm.expectEmit(true, true, true, true);
-        emit ISuccinctVApp.Block(1, fixture.newRoot, fixture.oldRoot);
+        emit ISuccinctVApp.Block(1, fixture.oldRoot, fixture.newRoot);
         SuccinctVApp(VAPP).step(jsonFixture.publicValues, jsonFixture.proof);
 
         assertEq(SuccinctVApp(VAPP).blockNumber(), 1);
@@ -54,7 +54,7 @@ contract SuccinctVAppStateTest is SuccinctVAppTest {
         });
 
         vm.expectEmit(true, true, true, true);
-        emit ISuccinctVApp.Block(2, publicValues.newRoot, publicValues.oldRoot);
+        emit ISuccinctVApp.Block(2, publicValues.oldRoot, publicValues.newRoot);
         SuccinctVApp(VAPP).step(abi.encode(publicValues), jsonFixture.proof);
 
         assertEq(SuccinctVApp(VAPP).blockNumber(), 2);

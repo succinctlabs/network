@@ -20,6 +20,28 @@ import {PausableUpgradeable} from
 
 // Tests onlyOwner / setter functions.
 contract SuccinctVAppOwnerTest is SuccinctVAppTest {
+    function test_Fork_WhenValid() public {
+        bytes32 oldVkey = SuccinctVApp(VAPP).vappProgramVKey();
+        bytes32 newVkey = bytes32(uint256(1));
+        bytes32 newRoot = bytes32(uint256(2));
+
+        vm.expectEmit(true, true, true, true);
+        emit ISuccinctVApp.Fork(1, oldVkey, newVkey);
+        vm.expectEmit(true, true, true, true);
+        emit ISuccinctVApp.Block(1, fixture.oldRoot, newRoot);
+
+        SuccinctVApp(VAPP).fork(newVkey, newRoot);
+    }
+
+    function test_RevertFork_WhenNotOwner() public {
+        bytes32 newVkey = bytes32(uint256(1));
+        bytes32 newRoot = bytes32(uint256(2));
+
+        vm.expectRevert(abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, REQUESTER_1));
+        vm.prank(REQUESTER_1);
+        SuccinctVApp(VAPP).fork(newVkey, newRoot);
+    }
+
     function test_UpdateStaking_WhenValid() public {
         address oldStaking = ISuccinctVApp(VAPP).staking();
         address newStaking = address(1);
