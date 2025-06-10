@@ -30,8 +30,7 @@ contract SuccinctVAppWithdrawTest is SuccinctVAppTest {
         vm.stopPrank();
 
         // Update state after deposit
-        bytes memory depositData =
-            abi.encode(Deposit({account: REQUESTER_1, amount: amount}));
+        bytes memory depositData = abi.encode(Deposit({account: REQUESTER_1, amount: amount}));
         StepPublicValues memory depositPublicValues = StepPublicValues({
             receipts: new TxReceipt[](1),
             oldRoot: fixture.oldRoot,
@@ -57,8 +56,7 @@ contract SuccinctVAppWithdrawTest is SuccinctVAppTest {
 
         // Withdraw
         vm.startPrank(REQUESTER_2);
-        bytes memory withdrawData =
-            abi.encode(Withdraw({account: REQUESTER_2, amount: amount}));
+        bytes memory withdrawData = abi.encode(Withdraw({account: REQUESTER_2, amount: amount}));
 
         vm.expectEmit(true, true, true, true);
         emit ISuccinctVApp.TransactionPending(2, TransactionVariant.Withdraw, withdrawData);
@@ -132,8 +130,7 @@ contract SuccinctVAppWithdrawTest is SuccinctVAppTest {
         vm.stopPrank();
 
         // Update state after deposit
-        bytes memory depositData =
-            abi.encode(Deposit({account: REQUESTER_1, amount: amount}));
+        bytes memory depositData = abi.encode(Deposit({account: REQUESTER_1, amount: amount}));
         StepPublicValues memory depositPublicValues = StepPublicValues({
             receipts: new TxReceipt[](1),
             oldRoot: fixture.oldRoot,

@@ -44,3 +44,6 @@ broadcast/
 
 # Ignore ELF files
 elf/
+
+# Ignore key.rs
+programs/vapp/aggregation/src/key.rs

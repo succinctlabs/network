@@ -13,7 +13,7 @@ use rustls::crypto::ring;
 use tabled::{settings::Style, Table, Tabled};
 use tracing::info;
 
-use sp1_sdk::{include_elf, SP1Stdin};
+use sp1_sdk::{include_elf, HashableKey, Prover, ProverClient, SP1Stdin};
 use spn_calibrator::{Calibrator, SinglePassCalibrator};
 use spn_network_types::prover_network_client::ProverNetworkClient;
 use spn_node::{Node, NodeContext, SerialBidder, SerialContext, SerialMonitor, SerialProver};
@@ -26,6 +26,8 @@ enum Args {
     Calibrate(CalibrateArgs),
     /// Run the prover with previously benchmarked parameters.  
     Prove(ProveArgs),
+    /// Compute the verification key of an RISC-V ELF.
+    Vkey(VkeyArgs),
 }
 
 /// The arguments for the `calibrate` command.
@@ -62,20 +64,20 @@ struct ProveArgs {
     private_key: String,
 }
 
+/// The arguments for the `vkey` command.
+#[derive(Debug, Clone, Parser)]
+struct VkeyArgs {
+    /// The path to the RISC-V ELF file.
+    #[arg(long)]
+    elf_path: String,
+}
+
 /// The main entry point for the CLI.
 #[tokio::main]
 async fn main() -> Result<()> {
     // Setup ring.
     ring::default_provider().install_default().expect("failed to install rustls crypto provider.");
-
-    // Print the header.
-    println!("{}", include_str!("header.txt"));
-
-    // Set the environment variables.
-    std::env::set_var("DISABLE_SP1_CUDA_LOG", "1");
-    std::env::set_var("RUST_LOG", "debug");
-    std::env::set_var("SP1_PROVER", "cuda");
-
+ 
     // Parse the arguments.
     let cli = Args::parse();
 
@@ -205,6 +207,18 @@ async fn main() -> Result<()> {
 
             // Run the node.
             node.run().await?;
+        }
+        Args::Vkey(args) => {
+            // Read the ELF file.
+            let elf = std::fs::read(&args.elf_path)?;
+
+            // Compute the verification key.
+            let client = ProverClient::builder().cpu().build();
+            let (_, vk) = client.setup(&elf);
+            let hash = vk.bytes32();
+
+            // Print the verification key.
+            println!("Verification Key (Bytes32): {:?}", hash);
         }
     }
 

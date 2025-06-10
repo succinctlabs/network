@@ -46,10 +46,13 @@ contract AllScript is BaseScript, FixtureLoader {
     }
 
     /// @dev This is a stack-too-deep workaround.
-    function _deployVAppAsProxy(bytes32 salt, address OWNER, address PROVE, address I_PROVE, address STAKING)
-        internal
-        returns (address, address)
-    {
+    function _deployVAppAsProxy(
+        bytes32 salt,
+        address OWNER,
+        address PROVE,
+        address I_PROVE,
+        address STAKING
+    ) internal returns (address, address) {
         // Read config
         address VERIFIER = vm.envOr("VERIFIER", address(0));
         bytes32 VKEY = bytes32(0x007b96060034a8d1532207d114c67ae0c9ebb7fc2a0d8765a52f280bdd3f4df1);
@@ -69,7 +72,14 @@ contract AllScript is BaseScript, FixtureLoader {
         address VAPP =
             address(SuccinctVApp(payable(address(new ERC1967Proxy{salt: salt}(vappImpl, "")))));
         SuccinctVApp(VAPP).initialize(
-            msg.sender, PROVE, I_PROVE, STAKING, VERIFIER, VKEY, GENESIS_STATE_ROOT, GENESIS_TIMESTAMP
+            msg.sender,
+            PROVE,
+            I_PROVE,
+            STAKING,
+            VERIFIER,
+            VKEY,
+            GENESIS_STATE_ROOT,
+            GENESIS_TIMESTAMP
         );
 
         return (VERIFIER, VAPP);

@@ -10,7 +10,7 @@ repository = { workspace = true }
 
 [dependencies]
 # spn
-spn-network-types = { path = "../types/network" }
+spn-network-types = { path = "../types/network", features = ["network"] }
 
 # alloy
 alloy-primitives = { workspace = true }

@@ -230,8 +230,8 @@ impl<C: NodeContext> NodeBidder<C> for SerialBidder {
                         request_id: hex::decode(request_id.clone())
                             .context("failed to decode request_id")?,
                         amount: self.bid.to_string(),
-                        prover: todo!(),
-                        domain: todo!(),
+                        prover: vec![],
+                        domain: vec![],
                     };
                     let bid_request = BidRequest {
                         format: MessageFormat::Binary.into(),
@@ -594,7 +594,7 @@ impl<C: NodeContext> NodeProver<C> for SerialProver {
                 expiry: None,
             };
             let program: Vec<u8> = program_artifact
-                .download_program_from_uri(&request.program_public_uri, todo!())
+                .download_program_from_uri(&request.program_public_uri, "")
                 .await?;
             info!(program_size = %program.len(), artifact_id = %hex::encode(program_artifact_id), "{SERIAL_PROVER_TAG} Downloaded program.");
 
@@ -606,7 +606,7 @@ impl<C: NodeContext> NodeProver<C> for SerialProver {
                 expiry: None,
             };
             let stdin: SP1Stdin =
-                stdin_artifact.download_stdin_from_uri(&request.stdin_public_uri, todo!()).await?;
+                stdin_artifact.download_stdin_from_uri(&request.stdin_public_uri, "").await?;
             info!(stdin_size = %stdin.buffer.iter().map(std::vec::Vec::len).sum::<usize>(), artifact_id = %hex::encode(stdin_artifact_id), "{SERIAL_PROVER_TAG} Downloaded stdin.");
 
             // Generate the proving keys and the proof in a separate thread to catch panics.
@@ -721,7 +721,7 @@ impl<C: NodeContext> NodeProver<C> for SerialProver {
                                                 request_id: request.request_id.clone(),
                                                 proof: proof_bytes.clone(),
                                                 reserved_metadata: None,
-                                                domain: todo!(),
+                                                domain: vec![],
                                             };
                                             let fulfill_request = FulfillProofRequest {
                                                 format: MessageFormat::Binary.into(),

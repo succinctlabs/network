@@ -32,8 +32,16 @@ cd ../../..
 echo "Done!"
 echo ""
 
-# Compute the SHA-512 hash of the ELF files.
-echo "Computing SHA-512 hash of ELF files..."
-shasum -a 512 elf/spn-vapp-stf
-shasum -a 512 elf/spn-vapp-aggregation
+# Build the CLI.
+cargo build --bin spn-cli --release
+
+# Compute the verification key of the STF program.
+echo "Computing verification key of STF program..."
+cargo run --bin spn-cli --release -- vkey --elf-path elf/spn-vapp-stf
+echo "Done!"
+echo ""
+
+# Compute the verification key of the aggregation program.
+echo "Computing verification key of aggregation program..."
+cargo run --bin spn-cli --release -- vkey --elf-path elf/spn-vapp-aggregation
 echo "Done!"

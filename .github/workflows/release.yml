@@ -26,7 +26,7 @@ jobs:
 
       - name: Build RISC-V ELFs
         run: |
-          ./x.sh
+          ./x.sh --docker
 
       - name: Build contracts
         run: forge build --root contracts
