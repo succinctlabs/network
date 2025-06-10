@@ -11,19 +11,19 @@ pub use types::*;
 
 use alloy_primitives::Keccak256;
 #[cfg(feature = "network")]
-use alloy_primitives::PrimitiveSignature;
+use alloy_primitives::Signature;
 #[cfg(feature = "network")]
 use alloy_signer::SignerSync;
 use prost::Message;
 
 #[cfg(feature = "network")]
 pub trait Signable: Message {
-    fn sign<S: SignerSync>(&self, signer: &S) -> PrimitiveSignature;
+    fn sign<S: SignerSync>(&self, signer: &S) -> Signature;
 }
 
 #[cfg(feature = "network")]
 impl<T: Message> Signable for T {
-    fn sign<S: SignerSync>(&self, signer: &S) -> PrimitiveSignature {
+    fn sign<S: SignerSync>(&self, signer: &S) -> Signature {
         signer.sign_message_sync(&self.encode_to_vec()).unwrap()
     }
 }

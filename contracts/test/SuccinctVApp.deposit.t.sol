@@ -63,7 +63,7 @@ contract SuccinctVAppDepositTest is SuccinctVAppTest {
         vm.expectEmit(true, true, true, true);
         emit ISuccinctVApp.TransactionCompleted(1, TransactionVariant.Deposit, data);
         vm.expectEmit(true, true, true, true);
-        emit ISuccinctVApp.Block(1, publicValues.newRoot, publicValues.oldRoot);
+        emit ISuccinctVApp.Block(1, publicValues.oldRoot, publicValues.newRoot);
 
         SuccinctVApp(VAPP).step(abi.encode(publicValues), jsonFixture.proof);
 
@@ -112,7 +112,7 @@ contract SuccinctVAppDepositTest is SuccinctVAppTest {
         vm.expectEmit(true, true, true, true);
         emit ISuccinctVApp.TransactionCompleted(1, TransactionVariant.Deposit, data);
         vm.expectEmit(true, true, true, true);
-        emit ISuccinctVApp.Block(1, publicValues.newRoot, publicValues.oldRoot);
+        emit ISuccinctVApp.Block(1, publicValues.oldRoot, publicValues.newRoot);
 
         SuccinctVApp(VAPP).step(abi.encode(publicValues), jsonFixture.proof);
 

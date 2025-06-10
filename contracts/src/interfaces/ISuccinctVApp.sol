@@ -5,12 +5,6 @@ import {TransactionVariant} from "../libraries/PublicValues.sol";
 import {TransactionStatus} from "../libraries/PublicValues.sol";
 
 interface ISuccinctVApp {
-    /// @notice Emitted when the program was forked.
-    event Fork(uint64 indexed block, bytes32 indexed newRoot, bytes32 oldRoot, bytes32 vkey);
-
-    /// @notice Emitted when a new block was committed.
-    event Block(uint64 indexed block, bytes32 indexed newRoot, bytes32 oldRoot);
-
     /// @notice Emitted when a receipt is completed.
     event TransactionCompleted(
         uint64 indexed onchainTx, TransactionVariant indexed variant, bytes data
@@ -25,6 +19,12 @@ interface ISuccinctVApp {
     event TransactionPending(
         uint64 indexed onchainTx, TransactionVariant indexed variant, bytes data
     );
+
+    /// @notice Emitted when a new block was committed.
+    event Block(uint64 indexed block, bytes32 oldRoot, bytes32 newRoot);
+
+    /// @notice Emitted when the program was forked.
+    event Fork(uint64 indexed block, bytes32 oldVkey, bytes32 newVkey);
 
     /// @notice Emitted when a withdrawal is claimed.
     event Withdrawal(address indexed account, uint256 amount);
@@ -210,17 +210,24 @@ interface ISuccinctVApp {
     /// @dev Reverts if the committed actions are invalid.
     /// @param publicValues The public values for the state update.
     /// @param proofBytes The proof bytes for the state update.
-    /// @return The block number, the new state root, and the old state root.
+    /// @return block The new block number.
+    /// @return oldRoot The old state root.
+    /// @return newRoot The new state root.
     function step(bytes calldata publicValues, bytes calldata proofBytes)
         external
-        returns (uint64, bytes32, bytes32);
+        returns (uint64 block, bytes32 oldRoot, bytes32 newRoot);
 
     /// @notice Updates the vapp program verification key, forks the state root.
-    /// @dev Only callable by the owner, executes a state update.
+    /// @dev Only callable by the owner, executes a state update. Also increments
+    ///      the block number.
     /// @param vkey The new vkey.
-    /// @param newRoot The new root committed by the new program.
-    /// @return The block number, the new state root, and the old state root.
-    function fork(bytes32 vkey, bytes32 newRoot) external returns (uint64, bytes32, bytes32);
+    /// @param root The new root.
+    /// @return block The new block number.
+    /// @return oldRoot The old state root.
+    /// @return newRoot The new state root.
+    function fork(bytes32 vkey, bytes32 root)
+        external
+        returns (uint64 block, bytes32 oldRoot, bytes32 newRoot);
 
     /// @notice Updates the succinct staking contract address.
     /// @dev Only callable by the owner.

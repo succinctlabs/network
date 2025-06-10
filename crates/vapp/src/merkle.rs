@@ -20,8 +20,9 @@ use crate::{
 
 /// Merkle tree with key type K and value type V.
 ///
-/// This implementation supports `2^K::bits()` possible indices and uses sparse storage to efficiently
-/// handle large address spaces. Empty subtrees are optimized using precomputed zero hashes.
+/// This implementation supports `2^K::bits()` possible indices and uses sparse storage to
+/// efficiently handle large address spaces. Empty subtrees are optimized using precomputed zero
+/// hashes.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MerkleStorage<K: StorageKey, V: StorageValue, H: MerkleTreeHasher = Keccak256> {
     /// Sparse storage for non-empty leaves (key -> value).
