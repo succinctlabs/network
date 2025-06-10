@@ -307,9 +307,11 @@ impl<A: Storage<Address, Account>, R: Storage<RequestId, bool>> VAppState<A, R> 
                 let domain = B256::try_from(body.domain.as_slice())
                     .map_err(|_| VAppPanic::DomainDeserializationFailed)?;
                 if domain != self.domain {
-                    return Err(
-                        VAppPanic::DomainMismatch { expected: self.domain, actual: domain }.into()
-                    );
+                    return Err(VAppPanic::DomainMismatch {
+                        expected: self.domain,
+                        actual: domain,
+                    }
+                    .into());
                 }
 
                 // Verify the proto signature.
@@ -364,9 +366,11 @@ impl<A: Storage<Address, Account>, R: Storage<RequestId, bool>> VAppState<A, R> 
                 let domain = B256::try_from(body.domain.as_slice())
                     .map_err(|_| VAppPanic::DomainDeserializationFailed)?;
                 if domain != self.domain {
-                    return Err(
-                        VAppPanic::DomainMismatch { expected: self.domain, actual: domain }.into()
-                    );
+                    return Err(VAppPanic::DomainMismatch {
+                        expected: self.domain,
+                        actual: domain,
+                    }
+                    .into());
                 }
 
                 // Transfer the amount from the requester to the recipient.
@@ -446,10 +450,10 @@ impl<A: Storage<Address, Account>, R: Storage<RequestId, bool>> VAppState<A, R> 
 
                 // Validate that the request ID is the same for all proto bodies.
                 debug!("validate that request ID is the same for all proto bodies");
-                if request_id.as_slice() != bid.request_id.as_slice() ||
-                    request_id.as_slice() != settle.request_id.as_slice() ||
-                    request_id.as_slice() != execute.request_id.as_slice() ||
-                    request_id.as_slice() != fulfill.request_id.as_slice()
+                if request_id.as_slice() != bid.request_id.as_slice()
+                    || request_id.as_slice() != settle.request_id.as_slice()
+                    || request_id.as_slice() != execute.request_id.as_slice()
+                    || request_id.as_slice() != fulfill.request_id.as_slice()
                 {
                     return Err(VAppPanic::RequestIdMismatch {
                         request_id: address(&request_id)?,
@@ -476,8 +480,8 @@ impl<A: Storage<Address, Account>, R: Storage<RequestId, bool>> VAppState<A, R> 
 
                 // Validate that the prover is in the request whitelist, if a whitelist is provided.
                 debug!("validate prover is in whitelist");
-                if !request.whitelist.is_empty() &&
-                    !request.whitelist.contains(&prover_address.to_vec())
+                if !request.whitelist.is_empty()
+                    && !request.whitelist.contains(&prover_address.to_vec())
                 {
                     return Err(VAppPanic::ProverNotInWhitelist { prover: prover_address }.into());
                 }
