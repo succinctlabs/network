@@ -522,7 +522,13 @@ impl<A: Storage<Address, Account>, R: Storage<RequestId, bool>> VAppState<A, R> 
                 debug!("verify proof");
                 let mode = ProofMode::try_from(request.mode)
                     .map_err(|_| VAppPanic::UnsupportedProofMode { mode: request.mode })?;
-                let vk = bytes_to_words_be(&request.vk_hash.clone().try_into().unwrap());
+                let vk = bytes_to_words_be(
+                    &request
+                        .vk_hash
+                        .clone()
+                        .try_into()
+                        .map_err(|_| VAppPanic::FailedToParseBytes)?,
+                )?;
                 match mode {
                     ProofMode::Compressed => {
                         let verifier = V::default();
@@ -531,7 +537,12 @@ impl<A: Storage<Address, Account>, R: Storage<RequestId, bool>> VAppState<A, R> 
                                 vk,
                                 // TODO(jtguibas): this should be either execute.public_values_hash
                                 // or request.public_values_hash
-                                execute.public_values_hash.clone().unwrap().try_into().unwrap(),
+                                execute
+                                    .public_values_hash
+                                    .clone()
+                                    .ok_or(VAppPanic::MissingPublicValuesHash)?
+                                    .try_into()
+                                    .map_err(|_| VAppPanic::FailedToParseBytes)?,
                             )
                             .map_err(|_| VAppPanic::InvalidProof)?;
                     }
@@ -593,8 +604,15 @@ impl<A: Storage<Address, Account>, R: Storage<RequestId, bool>> VAppState<A, R> 
 
                 // Log the clear event.
                 debug!("log clear event");
-                let request_id: [u8; 32] =
-                    clear.fulfill.body.as_ref().unwrap().request_id.clone().try_into().unwrap();
+                let request_id: [u8; 32] = clear
+                    .fulfill
+                    .body
+                    .as_ref()
+                    .ok_or(VAppPanic::MissingProtoBody)?
+                    .request_id
+                    .clone()
+                    .try_into()
+                    .map_err(|_| VAppPanic::FailedToParseBytes)?;
                 info!(
                     "STEP {}: CLEAR(request_id={}, requester={}, prover={}, cost={})",
                     self.tx_id,

@@ -7,13 +7,14 @@ use alloy_primitives::Address;
 use crate::errors::{VAppError, VAppPanic};
 
 /// Converts a 32-byte array to a 8-word array in big-endian order.
-#[must_use] pub fn bytes_to_words_be(bytes: &[u8; 32]) -> [u32; 8] {
+pub fn bytes_to_words_be(bytes: &[u8; 32]) -> Result<[u32; 8], VAppError> {
     let mut words = [0u32; 8];
     for i in 0..8 {
-        let chunk: [u8; 4] = bytes[i * 4..(i + 1) * 4].try_into().unwrap();
+        let chunk: [u8; 4] =
+            bytes[i * 4..(i + 1) * 4].try_into().map_err(|_| VAppPanic::FailedToParseBytes)?;
         words[i] = u32::from_be_bytes(chunk);
     }
-    words
+    Ok(words)
 }
 
 /// Converts a byte array to an address.
@@ -23,6 +24,7 @@ pub fn address(bytes: &[u8]) -> Result<Address, VAppError> {
 
 /// Test utilities for creating and verifying signatures.
 #[cfg(test)]
+#[allow(clippy::missing_panics_doc)]
 pub mod tests {
     /// Signing utilities for creating and verifying signatures.
     ///
@@ -47,7 +49,8 @@ pub mod tests {
         /// Creates a signer from a string key.
         ///
         /// The key is hashed using keccak256 to generate the private key.
-        #[must_use] pub fn signer(key: &str) -> PrivateKeySigner {
+        #[must_use]
+        pub fn signer(key: &str) -> PrivateKeySigner {
             PrivateKeySigner::from_bytes(&keccak256(key)).unwrap()
         }
 
@@ -234,7 +237,8 @@ pub mod tests {
         }
 
         /// Gets the current timestamp as seconds since Unix epoch.
-        #[must_use] pub fn timestamp() -> i64 {
+        #[must_use]
+        pub fn timestamp() -> i64 {
             SystemTime::now().duration_since(UNIX_EPOCH).expect("time went backwards").as_secs()
                 as i64
         }
@@ -242,7 +246,8 @@ pub mod tests {
         /// Sets up a test environment with initialized state and signers.
         ///
         /// Creates a new state with a local domain and 10 test signers.
-        #[must_use] pub fn setup() -> TestEnvironment {
+        #[must_use]
+        pub fn setup() -> TestEnvironment {
             let domain = *SPN_SEPOLIA_V1_DOMAIN;
             let treasury = signer("treasury");
             let auctioneer = signer("auctioneer");
