@@ -37,7 +37,9 @@ contract SuccinctVAppOwnerTest is SuccinctVAppTest {
         bytes32 newVkey = bytes32(uint256(1));
         bytes32 newRoot = bytes32(uint256(2));
 
-        vm.expectRevert(abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, REQUESTER_1));
+        vm.expectRevert(
+            abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, REQUESTER_1)
+        );
         vm.prank(REQUESTER_1);
         SuccinctVApp(VAPP).fork(newVkey, newRoot);
     }

@@ -225,7 +225,9 @@ interface ISuccinctVApp {
     /// @return block The new block number.
     /// @return oldRoot The old state root.
     /// @return newRoot The new state root.
-    function fork(bytes32 vkey, bytes32 root) external returns (uint64 block, bytes32 oldRoot, bytes32 newRoot);
+    function fork(bytes32 vkey, bytes32 root)
+        external
+        returns (uint64 block, bytes32 oldRoot, bytes32 newRoot);
 
     /// @notice Updates the succinct staking contract address.
     /// @dev Only callable by the owner.
