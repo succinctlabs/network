@@ -33,7 +33,8 @@ pub struct OnchainReceipt<T> {
 
 impl VAppReceipt {
     /// Converts the [`VAppReceipt`] to a [Receipt] struct for onchain interaction and verification.
-    #[must_use] pub fn sol(&self) -> Receipt {
+    #[must_use]
+    pub fn sol(&self) -> Receipt {
         match self {
             VAppReceipt::Deposit(receipt) => Receipt {
                 variant: TransactionVariant::Deposit,
