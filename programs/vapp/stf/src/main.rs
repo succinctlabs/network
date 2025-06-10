@@ -4,7 +4,7 @@ sp1_zkvm::entrypoint!(main);
 use alloy_primitives::Keccak256;
 use alloy_sol_types::SolType;
 use sp1_zkvm::lib::verify::verify_sp1_proof;
-use spn_vapp::{
+use spn_vapp_core::{
     errors::VAppError,
     input::VAppStfInput,
     merkle::MerkleStorage,

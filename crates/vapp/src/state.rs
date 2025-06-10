@@ -30,7 +30,7 @@ use crate::{
 pub struct VAppState<A: Storage<Address, Account>, R: Storage<RequestId, bool>> {
     /// The domain separator, used to avoid replay attacks.
     ///
-    /// Encoded as a bytes32 hash of the [alloy_sol_types::Eip712Domain] domain.
+    /// Encoded as a bytes32 hash of the [`alloy_sol_types::Eip712Domain`] domain.
     pub domain: B256,
     /// The current transaction counter.
     ///
@@ -42,11 +42,11 @@ pub struct VAppState<A: Storage<Address, Account>, R: Storage<RequestId, bool>> 
     pub onchain_tx_id: u64,
     /// The current L1 block number.
     ///
-    /// Keeps track of the last seen block number from a [VAppEvent].
+    /// Keeps track of the last seen block number from a [`VAppEvent`].
     pub onchain_block: u64,
     /// The current L1 log index.
     ///
-    /// Keeps track of the last seen log index from a [VAppEvent].
+    /// Keeps track of the last seen log index from a [`VAppEvent`].
     pub onchain_log_index: u64,
     /// The accounts in the system for both requesters and provers.
     ///
@@ -96,7 +96,7 @@ impl VAppState<MerkleStorage<Address, Account>, MerkleStorage<RequestId, bool>> 
 
 impl VAppState<SparseStorage<Address, Account>, SparseStorage<RequestId, bool>> {
     /// Computes the state root.
-    pub fn root<H: MerkleTreeHasher>(&self, account_root: B256, requests_root: B256) -> B256 {
+    #[must_use] pub fn root<H: MerkleTreeHasher>(&self, account_root: B256, requests_root: B256) -> B256 {
         let state = VAppStateContainer {
             domain: self.domain,
             txId: self.tx_id,
@@ -115,8 +115,8 @@ impl VAppState<SparseStorage<Address, Account>, SparseStorage<RequestId, bool>> 
 }
 
 impl<A: Storage<Address, Account>, R: Storage<RequestId, bool>> VAppState<A, R> {
-    /// Creates a new [VAppState].
-    pub fn new(
+    /// Creates a new [`VAppState`].
+    #[must_use] pub fn new(
         domain: B256,
         treasury: Address,
         auctioneer: Address,
@@ -138,7 +138,7 @@ impl<A: Storage<Address, Account>, R: Storage<RequestId, bool>> VAppState<A, R> 
         }
     }
 
-    /// Validates a [OnchainTransaction].
+    /// Validates a [`OnchainTransaction`].
     ///
     /// Checks for basic invariants such as the EIP-712 domain being initialized and that the
     /// block number, log index, and timestamp are all increasing.
@@ -177,7 +177,7 @@ impl<A: Storage<Address, Account>, R: Storage<RequestId, bool>> VAppState<A, R> 
         Ok(())
     }
 
-    /// Executes an [VAppTransaction] and returns an optional [VAppReceipt].
+    /// Executes an [`VAppTransaction`] and returns an optional [`VAppReceipt`].
     pub fn execute<V: VAppVerifier>(
         &mut self,
         event: &VAppTransaction,

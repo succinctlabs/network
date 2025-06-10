@@ -277,7 +277,7 @@ impl SerialProver {
         } else {
             info!("no CUDA support detected, using CPU prover");
             env::set_var("SP1_PROVER", "cpu");
-        };
+        }
 
         Self {
             prover: Arc::new(EnvProver::new()),

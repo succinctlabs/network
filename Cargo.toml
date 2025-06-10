@@ -35,7 +35,7 @@ spn-network-types = { path = "crates/types/network" }
 spn-node = { path = "crates/node" }
 spn-utils = { path = "crates/utils" }
 spn-rpc = { path = "crates/rpc" }
-spn-vapp = { path = "crates/vapp" }
+spn-vapp-core = { path = "crates/vapp" }
 
 # sp1
 sp1-sdk = { git = "https://github.com/succinctlabs/sp1.git", branch = "j/v4-2-1-network-v3", features = ["native-gnark"] }

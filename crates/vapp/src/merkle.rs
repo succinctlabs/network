@@ -1,6 +1,6 @@
 //! Merkelized Storage.
 //!
-//! This module contains implementations of the [MerkleStorage] data structure, which is used to
+//! This module contains implementations of the [`MerkleStorage`] data structure, which is used to
 //! store and retrieve data inside the vApp while keeping all leaves in memory.
 
 use std::{
@@ -20,7 +20,7 @@ use crate::{
 
 /// Merkle tree with key type K and value type V.
 ///
-/// This implementation supports 2^K::bits() possible indices and uses sparse storage to efficiently
+/// This implementation supports `2^K::bits()` possible indices and uses sparse storage to efficiently
 /// handle large address spaces. Empty subtrees are optimized using precomputed zero hashes.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MerkleStorage<K: StorageKey, V: StorageValue, H: MerkleTreeHasher = Keccak256> {
@@ -40,7 +40,7 @@ pub struct MerkleStorage<K: StorageKey, V: StorageValue, H: MerkleTreeHasher = K
     _hasher: PhantomData<H>,
 }
 
-/// Errors that can occur during [MerkleStorage] operations.
+/// Errors that can occur during [`MerkleStorage`] operations.
 #[derive(Debug, Error, PartialEq, Serialize, Deserialize)]
 #[allow(missing_docs)]
 pub enum MerkleStorageError {
@@ -57,7 +57,7 @@ pub enum MerkleStorageError {
     FailedToComputeNewRoot,
 }
 
-/// A merkle proof for a key-value pair in the [MerkleStorage].
+/// A merkle proof for a key-value pair in the [`MerkleStorage`].
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MerkleProof<K: StorageKey, V: StorageValue, H: MerkleTreeHasher = Keccak256> {
     /// The key being accessed.
@@ -78,7 +78,7 @@ impl<K: StorageKey, V: StorageValue, H: MerkleTreeHasher> MerkleProof<K, V, H> {
     }
 }
 
-/// Trait for types that can be used as the hasher in a [MerkleTree].
+/// Trait for types that can be used as the hasher in a [`MerkleTree`].
 pub trait MerkleTreeHasher {
     /// Returns the hash of the value.
     fn hash<V: StorageValue>(value: &V) -> B256;
@@ -288,7 +288,7 @@ impl<K: StorageKey, V: SolValue + Clone, H: MerkleTreeHasher> MerkleStorage<K, V
     }
 
     /// Get the set of keys that have been touched (read or written).
-    pub fn get_touched_keys(&self) -> &BTreeSet<K> {
+    #[must_use] pub fn get_touched_keys(&self) -> &BTreeSet<K> {
         &self.touched_keys
     }
 
@@ -334,7 +334,7 @@ impl<K: StorageKey, V: SolValue + Clone, H: MerkleTreeHasher> MerkleStorage<K, V
     }
 
     /// Verify a merkle proof with a pre-computed leaf hash.
-    pub fn verify_proof_with_hash(
+    #[must_use] pub fn verify_proof_with_hash(
         root: B256,
         index: U256,
         leaf_hash: B256,
@@ -378,7 +378,7 @@ impl<K: StorageKey, V: SolValue + Clone, H: MerkleTreeHasher> MerkleStorage<K, V
     /// # Arguments
     /// * `old_root` - The previous merkle root
     /// * `proofs` - List of merkle proofs for accessed keys
-    /// * `new_values` - List of (key, new_value) pairs to update
+    /// * `new_values` - List of (key, `new_value`) pairs to update
     ///
     /// # Returns
     /// Result containing the new merkle root or an error if proofs are invalid
@@ -521,7 +521,7 @@ impl<K: StorageKey, V: SolValue + Clone, H: MerkleTreeHasher> Default for Merkle
 impl<K: StorageKey, V: SolValue + Clone, H: MerkleTreeHasher> Storage<K, V>
     for MerkleStorage<K, V, H>
 {
-    /// Creates a new [MerkleTree].
+    /// Creates a new [`MerkleTree`].
     fn new() -> Self {
         let zero_hashes = Self::compute_zero_hashes();
         Self {

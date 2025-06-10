@@ -24,7 +24,7 @@ pub fn proto_hash<T: Message>(message: &T, sender: &Address) -> Vec<u8> {
     hasher.finalize().to_vec()
 }
 
-/// Verifies an Ethereum signature using the personal_sign format.
+/// Verifies an Ethereum signature using the `personal_sign` format.
 pub fn eth_sign_verify(message: &[u8], signature: &[u8]) -> Result<Address> {
     let signature = PrimitiveSignature::from_raw(signature)?;
     let address = signature.recover_address_from_msg(message)?;

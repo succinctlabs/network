@@ -6,7 +6,7 @@ use alloy_primitives::{Address, B256, U256};
 use std::error::Error as StdError;
 use thiserror::Error;
 
-/// The error that can be emitted during [crate::state::VAppState::execute].
+/// The error that can be emitted during [`crate::state::VAppState::execute`].
 #[derive(Debug)]
 pub enum VAppError {
     /// A recoverable error that will be recorded in the ledger.
@@ -159,8 +159,8 @@ impl StdError for VAppError {
 impl std::fmt::Display for VAppError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            VAppError::Revert(err) => write!(f, "VApp Revert: {}", err),
-            VAppError::Panic(err) => write!(f, "VApp Panic: {}", err),
+            VAppError::Revert(err) => write!(f, "VApp Revert: {err}"),
+            VAppError::Panic(err) => write!(f, "VApp Panic: {err}"),
         }
     }
 }

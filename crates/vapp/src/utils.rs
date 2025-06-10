@@ -7,7 +7,7 @@ use alloy_primitives::Address;
 use crate::errors::{VAppError, VAppPanic};
 
 /// Converts a 32-byte array to a 8-word array in big-endian order.
-pub fn bytes_to_words_be(bytes: &[u8; 32]) -> [u32; 8] {
+#[must_use] pub fn bytes_to_words_be(bytes: &[u8; 32]) -> [u32; 8] {
     let mut words = [0u32; 8];
     for i in 0..8 {
         let chunk: [u8; 4] = bytes[i * 4..(i + 1) * 4].try_into().unwrap();
@@ -27,7 +27,7 @@ pub mod tests {
     /// Signing utilities for creating and verifying signatures.
     ///
     /// This module provides helper functions for creating signers, signing protobuf messages,
-    /// and building VApp events for testing and network operations.
+    /// and building `VApp` events for testing and network operations.
     #[cfg(any(test, feature = "network"))]
     pub mod signers {
         use alloy::signers::{local::PrivateKeySigner, SignerSync};
@@ -47,7 +47,7 @@ pub mod tests {
         /// Creates a signer from a string key.
         ///
         /// The key is hashed using keccak256 to generate the private key.
-        pub fn signer(key: &str) -> PrivateKeySigner {
+        #[must_use] pub fn signer(key: &str) -> PrivateKeySigner {
             PrivateKeySigner::from_bytes(&keccak256(key)).unwrap()
         }
 
@@ -63,7 +63,7 @@ pub mod tests {
             signer.sign_message_sync(&buf).unwrap()
         }
 
-        /// Builds a complete [VAppEvent::Clear] for testing.
+        /// Builds a complete [`VAppEvent::Clear`] for testing.
         ///
         /// This function creates a full clear event with all required signatures and data,
         /// including request, bid, fulfill, and execute components.
@@ -168,7 +168,7 @@ pub mod tests {
             })
         }
 
-        /// Builds a complete [VAppEvent::Delegate] for testing.
+        /// Builds a complete [`VAppEvent::Delegate`] for testing.
         ///
         /// This function creates a delegation event with proper signature verification,
         /// simulating the process where a prover owner delegates authority to another account.
@@ -234,7 +234,7 @@ pub mod tests {
         }
 
         /// Gets the current timestamp as seconds since Unix epoch.
-        pub fn timestamp() -> i64 {
+        #[must_use] pub fn timestamp() -> i64 {
             SystemTime::now().duration_since(UNIX_EPOCH).expect("time went backwards").as_secs()
                 as i64
         }
@@ -242,7 +242,7 @@ pub mod tests {
         /// Sets up a test environment with initialized state and signers.
         ///
         /// Creates a new state with a local domain and 10 test signers.
-        pub fn setup() -> TestEnvironment {
+        #[must_use] pub fn setup() -> TestEnvironment {
             let domain = *SPN_SEPOLIA_V1_DOMAIN;
             let treasury = signer("treasury");
             let auctioneer = signer("auctioneer");

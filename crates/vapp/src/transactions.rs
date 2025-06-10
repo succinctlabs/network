@@ -11,7 +11,7 @@ use spn_network_types::{
 
 use crate::sol::{CreateProver, Deposit, Withdraw};
 
-/// A transaction that can be executed and update the [crate::state::VAppState].
+/// A transaction that can be executed and update the [`crate::state::VAppState`].
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[allow(clippy::large_enum_variant)]
 pub enum VAppTransaction {

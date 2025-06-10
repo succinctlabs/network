@@ -218,7 +218,7 @@ async fn main() -> Result<()> {
             let hash = vk.bytes32();
 
             // Print the verification key.
-            println!("Verification Key (Bytes32): {:?}", hash);
+            println!("Verification Key (Bytes32): {hash:?}");
         }
     }
 

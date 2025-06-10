@@ -1,6 +1,6 @@
 //! Sparse Merkelized Storage.
 //!
-//! This module contains implementations of the [SparseStorage] data structure, which is used to
+//! This module contains implementations of the [`SparseStorage`] data structure, which is used to
 //! store and retrieve data inside the vApp while keeping only the used leaves  
 
 use std::collections::{btree_map::Entry, BTreeMap};
@@ -14,10 +14,10 @@ use crate::{
     storage::{Storage, StorageKey, StorageValue},
 };
 
-/// A sparse storage implementation backed by a BTreeMap.
+/// A sparse storage implementation backed by a `BTreeMap`.
 ///
-/// Similar to MerkleStore, this uses U256 indices internally and converts keys using the
-/// [crate::storage::StorageKey::index()] method for efficient storage.
+/// Similar to `MerkleStore`, this uses U256 indices internally and converts keys using the
+/// [`crate::storage::StorageKey::index()`] method for efficient storage.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SparseStorage<K: StorageKey, V: StorageValue> {
     inner: BTreeMap<U256, V>,
@@ -77,7 +77,7 @@ impl<K: StorageKey, V: StorageValue> Storage<K, V> for SparseStorage<K, V> {
 
 impl<K: StorageKey, V: StorageValue> SparseStorage<K, V> {
     /// Check if the storage is empty.
-    pub fn is_empty(&self) -> bool {
+    #[must_use] pub fn is_empty(&self) -> bool {
         self.inner.is_empty()
     }
 

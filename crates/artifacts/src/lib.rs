@@ -41,7 +41,7 @@ lazy_static! {
 /// This is used because the cluster assumes a specific bucket and path already, and just operates
 /// on the artifact name.
 pub fn extract_artifact_name(s3_url: &str) -> Result<String> {
-    s3_url.split('/').last().map(String::from).ok_or_else(|| anyhow!("Invalid S3 URL format"))
+    s3_url.split('/').next_back().map(String::from).ok_or_else(|| anyhow!("Invalid S3 URL format"))
 }
 
 /// Different artifact types have different S3 prefixes.
