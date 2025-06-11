@@ -11,7 +11,7 @@ import {FixtureLoader} from "../../test/utils/FixtureLoader.sol";
 import {ERC1967Proxy} from
     "../../lib/openzeppelin-contracts/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import {SP1VerifierGateway} from "../../lib/sp1-contracts/contracts/src/SP1VerifierGateway.sol";
-import {SP1Verifier} from "../../lib/sp1-contracts/contracts/src/v4.0.0-rc.3/SP1VerifierGroth16.sol";
+import {SP1Verifier} from "../../lib/sp1-contracts/contracts/src/v5.0.0/SP1VerifierGroth16.sol";
 
 // Deploy all contracts.
 contract AllScript is BaseScript, FixtureLoader {
@@ -54,8 +54,9 @@ contract AllScript is BaseScript, FixtureLoader {
         address STAKING
     ) internal returns (address, address) {
         // Read config
+        address AUCTIONEER = readAddress("AUCTIONEER");
         address VERIFIER = vm.envOr("VERIFIER", address(0));
-        bytes32 VKEY = bytes32(0x007b96060034a8d1532207d114c67ae0c9ebb7fc2a0d8765a52f280bdd3f4df1);
+        bytes32 VKEY = bytes32(0x00a37d7ea5a0bbac5a390e3f3760d504f9288bd9fb9dd57f66da247c965cb08f);
         bytes32 GENESIS_STATE_ROOT =
             bytes32(0x4b15a7d34ea0ec471d0d6ab9170cc2910f590819ee168e2a799e25244e327116);
         uint64 GENESIS_TIMESTAMP = 0;
@@ -72,10 +73,10 @@ contract AllScript is BaseScript, FixtureLoader {
         address VAPP =
             address(SuccinctVApp(payable(address(new ERC1967Proxy{salt: salt}(vappImpl, "")))));
         SuccinctVApp(VAPP).initialize(
-            msg.sender,
-            msg.sender,
+            OWNER,
             PROVE,
             I_PROVE,
+            AUCTIONEER,
             STAKING,
             VERIFIER,
             VKEY,

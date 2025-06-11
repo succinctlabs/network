@@ -140,7 +140,8 @@ interface ISuccinctStaking is IProverRegistry {
     /// @return The maximum amount of $PROVE.
     function maxDispense() external view returns (uint256);
 
-    /// @notice Stake $PROVE to a prover. Must have approved $PROVE with this contract as the spender.
+    /// @notice Stake $PROVE to a prover. Must have approved $PROVE with this contract as the
+    ///         spender. You may only stake to one prover at a time.
     /// @dev Deposits $PROVE into the iPROVE vault to mint $iPROVE, then deposits $iPROVE into the
     ///      chosen prover to mint $PROVER-N/$stPROVE.
     /// @param prover The address of the prover to delegate $iPROVE to.
@@ -148,7 +149,7 @@ interface ISuccinctStaking is IProverRegistry {
     /// @return The amount of $stPROVE received.
     function stake(address prover, uint256 PROVE) external returns (uint256);
 
-    /// @notice Stake $PROVE to a prover.
+    /// @notice Stake $PROVE to a prover. You may only stake to one prover at a time.
     /// @dev Deposits $PROVE to mint $iPROVE, then deposits $iPROVE into the chosen
     ///      prover to mint $PROVER-N/$stPROVE.
     /// @param prover The address of the prover to delegate $iPROVE to.
