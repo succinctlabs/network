@@ -66,11 +66,11 @@ pub struct RequestProofRequestBody {
     #[prost(bytes = "vec", optional, tag = "16")]
     pub public_values_hash: ::core::option::Option<::prost::alloc::vec::Vec<u8>>,
     /// The base fee for the request.
-    #[prost(uint64, tag = "17")]
-    pub base_fee: u64,
-    /// The max price per gas for the request.
-    #[prost(uint64, tag = "18")]
-    pub max_price_per_gas: u64,
+    #[prost(string, tag = "17")]
+    pub base_fee: ::prost::alloc::string::String,
+    /// The max price per prover gas unit for the request.
+    #[prost(string, tag = "18")]
+    pub max_price_per_pgu: ::prost::alloc::string::String,
 }
 #[derive(serde::Serialize, serde::Deserialize)]
 #[derive(Clone, PartialEq, ::prost::Message)]

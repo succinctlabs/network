@@ -2,8 +2,8 @@
 //!
 //! This module contains error types that can be emitted by the crate.
 
-use alloy_primitives::{Address, B256, U256};
-use std::error::Error as StdError;
+use alloy_primitives::{ruint::ParseError, Address, B256, U256};
+use std::{error::Error as StdError};
 use thiserror::Error;
 
 /// The error that can be emitted during [`crate::state::VAppState::execute`].
@@ -79,7 +79,7 @@ pub enum VAppPanic {
     },
 
     #[error("Invalid bid amount in clear: {amount}")]
-    InvalidBidAmount { amount: String },
+    InvalidU256Amount { amount: String },
 
     #[error("Missing gas used in execute in clear")]
     MissingPgusUsed,
@@ -139,6 +139,12 @@ pub enum VAppPanic {
 
     #[error("Missing public values hash")]
     MissingPublicValuesHash,
+
+    #[error("Max price per pgu exceeded: {max_price_per_pgu} > {price}")]
+    MaxPricePerPguExceeded { max_price_per_pgu: U256, price: U256 },
+
+    #[error("Parse error: {0}")]
+    ParseError(#[from] ParseError),
 }
 
 impl From<VAppRevert> for VAppError {

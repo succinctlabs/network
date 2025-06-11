@@ -566,18 +566,22 @@ impl<A: Storage<Address, Account>, R: Storage<RequestId, bool>> VAppState<A, R> 
                     }
                 }
 
-                // Parse the bid price.
-                debug!("parse bid price");
-                let price = bid
-                    .amount
-                    .parse::<U256>()
-                    .map_err(|_| VAppPanic::InvalidBidAmount { amount: bid.amount.clone() })?;
+                // Ensure that the bid price is less than the max price per pgu.
+                debug!("ensure bid price is less than max price per pgu");
+                let price = bid.amount.parse::<U256>().map_err(VAppPanic::ParseError)?;
+                let max_price_per_pgu =
+                    request.max_price_per_pgu.parse::<U256>().map_err(VAppPanic::ParseError)?;
+                if price > max_price_per_pgu {
+                    return Err(
+                        VAppPanic::MaxPricePerPguExceeded { max_price_per_pgu, price }.into()
+                    );
+                }
 
                 // Calculate the cost of the proof.
-                // TODO(jtguibas): rename to gas_used to pgus
                 debug!("calculate cost of proof");
+                let base_fee = request.base_fee.parse::<U256>().map_err(VAppPanic::ParseError)?;
                 let pgus = execute.pgus.ok_or(VAppPanic::MissingPgusUsed)?;
-                let cost = price * U256::from(pgus);
+                let cost = price * U256::from(pgus) + base_fee;
 
                 // Validate that the execute gas_used was lower than the request gas_limit.
                 debug!("validate execute gas_used was lower than request gas_limit");
@@ -837,6 +841,8 @@ mod tests {
             executor: test.executor.address().to_vec(),
             verifier: test.verifier.address().to_vec(),
             public_values_hash: None,
+            base_fee: "0".to_string(),
+            max_price_per_pgu: "0".to_string(),
         };
         let proof = vec![
             17, 182, 160, 157, 40, 242, 129, 34, 129, 204, 131, 191, 247, 169, 187, 69, 119, 90,
@@ -1032,6 +1038,8 @@ mod tests {
             executor: test.executor.address().to_vec(),
             verifier: test.verifier.address().to_vec(),
             public_values_hash: None,
+            base_fee: "0".to_string(),
+            max_price_per_pgu: "0".to_string(),
         };
 
         let clear_event1 = clear_vapp_event(
