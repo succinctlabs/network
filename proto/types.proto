@@ -60,6 +60,10 @@ message RequestProofRequestBody {
   bytes verifier = 15;
   // The optional public values hash.
   optional bytes public_values_hash = 16;
+  // The base fee for the request.
+  uint64 base_fee = 17;
+  // The max price per prover gas unit for the request.
+  uint64 max_price_per_pgu = 18;
 }
 
 message RequestProofResponse {
