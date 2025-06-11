@@ -62,6 +62,10 @@ jobs:
       - name: Setup CI
         uses: ./.github/actions/setup
 
+      - name: Build RISC-V ELFs
+        run: |
+          ./x.sh
+
       - name: Run cargo test
         uses: actions-rs/cargo@v1
         with:
@@ -85,6 +89,10 @@ jobs:
 
       - name: Setup CI
         uses: ./.github/actions/setup
+
+      - name: Build RISC-V ELFs
+        run: |
+          ./x.sh
 
       - name: Run cargo fmt
         uses: actions-rs/cargo@v1

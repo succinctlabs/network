@@ -7,14 +7,14 @@ use alloy_primitives::Address;
 use crate::errors::{VAppError, VAppPanic};
 
 /// Converts a 32-byte array to a 8-word array in big-endian order.
-#[must_use]
-pub fn bytes_to_words_be(bytes: &[u8; 32]) -> [u32; 8] {
+pub fn bytes_to_words_be(bytes: &[u8; 32]) -> Result<[u32; 8], VAppError> {
     let mut words = [0u32; 8];
     for i in 0..8 {
-        let chunk: [u8; 4] = bytes[i * 4..(i + 1) * 4].try_into().unwrap();
+        let chunk: [u8; 4] =
+            bytes[i * 4..(i + 1) * 4].try_into().map_err(|_| VAppPanic::FailedToParseBytes)?;
         words[i] = u32::from_be_bytes(chunk);
     }
-    words
+    Ok(words)
 }
 
 /// Converts a byte array to an address.
@@ -24,6 +24,7 @@ pub fn address(bytes: &[u8]) -> Result<Address, VAppError> {
 
 /// Test utilities for creating and verifying signatures.
 #[cfg(test)]
+#[allow(clippy::missing_panics_doc)]
 pub mod tests {
     /// Signing utilities for creating and verifying signatures.
     ///
@@ -32,7 +33,7 @@ pub mod tests {
     #[cfg(any(test, feature = "network"))]
     pub mod signers {
         use alloy::signers::{local::PrivateKeySigner, SignerSync};
-        use alloy_primitives::{keccak256, PrimitiveSignature, U256};
+        use alloy_primitives::{keccak256, Signature, U256};
         use prost::Message;
         use spn_network_types::{
             BidRequest, BidRequestBody, ExecuteProofRequest, ExecuteProofRequestBody,
@@ -59,7 +60,7 @@ pub mod tests {
         pub fn proto_sign<T: Message>(
             signer: &PrivateKeySigner,
             message: &T,
-        ) -> PrimitiveSignature {
+        ) -> Signature {
             let mut buf = Vec::new();
             message.encode(&mut buf).unwrap();
             signer.sign_message_sync(&buf).unwrap()

@@ -27,8 +27,8 @@ pub fn main() {
     // Decode all StepPublicValues and validate state transitions.
     let mut decoded_steps: Vec<StepPublicValues> = Vec::new();
     for public_value in &public_values {
-        let step = StepPublicValues::abi_decode(public_value, false)
-            .expect("failed to decode StepPublicValues");
+        let step =
+            StepPublicValues::abi_decode(public_value).expect("failed to decode StepPublicValues");
         decoded_steps.push(step);
     }
 

@@ -35,17 +35,3 @@ cargo prove build --elf-name spn-vapp-aggregation $USE_DOCKER --tag v4.0.0 --out
 cd ../../..
 echo "Done!"
 echo ""
-
-# Build the CLI.
-cargo build --bin spn-cli --release
-
-# Compute the verification key of the STF program.
-echo "Computing verification key of STF program..."
-cargo run --bin spn-cli --release -- vkey --elf-path elf/spn-vapp-stf
-echo "Done!"
-echo ""
-
-# Compute the verification key of the aggregation program.
-echo "Computing verification key of aggregation program..."
-cargo run --bin spn-cli --release -- vkey --elf-path elf/spn-vapp-aggregation
-echo "Done!"

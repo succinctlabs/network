@@ -133,6 +133,12 @@ pub enum VAppPanic {
 
     #[error("Hashing body failed")]
     HashingBodyFailed,
+
+    #[error("Failed to parse hash")]
+    FailedToParseBytes,
+
+    #[error("Missing public values hash")]
+    MissingPublicValuesHash,
 }
 
 impl From<VAppRevert> for VAppError {

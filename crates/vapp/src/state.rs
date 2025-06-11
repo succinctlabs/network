@@ -307,9 +307,11 @@ impl<A: Storage<Address, Account>, R: Storage<RequestId, bool>> VAppState<A, R> 
                 let domain = B256::try_from(body.domain.as_slice())
                     .map_err(|_| VAppPanic::DomainDeserializationFailed)?;
                 if domain != self.domain {
-                    return Err(
-                        VAppPanic::DomainMismatch { expected: self.domain, actual: domain }.into()
-                    );
+                    return Err(VAppPanic::DomainMismatch {
+                        expected: self.domain,
+                        actual: domain,
+                    }
+                    .into());
                 }
 
                 // Verify the proto signature.
@@ -364,9 +366,11 @@ impl<A: Storage<Address, Account>, R: Storage<RequestId, bool>> VAppState<A, R> 
                 let domain = B256::try_from(body.domain.as_slice())
                     .map_err(|_| VAppPanic::DomainDeserializationFailed)?;
                 if domain != self.domain {
-                    return Err(
-                        VAppPanic::DomainMismatch { expected: self.domain, actual: domain }.into()
-                    );
+                    return Err(VAppPanic::DomainMismatch {
+                        expected: self.domain,
+                        actual: domain,
+                    }
+                    .into());
                 }
 
                 // Transfer the amount from the requester to the recipient.
@@ -446,10 +450,10 @@ impl<A: Storage<Address, Account>, R: Storage<RequestId, bool>> VAppState<A, R> 
 
                 // Validate that the request ID is the same for all proto bodies.
                 debug!("validate that request ID is the same for all proto bodies");
-                if request_id.as_slice() != bid.request_id.as_slice() ||
-                    request_id.as_slice() != settle.request_id.as_slice() ||
-                    request_id.as_slice() != execute.request_id.as_slice() ||
-                    request_id.as_slice() != fulfill.request_id.as_slice()
+                if request_id.as_slice() != bid.request_id.as_slice()
+                    || request_id.as_slice() != settle.request_id.as_slice()
+                    || request_id.as_slice() != execute.request_id.as_slice()
+                    || request_id.as_slice() != fulfill.request_id.as_slice()
                 {
                     return Err(VAppPanic::RequestIdMismatch {
                         request_id: address(&request_id)?,
@@ -476,8 +480,8 @@ impl<A: Storage<Address, Account>, R: Storage<RequestId, bool>> VAppState<A, R> 
 
                 // Validate that the prover is in the request whitelist, if a whitelist is provided.
                 debug!("validate prover is in whitelist");
-                if !request.whitelist.is_empty() &&
-                    !request.whitelist.contains(&prover_address.to_vec())
+                if !request.whitelist.is_empty()
+                    && !request.whitelist.contains(&prover_address.to_vec())
                 {
                     return Err(VAppPanic::ProverNotInWhitelist { prover: prover_address }.into());
                 }
@@ -518,7 +522,13 @@ impl<A: Storage<Address, Account>, R: Storage<RequestId, bool>> VAppState<A, R> 
                 debug!("verify proof");
                 let mode = ProofMode::try_from(request.mode)
                     .map_err(|_| VAppPanic::UnsupportedProofMode { mode: request.mode })?;
-                let vk = bytes_to_words_be(&request.vk_hash.clone().try_into().unwrap());
+                let vk = bytes_to_words_be(
+                    &request
+                        .vk_hash
+                        .clone()
+                        .try_into()
+                        .map_err(|_| VAppPanic::FailedToParseBytes)?,
+                )?;
                 match mode {
                     ProofMode::Compressed => {
                         let verifier = V::default();
@@ -527,7 +537,12 @@ impl<A: Storage<Address, Account>, R: Storage<RequestId, bool>> VAppState<A, R> 
                                 vk,
                                 // TODO(jtguibas): this should be either execute.public_values_hash
                                 // or request.public_values_hash
-                                execute.public_values_hash.clone().unwrap().try_into().unwrap(),
+                                execute
+                                    .public_values_hash
+                                    .clone()
+                                    .ok_or(VAppPanic::MissingPublicValuesHash)?
+                                    .try_into()
+                                    .map_err(|_| VAppPanic::FailedToParseBytes)?,
                             )
                             .map_err(|_| VAppPanic::InvalidProof)?;
                     }
@@ -589,8 +604,15 @@ impl<A: Storage<Address, Account>, R: Storage<RequestId, bool>> VAppState<A, R> 
 
                 // Log the clear event.
                 debug!("log clear event");
-                let request_id: [u8; 32] =
-                    clear.fulfill.body.as_ref().unwrap().request_id.clone().try_into().unwrap();
+                let request_id: [u8; 32] = clear
+                    .fulfill
+                    .body
+                    .as_ref()
+                    .ok_or(VAppPanic::MissingProtoBody)?
+                    .request_id
+                    .clone()
+                    .try_into()
+                    .map_err(|_| VAppPanic::FailedToParseBytes)?;
                 info!(
                     "STEP {}: CLEAR(request_id={}, requester={}, prover={}, cost={})",
                     self.tx_id,
