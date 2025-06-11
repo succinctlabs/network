@@ -57,10 +57,7 @@ pub mod tests {
         /// Signs a protobuf message using a signer.
         ///
         /// The message is encoded to bytes and then signed using the provided signer.
-        pub fn proto_sign<T: Message>(
-            signer: &PrivateKeySigner,
-            message: &T,
-        ) -> Signature {
+        pub fn proto_sign<T: Message>(signer: &PrivateKeySigner, message: &T) -> Signature {
             let mut buf = Vec::new();
             message.encode(&mut buf).unwrap();
             signer.sign_message_sync(&buf).unwrap()

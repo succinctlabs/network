@@ -580,11 +580,9 @@ impl<A: Storage<Address, Account>, R: Storage<RequestId, bool>> VAppState<A, R> 
                 // Validate that the execute gas_used was lower than the request gas_limit.
                 debug!("validate execute gas_used was lower than request gas_limit");
                 if pgus > request.gas_limit {
-                    return Err(VAppPanic::GasLimitExceeded {
-                        pgus,
-                        gas_limit: request.gas_limit,
-                    }
-                    .into());
+                    return Err(
+                        VAppPanic::GasLimitExceeded { pgus, gas_limit: request.gas_limit }.into()
+                    );
                 }
 
                 // Ensure the user can afford the cost of the proof.
