@@ -530,7 +530,9 @@ impl<A: Storage<Address, Account>, R: Storage<RequestId, bool>> VAppState<A, R> 
                         .map_err(|_| VAppPanic::FailedToParseBytes)?,
                 )?;
                 let public_values_hash: [u8; 32] = match &request.public_values_hash {
-                    Some(hash) => hash.as_slice().try_into().map_err(|_| VAppPanic::FailedToParseBytes)?,
+                    Some(hash) => {
+                        hash.as_slice().try_into().map_err(|_| VAppPanic::FailedToParseBytes)?
+                    }
                     None => execute
                         .public_values_hash
                         .as_ref()
@@ -543,10 +545,7 @@ impl<A: Storage<Address, Account>, R: Storage<RequestId, bool>> VAppState<A, R> 
                     ProofMode::Compressed => {
                         let verifier = V::default();
                         verifier
-                            .verify(
-                                vk,
-                                public_values_hash,
-                            )
+                            .verify(vk, public_values_hash)
                             .map_err(|_| VAppPanic::InvalidProof)?;
                     }
                     ProofMode::Groth16 | ProofMode::Plonk => {
