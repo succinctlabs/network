@@ -529,21 +529,23 @@ impl<A: Storage<Address, Account>, R: Storage<RequestId, bool>> VAppState<A, R> 
                         .try_into()
                         .map_err(|_| VAppPanic::FailedToParseBytes)?,
                 )?;
+                let public_values_hash: [u8; 32] = match &request.public_values_hash {
+                    Some(hash) => {
+                        hash.as_slice().try_into().map_err(|_| VAppPanic::FailedToParseBytes)?
+                    }
+                    None => execute
+                        .public_values_hash
+                        .as_ref()
+                        .ok_or(VAppPanic::MissingPublicValuesHash)?
+                        .as_slice()
+                        .try_into()
+                        .map_err(|_| VAppPanic::FailedToParseBytes)?,
+                };
                 match mode {
                     ProofMode::Compressed => {
                         let verifier = V::default();
                         verifier
-                            .verify(
-                                vk,
-                                // TODO(jtguibas): this should be either execute.public_values_hash
-                                // or request.public_values_hash
-                                execute
-                                    .public_values_hash
-                                    .clone()
-                                    .ok_or(VAppPanic::MissingPublicValuesHash)?
-                                    .try_into()
-                                    .map_err(|_| VAppPanic::FailedToParseBytes)?,
-                            )
+                            .verify(vk, public_values_hash)
                             .map_err(|_| VAppPanic::InvalidProof)?;
                     }
                     ProofMode::Groth16 | ProofMode::Plonk => {
