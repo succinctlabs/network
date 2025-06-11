@@ -17,7 +17,7 @@ import {
 import {ISuccinctVApp} from "../src/interfaces/ISuccinctVApp.sol";
 
 contract SuccinctVAppStateTest is SuccinctVAppTest {
-    function test_UpdateState_WhenValid() public {
+    function test_Step_WhenValid() public {
         mockCall(true);
 
         assertEq(SuccinctVApp(VAPP).blockNumber(), 0);
@@ -35,7 +35,7 @@ contract SuccinctVAppStateTest is SuccinctVAppTest {
         assertEq(SuccinctVApp(VAPP).root(), fixture.newRoot);
     }
 
-    function test_UpdateState_WhenValidTwice() public {
+    function test_Step_WhenValidTwice() public {
         mockCall(true);
 
         SuccinctVApp(VAPP).step(jsonFixture.publicValues, jsonFixture.proof);
@@ -64,7 +64,7 @@ contract SuccinctVAppStateTest is SuccinctVAppTest {
         assertEq(SuccinctVApp(VAPP).root(), publicValues.newRoot);
     }
 
-    function test_RevertUpdateState_WhenInvalid() public {
+    function test_RevertStep_WhenInvalid() public {
         bytes memory fakeProof = new bytes(jsonFixture.proof.length);
 
         mockCall(false);
@@ -72,7 +72,7 @@ contract SuccinctVAppStateTest is SuccinctVAppTest {
         SuccinctVApp(VAPP).step(jsonFixture.publicValues, fakeProof);
     }
 
-    function test_RevertUpdateState_WhenInvalidRoot() public {
+    function test_RevertStep_WhenInvalidRoot() public {
         StepPublicValues memory publicValues = StepPublicValues({
             receipts: new TxReceipt[](0),
             oldRoot: bytes32(0),
@@ -85,7 +85,7 @@ contract SuccinctVAppStateTest is SuccinctVAppTest {
         SuccinctVApp(VAPP).step(abi.encode(publicValues), jsonFixture.proof);
     }
 
-    function test_RevertUpdateState_WhenInvalidOldRoot() public {
+    function test_RevertStep_WhenInvalidOldRoot() public {
         mockCall(true);
         SuccinctVApp(VAPP).step(jsonFixture.publicValues, jsonFixture.proof);
         assertEq(SuccinctVApp(VAPP).blockNumber(), 1);
@@ -102,7 +102,7 @@ contract SuccinctVAppStateTest is SuccinctVAppTest {
         SuccinctVApp(VAPP).step(abi.encode(publicValues), jsonFixture.proof);
     }
 
-    function test_RevertUpdateState_WhenInvalidTimestampFuture() public {
+    function test_RevertStep_WhenInvalidTimestampFuture() public {
         mockCall(true);
 
         // Create public values with a future timestamp
@@ -117,7 +117,7 @@ contract SuccinctVAppStateTest is SuccinctVAppTest {
         SuccinctVApp(VAPP).step(abi.encode(publicValues), jsonFixture.proof);
     }
 
-    function test_RevertUpdateState_WhenTimestampInPast() public {
+    function test_RevertStep_WhenTimestampInPast() public {
         mockCall(true);
 
         // First update with current timestamp
@@ -145,5 +145,11 @@ contract SuccinctVAppStateTest is SuccinctVAppTest {
 
         vm.expectRevert(ISuccinctVApp.TimestampInPast.selector);
         SuccinctVApp(VAPP).step(abi.encode(publicValues), jsonFixture.proof);
+    }
+
+    function test_RevertStep_WhenNotAuctioneer() public {
+        vm.expectRevert(abi.encodeWithSelector(ISuccinctVApp.NotAuctioneer.selector));
+        vm.prank(REQUESTER_1);
+        SuccinctVApp(VAPP).step(jsonFixture.publicValues, jsonFixture.proof);
     }
 }

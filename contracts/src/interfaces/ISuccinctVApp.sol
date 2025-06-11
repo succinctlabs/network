@@ -238,6 +238,11 @@ interface ISuccinctVApp {
         external
         returns (uint64 block, bytes32 oldRoot, bytes32 newRoot);
 
+    /// @notice Updates the auctioneer address.
+    /// @dev Only callable by the owner.
+    /// @param auctioneer The new auctioneer address.
+    function updateAuctioneer(address auctioneer) external;
+
     /// @notice Updates the succinct staking contract address.
     /// @dev Only callable by the owner.
     /// @param staking The new staking contract address.
