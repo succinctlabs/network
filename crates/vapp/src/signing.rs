@@ -2,7 +2,7 @@
 //!
 //! This module contains the functions for signing and verifying messages.
 
-use alloy_primitives::{Address, PrimitiveSignature};
+use alloy_primitives::{Address, Signature};
 use eyre::Result;
 use prost::Message;
 use sha2::{Digest, Sha256};
@@ -26,7 +26,7 @@ pub fn proto_hash<T: Message>(message: &T, sender: &Address) -> Vec<u8> {
 
 /// Verifies an Ethereum signature using the `personal_sign` format.
 pub fn eth_sign_verify(message: &[u8], signature: &[u8]) -> Result<Address> {
-    let signature = PrimitiveSignature::from_raw(signature)?;
+    let signature = Signature::from_raw(signature)?;
     let address = signature.recover_address_from_msg(message)?;
     Ok(address)
 }

@@ -33,7 +33,7 @@ pub mod tests {
     #[cfg(any(test, feature = "network"))]
     pub mod signers {
         use alloy::signers::{local::PrivateKeySigner, SignerSync};
-        use alloy_primitives::{keccak256, PrimitiveSignature, U256};
+        use alloy_primitives::{keccak256, Signature, U256};
         use prost::Message;
         use spn_network_types::{
             BidRequest, BidRequestBody, ExecuteProofRequest, ExecuteProofRequestBody,
@@ -60,7 +60,7 @@ pub mod tests {
         pub fn proto_sign<T: Message>(
             signer: &PrivateKeySigner,
             message: &T,
-        ) -> PrimitiveSignature {
+        ) -> Signature {
             let mut buf = Vec::new();
             message.encode(&mut buf).unwrap();
             signer.sign_message_sync(&buf).unwrap()
