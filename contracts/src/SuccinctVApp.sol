@@ -45,7 +45,7 @@ contract SuccinctVApp is
     using SafeERC20 for IERC20;
 
     /// @inheritdoc ISuccinctVApp
-    address public override auctioneer;
+    bytes32 public override vkey;
 
     /// @inheritdoc ISuccinctVApp
     address public override prove;
@@ -54,13 +54,13 @@ contract SuccinctVApp is
     address public override iProve;
 
     /// @inheritdoc ISuccinctVApp
+    address public override auctioneer;
+
+    /// @inheritdoc ISuccinctVApp
     address public override staking;
 
     /// @inheritdoc ISuccinctVApp
     address public override verifier;
-
-    /// @inheritdoc ISuccinctVApp
-    bytes32 public override vappProgramVKey;
 
     /// @inheritdoc ISuccinctVApp
     uint64 public override blockNumber;
@@ -110,43 +110,40 @@ contract SuccinctVApp is
     /// @custom:oz-upgrades-unsafe-allow-initializers
     function initialize(
         address _owner,
-        address _auctioneer,
         address _prove,
         address _iProve,
+        address _auctioneer,
         address _staking,
         address _verifier,
-        bytes32 _vappProgramVKey,
+        bytes32 _vkey,
         bytes32 _genesisStateRoot,
         uint64 _genesisTimestamp
     ) external initializer {
         if (
-            _owner == address(0) || _auctioneer == address(0) || _prove == address(0)
-                || _iProve == address(0) || _staking == address(0) || _verifier == address(0)
+            _owner == address(0) || _prove == address(0) || _iProve == address(0)
+                || _auctioneer == address(0) || _staking == address(0) || _verifier == address(0)
         ) {
             revert ZeroAddress();
         }
 
+        // Set the state variables.
         __Ownable_init(_owner);
-
-        auctioneer = _auctioneer;
+        vkey = _vkey;
         prove = _prove;
         iProve = _iProve;
-        staking = _staking;
-        verifier = _verifier;
-        vappProgramVKey = _vappProgramVKey;
+        _updateAuctioneer(_auctioneer);
+        _updateStaking(_staking);
+        _updateVerifier(_verifier);
 
         // Set the genesis state root.
         roots[0] = _genesisStateRoot;
         timestamps[0] = _genesisTimestamp;
 
-        _updateStaking(_staking);
-        _updateVerifier(_verifier);
-
         // Approve the $iPROVE contract to transfer $PROVE from this contract during prover withdrawal.
         IERC20(prove).approve(_iProve, type(uint256).max);
 
         // Emit the events.
-        emit Fork(0, bytes32(0), _vappProgramVKey);
+        emit Fork(0, bytes32(0), _vkey);
         emit Block(0, bytes32(0), _genesisStateRoot);
     }
 
@@ -264,7 +261,7 @@ contract SuccinctVApp is
         returns (uint64, bytes32, bytes32)
     {
         // Verify the proof.
-        ISP1Verifier(verifier).verifyProof(vappProgramVKey, _publicValues, _proofBytes);
+        ISP1Verifier(verifier).verifyProof(vkey, _publicValues, _proofBytes);
         StepPublicValues memory publicValues = abi.decode(_publicValues, (StepPublicValues));
         if (publicValues.newRoot == bytes32(0)) revert InvalidRoot();
 
@@ -305,10 +302,10 @@ contract SuccinctVApp is
         returns (uint64, bytes32, bytes32)
     {
         // Save the old vkey for event.
-        bytes32 oldVkey = vappProgramVKey;
+        bytes32 oldVkey = vkey;
 
         // Update the vkey.
-        vappProgramVKey = _vkey;
+        vkey = _vkey;
 
         // Get the old root.
         bytes32 oldRoot = roots[blockNumber];

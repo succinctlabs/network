@@ -110,8 +110,8 @@ interface ISuccinctVApp {
     /// @dev Thrown when a transaction variant is invalid.
     error TransactionVariantInvalid();
 
-    /// @notice The address of the auctioneer.
-    function auctioneer() external view returns (address);
+    /// @notice The verification key for the vApp program.
+    function vkey() external view returns (bytes32);
 
     /// @notice The address of the $PROVE token.
     function prove() external view returns (address);
@@ -119,7 +119,10 @@ interface ISuccinctVApp {
     /// @notice The address of the $iPROVE token.
     function iProve() external view returns (address);
 
-    /// @notice The address of the Succinct staking contract.
+    /// @notice The address of the network auctioneer.
+    function auctioneer() external view returns (address);
+
+    /// @notice The address of the staking contract.
     function staking() external view returns (address);
 
     /// @notice The address of the SP1 verifier contract.
@@ -128,9 +131,6 @@ interface ISuccinctVApp {
     ///      For the list of supported verifiers on each chain, see:
     ///      https://github.com/succinctlabs/sp1-contracts/tree/main/contracts/deployments
     function verifier() external view returns (address);
-
-    /// @notice The verification key for the vApp program.
-    function vappProgramVKey() external view returns (bytes32);
 
     /// @notice The block number of the last state update.
     function blockNumber() external view returns (uint64);
@@ -156,10 +156,11 @@ interface ISuccinctVApp {
     /// @notice Timestamp for each block.
     function timestamps(uint64 block) external view returns (uint64);
 
-    /// @notice The claimable withdrawal amount for each account.
+    /// @notice The claimable withdrawal amount for each account. Must first request
+    ///         a withdrawal and wait for it to be processed before this increases.
     function claimableWithdrawal(address account) external view returns (uint256);
 
-    /// @notice Transactions for pending actions
+    /// @notice Transactions for pending actions.
     function transactions(uint64 onchainTx)
         external
         view

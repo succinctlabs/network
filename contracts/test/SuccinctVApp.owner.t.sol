@@ -21,7 +21,7 @@ import {PausableUpgradeable} from
 // Tests onlyOwner / setter functions.
 contract SuccinctVAppOwnerTest is SuccinctVAppTest {
     function test_Fork_WhenValid() public {
-        bytes32 oldVkey = SuccinctVApp(VAPP).vappProgramVKey();
+        bytes32 oldVkey = SuccinctVApp(VAPP).vkey();
         bytes32 newVkey = bytes32(uint256(1));
         bytes32 newRoot = bytes32(uint256(2));
 
