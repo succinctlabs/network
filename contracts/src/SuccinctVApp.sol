@@ -45,7 +45,7 @@ contract SuccinctVApp is
     using SafeERC20 for IERC20;
 
     /// @inheritdoc ISuccinctVApp
-    bytes32 public override vappProgramVKey;
+    bytes32 public override vkey;
 
     /// @inheritdoc ISuccinctVApp
     address public override prove;
@@ -115,7 +115,7 @@ contract SuccinctVApp is
         address _auctioneer,
         address _staking,
         address _verifier,
-        bytes32 _vappProgramVKey,
+        bytes32 _vkey,
         bytes32 _genesisStateRoot,
         uint64 _genesisTimestamp
     ) external initializer {
@@ -128,7 +128,7 @@ contract SuccinctVApp is
 
         // Set the state variables.
         __Ownable_init(_owner);
-        vappProgramVKey = _vappProgramVKey;
+        vkey = _vkey;
         prove = _prove;
         iProve = _iProve;
         _updateAuctioneer(_auctioneer);
@@ -143,7 +143,7 @@ contract SuccinctVApp is
         IERC20(prove).approve(_iProve, type(uint256).max);
 
         // Emit the events.
-        emit Fork(0, bytes32(0), _vappProgramVKey);
+        emit Fork(0, bytes32(0), _vkey);
         emit Block(0, bytes32(0), _genesisStateRoot);
     }
 
@@ -261,7 +261,7 @@ contract SuccinctVApp is
         returns (uint64, bytes32, bytes32)
     {
         // Verify the proof.
-        ISP1Verifier(verifier).verifyProof(vappProgramVKey, _publicValues, _proofBytes);
+        ISP1Verifier(verifier).verifyProof(vkey, _publicValues, _proofBytes);
         StepPublicValues memory publicValues = abi.decode(_publicValues, (StepPublicValues));
         if (publicValues.newRoot == bytes32(0)) revert InvalidRoot();
 
@@ -302,10 +302,10 @@ contract SuccinctVApp is
         returns (uint64, bytes32, bytes32)
     {
         // Save the old vkey for event.
-        bytes32 oldVkey = vappProgramVKey;
+        bytes32 oldVkey = vkey;
 
         // Update the vkey.
-        vappProgramVKey = _vkey;
+        vkey = _vkey;
 
         // Get the old root.
         bytes32 oldRoot = roots[blockNumber];

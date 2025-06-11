@@ -18,7 +18,7 @@ import {ISuccinctVApp} from "../src/interfaces/ISuccinctVApp.sol";
 
 contract SuccinctVAppForkTest is SuccinctVAppTest {
     function test_Fork_WhenValid() public {
-        bytes32 oldVkey = SuccinctVApp(VAPP).vappProgramVKey();
+        bytes32 oldVkey = SuccinctVApp(VAPP).vkey();
         bytes32 newVkey = bytes32(uint256(1));
         bytes32 newRoot = bytes32(uint256(2));
 
@@ -32,7 +32,7 @@ contract SuccinctVAppForkTest is SuccinctVAppTest {
         (uint64 newblock, bytes32 returnedOldRoot, bytes32 returnedNewRoot) =
             SuccinctVApp(VAPP).fork(newVkey, newRoot);
 
-        assertEq(SuccinctVApp(VAPP).vappProgramVKey(), newVkey);
+        assertEq(SuccinctVApp(VAPP).vkey(), newVkey);
         assertEq(SuccinctVApp(VAPP).blockNumber(), 1);
         assertEq(SuccinctVApp(VAPP).roots(1), newRoot);
         assertEq(newblock, 1);
@@ -55,10 +55,10 @@ contract SuccinctVAppForkTest is SuccinctVAppTest {
 
         assertEq(SuccinctVApp(VAPP).blockNumber(), 1);
         assertEq(SuccinctVApp(VAPP).roots(1), bytes32(uint256(1)));
-        assertEq(SuccinctVApp(VAPP).vappProgramVKey(), jsonFixture.vkey);
+        assertEq(SuccinctVApp(VAPP).vkey(), jsonFixture.vkey);
 
         // Fork
-        bytes32 oldVkey = SuccinctVApp(VAPP).vappProgramVKey();
+        bytes32 oldVkey = SuccinctVApp(VAPP).vkey();
         bytes32 oldRoot = SuccinctVApp(VAPP).roots(1);
         bytes32 newVkey = bytes32(uint256(99));
         bytes32 newRoot = bytes32(uint256(2));
@@ -71,7 +71,7 @@ contract SuccinctVAppForkTest is SuccinctVAppTest {
         (uint64 newBlock, bytes32 returnedOldRoot, bytes32 returnedNewRoot) =
             SuccinctVApp(VAPP).fork(newVkey, newRoot);
 
-        assertEq(SuccinctVApp(VAPP).vappProgramVKey(), newVkey);
+        assertEq(SuccinctVApp(VAPP).vkey(), newVkey);
         assertEq(SuccinctVApp(VAPP).blockNumber(), 2);
         assertEq(SuccinctVApp(VAPP).roots(1), bytes32(uint256(1)));
         assertEq(SuccinctVApp(VAPP).roots(2), newRoot);

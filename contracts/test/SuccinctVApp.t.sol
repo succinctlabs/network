@@ -167,7 +167,7 @@ contract SuccinctVAppSetupTests is SuccinctVAppTest {
         assertEq(SuccinctVApp(VAPP).auctioneer(), AUCTIONEER);
         assertEq(SuccinctVApp(VAPP).staking(), STAKING);
         assertEq(SuccinctVApp(VAPP).verifier(), VERIFIER);
-        assertEq(SuccinctVApp(VAPP).vappProgramVKey(), VKEY);
+        assertEq(SuccinctVApp(VAPP).vkey(), VKEY);
         assertEq(SuccinctVApp(VAPP).root(), GENESIS_STATE_ROOT);
         assertEq(SuccinctVApp(VAPP).timestamp(), GENESIS_TIMESTAMP);
         assertEq(SuccinctVApp(VAPP).blockNumber(), 0);
