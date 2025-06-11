@@ -29,6 +29,9 @@ interface ISuccinctVApp {
     /// @notice Emitted when a withdrawal is claimed.
     event Withdrawal(address indexed account, uint256 amount);
 
+    /// @notice Emitted when the auctioneer address was updated.
+    event AuctioneerUpdate(address oldAuctioneer, address newAuctioneer);
+
     /// @notice Emitted when the staking address was updated.
     event StakingUpdate(address oldStaking, address newStaking);
 
@@ -37,6 +40,9 @@ interface ISuccinctVApp {
 
     /// @notice Emitted when the minimum deposit was updated.
     event MinDepositAmountUpdate(uint256 oldMinDepositAmount, uint256 newMinDepositAmount);
+
+    /// @dev Thrown when the caller is not the auctioneer.
+    error NotAuctioneer();
 
     /// @dev Thrown when the caller is not the staking contract.
     error NotStaking();
@@ -103,6 +109,9 @@ interface ISuccinctVApp {
 
     /// @dev Thrown when a transaction variant is invalid.
     error TransactionVariantInvalid();
+
+    /// @notice The address of the auctioneer.
+    function auctioneer() external view returns (address);
 
     /// @notice The address of the $PROVE token.
     function prove() external view returns (address);

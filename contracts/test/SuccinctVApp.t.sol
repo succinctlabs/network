@@ -40,6 +40,7 @@ contract SuccinctVAppTest is Test, FixtureLoader {
 
     // EOAs
     address OWNER;
+    address AUCTIONEER;
     address ALICE;
     address BOB;
     address REQUESTER_1;
@@ -67,6 +68,7 @@ contract SuccinctVAppTest is Test, FixtureLoader {
         // Create owner
         // OWNER = makeAddr("OWNER");
         OWNER = address(this);
+        AUCTIONEER = address(this);
         ALICE = makeAddr("ALICE");
         BOB = makeAddr("BOB");
 
@@ -93,6 +95,7 @@ contract SuccinctVAppTest is Test, FixtureLoader {
         VAPP = address(new ERC1967Proxy(vappImpl, ""));
         SuccinctVApp(VAPP).initialize(
             OWNER,
+            AUCTIONEER,
             PROVE,
             I_PROVE,
             STAKING,
@@ -157,6 +160,7 @@ contract SuccinctVAppSetupTests is SuccinctVAppTest {
         vm.expectRevert(abi.encodeWithSelector(Initializable.InvalidInitialization.selector));
         SuccinctVApp(VAPP).initialize(
             OWNER,
+            AUCTIONEER,
             PROVE,
             I_PROVE,
             STAKING,

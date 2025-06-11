@@ -45,6 +45,9 @@ contract SuccinctVApp is
     using SafeERC20 for IERC20;
 
     /// @inheritdoc ISuccinctVApp
+    address public override auctioneer;
+
+    /// @inheritdoc ISuccinctVApp
     address public override prove;
 
     /// @inheritdoc ISuccinctVApp
@@ -83,6 +86,12 @@ contract SuccinctVApp is
     /// @inheritdoc ISuccinctVApp
     mapping(uint64 => Transaction) public override transactions;
 
+    /// @dev Modifier to ensure that the caller is the auctioneer.
+    modifier onlyAuctioneer() {
+        if (msg.sender != auctioneer) revert NotAuctioneer();
+        _;
+    }
+
     /// @dev Modifier to ensure that the caller is the staking contract.
     modifier onlyStaking() {
         if (msg.sender != staking) revert NotStaking();
@@ -101,6 +110,7 @@ contract SuccinctVApp is
     /// @custom:oz-upgrades-unsafe-allow-initializers
     function initialize(
         address _owner,
+        address _auctioneer,
         address _prove,
         address _iProve,
         address _staking,
@@ -110,14 +120,15 @@ contract SuccinctVApp is
         uint64 _genesisTimestamp
     ) external initializer {
         if (
-            _owner == address(0) || _prove == address(0) || _iProve == address(0)
-                || _staking == address(0) || _verifier == address(0)
+            _owner == address(0) || _auctioneer == address(0) || _prove == address(0)
+                || _iProve == address(0) || _staking == address(0) || _verifier == address(0)
         ) {
             revert ZeroAddress();
         }
 
         __Ownable_init(_owner);
 
+        auctioneer = _auctioneer;
         prove = _prove;
         iProve = _iProve;
         staking = _staking;
@@ -440,6 +451,13 @@ contract SuccinctVApp is
     function _processWithdraw(address _account, uint256 _amount) internal {
         // Update the state.
         claimableWithdrawal[_account] += _amount;
+    }
+
+    /// @dev Updates the auctioneer.
+    function _updateAuctioneer(address _auctioneer) internal {
+        emit AuctioneerUpdate(auctioneer, _auctioneer);
+
+        auctioneer = _auctioneer;
     }
 
     /// @dev Updates the staking contract.
