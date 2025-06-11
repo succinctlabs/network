@@ -171,7 +171,7 @@ pub struct ExecuteProofRequestBody {
     /// The optional amount of gas used when executing the request, only included if
     /// the request is valid.
     #[prost(uint64, optional, tag = "6")]
-    pub gas_used: ::core::option::Option<u64>,
+    pub pgus: ::core::option::Option<u64>,
     /// The domain separator for the request.
     #[prost(bytes = "vec", tag = "7")]
     pub domain: ::prost::alloc::vec::Vec<u8>,

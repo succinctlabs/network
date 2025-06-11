@@ -82,10 +82,10 @@ pub enum VAppPanic {
     InvalidBidAmount { amount: String },
 
     #[error("Missing gas used in execute in clear")]
-    MissingGasUsed,
+    MissingPgusUsed,
 
     #[error("Gas limit exceeded in execute in clear")]
-    GasLimitExceeded { gas_used: u64, gas_limit: u64 },
+    GasLimitExceeded { pgus: u64, gas_limit: u64 },
 
     #[error("Account does not exist: {account}")]
     AccountDoesNotExist { account: Address },
