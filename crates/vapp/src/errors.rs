@@ -70,14 +70,7 @@ pub enum VAppPanic {
     OnlyOwnerCanDelegate,
 
     #[error("Request id mismatch in clear")]
-    RequestIdMismatch {
-        found: Address,
-        expected: Address,
-        // bid_request_id: Address,
-        // settle_request_id: Address,
-        // execute_request_id: Address,
-        // fulfill_request_id: Address,
-    },
+    RequestIdMismatch { found: Address, expected: Address },
 
     #[error("Invalid bid amount in clear: {amount}")]
     InvalidU256Amount { amount: String },
