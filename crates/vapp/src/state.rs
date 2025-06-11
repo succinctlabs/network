@@ -576,17 +576,15 @@ impl<A: Storage<Address, Account>, R: Storage<RequestId, bool>> VAppState<A, R> 
                 // Calculate the cost of the proof.
                 // TODO(jtguibas): rename to gas_used to pgus
                 debug!("calculate cost of proof");
-                let pgus = execute.gas_used.ok_or(VAppPanic::MissingGasUsed)?;
+                let pgus = execute.pgus.ok_or(VAppPanic::MissingPgusUsed)?;
                 let cost = price * U256::from(pgus);
 
                 // Validate that the execute gas_used was lower than the request gas_limit.
                 debug!("validate execute gas_used was lower than request gas_limit");
                 if pgus > request.gas_limit {
-                    return Err(VAppPanic::GasLimitExceeded {
-                        gas_used: pgus,
-                        gas_limit: request.gas_limit,
-                    }
-                    .into());
+                    return Err(
+                        VAppPanic::GasLimitExceeded { pgus, gas_limit: request.gas_limit }.into()
+                    );
                 }
 
                 // Ensure the user can afford the cost of the proof.

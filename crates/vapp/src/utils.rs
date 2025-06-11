@@ -128,7 +128,7 @@ pub mod tests {
                     pv_digest_array.map(|arr| arr.to_vec()).unwrap_or(vec![0; 32]),
                 ),
                 cycles: None,
-                gas_used: Some(1),
+                pgus: Some(1),
                 domain: spn_utils::SPN_SEPOLIA_V1_DOMAIN.to_vec(),
             };
             let execute_signature = proto_sign(executor, &execute);
