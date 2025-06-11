@@ -40,7 +40,6 @@ library FeeCalculator {
     }
 }
 
-
 /// @dev A mock vApp contract implementation.
 contract MockVApp {
     using SafeERC20 for IERC20;
