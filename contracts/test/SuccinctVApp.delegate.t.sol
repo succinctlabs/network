@@ -16,7 +16,6 @@ import {
 } from "../src/libraries/PublicValues.sol";
 import {ISuccinctVApp} from "../src/interfaces/ISuccinctVApp.sol";
 import {MockStaking} from "../src/mocks/MockStaking.sol";
-import {console} from "forge-std/console.sol";
 
 contract SuccinctVAppDelegateTest is SuccinctVAppTest {
     function test_Prover_WhenProverCreated() public {

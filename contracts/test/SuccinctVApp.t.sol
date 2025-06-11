@@ -5,7 +5,6 @@ import {Test} from "../lib/forge-std/src/Test.sol";
 import {stdJson} from "../lib/forge-std/src/StdJson.sol";
 import {SuccinctVApp} from "../src/SuccinctVApp.sol";
 import {ISuccinctVApp} from "../src/interfaces/ISuccinctVApp.sol";
-import {Receipts} from "../src/libraries/Receipts.sol";
 import {
     StepPublicValues,
     TransactionStatus,
@@ -34,6 +33,7 @@ contract SuccinctVAppTest is Test, FixtureLoader {
     uint64 constant MAX_ACTION_DELAY = 1 days;
     uint256 constant PROTOCOL_FEE_BIPS = 30; // 0.3%
     uint256 constant STAKER_FEE_BIPS = 1000; // 10%
+
     // Fixtures
     SP1ProofFixtureJson public jsonFixture;
     StepPublicValues public fixture;
@@ -58,6 +58,11 @@ contract SuccinctVAppTest is Test, FixtureLoader {
     address public VAPP;
     address public STAKING;
 
+    // Program and state root
+    bytes32 public VKEY;
+    bytes32 public GENESIS_STATE_ROOT;
+    uint64 public GENESIS_TIMESTAMP;
+
     function setUp() public {
         // Load fixtures
         fixture.oldRoot = bytes32(uint256(5346634509));
@@ -65,8 +70,17 @@ contract SuccinctVAppTest is Test, FixtureLoader {
         fixture.timestamp = uint64(1);
         jsonFixture.publicValues = abi.encode(fixture);
 
+        // Set program and state root
+        VKEY = jsonFixture.vkey;
+        GENESIS_STATE_ROOT = fixture.oldRoot;
+        GENESIS_TIMESTAMP = uint64(0);
+
         // Create owner
+
+        // TODO: Fix these
         // OWNER = makeAddr("OWNER");
+        // AUCTIONEER = makeAddr("AUCTIONEER");
+
         OWNER = address(this);
         AUCTIONEER = address(this);
         ALICE = makeAddr("ALICE");
@@ -95,14 +109,14 @@ contract SuccinctVAppTest is Test, FixtureLoader {
         VAPP = address(new ERC1967Proxy(vappImpl, ""));
         SuccinctVApp(VAPP).initialize(
             OWNER,
-            AUCTIONEER,
             PROVE,
             I_PROVE,
+            AUCTIONEER,
             STAKING,
             VERIFIER,
-            jsonFixture.vkey,
-            fixture.oldRoot, // genesisStateRoot
-            uint64(0) // genesisTimestamp
+            VKEY,
+            GENESIS_STATE_ROOT,
+            GENESIS_TIMESTAMP
         );
         MockStaking(STAKING).setVApp(VAPP);
     }
@@ -150,9 +164,12 @@ contract SuccinctVAppSetupTests is SuccinctVAppTest {
         assertEq(SuccinctVApp(VAPP).owner(), OWNER);
         assertEq(SuccinctVApp(VAPP).prove(), PROVE);
         assertEq(SuccinctVApp(VAPP).iProve(), I_PROVE);
+        assertEq(SuccinctVApp(VAPP).auctioneer(), AUCTIONEER);
         assertEq(SuccinctVApp(VAPP).staking(), STAKING);
         assertEq(SuccinctVApp(VAPP).verifier(), VERIFIER);
-        assertEq(SuccinctVApp(VAPP).vappProgramVKey(), jsonFixture.vkey);
+        assertEq(SuccinctVApp(VAPP).vappProgramVKey(), VKEY);
+        assertEq(SuccinctVApp(VAPP).root(), GENESIS_STATE_ROOT);
+        assertEq(SuccinctVApp(VAPP).timestamp(), GENESIS_TIMESTAMP);
         assertEq(SuccinctVApp(VAPP).blockNumber(), 0);
     }
 
@@ -160,14 +177,14 @@ contract SuccinctVAppSetupTests is SuccinctVAppTest {
         vm.expectRevert(abi.encodeWithSelector(Initializable.InvalidInitialization.selector));
         SuccinctVApp(VAPP).initialize(
             OWNER,
-            AUCTIONEER,
             PROVE,
             I_PROVE,
+            AUCTIONEER,
             STAKING,
             VERIFIER,
-            jsonFixture.vkey,
-            bytes32(0), // genesisStateRoot
-            uint64(block.timestamp) // genesisTimestamp
+            VKEY,
+            GENESIS_STATE_ROOT,
+            GENESIS_TIMESTAMP
         );
     }
 }
