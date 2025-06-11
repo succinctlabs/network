@@ -141,6 +141,8 @@ message ExecuteProofRequestBody {
   optional uint64 pgus = 6;
   // The domain separator for the request.
   bytes domain = 7;
+  // The punishment amount for the requester.
+  optional string punishment = 8;
 }
 
 message ExecuteProofResponse {
