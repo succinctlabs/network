@@ -8,7 +8,7 @@ The protocol consists of the following core contracts:
 
 * [Succinct](./src/tokens/Succinct.sol) "Succinct ($PROVE)" - The primary ERC20 token.
 * [IntermediateSuccinct](./src/tokens/IntermediateSuccinct.sol) "IntermediateSuccinct ($iPROVE)" - The ERC4626 token with $PROVE as the underlying. Non-transferable outside of staking operations.
-* [SuccinctProver](./src/tokens/SuccinctProver.sol) "Prover-N ($PROVER-N)" - The ERC4626Rewards token with $iPROVE as the underlying. Each prover has their own deployment of this contract, and `N` is replaced with an incrementing number representing the prover's ID. Non-transferable outside of staking operations.
+* [SuccinctProver](./src/tokens/SuccinctProver.sol) "Prover-N ($PROVER-N)" - The ERC4626 token with $iPROVE as the underlying. Each prover has their own deployment of this contract, and `N` is replaced with an incrementing number representing the prover's ID. Non-transferable outside of staking operations.
 * [SuccinctStaking](./src/SuccinctStaking.sol) "StakedSuccinct ($stPROVE)" - The staking receipt ERC20 token, containing the logic for staking, unstaking, slashing, and dispensing. For the purposes of this document, $stPROVE treated as distinct from the staking contract logic, but they are actually combined into a single contract. Non-transferable outside of staking operations, and acts as the Governance token.
 * [SuccinctVApp](./src/SuccinctVApp.sol) - Handles settlement of the offchain VApp transactions and is responsible for deposits, withdrawals, and triggering slashing.
 * [SuccinctGovernor](./src/SuccinctGovernor.sol) - The governor for on-chain governance, using $stPROVE as the votes token.
@@ -22,7 +22,7 @@ The protocol contracts have several core operations that can occur:
 * [Slash](./#slash)
 * [Dispense](./#dispense)
 
-In the diagrams below, protocol tokens/vaults are shown in red, protocol logic contracts are shown in green, reward tokens are shown in blue, and off-chain systems are shown in yellow.
+In the diagrams below, tokens/vaults are shown in red, logic contracts are shown in green, and off-chain systems are shown in yellow.
 
 ### Stake
 
