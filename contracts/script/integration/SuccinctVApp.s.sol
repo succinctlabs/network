@@ -11,7 +11,7 @@ import {ERC1967Proxy} from
     "../../lib/openzeppelin-contracts/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import {console} from "../../lib/forge-std/src/console.sol";
 import {SP1VerifierGateway} from "../../lib/sp1-contracts/contracts/src/SP1VerifierGateway.sol";
-import {SP1Verifier} from "../../lib/sp1-contracts/contracts/src/v4.0.0-rc.3/SP1VerifierGroth16.sol";
+import {SP1Verifier} from "../../lib/sp1-contracts/contracts/src/v5.0.0/SP1VerifierGroth16.sol";
 import {Succinct} from "../../src/tokens/Succinct.sol";
 import {IntermediateSuccinct} from "../../src/tokens/IntermediateSuccinct.sol";
 

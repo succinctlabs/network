@@ -7,8 +7,7 @@ import {SuccinctStaking} from "../src/SuccinctStaking.sol";
 import {IntermediateSuccinct} from "../src/tokens/IntermediateSuccinct.sol";
 import {IProver} from "../src/interfaces/IProver.sol";
 import {IIntermediateSuccinct} from "../src/interfaces/IIntermediateSuccinct.sol";
-import {MockVApp} from "../src/mocks/MockVApp.sol";
-import {FeeCalculator} from "../src/libraries/FeeCalculator.sol";
+import {MockVApp, FeeCalculator} from "../src/mocks/MockVApp.sol";
 import {ERC20} from "../lib/openzeppelin-contracts/contracts/token/ERC20/ERC20.sol";
 import {IERC20} from "../lib/openzeppelin-contracts/contracts/interfaces/IERC20.sol";
 import {IERC20Permit} from

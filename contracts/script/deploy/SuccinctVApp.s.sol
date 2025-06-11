@@ -17,9 +17,11 @@ contract SuccinctVAppScript is BaseScript, FixtureLoader {
     function run() external broadcaster {
         // Read config
         bytes32 salt = readBytes32("CREATE2_SALT");
-        address STAKING = readAddress("STAKING");
+        address OWNER = readAddress("OWNER");
         address PROVE = readAddress("PROVE");
         address I_PROVE = readAddress("I_PROVE");
+        address AUCTIONEER = readAddress("AUCTIONEER");
+        address STAKING = readAddress("STAKING");
         address VERIFIER = SP1_VERIFIER_GATEWAY_GROTH16;
 
         // Load fixture
@@ -31,7 +33,7 @@ contract SuccinctVAppScript is BaseScript, FixtureLoader {
         address VAPP =
             address(SuccinctVApp(payable(address(new ERC1967Proxy{salt: salt}(vappImpl, "")))));
         SuccinctVApp(VAPP).initialize(
-            msg.sender, msg.sender, PROVE, I_PROVE, STAKING, VERIFIER, VKEY, bytes32(uint256(0)), 0
+            OWNER, PROVE, I_PROVE, AUCTIONEER, STAKING, VERIFIER, VKEY, bytes32(uint256(0)), 0
         );
 
         // Write address
