@@ -513,7 +513,9 @@ impl<A: Storage<Address, Account>, R: Storage<RequestId, bool>> VAppState<A, R> 
                     // Check that the punishment is less than the max price.
                     let max_price = max_price_per_pgu * U256::from(request.gas_limit) + base_fee;
                     if punishment > max_price {
-                        return Err(VAppPanic::PunishmentExceedsMaxPrice { punishment, max_price }.into());
+                        return Err(
+                            VAppPanic::PunishmentExceedsMaxPrice { punishment, max_price }.into()
+                        );
                     }
 
                     // Deduct the punishment from the requester.
@@ -523,15 +525,30 @@ impl<A: Storage<Address, Account>, R: Storage<RequestId, bool>> VAppState<A, R> 
                 }
 
                 // Validate that the execution status is successful.
-                debug!("validate execution status is successful");
                 if execute.execution_status != ExecutionStatus::Executed as i32 {
                     return Err(
                         VAppPanic::ExecutionFailed { status: execute.execution_status }.into()
                     );
                 }
 
+                // Extract the fulfill body.
                 let fulfill = clear.fulfill.as_ref().ok_or(VAppPanic::MissingFulfill)?;
                 let fulfill_body = fulfill.body.as_ref().ok_or(VAppPanic::MissingProtoBody)?;
+
+                // Verify the signature of the verifier signing the fulfillment.
+                let fulfill_signer = proto_verify(fulfill_body, &fulfill.signature)
+                    .map_err(|_| VAppPanic::InvalidFulfillSignature)?;
+
+                // Verify the domain of the fulfill.
+                let fulfill_domain = B256::try_from(fulfill_body.domain.as_slice())
+                    .map_err(|_| VAppPanic::DomainDeserializationFailed)?;
+                if fulfill_domain != self.domain {
+                    return Err(VAppPanic::DomainMismatch {
+                        expected: self.domain,
+                        actual: fulfill_domain,
+                    }
+                    .into());
+                }
 
                 // Validate that the fulfill request ID matches the request ID.
                 let fulfill_request_id = fulfill_body.request_id.clone();
@@ -542,10 +559,6 @@ impl<A: Storage<Address, Account>, R: Storage<RequestId, bool>> VAppState<A, R> 
                     }
                     .into());
                 }
-
-                // Verify the signature of the verifier signing the fulfillment.
-                let fulfill_signer = proto_verify(fulfill_body, &fulfill.signature)
-                    .map_err(|_| VAppPanic::InvalidFulfillSignature)?;
 
                 // Verify the proof.
                 debug!("verify proof");
@@ -579,7 +592,8 @@ impl<A: Storage<Address, Account>, R: Storage<RequestId, bool>> VAppState<A, R> 
                     }
                     ProofMode::Groth16 | ProofMode::Plonk => {
                         // Verify the signature of the verifier signing the fulfillment.
-                        let verify = clear.verify.as_ref().ok_or(VAppPanic::MissingVerifierSignature)?;
+                        let verify =
+                            clear.verify.as_ref().ok_or(VAppPanic::MissingVerifierSignature)?;
                         let fulfillment_id = fulfill_body
                             .hash_with_signer(fulfill_signer.as_slice())
                             .map_err(|_| VAppPanic::HashingBodyFailed)?;

@@ -3,7 +3,7 @@
 //! This module contains error types that can be emitted by the crate.
 
 use alloy_primitives::{ruint::ParseError, Address, B256, U256};
-use std::{error::Error as StdError};
+use std::error::Error as StdError;
 use thiserror::Error;
 
 /// The error that can be emitted during [`crate::state::VAppState::execute`].
