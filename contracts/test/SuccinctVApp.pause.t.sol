@@ -65,7 +65,7 @@ contract SuccinctVAppPauseTest is SuccinctVAppTest {
         SuccinctVApp(VAPP).pause();
 
         vm.expectRevert(abi.encodeWithSelector(PausableUpgradeable.EnforcedPause.selector));
-        vm.prank(REQUESTER_1);
+        vm.prank(AUCTIONEER);
         SuccinctVApp(VAPP).step(hex"00", hex"00");
     }
 }

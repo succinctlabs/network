@@ -44,6 +44,26 @@ contract SuccinctVAppOwnerTest is SuccinctVAppTest {
         SuccinctVApp(VAPP).fork(newVkey, newRoot);
     }
 
+    function test_UpdateAuctioneer_WhenValid() public {
+        address oldAuctioneer = ISuccinctVApp(VAPP).auctioneer();
+        address newAuctioneer = address(1);
+
+        vm.expectEmit(true, true, true, true);
+        emit ISuccinctVApp.AuctioneerUpdate(oldAuctioneer, newAuctioneer);
+        vm.prank(OWNER);
+        SuccinctVApp(VAPP).updateAuctioneer(newAuctioneer);
+
+        assertEq(SuccinctVApp(VAPP).auctioneer(), newAuctioneer);
+    }
+
+    function test_RevertUpdateAuctioneer_WhenNotOwner() public {
+        vm.expectRevert(
+            abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, REQUESTER_1)
+        );
+        vm.prank(REQUESTER_1);
+        SuccinctVApp(VAPP).updateAuctioneer(address(1));
+    }
+
     function test_UpdateStaking_WhenValid() public {
         address oldStaking = ISuccinctVApp(VAPP).staking();
         address newStaking = address(1);

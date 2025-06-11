@@ -259,6 +259,7 @@ contract SuccinctVApp is
     /// @inheritdoc ISuccinctVApp
     function step(bytes calldata _publicValues, bytes calldata _proofBytes)
         external
+        onlyAuctioneer
         whenNotPaused
         returns (uint64, bytes32, bytes32)
     {
@@ -321,6 +322,11 @@ contract SuccinctVApp is
         emit Block(newBlock, oldRoot, _root);
 
         return (newBlock, oldRoot, _root);
+    }
+
+    /// @inheritdoc ISuccinctVApp
+    function updateAuctioneer(address _auctioneer) external override onlyOwner {
+        _updateAuctioneer(_auctioneer);
     }
 
     /// @inheritdoc ISuccinctVApp
