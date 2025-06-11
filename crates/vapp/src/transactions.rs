@@ -90,9 +90,7 @@ pub struct ClearTransaction {
     /// The execute proof request.
     pub execute: ExecuteProofRequest,
     /// The fulfill proof request.
-    pub fulfill: FulfillProofRequest,
-    /// The verify request.
-    pub verify: Vec<u8>,
-    /// The vk request.
-    pub vk: Option<Vec<u8>>,
+    pub fulfill: Option<FulfillProofRequest>,
+    /// The verifier signature.
+    pub verify: Option<Vec<u8>>,
 }

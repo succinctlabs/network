@@ -130,6 +130,7 @@ pub mod tests {
                 cycles: None,
                 pgus: Some(1),
                 domain: spn_utils::SPN_SEPOLIA_V1_DOMAIN.to_vec(),
+                punishment: None,
             };
             let execute_signature = proto_sign(executor, &execute);
 
@@ -153,18 +154,17 @@ pub mod tests {
                     body: Some(settle),
                     signature: settle_signature.as_bytes().to_vec(),
                 },
-                fulfill: FulfillProofRequest {
+                fulfill: Some(FulfillProofRequest {
                     format: MessageFormat::Binary.into(),
                     body: Some(fulfill),
                     signature: fulfill_signature.as_bytes().to_vec(),
-                },
+                }),
                 execute: ExecuteProofRequest {
                     format: MessageFormat::Binary.into(),
                     body: Some(execute),
                     signature: execute_signature.as_bytes().to_vec(),
                 },
-                verify: verifier_signature.as_bytes().to_vec(),
-                vk: None,
+                verify: Some(verifier_signature.as_bytes().to_vec()),
             })
         }
 

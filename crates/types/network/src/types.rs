@@ -181,6 +181,9 @@ pub struct ExecuteProofRequestBody {
     /// The domain separator for the request.
     #[prost(bytes = "vec", tag = "7")]
     pub domain: ::prost::alloc::vec::Vec<u8>,
+    /// The punishment amount for the requester.
+    #[prost(string, optional, tag = "8")]
+    pub punishment: ::core::option::Option<::prost::alloc::string::String>,
 }
 #[derive(serde::Serialize, serde::Deserialize)]
 #[derive(Clone, PartialEq, ::prost::Message)]

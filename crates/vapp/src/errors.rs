@@ -71,11 +71,12 @@ pub enum VAppPanic {
 
     #[error("Request id mismatch in clear")]
     RequestIdMismatch {
-        request_id: Address,
-        bid_request_id: Address,
-        settle_request_id: Address,
-        execute_request_id: Address,
-        fulfill_request_id: Address,
+        found: Address,
+        expected: Address,
+        // bid_request_id: Address,
+        // settle_request_id: Address,
+        // execute_request_id: Address,
+        // fulfill_request_id: Address,
     },
 
     #[error("Invalid bid amount in clear: {amount}")]
@@ -145,6 +146,18 @@ pub enum VAppPanic {
 
     #[error("Parse error: {0}")]
     ParseError(#[from] ParseError),
+
+    #[error("Missing fulfill field in clear transaction")]
+    MissingFulfill,
+
+    #[error("Missing verifier signature in clear transaction")]
+    MissingVerifierSignature,
+
+    #[error("Missing punishment value in execute response")]
+    MissingPunishment,
+
+    #[error("Punishment {punishment} exceeds max price {max_price}")]
+    PunishmentExceedsMaxPrice { punishment: U256, max_price: U256 },
 }
 
 impl From<VAppRevert> for VAppError {

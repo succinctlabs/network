@@ -29,6 +29,40 @@ This architecture separates execution from settlement, similar to how L2 sequenc
 - **Non-custodial**: The auctioneer never holds user funds - all deposits remain secure on Ethereum
 - **Unified Experience**: Single interface serves both on-demand requests and long-term service agreements
 
+## Security Assumptions
+
+The Succinct Prover Network relies on several key assumptions that users should understand when participating in the system. These assumptions make transparent the security properties of the network as it pertains to the auctioneer, the executor, the verifier contract, and data availability. The assumptions are used to maximize the performance of the system while minimizing the security surface for user funds.
+
+### Auctioneer and Matching
+
+The structure of the network as a verifiable application ensures that user deposits and provers' stake are secured by Ethereum. The auctioneer is responsible for matching proof requests to provers, and the network assumes that the auctioneer conducts the auction fairly and assigns requests to the appropriate winning prover. Note that even with this assumption, the auctioneer does not custody user funds, and therefore, the maximum loss that any particular request can incur from the system is bounded by `price * max_gas`, where the price is the winning bid and the gas limit is set by the user's request. The user signs off on the maximum price that they are willing to pay, so the potential loss incurred by any request is upper bounded.
+
+As the network evolves, requesters will be able to permissionlessly withdraw their funds directly from Ethereum, even if the auctioneer goes down. This gives users an "escape hatch" to retrieve their funds from the network.
+
+### SP1 Executor
+
+The executor is a component of SP1 that is responsible for serially running through the program to be proven and generating a RISC-V execution trace along with auxiliary data and metadata. The executor allows provers in the network to have access to important data before they start proving, such as the prover gas required to generate a proof of the program. Currently, the executor is trusted by provers to provide them with the correct information. In the future, the trust assumption on the executor can be removed by having a redundant set of executors running in parallel, effectively decentralizing the reliance on a single trusted executor.
+
+### Verifier Contract
+
+The verifier is a smart contract that is responsible for verifying proofs submitted by the auctioneer. The verifier is trusted to honestly verify Groth16 and Plonk proofs for non-SP1 proofs. The verifier contract is open source and can be audited by anyone to ensure correctness.
+
+### Data Availability
+
+In the network, the auctioneer receives transactions from requesters and provers and computes and proves their state transition. This generates associated data, such as the transactions themselves and their proofs. The network currently does not provide on-chain data availability guarantees for this data and instead relies on off-chain infrastructure, such as ephemeral storage, to maintain and provide access to this information. Users must trust that the necessary data will be available for verification and dispute resolution purposes.
+
+### Security Properties Summary
+
+The protocol's security model provides users with the following guarantees:
+
+- **Fund Security**: User deposits remain secured by Ethereum smart contracts and cannot be stolen by any off-chain component
+- **Bounded Risk**: Maximum loss per request is mathematically bounded by `base_fee + (max_price_per_pgu × gas_limit)`
+- **Verifiable Execution**: All state transitions are cryptographically proven and can be independently verified
+- **Observable Behavior**: Malicious behavior by trusted parties is publicly detectable through on-chain settlement patterns
+- **Escape Hatch**: Users retain ultimate control over their funds through planned permissionless withdrawal mechanisms
+
+For detailed technical analysis of trust assumptions and attack vectors, see the individual component sections below.
+
 ## Participants
 
 | Participant | Short Description | Privileges | Controlled By |

@@ -400,15 +400,12 @@ impl<A: Storage<Address, Account>, R: Storage<RequestId, bool>> VAppState<A, R> 
             }
             VAppTransaction::Clear(clear) => {
                 // Make sure all the proto bodies are present.
-                debug!("validate proto bodies");
                 let request = clear.request.body.as_ref().ok_or(VAppPanic::MissingProtoBody)?;
                 let bid = clear.bid.body.as_ref().ok_or(VAppPanic::MissingProtoBody)?;
                 let settle = clear.settle.body.as_ref().ok_or(VAppPanic::MissingProtoBody)?;
                 let execute = clear.execute.body.as_ref().ok_or(VAppPanic::MissingProtoBody)?;
-                let fulfill = clear.fulfill.body.as_ref().ok_or(VAppPanic::MissingProtoBody)?;
 
                 // Verify the proto signatures.
-                debug!("verify proto signatures");
                 let request_signer = proto_verify(request, &clear.request.signature)
                     .map_err(|_| VAppPanic::InvalidRequestSignature)?;
                 let bid_signer = proto_verify(bid, &clear.bid.signature)
@@ -418,13 +415,10 @@ impl<A: Storage<Address, Account>, R: Storage<RequestId, bool>> VAppState<A, R> 
                 let execute_signer = proto_verify(execute, &clear.execute.signature)
                     .map_err(|_| VAppPanic::InvalidExecuteSignature)?;
 
-                // Verify the domain.
-                debug!("verify domains");
-                for domain in
-                    [&request.domain, &bid.domain, &settle.domain, &execute.domain, &fulfill.domain]
-                {
+                // Verify the domains.
+                for domain in [&request.domain, &bid.domain, &settle.domain, &execute.domain] {
                     let domain = B256::try_from(domain.as_slice())
-                        .map_err(|_| VAppPanic::DomainDeserializationFailed)?;
+                        .map_err(|_| VAppPanic::FailedToParseBytes)?;
                     if domain != self.domain {
                         return Err(VAppPanic::DomainMismatch {
                             expected: self.domain,
@@ -434,39 +428,28 @@ impl<A: Storage<Address, Account>, R: Storage<RequestId, bool>> VAppState<A, R> 
                     }
                 }
 
-                // Hash the request to get the request ID.
-                debug!("hash request to get request ID");
+                // Validate that the request ID is the same for all proto bodies.
                 let request_id: RequestId = request
                     .hash_with_signer(request_signer.as_slice())
                     .map_err(|_| VAppPanic::HashingBodyFailed)?;
+                for other_request_id in [&bid.request_id, &settle.request_id, &execute.request_id] {
+                    if request_id.as_slice() != other_request_id.as_slice() {
+                        return Err(VAppPanic::RequestIdMismatch {
+                            found: address(&request_id)?,
+                            expected: address(other_request_id)?,
+                        }
+                        .into());
+                    }
+                }
 
                 // Check that this request ID has not been consumed yet.
-                debug!("check that request ID has not been consumed yet");
                 if self.requests.get(&request_id).copied().unwrap_or_default() {
                     return Err(
                         VAppPanic::RequestAlreadyConsumed { id: hex::encode(request_id) }.into()
                     );
                 }
 
-                // Validate that the request ID is the same for all proto bodies.
-                debug!("validate that request ID is the same for all proto bodies");
-                if request_id.as_slice() != bid.request_id.as_slice()
-                    || request_id.as_slice() != settle.request_id.as_slice()
-                    || request_id.as_slice() != execute.request_id.as_slice()
-                    || request_id.as_slice() != fulfill.request_id.as_slice()
-                {
-                    return Err(VAppPanic::RequestIdMismatch {
-                        request_id: address(&request_id)?,
-                        bid_request_id: address(&bid.request_id)?,
-                        settle_request_id: address(&settle.request_id)?,
-                        execute_request_id: address(&execute.request_id)?,
-                        fulfill_request_id: address(&fulfill.request_id)?,
-                    }
-                    .into());
-                }
-
                 // Validate the the bidder has the right to bid on behalf of the prover.
-                debug!("validate bidder has right to bid on behalf of prover");
                 let prover_address = address(bid.prover.as_slice())?;
                 let prover_account = self.accounts.entry(prover_address).or_default();
                 let prover_owner = prover_account.get_owner();
@@ -479,7 +462,6 @@ impl<A: Storage<Address, Account>, R: Storage<RequestId, bool>> VAppState<A, R> 
                 }
 
                 // Validate that the prover is in the request whitelist, if a whitelist is provided.
-                debug!("validate prover is in whitelist");
                 if !request.whitelist.is_empty()
                     && !request.whitelist.contains(&prover_address.to_vec())
                 {
@@ -487,7 +469,6 @@ impl<A: Storage<Address, Account>, R: Storage<RequestId, bool>> VAppState<A, R> 
                 }
 
                 // Validate that the request, settle, and auctioneer addresses match.
-                debug!("validate request, settle, and auctioneer addresses match");
                 let request_auctioneer = address(request.auctioneer.as_slice())?;
                 if request_auctioneer != settle_signer && settle_signer != self.auctioneer {
                     return Err(VAppPanic::AuctioneerMismatch {
@@ -499,7 +480,6 @@ impl<A: Storage<Address, Account>, R: Storage<RequestId, bool>> VAppState<A, R> 
                 }
 
                 // Validate that the request, execute, and executor addresses match.
-                debug!("validate request, execute, and executor addresses match");
                 let request_executor = address(request.executor.as_slice())?;
                 if request_executor != execute_signer && request_executor != self.executor {
                     return Err(VAppPanic::ExecutorMismatch {
@@ -510,6 +490,38 @@ impl<A: Storage<Address, Account>, R: Storage<RequestId, bool>> VAppState<A, R> 
                     .into());
                 }
 
+                // Ensure that the bid price is less than the max price per pgu.
+                let base_fee = request.base_fee.parse::<U256>().map_err(VAppPanic::ParseError)?;
+                let max_price_per_pgu =
+                    request.max_price_per_pgu.parse::<U256>().map_err(VAppPanic::ParseError)?;
+                let price = bid.amount.parse::<U256>().map_err(VAppPanic::ParseError)?;
+                if price > max_price_per_pgu {
+                    return Err(
+                        VAppPanic::MaxPricePerPguExceeded { max_price_per_pgu, price }.into()
+                    );
+                }
+
+                // If the execution status is unexecutable, then punish the requester.
+                if execute.execution_status == ExecutionStatus::Unexecutable as i32 {
+                    let punishment = execute
+                        .punishment
+                        .as_ref()
+                        .ok_or(VAppPanic::MissingPunishment)?
+                        .parse::<U256>()
+                        .map_err(VAppPanic::ParseError)?;
+
+                    // Check that the punishment is less than the max price.
+                    let max_price = max_price_per_pgu * U256::from(request.gas_limit) + base_fee;
+                    if punishment > max_price {
+                        return Err(VAppPanic::PunishmentExceedsMaxPrice { punishment, max_price }.into());
+                    }
+
+                    // Deduct the punishment from the requester.
+                    self.accounts.entry(request_signer).or_default().deduct_balance(punishment);
+
+                    return Ok(None);
+                }
+
                 // Validate that the execution status is successful.
                 debug!("validate execution status is successful");
                 if execute.execution_status != ExecutionStatus::Executed as i32 {
@@ -517,6 +529,23 @@ impl<A: Storage<Address, Account>, R: Storage<RequestId, bool>> VAppState<A, R> 
                         VAppPanic::ExecutionFailed { status: execute.execution_status }.into()
                     );
                 }
+
+                let fulfill = clear.fulfill.as_ref().ok_or(VAppPanic::MissingFulfill)?;
+                let fulfill_body = fulfill.body.as_ref().ok_or(VAppPanic::MissingProtoBody)?;
+
+                // Validate that the fulfill request ID matches the request ID.
+                let fulfill_request_id = fulfill_body.request_id.clone();
+                if fulfill_request_id != request_id {
+                    return Err(VAppPanic::RequestIdMismatch {
+                        found: address(&fulfill_request_id)?,
+                        expected: address(&request_id)?,
+                    }
+                    .into());
+                }
+
+                // Verify the signature of the verifier signing the fulfillment.
+                let fulfill_signer = proto_verify(fulfill_body, &fulfill.signature)
+                    .map_err(|_| VAppPanic::InvalidFulfillSignature)?;
 
                 // Verify the proof.
                 debug!("verify proof");
@@ -550,12 +579,11 @@ impl<A: Storage<Address, Account>, R: Storage<RequestId, bool>> VAppState<A, R> 
                     }
                     ProofMode::Groth16 | ProofMode::Plonk => {
                         // Verify the signature of the verifier signing the fulfillment.
-                        let fulfill_signer = proto_verify(fulfill, &clear.fulfill.signature)
-                            .map_err(|_| VAppPanic::InvalidFulfillSignature)?;
-                        let fulfillment_id = fulfill
+                        let verify = clear.verify.as_ref().ok_or(VAppPanic::MissingVerifierSignature)?;
+                        let fulfillment_id = fulfill_body
                             .hash_with_signer(fulfill_signer.as_slice())
                             .map_err(|_| VAppPanic::HashingBodyFailed)?;
-                        let verifier = eth_sign_verify(&fulfillment_id, &clear.verify)
+                        let verifier = eth_sign_verify(&fulfillment_id, verify)
                             .map_err(|_| VAppPanic::InvalidVerifierSignature)?;
                         if verifier != self.verifier {
                             return Err(VAppPanic::InvalidVerifierSignature.into());
@@ -566,20 +594,9 @@ impl<A: Storage<Address, Account>, R: Storage<RequestId, bool>> VAppState<A, R> 
                     }
                 }
 
-                // Ensure that the bid price is less than the max price per pgu.
-                debug!("ensure bid price is less than max price per pgu");
-                let price = bid.amount.parse::<U256>().map_err(VAppPanic::ParseError)?;
-                let max_price_per_pgu =
-                    request.max_price_per_pgu.parse::<U256>().map_err(VAppPanic::ParseError)?;
-                if price > max_price_per_pgu {
-                    return Err(
-                        VAppPanic::MaxPricePerPguExceeded { max_price_per_pgu, price }.into()
-                    );
-                }
-
                 // Calculate the cost of the proof.
                 debug!("calculate cost of proof");
-                let base_fee = request.base_fee.parse::<U256>().map_err(VAppPanic::ParseError)?;
+
                 let pgus = execute.pgus.ok_or(VAppPanic::MissingPgusUsed)?;
                 let cost = price * U256::from(pgus) + base_fee;
 
@@ -606,10 +623,14 @@ impl<A: Storage<Address, Account>, R: Storage<RequestId, bool>> VAppState<A, R> 
                     .into());
                 }
 
+                // TODO: check that fulfill is present and matches the request ID
+
                 // Log the clear event.
                 debug!("log clear event");
                 let request_id: [u8; 32] = clear
                     .fulfill
+                    .as_ref()
+                    .ok_or(VAppPanic::MissingFulfill)?
                     .body
                     .as_ref()
                     .ok_or(VAppPanic::MissingProtoBody)?
