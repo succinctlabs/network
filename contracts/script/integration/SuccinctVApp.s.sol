@@ -38,9 +38,9 @@ contract DeployProveAndVAppScript is BaseScript, FixtureLoader {
         IntermediateSuccinct iProve = new IntermediateSuccinct(address(prove), address(staking));
 
         // Deploy VApp contract
-        bytes32 vkey = bytes32(0x002124aeceb145cb3e4d4b50f94571ab92fc27c165ccc4ac41d930bc86595088);
+        bytes32 vkey = bytes32(0x0027860ee5a98f9ad361de3622d6eaf4a9caf2c2354395332fc95254eddab0f6);
         bytes32 genesisStateRoot =
-            bytes32(0xa11f4a6c98ad88ce1f707acc85018b1ee2ac1bc5e8dd912c8273400b7e535beb);
+            bytes32(0x4b15a7d34ea0ec471d0d6ab9170cc2910f590819ee168e2a799e25244e327116);
         uint64 genesisTimestamp = 0;
         address vAppImpl = address(new SuccinctVApp());
         SuccinctVApp vApp = SuccinctVApp(payable(address(new ERC1967Proxy(vAppImpl, ""))));
@@ -60,7 +60,7 @@ contract DeployProveAndVAppScript is BaseScript, FixtureLoader {
 
         // ===== MINT PROVE TOKENS =====
         console.log("=== Minting PROVE tokens ===");
-        uint256 totalMintAmount = 1000000 * 1e18;
+        uint256 totalMintAmount = 100000000000 * 1e18;
         prove.mint(msg.sender, totalMintAmount);
         console.log("Minted %s PROVE tokens to %s", totalMintAmount / 1e18, msg.sender);
         console.log("Your PROVE balance: %s", prove.balanceOf(msg.sender) / 1e18);
@@ -72,8 +72,8 @@ contract DeployProveAndVAppScript is BaseScript, FixtureLoader {
 
         // ===== STAKE TO PROVER =====
         console.log("\n=== Staking to prover ===");
-        prove.approve(address(staking), staking.minStakeAmount());
-        staking.stake(prover, staking.minStakeAmount());
+        prove.approve(address(staking), 10000e18);
+        staking.stake(prover, 10000e18);
         console.log("Staked %s PROVE tokens to prover", totalMintAmount / 1e18);
         console.log("Prover PROVE balance: %s", prove.balanceOf(prover) / 1e18);
 
