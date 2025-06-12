@@ -202,7 +202,9 @@ contract SuccinctVApp is
             if (!ISuccinctStaking(staking).isProver(_to)) revert CannotWithdrawToDifferentAddress();
         }
 
-        return _requestWithdraw(msg.sender, _to, _amount);
+        // Create the receipt.
+        bytes memory data = abi.encode(Withdraw({account: _to, amount: _amount}));
+        receipt = _createTransaction(TransactionVariant.Withdraw, data);
     }
 
     /// @inheritdoc ISuccinctVApp
@@ -368,22 +370,6 @@ contract SuccinctVApp is
 
         // Transfer $PROVE from the sender to the VApp.
         IERC20(prove).safeTransferFrom(_from, address(this), _amount);
-    }
-
-    /// @dev Credits a withdrawal receipt.
-    function _requestWithdraw(address _from, address _to, uint256 _amount)
-        internal
-        returns (uint64 receipt)
-    {
-        // Validate.
-        if (_to == address(0)) revert ZeroAddress();
-        if (_amount < minDepositAmount) {
-            revert TransferBelowMinimum();
-        }
-
-        // Create the receipt.
-        bytes memory data = abi.encode(Withdraw({account: _from, amount: _amount}));
-        receipt = _createTransaction(TransactionVariant.Withdraw, data);
     }
 
     /// @dev Creates a receipt for an action.
