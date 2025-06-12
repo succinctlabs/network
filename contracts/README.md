@@ -100,6 +100,20 @@ cast send $PROVE "approve(address,uint256)" $VAPP 10000e18 --private-key $PRIVAT
 cast send $VAPP "deposit(uint256)" 100e18 --private-key $PRIVATE_KEY --rpc-url $ETH_RPC_URL
 ```
 
+### Withdraw
+
+```sh
+cast send $VAPP "requestWithdraw(address,uint256)" $(cast wallet address --private-key $PRIVATE_KEY) 100e18 --private-key $PRIVATE_KEY --rpc-url $ETH_RPC_URL
+```
+
+You need to wait for the withdrawal to be processed before you can finish it:
+
+```sh
+if [ $(cast call $VAPP "claimableWithdrawal(address)" $(cast wallet address --private-key $PRIVATE_KEY) --rpc-url $ETH_RPC_URL) -gt 0 ]; then
+ cast send $VAPP "finishWithdraw()" --private-key $PRIVATE_KEY --rpc-url $ETH_RPC_URL
+fi
+```
+
 ### Create a Prover
 
 ```sh
