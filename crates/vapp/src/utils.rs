@@ -217,7 +217,7 @@ pub mod tests {
         use super::signers::signer;
 
         /// Test environment containing state, domain, and signers.
-        pub struct TestEnvironment {
+        pub struct VAppTestContext {
             /// The state of the vApp.
             pub state: VAppState<MerkleStorage<Address, Account>, MerkleStorage<RequestId, bool>>,
             /// The auctioneer signer.
@@ -245,7 +245,7 @@ pub mod tests {
         ///
         /// Creates a new state with a local domain and 10 test signers.
         #[must_use]
-        pub fn setup() -> TestEnvironment {
+        pub fn setup() -> VAppTestContext {
             let domain = *SPN_SEPOLIA_V1_DOMAIN;
             let treasury = signer("treasury");
             let auctioneer = signer("auctioneer");
@@ -258,7 +258,7 @@ pub mod tests {
                 executor.address(),
                 verifier.address(),
             );
-            TestEnvironment {
+            VAppTestContext {
                 state,
                 auctioneer,
                 executor,

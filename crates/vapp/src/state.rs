@@ -741,7 +741,7 @@ mod tests {
         transactions::{DelegateTransaction, OnchainTransaction, VAppTransaction},
         utils::tests::{
             signers::{clear_vapp_event, delegate_vapp_event, proto_sign, signer},
-            test_utils::setup,
+            test_utils::{setup, VAppTestContext},
         },
         verifier::MockVerifier,
     };
@@ -754,75 +754,1031 @@ mod tests {
 
     use super::*;
 
-    #[test]
-    fn test_deposit() {
-        let mut test = setup();
-        let account = test.requester.address();
-
-        // Deposit event
-        let event = VAppTransaction::Deposit(OnchainTransaction {
+    /// Creates a deposit event with the specified parameters.
+    fn create_deposit_event(
+        account: Address,
+        amount: U256,
+        block: u64,
+        log_index: u64,
+        onchain_tx: u64,
+    ) -> VAppTransaction {
+        VAppTransaction::Deposit(OnchainTransaction {
             tx_hash: None,
-            block: 0,
-            log_index: 1,
-            onchain_tx: 1,
-            action: Deposit { account, amount: U256::from(100) },
-        });
+            block,
+            log_index,
+            onchain_tx,
+            action: Deposit { account, amount },
+        })
+    }
 
-        let action = test.state.execute::<MockVerifier>(&event).unwrap();
-        assert_eq!(test.state.accounts.get(&account).unwrap().get_balance(), U256::from(100),);
-
-        // Assert the action
-        match &action.unwrap() {
+    /// Asserts that a receipt matches the expected deposit receipt structure.
+    #[allow(clippy::ref_option)]
+    fn assert_deposit_receipt(
+        receipt: &Option<VAppReceipt>,
+        expected_account: Address,
+        expected_amount: U256,
+        expected_onchain_tx: u64,
+    ) {
+        match receipt.as_ref().unwrap() {
             VAppReceipt::Deposit(deposit) => {
-                assert_eq!(deposit.action.account, account);
-                assert_eq!(deposit.action.amount, U256::from(100));
+                assert_eq!(deposit.action.account, expected_account);
+                assert_eq!(deposit.action.amount, expected_amount);
+                assert_eq!(deposit.onchain_tx_id, expected_onchain_tx);
                 assert_eq!(deposit.status, TransactionStatus::Completed);
             }
-            _ => panic!("Expected a deposit action"),
+            _ => panic!("Expected a deposit receipt"),
+        }
+    }
+
+    /// Asserts that an account has the expected balance.
+    #[allow(clippy::ref_option)]
+    fn assert_account_balance(
+        test: &VAppTestContext,
+        account: Address,
+        expected_balance: U256,
+    ) {
+        let actual_balance = test.state.accounts.get(&account).unwrap().get_balance();
+        assert_eq!(
+            actual_balance, expected_balance,
+            "Account balance mismatch for {account}: expected {expected_balance}, got {actual_balance}"
+        );
+    }
+
+    /// Asserts that the state counters match the expected values.
+    fn assert_state_counters(
+        test: &VAppTestContext,
+        expected_tx_id: u64,
+        expected_onchain_tx_id: u64,
+        expected_block: u64,
+        expected_log_index: u64,
+    ) {
+        assert_eq!(test.state.tx_id, expected_tx_id, "tx_id mismatch");
+        assert_eq!(test.state.onchain_tx_id, expected_onchain_tx_id, "onchain_tx_id mismatch");
+        assert_eq!(test.state.onchain_block, expected_block, "onchain_block mismatch");
+        assert_eq!(test.state.onchain_log_index, expected_log_index, "onchain_log_index mismatch");
+    }
+
+    /// Creates a create prover event with the specified parameters.
+    fn create_create_prover_event(
+        prover: Address,
+        owner: Address,
+        staker_fee_bips: U256,
+        block: u64,
+        log_index: u64,
+        onchain_tx: u64,
+    ) -> VAppTransaction {
+        VAppTransaction::CreateProver(OnchainTransaction {
+            tx_hash: None,
+            block,
+            log_index,
+            onchain_tx,
+            action: CreateProver {
+                prover,
+                owner,
+                stakerFeeBips: staker_fee_bips,
+            },
+        })
+    }
+
+    /// Asserts that a receipt matches the expected create prover receipt structure.
+    #[allow(clippy::ref_option)]
+    fn assert_create_prover_receipt(
+        receipt: &Option<VAppReceipt>,
+        expected_prover: Address,
+        expected_owner: Address,
+        expected_staker_fee_bips: U256,
+        expected_onchain_tx: u64,
+    ) {
+        match receipt.as_ref().unwrap() {
+            VAppReceipt::CreateProver(create_prover) => {
+                assert_eq!(create_prover.action.prover, expected_prover);
+                assert_eq!(create_prover.action.owner, expected_owner);
+                assert_eq!(create_prover.action.stakerFeeBips, expected_staker_fee_bips);
+                assert_eq!(create_prover.onchain_tx_id, expected_onchain_tx);
+                assert_eq!(create_prover.status, TransactionStatus::Completed);
+            }
+            _ => panic!("Expected a create prover receipt"),
+        }
+    }
+
+    /// Asserts that a prover account has the expected configuration.
+    fn assert_prover_account(
+        test: &VAppTestContext,
+        prover: Address,
+        expected_owner: Address,
+        expected_signer: Address,
+        expected_staker_fee_bips: U256,
+    ) {
+        let account = test.state.accounts.get(&prover).unwrap();
+        assert_eq!(account.get_owner(), expected_owner, "Prover owner mismatch");
+        assert_eq!(account.get_signer(), expected_signer, "Prover signer mismatch");
+        assert_eq!(account.get_staker_fee_bips(), expected_staker_fee_bips, "Staker fee bips mismatch");
+    }
+
+    /// Creates a delegate event with the specified parameters using the test utility.
+    fn create_delegate_event(
+        prover_owner: &alloy::signers::local::PrivateKeySigner,
+        prover_address: Address,
+        delegate_address: Address,
+        nonce: u64,
+    ) -> VAppTransaction {
+        delegate_vapp_event(prover_owner, prover_address, delegate_address, nonce)
+    }
+
+    /// Creates a delegate event with custom domain for testing domain validation.
+    fn create_delegate_event_with_domain(
+        prover_owner: &alloy::signers::local::PrivateKeySigner,
+        prover_address: Address,
+        delegate_address: Address,
+        nonce: u64,
+        domain: [u8; 32],
+    ) -> VAppTransaction {
+        use spn_network_types::{MessageFormat, SetDelegationRequest, SetDelegationRequestBody};
+        
+        let body = SetDelegationRequestBody {
+            nonce,
+            delegate: delegate_address.to_vec(),
+            prover: prover_address.to_vec(),
+            domain: domain.to_vec(),
+        };
+        let signature = proto_sign(prover_owner, &body);
+
+        VAppTransaction::Delegate(DelegateTransaction {
+            delegation: SetDelegationRequest {
+                format: MessageFormat::Binary.into(),
+                body: Some(body),
+                signature: signature.as_bytes().to_vec(),
+            },
+        })
+    }
+
+    /// Creates a delegate event with missing body for testing validation.
+    fn create_delegate_event_missing_body() -> VAppTransaction {
+        use spn_network_types::{MessageFormat, SetDelegationRequest};
+
+        VAppTransaction::Delegate(DelegateTransaction {
+            delegation: SetDelegationRequest {
+                format: MessageFormat::Binary.into(),
+                body: None,
+                signature: vec![],
+            },
+        })
+    }
+
+    /// Asserts that a prover has the expected signer.
+    fn assert_prover_signer(test: &VAppTestContext, prover: Address, expected_signer: Address) {
+        let account = test.state.accounts.get(&prover).unwrap();
+        assert_eq!(account.get_signer(), expected_signer, "Prover signer mismatch");
+        assert!(account.is_signer(expected_signer), "Expected address should be a valid signer");
+    }
+
+    /// Creates a transfer event with the specified parameters.
+    fn create_transfer_event(
+        from_signer: &alloy::signers::local::PrivateKeySigner,
+        to: Address,
+        amount: U256,
+        nonce: u64,
+    ) -> VAppTransaction {
+        use spn_network_types::{MessageFormat, TransferRequest, TransferRequestBody};
+        
+        let body = TransferRequestBody {
+            nonce,
+            to: to.to_vec(),
+            amount: amount.to_string(),
+            domain: spn_utils::SPN_SEPOLIA_V1_DOMAIN.to_vec(),
+        };
+        let signature = proto_sign(from_signer, &body);
+
+        VAppTransaction::Transfer(TransferTransaction {
+            transfer: TransferRequest {
+                format: MessageFormat::Binary.into(),
+                body: Some(body),
+                signature: signature.as_bytes().to_vec(),
+            },
+        })
+    }
+
+    /// Creates a transfer event with custom domain for testing domain validation.
+    fn create_transfer_event_with_domain(
+        from_signer: &alloy::signers::local::PrivateKeySigner,
+        to: Address,
+        amount: U256,
+        nonce: u64,
+        domain: [u8; 32],
+    ) -> VAppTransaction {
+        use spn_network_types::{MessageFormat, TransferRequest, TransferRequestBody};
+        
+        let body = TransferRequestBody {
+            nonce,
+            to: to.to_vec(),
+            amount: amount.to_string(),
+            domain: domain.to_vec(),
+        };
+        let signature = proto_sign(from_signer, &body);
+
+        VAppTransaction::Transfer(TransferTransaction {
+            transfer: TransferRequest {
+                format: MessageFormat::Binary.into(),
+                body: Some(body),
+                signature: signature.as_bytes().to_vec(),
+            },
+        })
+    }
+
+    /// Creates a transfer event with missing body for testing validation.
+    fn create_transfer_event_missing_body() -> VAppTransaction {
+        use spn_network_types::{MessageFormat, TransferRequest};
+
+        VAppTransaction::Transfer(TransferTransaction {
+            transfer: TransferRequest {
+                format: MessageFormat::Binary.into(),
+                body: None,
+                signature: vec![],
+            },
+        })
+    }
+
+    /// Creates a transfer event with invalid amount string for testing parsing.
+    fn create_transfer_event_invalid_amount(
+        from_signer: &alloy::signers::local::PrivateKeySigner,
+        to: Address,
+        invalid_amount: &str,
+        nonce: u64,
+    ) -> VAppTransaction {
+        use spn_network_types::{MessageFormat, TransferRequest, TransferRequestBody};
+        
+        let body = TransferRequestBody {
+            nonce,
+            to: to.to_vec(),
+            amount: invalid_amount.to_string(),
+            domain: spn_utils::SPN_SEPOLIA_V1_DOMAIN.to_vec(),
+        };
+        let signature = proto_sign(from_signer, &body);
+
+        VAppTransaction::Transfer(TransferTransaction {
+            transfer: TransferRequest {
+                format: MessageFormat::Binary.into(),
+                body: Some(body),
+                signature: signature.as_bytes().to_vec(),
+            },
+        })
+    }
+
+    /// Creates a withdraw event with the specified parameters.
+    fn create_withdraw_event(
+        account: Address,
+        amount: U256,
+        block: u64,
+        log_index: u64,
+        onchain_tx: u64,
+    ) -> VAppTransaction {
+        VAppTransaction::Withdraw(OnchainTransaction {
+            tx_hash: None,
+            block,
+            log_index,
+            onchain_tx,
+            action: Withdraw { account, amount },
+        })
+    }
+
+    /// Asserts that a receipt matches the expected withdraw receipt structure.
+    #[allow(clippy::ref_option)]
+    fn assert_withdraw_receipt(
+        receipt: &Option<VAppReceipt>,
+        expected_account: Address,
+        expected_amount: U256,
+        expected_onchain_tx: u64,
+    ) {
+        match receipt.as_ref().unwrap() {
+            VAppReceipt::Withdraw(withdraw) => {
+                assert_eq!(withdraw.action.account, expected_account);
+                assert_eq!(withdraw.action.amount, expected_amount);
+                assert_eq!(withdraw.onchain_tx_id, expected_onchain_tx);
+                assert_eq!(withdraw.status, TransactionStatus::Completed);
+            }
+            _ => panic!("Expected a withdraw receipt"),
         }
     }
 
     #[test]
-    fn test_withdraw() {
+    fn test_deposit_basic() {
+        let mut test = setup();
+        let account = test.requester.address();
+        let amount = U256::from(100);
+
+        // Create and execute a basic deposit event.
+        let event = create_deposit_event(account, amount, 0, 1, 1);
+        let receipt = test.state.execute::<MockVerifier>(&event).unwrap();
+
+        // Verify the account balance was updated correctly.
+        assert_account_balance(&test, account, amount);
+        assert_deposit_receipt(&receipt, account, amount, 1);
+        
+        // Verify state counters were incremented.
+        assert_state_counters(&test, 2, 2, 0, 1);
+    }
+
+    #[test]
+    fn test_deposit_multiple_same_account() {
+        let mut test = setup();
+        let account = test.requester.address();
+
+        // Execute first deposit.
+        let event1 = create_deposit_event(account, U256::from(100), 0, 1, 1);
+        let receipt1 = test.state.execute::<MockVerifier>(&event1).unwrap();
+        assert_deposit_receipt(&receipt1, account, U256::from(100), 1);
+        assert_account_balance(&test, account, U256::from(100));
+
+        // Execute second deposit to same account.
+        let event2 = create_deposit_event(account, U256::from(200), 0, 2, 2);
+        let receipt2 = test.state.execute::<MockVerifier>(&event2).unwrap();
+        assert_deposit_receipt(&receipt2, account, U256::from(200), 2);
+        assert_account_balance(&test, account, U256::from(300));
+
+        // Execute third deposit to same account.
+        let event3 = create_deposit_event(account, U256::from(50), 1, 1, 3);
+        let receipt3 = test.state.execute::<MockVerifier>(&event3).unwrap();
+        assert_deposit_receipt(&receipt3, account, U256::from(50), 3);
+        assert_account_balance(&test, account, U256::from(350));
+    }
+
+    #[test]
+    fn test_deposit_multiple_different_accounts() {
+        let mut test = setup();
+        let account1 = test.requester.address();
+        let account2 = test.prover.address();
+        let account3 = test.auctioneer.address();
+
+        // Execute deposit to account1.
+        let event1 = create_deposit_event(account1, U256::from(100), 0, 1, 1);
+        test.state.execute::<MockVerifier>(&event1).unwrap();
+        assert_account_balance(&test, account1, U256::from(100));
+
+        // Execute deposit to account2.
+        let event2 = create_deposit_event(account2, U256::from(200), 0, 2, 2);
+        test.state.execute::<MockVerifier>(&event2).unwrap();
+        assert_account_balance(&test, account2, U256::from(200));
+
+        // Execute deposit to account3.
+        let event3 = create_deposit_event(account3, U256::from(300), 1, 1, 3);
+        test.state.execute::<MockVerifier>(&event3).unwrap();
+        assert_account_balance(&test, account3, U256::from(300));
+
+        // Verify all accounts maintain correct balances.
+        assert_account_balance(&test, account1, U256::from(100));
+        assert_account_balance(&test, account2, U256::from(200));
+        assert_account_balance(&test, account3, U256::from(300));
+    }
+
+    #[test]
+    fn test_deposit_large_amounts() {
+        let mut test = setup();
+        let account = test.requester.address();
+
+        // Execute deposit with maximum U256 value.
+        let max_amount = U256::MAX;
+        let event = create_deposit_event(account, max_amount, 0, 1, 1);
+        let receipt = test.state.execute::<MockVerifier>(&event).unwrap();
+
+        // Verify maximum amount deposit succeeded.
+        assert_account_balance(&test, account, max_amount);
+        assert_deposit_receipt(&receipt, account, max_amount, 1);
+    }
+
+    #[test]
+    fn test_deposit_zero_amount() {
+        let mut test = setup();
+        let account = test.requester.address();
+
+        // Execute deposit with zero amount.
+        let event = create_deposit_event(account, U256::ZERO, 0, 1, 1);
+        let receipt = test.state.execute::<MockVerifier>(&event).unwrap();
+
+        // Verify zero amount deposit succeeded.
+        assert_account_balance(&test, account, U256::ZERO);
+        assert_deposit_receipt(&receipt, account, U256::ZERO, 1);
+    }
+
+    #[test]
+    fn test_deposit_onchain_tx_out_of_order() {
+        let mut test = setup();
+        let account = test.requester.address();
+
+        // Execute first deposit.
+        let event1 = create_deposit_event(account, U256::from(100), 0, 1, 1);
+        test.state.execute::<MockVerifier>(&event1).unwrap();
+
+        // Try to execute deposit with wrong onchain_tx (should be 2, but using 3).
+        let event2 = create_deposit_event(account, U256::from(100), 0, 2, 3);
+        let result = test.state.execute::<MockVerifier>(&event2);
+
+        // Verify the correct panic error is returned.
+        assert!(matches!(
+            result,
+            Err(VAppError::Panic(VAppPanic::OnchainTxOutOfOrder { expected: 2, actual: 3 }))
+        ));
+
+        // Verify state remains unchanged after error.
+        assert_account_balance(&test, account, U256::from(100));
+        assert_state_counters(&test, 2, 2, 0, 1);
+    }
+
+    #[test]
+    fn test_deposit_block_number_regression() {
+        let mut test = setup();
+        let account = test.requester.address();
+
+        // Execute first deposit at block 5.
+        let event1 = create_deposit_event(account, U256::from(100), 5, 1, 1);
+        test.state.execute::<MockVerifier>(&event1).unwrap();
+
+        // Try to execute deposit at earlier block (regression).
+        let event2 = create_deposit_event(account, U256::from(100), 3, 1, 2);
+        let result = test.state.execute::<MockVerifier>(&event2);
+
+        // Verify the correct panic error is returned.
+        assert!(matches!(
+            result,
+            Err(VAppError::Panic(VAppPanic::BlockNumberOutOfOrder { expected: 5, actual: 3 }))
+        ));
+
+        // Verify state remains unchanged after error.
+        assert_account_balance(&test, account, U256::from(100));
+        assert_state_counters(&test, 2, 2, 5, 1);
+    }
+
+    #[test]
+    fn test_deposit_log_index_out_of_order() {
+        let mut test = setup();
+        let account = test.requester.address();
+
+        // Execute first deposit at block 0, log_index 5.
+        let event1 = create_deposit_event(account, U256::from(100), 0, 5, 1);
+        test.state.execute::<MockVerifier>(&event1).unwrap();
+
+        // Try to execute deposit at same block with same log_index.
+        let event2 = create_deposit_event(account, U256::from(100), 0, 5, 2);
+        let result = test.state.execute::<MockVerifier>(&event2);
+
+        // Verify the correct panic error is returned.
+        assert!(matches!(
+            result,
+            Err(VAppError::Panic(VAppPanic::LogIndexOutOfOrder { current: 5, next: 5 }))
+        ));
+
+        // Try with log_index lower than current.
+        let event3 = create_deposit_event(account, U256::from(100), 0, 3, 2);
+        let result = test.state.execute::<MockVerifier>(&event3);
+
+        // Verify the correct panic error is returned.
+        assert!(matches!(
+            result,
+            Err(VAppError::Panic(VAppPanic::LogIndexOutOfOrder { current: 5, next: 3 }))
+        ));
+
+        // Verify state remains unchanged after error.
+        assert_account_balance(&test, account, U256::from(100));
+        assert_state_counters(&test, 2, 2, 0, 5);
+    }
+
+    #[test]
+    fn test_deposit_log_index_valid_progression() {
+        let mut test = setup();
+        let account = test.requester.address();
+
+        // Execute first deposit at block 0, log_index 5.
+        let event1 = create_deposit_event(account, U256::from(100), 0, 5, 1);
+        test.state.execute::<MockVerifier>(&event1).unwrap();
+
+        // Execute second deposit at same block with higher log_index (valid).
+        let event2 = create_deposit_event(account, U256::from(100), 0, 6, 2);
+        let receipt2 = test.state.execute::<MockVerifier>(&event2).unwrap();
+
+        // Verify balance accumulation and state updates.
+        assert_account_balance(&test, account, U256::from(200));
+        assert_deposit_receipt(&receipt2, account, U256::from(100), 2);
+        assert_eq!(test.state.onchain_log_index, 6);
+
+        // Execute third deposit at higher block (log_index can be anything).
+        let event3 = create_deposit_event(account, U256::from(100), 1, 1, 3);
+        let receipt3 = test.state.execute::<MockVerifier>(&event3).unwrap();
+
+        // Verify final state after block progression.
+        assert_account_balance(&test, account, U256::from(300));
+        assert_deposit_receipt(&receipt3, account, U256::from(100), 3);
+        assert_state_counters(&test, 4, 4, 1, 1);
+    }
+
+    #[test]
+    fn test_withdraw_basic() {
+        let mut test = setup();
+        let account = test.requester.address();
+
+        // Set up initial balance with deposit.
+        let deposit_event = create_deposit_event(account, U256::from(100), 0, 1, 1);
+        test.state.execute::<MockVerifier>(&deposit_event).unwrap();
+        assert_account_balance(&test, account, U256::from(100));
+
+        // Execute basic withdraw.
+        let withdraw_event = create_withdraw_event(account, U256::from(60), 0, 2, 2);
+        let receipt = test.state.execute::<MockVerifier>(&withdraw_event).unwrap();
+
+        // Verify the balance was deducted correctly.
+        assert_account_balance(&test, account, U256::from(40));
+        assert_withdraw_receipt(&receipt, account, U256::from(60), 2);
+        assert_state_counters(&test, 3, 3, 0, 2);
+    }
+
+    #[test]
+    fn test_withdraw_partial() {
+        let mut test = setup();
+        let account = test.requester.address();
+
+        // Set up initial balance with deposit.
+        let deposit_event = create_deposit_event(account, U256::from(500), 0, 1, 1);
+        test.state.execute::<MockVerifier>(&deposit_event).unwrap();
+
+        // Execute first partial withdraw.
+        let withdraw1 = create_withdraw_event(account, U256::from(100), 0, 2, 2);
+        let receipt1 = test.state.execute::<MockVerifier>(&withdraw1).unwrap();
+        assert_account_balance(&test, account, U256::from(400));
+        assert_withdraw_receipt(&receipt1, account, U256::from(100), 2);
+
+        // Execute second partial withdraw.
+        let withdraw2 = create_withdraw_event(account, U256::from(200), 0, 3, 3);
+        let receipt2 = test.state.execute::<MockVerifier>(&withdraw2).unwrap();
+        assert_account_balance(&test, account, U256::from(200));
+        assert_withdraw_receipt(&receipt2, account, U256::from(200), 3);
+
+        // Execute third partial withdraw.
+        let withdraw3 = create_withdraw_event(account, U256::from(50), 1, 1, 4);
+        let receipt3 = test.state.execute::<MockVerifier>(&withdraw3).unwrap();
+        assert_account_balance(&test, account, U256::from(150));
+        assert_withdraw_receipt(&receipt3, account, U256::from(50), 4);
+    }
+
+    #[test]
+    fn test_withdraw_full_balance_with_max() {
+        let mut test = setup();
+        let account = test.requester.address();
+
+        // Set up initial balance with deposit.
+        let initial_amount = U256::from(12345);
+        let deposit_event = create_deposit_event(account, initial_amount, 0, 1, 1);
+        test.state.execute::<MockVerifier>(&deposit_event).unwrap();
+        assert_account_balance(&test, account, initial_amount);
+
+        // Execute withdraw with U256::MAX to drain entire balance.
+        let withdraw_event = create_withdraw_event(account, U256::MAX, 0, 2, 2);
+        let receipt = test.state.execute::<MockVerifier>(&withdraw_event).unwrap();
+
+        // Verify entire balance was withdrawn.
+        assert_account_balance(&test, account, U256::ZERO);
+        // Note: Receipt shows the original withdraw action amount (U256::MAX), not actual withdrawn amount.
+        assert_withdraw_receipt(&receipt, account, U256::MAX, 2);
+        assert_state_counters(&test, 3, 3, 0, 2);
+    }
+
+    #[test]
+    fn test_withdraw_exact_balance() {
+        let mut test = setup();
+        let account = test.requester.address();
+
+        // Set up initial balance with deposit.
+        let amount = U256::from(789);
+        let deposit_event = create_deposit_event(account, amount, 0, 1, 1);
+        test.state.execute::<MockVerifier>(&deposit_event).unwrap();
+
+        // Execute withdraw for exact balance amount.
+        let withdraw_event = create_withdraw_event(account, amount, 0, 2, 2);
+        let receipt = test.state.execute::<MockVerifier>(&withdraw_event).unwrap();
+
+        // Verify exact amount was withdrawn, leaving zero balance.
+        assert_account_balance(&test, account, U256::ZERO);
+        assert_withdraw_receipt(&receipt, account, amount, 2);
+    }
+
+    #[test]
+    fn test_withdraw_insufficient_balance() {
+        let mut test = setup();
+        let account = test.requester.address();
+
+        // Set up initial balance with deposit.
+        let deposit_event = create_deposit_event(account, U256::from(100), 0, 1, 1);
+        test.state.execute::<MockVerifier>(&deposit_event).unwrap();
+
+        // Try to withdraw more than balance.
+        let withdraw_event = create_withdraw_event(account, U256::from(150), 0, 2, 2);
+        let result = test.state.execute::<MockVerifier>(&withdraw_event);
+
+        // Verify the correct revert error is returned.
+        assert!(matches!(
+            result,
+            Err(VAppError::Revert(VAppRevert::InsufficientBalance {
+                account: acc,
+                amount,
+                balance
+            })) if acc == account && amount == U256::from(150) && balance == U256::from(100)
+        ));
+
+        // Verify state remains unchanged after error (onchain counters increment, but tx_id does not).
+        assert_account_balance(&test, account, U256::from(100));
+        assert_state_counters(&test, 2, 3, 0, 2);
+    }
+
+    #[test]
+    fn test_withdraw_zero_balance_account() {
+        let mut test = setup();
+        let account = test.requester.address();
+
+        // Try to withdraw from account with zero balance (no prior deposit).
+        let withdraw_event = create_withdraw_event(account, U256::from(1), 0, 1, 1);
+        let result = test.state.execute::<MockVerifier>(&withdraw_event);
+
+        // Verify the correct revert error is returned.
+        assert!(matches!(
+            result,
+            Err(VAppError::Revert(VAppRevert::InsufficientBalance {
+                account: acc,
+                amount,
+                balance
+            })) if acc == account && amount == U256::from(1) && balance == U256::ZERO
+        ));
+
+        // Verify state counters behavior for failed transaction (onchain counters increment, but tx_id does not).
+        assert_state_counters(&test, 1, 2, 0, 1);
+    }
+
+    #[test]
+    fn test_withdraw_onchain_tx_out_of_order() {
+        let mut test = setup();
+        let account = test.requester.address();
+
+        // Set up initial balance and execute first withdraw.
+        let deposit_event = create_deposit_event(account, U256::from(200), 0, 1, 1);
+        test.state.execute::<MockVerifier>(&deposit_event).unwrap();
+
+        let withdraw1 = create_withdraw_event(account, U256::from(50), 0, 2, 2);
+        test.state.execute::<MockVerifier>(&withdraw1).unwrap();
+
+        // Try to execute withdraw with wrong onchain_tx (should be 3, but using 5).
+        let withdraw2 = create_withdraw_event(account, U256::from(50), 0, 3, 5);
+        let result = test.state.execute::<MockVerifier>(&withdraw2);
+
+        // Verify the correct panic error is returned.
+        assert!(matches!(
+            result,
+            Err(VAppError::Panic(VAppPanic::OnchainTxOutOfOrder { expected: 3, actual: 5 }))
+        ));
+
+        // Verify state remains unchanged after error.
+        assert_account_balance(&test, account, U256::from(150));
+        assert_state_counters(&test, 3, 3, 0, 2);
+    }
+
+    #[test]
+    fn test_withdraw_block_number_regression() {
+        let mut test = setup();
+        let account = test.requester.address();
+
+        // Set up initial balance at block 10.
+        let deposit_event = create_deposit_event(account, U256::from(200), 10, 1, 1);
+        test.state.execute::<MockVerifier>(&deposit_event).unwrap();
+
+        // Try to execute withdraw at earlier block (regression).
+        let withdraw_event = create_withdraw_event(account, U256::from(50), 8, 1, 2);
+        let result = test.state.execute::<MockVerifier>(&withdraw_event);
+
+        // Verify the correct panic error is returned.
+        assert!(matches!(
+            result,
+            Err(VAppError::Panic(VAppPanic::BlockNumberOutOfOrder { expected: 10, actual: 8 }))
+        ));
+
+        // Verify state remains unchanged after error.
+        assert_account_balance(&test, account, U256::from(200));
+        assert_state_counters(&test, 2, 2, 10, 1);
+    }
+
+    #[test]
+    fn test_withdraw_log_index_out_of_order() {
+        let mut test = setup();
+        let account = test.requester.address();
+
+        // Set up initial balance at block 0, log_index 10.
+        let deposit_event = create_deposit_event(account, U256::from(200), 0, 10, 1);
+        test.state.execute::<MockVerifier>(&deposit_event).unwrap();
+
+        // Try to execute withdraw at same block with same log_index.
+        let withdraw1 = create_withdraw_event(account, U256::from(50), 0, 10, 2);
+        let result = test.state.execute::<MockVerifier>(&withdraw1);
+
+        // Verify the correct panic error is returned.
+        assert!(matches!(
+            result,
+            Err(VAppError::Panic(VAppPanic::LogIndexOutOfOrder { current: 10, next: 10 }))
+        ));
+
+        // Try with log_index lower than current.
+        let withdraw2 = create_withdraw_event(account, U256::from(50), 0, 5, 2);
+        let result = test.state.execute::<MockVerifier>(&withdraw2);
+
+        // Verify the correct panic error is returned.
+        assert!(matches!(
+            result,
+            Err(VAppError::Panic(VAppPanic::LogIndexOutOfOrder { current: 10, next: 5 }))
+        ));
+
+        // Verify state remains unchanged after error.
+        assert_account_balance(&test, account, U256::from(200));
+        assert_state_counters(&test, 2, 2, 0, 10);
+    }
+
+    #[test]
+    fn test_withdraw_log_index_valid_progression() {
+        let mut test = setup();
+        let account = test.requester.address();
+
+        // Set up initial balance at block 0, log_index 5.
+        let deposit_event = create_deposit_event(account, U256::from(300), 0, 5, 1);
+        test.state.execute::<MockVerifier>(&deposit_event).unwrap();
+
+        // Execute withdraw at same block with higher log_index (valid).
+        let withdraw1 = create_withdraw_event(account, U256::from(100), 0, 6, 2);
+        let receipt1 = test.state.execute::<MockVerifier>(&withdraw1).unwrap();
+
+        // Verify balance deduction and state updates.
+        assert_account_balance(&test, account, U256::from(200));
+        assert_withdraw_receipt(&receipt1, account, U256::from(100), 2);
+        assert_state_counters(&test, 3, 3, 0, 6);
+
+        // Execute withdraw at higher block (log_index can be anything).
+        let withdraw2 = create_withdraw_event(account, U256::from(50), 1, 1, 3);
+        let receipt2 = test.state.execute::<MockVerifier>(&withdraw2).unwrap();
+
+        // Verify final state after block progression.
+        assert_account_balance(&test, account, U256::from(150));
+        assert_withdraw_receipt(&receipt2, account, U256::from(50), 3);
+        assert_state_counters(&test, 4, 4, 1, 1);
+    }
+
+    #[test]
+    fn test_create_prover_basic() {
+        let mut test = setup();
+        let prover_address = test.prover.address();
+        let owner_address = test.requester.address();
+        let staker_fee_bips = U256::from(500);
+
+        // Execute basic create prover event.
+        let event = create_create_prover_event(prover_address, owner_address, staker_fee_bips, 0, 1, 1);
+        let receipt = test.state.execute::<MockVerifier>(&event).unwrap();
+
+        // Verify the prover account was created correctly.
+        assert_prover_account(&test, prover_address, owner_address, owner_address, staker_fee_bips);
+        assert_create_prover_receipt(&receipt, prover_address, owner_address, staker_fee_bips, 1);
+        assert_state_counters(&test, 2, 2, 0, 1);
+    }
+
+    #[test]
+    fn test_create_prover_self_delegated() {
+        let mut test = setup();
+        let prover_owner = test.prover.address();
+        let staker_fee_bips = U256::from(1000);
+
+        // Execute create prover where owner = prover (self-delegated).
+        let event = create_create_prover_event(prover_owner, prover_owner, staker_fee_bips, 0, 1, 1);
+        let receipt = test.state.execute::<MockVerifier>(&event).unwrap();
+
+        // Verify the prover is self-delegated (owner = signer = prover).
+        assert_prover_account(&test, prover_owner, prover_owner, prover_owner, staker_fee_bips);
+        assert_create_prover_receipt(&receipt, prover_owner, prover_owner, staker_fee_bips, 1);
+    }
+
+    #[test]
+    fn test_create_prover_different_owner() {
+        let mut test = setup();
+        let prover_address = test.signers[0].address();
+        let owner_address = test.signers[1].address();
+        let staker_fee_bips = U256::from(250);
+
+        // Execute create prover with different owner and prover addresses.
+        let event = create_create_prover_event(prover_address, owner_address, staker_fee_bips, 0, 1, 1);
+        let receipt = test.state.execute::<MockVerifier>(&event).unwrap();
+
+        // Verify the prover account configuration.
+        assert_prover_account(&test, prover_address, owner_address, owner_address, staker_fee_bips);
+        assert_create_prover_receipt(&receipt, prover_address, owner_address, staker_fee_bips, 1);
+    }
+
+    #[test]
+    fn test_create_prover_various_staker_fees() {
         let mut test = setup();
 
-        // Deposit event
-        let event = VAppTransaction::Deposit(OnchainTransaction {
-            tx_hash: None,
-            block: 0,
-            log_index: 1,
-            onchain_tx: 1,
-            action: Deposit { account: test.requester.address(), amount: U256::from(100) },
-        });
-        let _ = test.state.execute::<MockVerifier>(&event);
+        // Test with zero staker fee.
+        let prover1 = test.signers[0].address();
+        let owner1 = test.signers[1].address();
+        let event1 = create_create_prover_event(prover1, owner1, U256::ZERO, 0, 1, 1);
+        let receipt1 = test.state.execute::<MockVerifier>(&event1).unwrap();
+        assert_prover_account(&test, prover1, owner1, owner1, U256::ZERO);
+        assert_create_prover_receipt(&receipt1, prover1, owner1, U256::ZERO, 1);
 
-        let account_address: Address = test.requester.address();
-        assert_eq!(
-            test.state.accounts.get(&account_address).unwrap().get_balance(),
-            U256::from(100),
-        );
+        // Test with 5% staker fee (500 basis points).
+        let prover2 = test.signers[2].address();
+        let owner2 = test.signers[3].address();
+        let staker_fee_500 = U256::from(500);
+        let event2 = create_create_prover_event(prover2, owner2, staker_fee_500, 0, 2, 2);
+        let receipt2 = test.state.execute::<MockVerifier>(&event2).unwrap();
+        assert_prover_account(&test, prover2, owner2, owner2, staker_fee_500);
+        assert_create_prover_receipt(&receipt2, prover2, owner2, staker_fee_500, 2);
 
-        // Withdraw event
-        let event = VAppTransaction::Withdraw(OnchainTransaction {
-            tx_hash: None,
-            block: 0,
-            log_index: 2,
-            onchain_tx: 2,
-            action: Withdraw { account: test.requester.address(), amount: U256::from(100) },
-        });
-        let action = test.state.execute::<MockVerifier>(&event).unwrap();
+        // Test with 10% staker fee (1000 basis points).
+        let prover3 = test.signers[4].address();
+        let owner3 = test.signers[5].address();
+        let staker_fee_1000 = U256::from(1000);
+        let event3 = create_create_prover_event(prover3, owner3, staker_fee_1000, 1, 1, 3);
+        let receipt3 = test.state.execute::<MockVerifier>(&event3).unwrap();
+        assert_prover_account(&test, prover3, owner3, owner3, staker_fee_1000);
+        assert_create_prover_receipt(&receipt3, prover3, owner3, staker_fee_1000, 3);
 
-        assert_eq!(test.state.accounts.get(&account_address).unwrap().get_balance(), U256::from(0),);
+        // Test with 50% staker fee (5000 basis points).
+        let prover4 = test.signers[6].address();
+        let owner4 = test.signers[7].address();
+        let staker_fee_5000 = U256::from(5000);
+        let event4 = create_create_prover_event(prover4, owner4, staker_fee_5000, 1, 2, 4);
+        let receipt4 = test.state.execute::<MockVerifier>(&event4).unwrap();
+        assert_prover_account(&test, prover4, owner4, owner4, staker_fee_5000);
+        assert_create_prover_receipt(&receipt4, prover4, owner4, staker_fee_5000, 4);
 
-        // Assert the action
-        match &action.unwrap() {
-            VAppReceipt::Withdraw(withdraw) => {
-                assert_eq!(withdraw.action.account, account_address,);
-                assert_eq!(withdraw.action.amount, U256::from(100));
-                assert_eq!(withdraw.status, TransactionStatus::Completed);
-            }
-            _ => panic!("Expected a withdraw action"),
-        }
+        // Verify state progression.
+        assert_state_counters(&test, 5, 5, 1, 2);
+    }
+
+    #[test]
+    fn test_create_prover_max_staker_fee() {
+        let mut test = setup();
+        let prover_address = test.prover.address();
+        let owner_address = test.requester.address();
+
+        // Test with maximum staker fee (100% = 10000 basis points).
+        let max_staker_fee = U256::from(10000);
+        let event = create_create_prover_event(prover_address, owner_address, max_staker_fee, 0, 1, 1);
+        let receipt = test.state.execute::<MockVerifier>(&event).unwrap();
+
+        // Verify maximum staker fee is accepted.
+        assert_prover_account(&test, prover_address, owner_address, owner_address, max_staker_fee);
+        assert_create_prover_receipt(&receipt, prover_address, owner_address, max_staker_fee, 1);
+    }
+
+    #[test]
+    fn test_create_prover_multiple_provers() {
+        let mut test = setup();
+
+        // Create multiple provers sequentially.
+        let prover1 = test.signers[0].address();
+        let owner1 = test.signers[1].address();
+        let event1 = create_create_prover_event(prover1, owner1, U256::from(100), 0, 1, 1);
+        test.state.execute::<MockVerifier>(&event1).unwrap();
+
+        let prover2 = test.signers[2].address();
+        let owner2 = test.signers[3].address();
+        let event2 = create_create_prover_event(prover2, owner2, U256::from(200), 0, 2, 2);
+        test.state.execute::<MockVerifier>(&event2).unwrap();
+
+        let prover3 = test.signers[4].address();
+        let owner3 = test.signers[5].address();
+        let event3 = create_create_prover_event(prover3, owner3, U256::from(300), 1, 1, 3);
+        test.state.execute::<MockVerifier>(&event3).unwrap();
+
+        // Verify all provers were created correctly.
+        assert_prover_account(&test, prover1, owner1, owner1, U256::from(100));
+        assert_prover_account(&test, prover2, owner2, owner2, U256::from(200));
+        assert_prover_account(&test, prover3, owner3, owner3, U256::from(300));
+        assert_state_counters(&test, 4, 4, 1, 1);
+    }
+
+    #[test]
+    fn test_create_prover_onchain_tx_out_of_order() {
+        let mut test = setup();
+        let prover_address = test.prover.address();
+        let owner_address = test.requester.address();
+
+        // Execute first create prover.
+        let event1 = create_create_prover_event(prover_address, owner_address, U256::from(500), 0, 1, 1);
+        test.state.execute::<MockVerifier>(&event1).unwrap();
+
+        // Try to execute create prover with wrong onchain_tx (should be 2, but using 4).
+        let prover2 = test.signers[0].address();
+        let owner2 = test.signers[1].address();
+        let event2 = create_create_prover_event(prover2, owner2, U256::from(500), 0, 2, 4);
+        let result = test.state.execute::<MockVerifier>(&event2);
+
+        // Verify the correct panic error is returned.
+        assert!(matches!(
+            result,
+            Err(VAppError::Panic(VAppPanic::OnchainTxOutOfOrder { expected: 2, actual: 4 }))
+        ));
+
+        // Verify state remains unchanged after error.
+        assert_prover_account(&test, prover_address, owner_address, owner_address, U256::from(500));
+        assert_state_counters(&test, 2, 2, 0, 1);
+    }
+
+    #[test]
+    fn test_create_prover_block_number_regression() {
+        let mut test = setup();
+        let prover_address = test.prover.address();
+        let owner_address = test.requester.address();
+
+        // Execute first create prover at block 15.
+        let event1 = create_create_prover_event(prover_address, owner_address, U256::from(500), 15, 1, 1);
+        test.state.execute::<MockVerifier>(&event1).unwrap();
+
+        // Try to execute create prover at earlier block (regression).
+        let prover2 = test.signers[0].address();
+        let owner2 = test.signers[1].address();
+        let event2 = create_create_prover_event(prover2, owner2, U256::from(500), 10, 1, 2);
+        let result = test.state.execute::<MockVerifier>(&event2);
+
+        // Verify the correct panic error is returned.
+        assert!(matches!(
+            result,
+            Err(VAppError::Panic(VAppPanic::BlockNumberOutOfOrder { expected: 15, actual: 10 }))
+        ));
+
+        // Verify state remains unchanged after error.
+        assert_prover_account(&test, prover_address, owner_address, owner_address, U256::from(500));
+        assert_state_counters(&test, 2, 2, 15, 1);
+    }
+
+    #[test]
+    fn test_create_prover_log_index_out_of_order() {
+        let mut test = setup();
+        let prover_address = test.prover.address();
+        let owner_address = test.requester.address();
+
+        // Execute first create prover at block 0, log_index 20.
+        let event1 = create_create_prover_event(prover_address, owner_address, U256::from(500), 0, 20, 1);
+        test.state.execute::<MockVerifier>(&event1).unwrap();
+
+        // Try to execute create prover at same block with same log_index.
+        let prover2 = test.signers[0].address();
+        let owner2 = test.signers[1].address();
+        let event2 = create_create_prover_event(prover2, owner2, U256::from(500), 0, 20, 2);
+        let result = test.state.execute::<MockVerifier>(&event2);
+
+        // Verify the correct panic error is returned.
+        assert!(matches!(
+            result,
+            Err(VAppError::Panic(VAppPanic::LogIndexOutOfOrder { current: 20, next: 20 }))
+        ));
+
+        // Try with log_index lower than current.
+        let event3 = create_create_prover_event(prover2, owner2, U256::from(500), 0, 15, 2);
+        let result = test.state.execute::<MockVerifier>(&event3);
+
+        // Verify the correct panic error is returned.
+        assert!(matches!(
+            result,
+            Err(VAppError::Panic(VAppPanic::LogIndexOutOfOrder { current: 20, next: 15 }))
+        ));
+
+        // Verify state remains unchanged after error.
+        assert_prover_account(&test, prover_address, owner_address, owner_address, U256::from(500));
+        assert_state_counters(&test, 2, 2, 0, 20);
+    }
+
+    #[test]
+    fn test_create_prover_log_index_valid_progression() {
+        let mut test = setup();
+        let prover1 = test.prover.address();
+        let owner1 = test.requester.address();
+
+        // Execute first create prover at block 0, log_index 10.
+        let event1 = create_create_prover_event(prover1, owner1, U256::from(500), 0, 10, 1);
+        test.state.execute::<MockVerifier>(&event1).unwrap();
+
+        // Execute second create prover at same block with higher log_index (valid).
+        let prover2 = test.signers[0].address();
+        let owner2 = test.signers[1].address();
+        let event2 = create_create_prover_event(prover2, owner2, U256::from(750), 0, 11, 2);
+        let receipt2 = test.state.execute::<MockVerifier>(&event2).unwrap();
+
+        // Verify both provers and state updates.
+        assert_prover_account(&test, prover1, owner1, owner1, U256::from(500));
+        assert_prover_account(&test, prover2, owner2, owner2, U256::from(750));
+        assert_create_prover_receipt(&receipt2, prover2, owner2, U256::from(750), 2);
+        assert_state_counters(&test, 3, 3, 0, 11);
+
+        // Execute third create prover at higher block (log_index can be anything).
+        let prover3 = test.signers[2].address();
+        let owner3 = test.signers[3].address();
+        let event3 = create_create_prover_event(prover3, owner3, U256::from(1000), 1, 1, 3);
+        let receipt3 = test.state.execute::<MockVerifier>(&event3).unwrap();
+
+        // Verify final state after block progression.
+        assert_prover_account(&test, prover3, owner3, owner3, U256::from(1000));
+        assert_create_prover_receipt(&receipt3, prover3, owner3, U256::from(1000), 3);
+        assert_state_counters(&test, 4, 4, 1, 1);
     }
 
     #[test]
@@ -1147,6 +2103,673 @@ mod tests {
             MerkleStorage::<Address, Account>::verify_proof(root, &proof).is_ok(),
             "proof with None value should verify for non-existent leaf"
         );
+    }
+
+    #[test]
+    fn test_transfer_basic() {
+        let mut test = setup();
+        let from_signer = &test.signers[0];
+        let to_address = test.signers[1].address();
+        let amount = U256::from(100);
+
+        // Set up initial balance for sender.
+        let deposit_event = create_deposit_event(from_signer.address(), U256::from(500), 0, 1, 1);
+        test.state.execute::<MockVerifier>(&deposit_event).unwrap();
+        assert_account_balance(&test, from_signer.address(), U256::from(500));
+
+        // Execute transfer.
+        let transfer_event = create_transfer_event(from_signer, to_address, amount, 1);
+        let result = test.state.execute::<MockVerifier>(&transfer_event).unwrap();
+
+        // Verify transfer does not return a receipt.
+        assert!(result.is_none());
+
+        // Verify balances were updated correctly.
+        assert_account_balance(&test, from_signer.address(), U256::from(400));
+        assert_account_balance(&test, to_address, amount);
+
+        // Verify state counters (only tx_id increments for off-chain transactions).
+        assert_state_counters(&test, 3, 2, 0, 1);
+    }
+
+    #[test]
+    fn test_transfer_self_transfer() {
+        let mut test = setup();
+        let signer = &test.signers[0];
+        let amount = U256::from(100);
+
+        // Set up initial balance.
+        let deposit_event = create_deposit_event(signer.address(), U256::from(500), 0, 1, 1);
+        test.state.execute::<MockVerifier>(&deposit_event).unwrap();
+
+        // Execute self-transfer.
+        let transfer_event = create_transfer_event(signer, signer.address(), amount, 1);
+        let result = test.state.execute::<MockVerifier>(&transfer_event).unwrap();
+
+        // Verify transfer succeeds and balance remains unchanged.
+        assert!(result.is_none());
+        assert_account_balance(&test, signer.address(), U256::from(500));
+    }
+
+    #[test]
+    fn test_transfer_multiple_transfers() {
+        let mut test = setup();
+        let from_signer = &test.signers[0];
+        let to1 = test.signers[1].address();
+        let to2 = test.signers[2].address();
+        let to3 = test.signers[3].address();
+
+        // Set up initial balance.
+        let deposit_event = create_deposit_event(from_signer.address(), U256::from(1000), 0, 1, 1);
+        test.state.execute::<MockVerifier>(&deposit_event).unwrap();
+
+        // Execute first transfer.
+        let transfer1 = create_transfer_event(from_signer, to1, U256::from(200), 1);
+        test.state.execute::<MockVerifier>(&transfer1).unwrap();
+        assert_account_balance(&test, from_signer.address(), U256::from(800));
+        assert_account_balance(&test, to1, U256::from(200));
+
+        // Execute second transfer.
+        let transfer2 = create_transfer_event(from_signer, to2, U256::from(300), 2);
+        test.state.execute::<MockVerifier>(&transfer2).unwrap();
+        assert_account_balance(&test, from_signer.address(), U256::from(500));
+        assert_account_balance(&test, to2, U256::from(300));
+
+        // Execute third transfer.
+        let transfer3 = create_transfer_event(from_signer, to3, U256::from(150), 3);
+        test.state.execute::<MockVerifier>(&transfer3).unwrap();
+        assert_account_balance(&test, from_signer.address(), U256::from(350));
+        assert_account_balance(&test, to3, U256::from(150));
+
+        // Verify state progression.
+        assert_state_counters(&test, 5, 2, 0, 1);
+    }
+
+    #[test]
+    fn test_transfer_to_new_account() {
+        let mut test = setup();
+        let from_signer = &test.signers[0];
+        let new_account = test.signers[1].address();
+        let amount = U256::from(250);
+
+        // Set up initial balance.
+        let deposit_event = create_deposit_event(from_signer.address(), U256::from(500), 0, 1, 1);
+        test.state.execute::<MockVerifier>(&deposit_event).unwrap();
+
+        // Verify new account has zero balance initially.
+        assert_account_balance(&test, new_account, U256::ZERO);
+
+        // Execute transfer to new account.
+        let transfer_event = create_transfer_event(from_signer, new_account, amount, 1);
+        test.state.execute::<MockVerifier>(&transfer_event).unwrap();
+
+        // Verify new account was created with correct balance.
+        assert_account_balance(&test, from_signer.address(), U256::from(250));
+        assert_account_balance(&test, new_account, amount);
+    }
+
+    #[test]
+    fn test_transfer_entire_balance() {
+        let mut test = setup();
+        let from_signer = &test.signers[0];
+        let to_address = test.signers[1].address();
+        let initial_balance = U256::from(789);
+
+        // Set up initial balance.
+        let deposit_event = create_deposit_event(from_signer.address(), initial_balance, 0, 1, 1);
+        test.state.execute::<MockVerifier>(&deposit_event).unwrap();
+
+        // Execute transfer of entire balance.
+        let transfer_event = create_transfer_event(from_signer, to_address, initial_balance, 1);
+        test.state.execute::<MockVerifier>(&transfer_event).unwrap();
+
+        // Verify entire balance was transferred.
+        assert_account_balance(&test, from_signer.address(), U256::ZERO);
+        assert_account_balance(&test, to_address, initial_balance);
+    }
+
+    #[test]
+    fn test_transfer_zero_amount() {
+        let mut test = setup();
+        let from_signer = &test.signers[0];
+        let to_address = test.signers[1].address();
+
+        // Set up initial balance.
+        let deposit_event = create_deposit_event(from_signer.address(), U256::from(500), 0, 1, 1);
+        test.state.execute::<MockVerifier>(&deposit_event).unwrap();
+
+        // Execute zero amount transfer.
+        let transfer_event = create_transfer_event(from_signer, to_address, U256::ZERO, 1);
+        test.state.execute::<MockVerifier>(&transfer_event).unwrap();
+
+        // Verify balances remain unchanged.
+        assert_account_balance(&test, from_signer.address(), U256::from(500));
+        assert_account_balance(&test, to_address, U256::ZERO);
+    }
+
+    #[test]
+    fn test_transfer_insufficient_balance() {
+        let mut test = setup();
+        let from_signer = &test.signers[0];
+        let to_address = test.signers[1].address();
+
+        // Set up initial balance.
+        let deposit_event = create_deposit_event(from_signer.address(), U256::from(100), 0, 1, 1);
+        test.state.execute::<MockVerifier>(&deposit_event).unwrap();
+
+        // Try to transfer more than balance.
+        let transfer_event = create_transfer_event(from_signer, to_address, U256::from(150), 1);
+        let result = test.state.execute::<MockVerifier>(&transfer_event);
+
+        // Verify the correct panic error is returned.
+        assert!(matches!(
+            result,
+            Err(VAppError::Panic(VAppPanic::InsufficientBalance {
+                account,
+                amount,
+                balance
+            })) if account == from_signer.address() && amount == U256::from(150) && balance == U256::from(100)
+        ));
+
+        // Verify balances remain unchanged.
+        assert_account_balance(&test, from_signer.address(), U256::from(100));
+        assert_account_balance(&test, to_address, U256::ZERO);
+        assert_state_counters(&test, 2, 2, 0, 1);
+    }
+
+    #[test]
+    fn test_transfer_from_zero_balance_account() {
+        let mut test = setup();
+        let from_signer = &test.signers[0];
+        let to_address = test.signers[1].address();
+
+        // Try to transfer from account with zero balance.
+        let transfer_event = create_transfer_event(from_signer, to_address, U256::from(1), 1);
+        let result = test.state.execute::<MockVerifier>(&transfer_event);
+
+        // Verify the correct panic error is returned.
+        assert!(matches!(
+            result,
+            Err(VAppError::Panic(VAppPanic::InsufficientBalance {
+                account,
+                amount,
+                balance
+            })) if account == from_signer.address() && amount == U256::from(1) && balance == U256::ZERO
+        ));
+
+        // Verify state remains unchanged.
+        assert_state_counters(&test, 1, 1, 0, 0);
+    }
+
+    #[test]
+    fn test_transfer_from_signer_without_balance() {
+        let mut test = setup();
+        let from_signer_with_balance = &test.signers[0];
+        let from_signer_without_balance = &test.signers[1];
+        let to_address = test.signers[2].address();
+
+        // Set up initial balance for one signer.
+        let deposit_event = create_deposit_event(from_signer_with_balance.address(), U256::from(500), 0, 1, 1);
+        test.state.execute::<MockVerifier>(&deposit_event).unwrap();
+
+        // Create transfer signed by signer without balance (this tests the logic properly).
+        let transfer_event = create_transfer_event(from_signer_without_balance, to_address, U256::from(100), 1);
+        let result = test.state.execute::<MockVerifier>(&transfer_event);
+
+        // Verify the correct panic error is returned (signer has insufficient balance).
+        assert!(matches!(
+            result,
+            Err(VAppError::Panic(VAppPanic::InsufficientBalance {
+                account,
+                amount,
+                balance
+            })) if account == from_signer_without_balance.address() && amount == U256::from(100) && balance == U256::ZERO
+        ));
+
+        // Verify balances remain unchanged.
+        assert_account_balance(&test, from_signer_with_balance.address(), U256::from(500));
+        assert_account_balance(&test, from_signer_without_balance.address(), U256::ZERO);
+        assert_account_balance(&test, to_address, U256::ZERO);
+    }
+
+    #[test]
+    fn test_transfer_domain_mismatch() {
+        let mut test = setup();
+        let from_signer = &test.signers[0];
+        let to_address = test.signers[1].address();
+
+        // Set up initial balance.
+        let deposit_event = create_deposit_event(from_signer.address(), U256::from(500), 0, 1, 1);
+        test.state.execute::<MockVerifier>(&deposit_event).unwrap();
+
+        // Try to transfer with wrong domain.
+        let wrong_domain = [1u8; 32];
+        let transfer_event = create_transfer_event_with_domain(
+            from_signer,
+            to_address,
+            U256::from(100),
+            1,
+            wrong_domain,
+        );
+        let result = test.state.execute::<MockVerifier>(&transfer_event);
+
+        // Verify the correct panic error is returned.
+        assert!(matches!(
+            result,
+            Err(VAppError::Panic(VAppPanic::DomainMismatch { .. }))
+        ));
+
+        // Verify balances remain unchanged.
+        assert_account_balance(&test, from_signer.address(), U256::from(500));
+        assert_account_balance(&test, to_address, U256::ZERO);
+    }
+
+    #[test]
+    fn test_transfer_missing_body() {
+        let mut test = setup();
+
+        // Try to execute transfer with missing body.
+        let transfer_event = create_transfer_event_missing_body();
+        let result = test.state.execute::<MockVerifier>(&transfer_event);
+
+        // Verify the correct panic error is returned.
+        assert!(matches!(
+            result,
+            Err(VAppError::Panic(VAppPanic::MissingProtoBody))
+        ));
+
+        // Verify state remains unchanged.
+        assert_state_counters(&test, 1, 1, 0, 0);
+    }
+
+    #[test]
+    fn test_transfer_invalid_amount_parsing() {
+        let mut test = setup();
+        let from_signer = &test.signers[0];
+        let to_address = test.signers[1].address();
+
+        // Set up initial balance.
+        let deposit_event = create_deposit_event(from_signer.address(), U256::from(500), 0, 1, 1);
+        test.state.execute::<MockVerifier>(&deposit_event).unwrap();
+
+        // Try to transfer with invalid amount string.
+        let transfer_event = create_transfer_event_invalid_amount(from_signer, to_address, "invalid_amount", 1);
+        let result = test.state.execute::<MockVerifier>(&transfer_event);
+
+        // Verify the correct panic error is returned.
+        assert!(matches!(
+            result,
+            Err(VAppError::Panic(VAppPanic::InvalidTransferAmount { .. }))
+        ));
+
+        // Verify balances remain unchanged.
+        assert_account_balance(&test, from_signer.address(), U256::from(500));
+        assert_account_balance(&test, to_address, U256::ZERO);
+    }
+
+    #[test]
+    fn test_transfer_invalid_to_address() {
+        let mut test = setup();
+        let from_signer = &test.signers[0];
+
+        // Set up initial balance.
+        let deposit_event = create_deposit_event(from_signer.address(), U256::from(500), 0, 1, 1);
+        test.state.execute::<MockVerifier>(&deposit_event).unwrap();
+
+        // Create transfer with invalid to address (too short).
+        use spn_network_types::{MessageFormat, TransferRequest, TransferRequestBody};
+        
+        let body = TransferRequestBody {
+            nonce: 1,
+            to: vec![0x12, 0x34], // Invalid - too short
+            amount: U256::from(100).to_string(),
+            domain: spn_utils::SPN_SEPOLIA_V1_DOMAIN.to_vec(),
+        };
+        let signature = proto_sign(from_signer, &body);
+
+        let transfer_event = VAppTransaction::Transfer(TransferTransaction {
+            transfer: TransferRequest {
+                format: MessageFormat::Binary.into(),
+                body: Some(body),
+                signature: signature.as_bytes().to_vec(),
+            },
+        });
+
+        let result = test.state.execute::<MockVerifier>(&transfer_event);
+
+        // Verify the correct panic error is returned.
+        assert!(matches!(
+            result,
+            Err(VAppError::Panic(VAppPanic::AddressDeserializationFailed))
+        ));
+
+        // Verify balance remains unchanged.
+        assert_account_balance(&test, from_signer.address(), U256::from(500));
+    }
+
+    #[test]
+    fn test_delegate_basic() {
+        let mut test = setup();
+        let prover_owner = &test.signers[0];
+        let prover_address = test.signers[1].address();
+        let delegate_address = test.signers[2].address();
+
+        // Create prover first.
+        let create_prover_event = create_create_prover_event(
+            prover_address,
+            prover_owner.address(),
+            U256::from(500),
+            0,
+            1,
+            1,
+        );
+        test.state.execute::<MockVerifier>(&create_prover_event).unwrap();
+
+        // Verify initial signer is the owner.
+        assert_prover_signer(&test, prover_address, prover_owner.address());
+
+        // Execute delegation.
+        let delegate_event = create_delegate_event(prover_owner, prover_address, delegate_address, 1);
+        let result = test.state.execute::<MockVerifier>(&delegate_event).unwrap();
+
+        // Verify delegation does not return a receipt.
+        assert!(result.is_none());
+
+        // Verify the signer was updated.
+        assert_prover_signer(&test, prover_address, delegate_address);
+
+        // Verify state counters (only tx_id increments for off-chain transactions).
+        assert_state_counters(&test, 3, 2, 0, 1);
+    }
+
+    #[test]
+    fn test_delegate_self_delegation() {
+        let mut test = setup();
+        let prover_owner = &test.signers[0];
+        let prover_address = test.signers[1].address();
+
+        // Create prover first.
+        let create_prover_event = create_create_prover_event(
+            prover_address,
+            prover_owner.address(),
+            U256::from(500),
+            0,
+            1,
+            1,
+        );
+        test.state.execute::<MockVerifier>(&create_prover_event).unwrap();
+
+        // Execute self-delegation (owner delegates to themselves).
+        let delegate_event = create_delegate_event(prover_owner, prover_address, prover_owner.address(), 1);
+        let result = test.state.execute::<MockVerifier>(&delegate_event).unwrap();
+
+        // Verify delegation succeeds and signer remains the owner.
+        assert!(result.is_none());
+        assert_prover_signer(&test, prover_address, prover_owner.address());
+    }
+
+    #[test]
+    fn test_delegate_multiple_delegations() {
+        let mut test = setup();
+        let prover_owner = &test.signers[0];
+        let prover_address = test.signers[1].address();
+        let delegate1 = test.signers[2].address();
+        let delegate2 = test.signers[3].address();
+        let delegate3 = test.signers[4].address();
+
+        // Create prover first.
+        let create_prover_event = create_create_prover_event(
+            prover_address,
+            prover_owner.address(),
+            U256::from(500),
+            0,
+            1,
+            1,
+        );
+        test.state.execute::<MockVerifier>(&create_prover_event).unwrap();
+
+        // Execute first delegation.
+        let delegate_event1 = create_delegate_event(prover_owner, prover_address, delegate1, 1);
+        test.state.execute::<MockVerifier>(&delegate_event1).unwrap();
+        assert_prover_signer(&test, prover_address, delegate1);
+
+        // Execute second delegation (replaces first).
+        let delegate_event2 = create_delegate_event(prover_owner, prover_address, delegate2, 2);
+        test.state.execute::<MockVerifier>(&delegate_event2).unwrap();
+        assert_prover_signer(&test, prover_address, delegate2);
+
+        // Execute third delegation (replaces second).
+        let delegate_event3 = create_delegate_event(prover_owner, prover_address, delegate3, 3);
+        test.state.execute::<MockVerifier>(&delegate_event3).unwrap();
+        assert_prover_signer(&test, prover_address, delegate3);
+
+        // Verify state progression.
+        assert_state_counters(&test, 5, 2, 0, 1);
+    }
+
+    #[test]
+    fn test_delegate_multiple_provers() {
+        let mut test = setup();
+        let owner1 = &test.signers[0];
+        let owner2 = &test.signers[1];
+        let prover1 = test.signers[2].address();
+        let prover2 = test.signers[3].address();
+        let delegate1 = test.signers[4].address();
+        let delegate2 = test.signers[5].address();
+
+        // Create first prover.
+        let create_prover1 = create_create_prover_event(prover1, owner1.address(), U256::from(500), 0, 1, 1);
+        test.state.execute::<MockVerifier>(&create_prover1).unwrap();
+
+        // Create second prover.
+        let create_prover2 = create_create_prover_event(prover2, owner2.address(), U256::from(750), 0, 2, 2);
+        test.state.execute::<MockVerifier>(&create_prover2).unwrap();
+
+        // Delegate for first prover.
+        let delegate_event1 = create_delegate_event(owner1, prover1, delegate1, 1);
+        test.state.execute::<MockVerifier>(&delegate_event1).unwrap();
+
+        // Delegate for second prover.
+        let delegate_event2 = create_delegate_event(owner2, prover2, delegate2, 1);
+        test.state.execute::<MockVerifier>(&delegate_event2).unwrap();
+
+        // Verify both delegations.
+        assert_prover_signer(&test, prover1, delegate1);
+        assert_prover_signer(&test, prover2, delegate2);
+    }
+
+    #[test]
+    fn test_delegate_non_existent_prover() {
+        let mut test = setup();
+        let prover_owner = &test.signers[0];
+        let non_existent_prover = test.signers[1].address();
+        let delegate_address = test.signers[2].address();
+
+        // Try to delegate for non-existent prover.
+        let delegate_event = create_delegate_event(prover_owner, non_existent_prover, delegate_address, 1);
+        let result = test.state.execute::<MockVerifier>(&delegate_event);
+
+        // Verify the correct revert error is returned.
+        assert!(matches!(
+            result,
+            Err(VAppError::Revert(VAppRevert::ProverDoesNotExist { prover })) if prover == non_existent_prover
+        ));
+
+        // Verify state remains unchanged.
+        assert_state_counters(&test, 1, 1, 0, 0);
+    }
+
+    #[test]
+    fn test_delegate_only_owner_can_delegate() {
+        let mut test = setup();
+        let prover_owner = &test.signers[0];
+        let non_owner = &test.signers[1];
+        let prover_address = test.signers[2].address();
+        let delegate_address = test.signers[3].address();
+
+        // Create prover first.
+        let create_prover_event = create_create_prover_event(
+            prover_address,
+            prover_owner.address(),
+            U256::from(500),
+            0,
+            1,
+            1,
+        );
+        test.state.execute::<MockVerifier>(&create_prover_event).unwrap();
+
+        // Try to delegate using non-owner signer.
+        let delegate_event = create_delegate_event(non_owner, prover_address, delegate_address, 1);
+        let result = test.state.execute::<MockVerifier>(&delegate_event);
+
+        // Verify the correct panic error is returned.
+        assert!(matches!(
+            result,
+            Err(VAppError::Panic(VAppPanic::OnlyOwnerCanDelegate))
+        ));
+
+        // Verify signer remains unchanged.
+        assert_prover_signer(&test, prover_address, prover_owner.address());
+        assert_state_counters(&test, 2, 2, 0, 1);
+    }
+
+    #[test]
+    fn test_delegate_domain_mismatch() {
+        let mut test = setup();
+        let prover_owner = &test.signers[0];
+        let prover_address = test.signers[1].address();
+        let delegate_address = test.signers[2].address();
+
+        // Create prover first.
+        let create_prover_event = create_create_prover_event(
+            prover_address,
+            prover_owner.address(),
+            U256::from(500),
+            0,
+            1,
+            1,
+        );
+        test.state.execute::<MockVerifier>(&create_prover_event).unwrap();
+
+        // Try to delegate with wrong domain.
+        let wrong_domain = [1u8; 32];
+        let delegate_event = create_delegate_event_with_domain(
+            prover_owner,
+            prover_address,
+            delegate_address,
+            1,
+            wrong_domain,
+        );
+        let result = test.state.execute::<MockVerifier>(&delegate_event);
+
+        // Verify the correct panic error is returned.
+        assert!(matches!(
+            result,
+            Err(VAppError::Panic(VAppPanic::DomainMismatch { .. }))
+        ));
+
+        // Verify signer remains unchanged.
+        assert_prover_signer(&test, prover_address, prover_owner.address());
+    }
+
+    #[test]
+    fn test_delegate_missing_body() {
+        let mut test = setup();
+
+        // Try to execute delegation with missing body.
+        let delegate_event = create_delegate_event_missing_body();
+        let result = test.state.execute::<MockVerifier>(&delegate_event);
+
+        // Verify the correct panic error is returned.
+        assert!(matches!(
+            result,
+            Err(VAppError::Panic(VAppPanic::MissingProtoBody))
+        ));
+
+        // Verify state remains unchanged.
+        assert_state_counters(&test, 1, 1, 0, 0);
+    }
+
+    #[test]
+    fn test_delegate_invalid_prover_address() {
+        let mut test = setup();
+        let prover_owner = &test.signers[0];
+        let delegate_address = test.signers[1].address();
+
+        // Create delegate event with invalid prover address (too short).
+        use spn_network_types::{MessageFormat, SetDelegationRequest, SetDelegationRequestBody};
+        
+        let body = SetDelegationRequestBody {
+            nonce: 1,
+            delegate: delegate_address.to_vec(),
+            prover: vec![0x12, 0x34], // Invalid - too short
+            domain: spn_utils::SPN_SEPOLIA_V1_DOMAIN.to_vec(),
+        };
+        let signature = proto_sign(prover_owner, &body);
+
+        let delegate_event = VAppTransaction::Delegate(DelegateTransaction {
+            delegation: SetDelegationRequest {
+                format: MessageFormat::Binary.into(),
+                body: Some(body),
+                signature: signature.as_bytes().to_vec(),
+            },
+        });
+
+        let result = test.state.execute::<MockVerifier>(&delegate_event);
+
+        // Verify the correct panic error is returned.
+        assert!(matches!(
+            result,
+            Err(VAppError::Panic(VAppPanic::AddressDeserializationFailed))
+        ));
+    }
+
+    #[test]
+    fn test_delegate_invalid_delegate_address() {
+        let mut test = setup();
+        let prover_owner = &test.signers[0];
+        let prover_address = test.signers[1].address();
+
+        // Create prover first.
+        let create_prover_event = create_create_prover_event(
+            prover_address,
+            prover_owner.address(),
+            U256::from(500),
+            0,
+            1,
+            1,
+        );
+        test.state.execute::<MockVerifier>(&create_prover_event).unwrap();
+
+        // Create delegate event with invalid delegate address (too short).
+        use spn_network_types::{MessageFormat, SetDelegationRequest, SetDelegationRequestBody};
+        
+        let body = SetDelegationRequestBody {
+            nonce: 1,
+            delegate: vec![0x56, 0x78], // Invalid - too short
+            prover: prover_address.to_vec(),
+            domain: spn_utils::SPN_SEPOLIA_V1_DOMAIN.to_vec(),
+        };
+        let signature = proto_sign(prover_owner, &body);
+
+        let delegate_event = VAppTransaction::Delegate(DelegateTransaction {
+            delegation: SetDelegationRequest {
+                format: MessageFormat::Binary.into(),
+                body: Some(body),
+                signature: signature.as_bytes().to_vec(),
+            },
+        });
+
+        let result = test.state.execute::<MockVerifier>(&delegate_event);
+
+        // Verify the correct panic error is returned.
+        assert!(matches!(
+            result,
+            Err(VAppError::Panic(VAppPanic::AddressDeserializationFailed))
+        ));
+
+        // Verify signer remains unchanged.
+        assert_prover_signer(&test, prover_address, prover_owner.address());
     }
 
     #[test]
