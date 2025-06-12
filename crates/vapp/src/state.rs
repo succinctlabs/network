@@ -177,8 +177,20 @@ impl<A: Storage<Address, Account>, R: Storage<RequestId, bool>> VAppState<A, R> 
     }
 
     /// Executes a [`VAppTransaction`] and returns an optional [`VAppReceipt`].
-    #[allow(clippy::too_many_lines)]
     pub fn execute<V: VAppVerifier>(
+        &mut self,
+        event: &VAppTransaction,
+    ) -> Result<Option<VAppReceipt>, VAppPanic> {
+        let action = self.execute_inner::<V>(event)?;
+
+        // Increment the tx counter.
+        self.tx_id += 1;
+
+        Ok(action)
+    }
+
+    #[allow(clippy::too_many_lines)]
+    fn execute_inner<V: VAppVerifier>(
         &mut self,
         event: &VAppTransaction,
     ) -> Result<Option<VAppReceipt>, VAppPanic> {
@@ -241,7 +253,7 @@ impl<A: Storage<Address, Account>, R: Storage<RequestId, bool>> VAppState<A, R> 
                             onchain_tx_id: withdraw.onchain_tx,
                             action: withdraw.action.clone(),
                             status: TransactionStatus::Reverted,
-                        })))
+                        })));
                     }
                     withdraw.action.amount
                 };
@@ -304,9 +316,11 @@ impl<A: Storage<Address, Account>, R: Storage<RequestId, bool>> VAppState<A, R> 
                 let domain = B256::try_from(body.domain.as_slice())
                     .map_err(|_| VAppPanic::DomainDeserializationFailed)?;
                 if domain != self.domain {
-                    return Err(
-                        VAppPanic::DomainMismatch { expected: self.domain, actual: domain }.into()
-                    );
+                    return Err(VAppPanic::DomainMismatch {
+                        expected: self.domain,
+                        actual: domain,
+                    }
+                    .into());
                 }
 
                 // Verify the proto signature.
@@ -361,9 +375,11 @@ impl<A: Storage<Address, Account>, R: Storage<RequestId, bool>> VAppState<A, R> 
                 let domain = B256::try_from(body.domain.as_slice())
                     .map_err(|_| VAppPanic::DomainDeserializationFailed)?;
                 if domain != self.domain {
-                    return Err(
-                        VAppPanic::DomainMismatch { expected: self.domain, actual: domain }.into()
-                    );
+                    return Err(VAppPanic::DomainMismatch {
+                        expected: self.domain,
+                        actual: domain,
+                    }
+                    .into());
                 }
 
                 // Transfer the amount from the requester to the recipient.
@@ -463,8 +479,8 @@ impl<A: Storage<Address, Account>, R: Storage<RequestId, bool>> VAppState<A, R> 
                 //
                 // Requesters may whitelist what provers they want to work with to ensure better
                 // SLAs and quality of service.
-                if !request.whitelist.is_empty() &&
-                    !request.whitelist.contains(&prover_address.to_vec())
+                if !request.whitelist.is_empty()
+                    && !request.whitelist.contains(&prover_address.to_vec())
                 {
                     return Err(VAppPanic::ProverNotInWhitelist { prover: prover_address }.into());
                 }
@@ -719,9 +735,6 @@ impl<A: Storage<Address, Account>, R: Storage<RequestId, bool>> VAppState<A, R> 
                 Ok(None)
             }
         };
-
-        // Increment the step.
-        self.tx_id += 1;
 
         action
     }
