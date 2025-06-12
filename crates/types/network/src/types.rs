@@ -65,6 +65,12 @@ pub struct RequestProofRequestBody {
     /// The optional public values hash.
     #[prost(bytes = "vec", optional, tag = "16")]
     pub public_values_hash: ::core::option::Option<::prost::alloc::vec::Vec<u8>>,
+    /// The base fee for the request.
+    #[prost(string, tag = "17")]
+    pub base_fee: ::prost::alloc::string::String,
+    /// The max price per prover gas unit for the request.
+    #[prost(string, tag = "18")]
+    pub max_price_per_pgu: ::prost::alloc::string::String,
 }
 #[derive(serde::Serialize, serde::Deserialize)]
 #[derive(Clone, PartialEq, ::prost::Message)]
@@ -175,6 +181,12 @@ pub struct ExecuteProofRequestBody {
     /// The domain separator for the request.
     #[prost(bytes = "vec", tag = "7")]
     pub domain: ::prost::alloc::vec::Vec<u8>,
+    /// The punishment amount for the requester.
+    #[prost(string, optional, tag = "8")]
+    pub punishment: ::core::option::Option<::prost::alloc::string::String>,
+    /// The cause of execution failure, if it failed.
+    #[prost(enumeration = "ExecuteFailureCause", optional, tag = "9")]
+    pub failure_cause: ::core::option::Option<i32>,
 }
 #[derive(serde::Serialize, serde::Deserialize)]
 #[derive(Clone, PartialEq, ::prost::Message)]

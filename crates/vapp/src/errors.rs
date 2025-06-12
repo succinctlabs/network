@@ -2,7 +2,7 @@
 //!
 //! This module contains error types that can be emitted by the crate.
 
-use alloy_primitives::{Address, B256, U256};
+use alloy_primitives::{ruint::ParseError, Address, B256, U256};
 use std::error::Error as StdError;
 use thiserror::Error;
 
@@ -70,16 +70,10 @@ pub enum VAppPanic {
     OnlyOwnerCanDelegate,
 
     #[error("Request id mismatch in clear")]
-    RequestIdMismatch {
-        request_id: Address,
-        bid_request_id: Address,
-        settle_request_id: Address,
-        execute_request_id: Address,
-        fulfill_request_id: Address,
-    },
+    RequestIdMismatch { found: Address, expected: Address },
 
     #[error("Invalid bid amount in clear: {amount}")]
-    InvalidBidAmount { amount: String },
+    InvalidU256Amount { amount: String },
 
     #[error("Missing gas used in execute in clear")]
     MissingPgusUsed,
@@ -97,7 +91,7 @@ pub enum VAppPanic {
     ExecutionFailed { status: i32 },
 
     #[error("Request already consumed: {id}")]
-    RequestAlreadyConsumed { id: String },
+    RequestAlreadyFulfilled { id: String },
 
     #[error("Unsupported proof mode: {mode}")]
     UnsupportedProofMode { mode: i32 },
@@ -139,6 +133,27 @@ pub enum VAppPanic {
 
     #[error("Missing public values hash")]
     MissingPublicValuesHash,
+
+    #[error("Max price per pgu exceeded: {max_price_per_pgu} > {price}")]
+    MaxPricePerPguExceeded { max_price_per_pgu: U256, price: U256 },
+
+    #[error("Parse error: {0}")]
+    U256ParseError(#[from] ParseError),
+
+    #[error("Missing fulfill field in clear transaction")]
+    MissingFulfill,
+
+    #[error("Missing verifier signature in clear transaction")]
+    MissingVerifierSignature,
+
+    #[error("Missing punishment value in execute response")]
+    MissingPunishment,
+
+    #[error("Punishment {punishment} exceeds max price {max_price}")]
+    PunishmentExceedsMaxCost { punishment: U256, max_price: U256 },
+
+    #[error("Public values hash mismatch")]
+    PublicValuesHashMismatch,
 }
 
 impl From<VAppRevert> for VAppError {

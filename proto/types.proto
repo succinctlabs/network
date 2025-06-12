@@ -60,7 +60,12 @@ message RequestProofRequestBody {
   bytes verifier = 15;
   // The optional public values hash.
   optional bytes public_values_hash = 16;
+  // The base fee for the request.
+  string base_fee = 17;
+  // The max price per prover gas unit for the request.
+  string max_price_per_pgu = 18;
 }
+
 
 message RequestProofResponse {
   // The transaction hash.
@@ -137,6 +142,10 @@ message ExecuteProofRequestBody {
   optional uint64 pgus = 6;
   // The domain separator for the request.
   bytes domain = 7;
+  // The punishment amount for the requester.
+  optional string punishment = 8;
+  // The cause of execution failure, if it failed.
+  optional ExecuteFailureCause failure_cause = 9;
 }
 
 message ExecuteProofResponse {

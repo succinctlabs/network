@@ -399,16 +399,13 @@ impl<A: Storage<Address, Account>, R: Storage<RequestId, bool>> VAppState<A, R> 
                 Ok(None)
             }
             VAppTransaction::Clear(clear) => {
-                // Make sure all the proto bodies are present.
-                debug!("validate proto bodies");
+                // Make sure the proto bodies are present for (request, bid, settle, execute).
                 let request = clear.request.body.as_ref().ok_or(VAppPanic::MissingProtoBody)?;
                 let bid = clear.bid.body.as_ref().ok_or(VAppPanic::MissingProtoBody)?;
                 let settle = clear.settle.body.as_ref().ok_or(VAppPanic::MissingProtoBody)?;
                 let execute = clear.execute.body.as_ref().ok_or(VAppPanic::MissingProtoBody)?;
-                let fulfill = clear.fulfill.body.as_ref().ok_or(VAppPanic::MissingProtoBody)?;
 
-                // Verify the proto signatures.
-                debug!("verify proto signatures");
+                // Verify the proto signatures for (request, bid, settle, execute).
                 let request_signer = proto_verify(request, &clear.request.signature)
                     .map_err(|_| VAppPanic::InvalidRequestSignature)?;
                 let bid_signer = proto_verify(bid, &clear.bid.signature)
@@ -418,13 +415,10 @@ impl<A: Storage<Address, Account>, R: Storage<RequestId, bool>> VAppState<A, R> 
                 let execute_signer = proto_verify(execute, &clear.execute.signature)
                     .map_err(|_| VAppPanic::InvalidExecuteSignature)?;
 
-                // Verify the domain.
-                debug!("verify domains");
-                for domain in
-                    [&request.domain, &bid.domain, &settle.domain, &execute.domain, &fulfill.domain]
-                {
+                // Verify the domains for (request, bid, settle, execute).
+                for domain in [&request.domain, &bid.domain, &settle.domain, &execute.domain] {
                     let domain = B256::try_from(domain.as_slice())
-                        .map_err(|_| VAppPanic::DomainDeserializationFailed)?;
+                        .map_err(|_| VAppPanic::FailedToParseBytes)?;
                     if domain != self.domain {
                         return Err(VAppPanic::DomainMismatch {
                             expected: self.domain,
@@ -434,39 +428,33 @@ impl<A: Storage<Address, Account>, R: Storage<RequestId, bool>> VAppState<A, R> 
                     }
                 }
 
-                // Hash the request to get the request ID.
-                debug!("hash request to get request ID");
+                // Validate that the request ID is the same for (request, bid, settle, execute).
                 let request_id: RequestId = request
                     .hash_with_signer(request_signer.as_slice())
                     .map_err(|_| VAppPanic::HashingBodyFailed)?;
+                for other_request_id in [&bid.request_id, &settle.request_id, &execute.request_id] {
+                    if request_id.as_slice() != other_request_id.as_slice() {
+                        return Err(VAppPanic::RequestIdMismatch {
+                            found: address(&request_id)?,
+                            expected: address(other_request_id)?,
+                        }
+                        .into());
+                    }
+                }
 
-                // Check that this request ID has not been consumed yet.
-                debug!("check that request ID has not been consumed yet");
+                // Check that the request ID has not been fulfilled yet.
+                //
+                // This check ensures that a request can't be used multiple times to pay a prover.
                 if self.requests.get(&request_id).copied().unwrap_or_default() {
                     return Err(
-                        VAppPanic::RequestAlreadyConsumed { id: hex::encode(request_id) }.into()
+                        VAppPanic::RequestAlreadyFulfilled { id: hex::encode(request_id) }.into()
                     );
                 }
 
-                // Validate that the request ID is the same for all proto bodies.
-                debug!("validate that request ID is the same for all proto bodies");
-                if request_id.as_slice() != bid.request_id.as_slice()
-                    || request_id.as_slice() != settle.request_id.as_slice()
-                    || request_id.as_slice() != execute.request_id.as_slice()
-                    || request_id.as_slice() != fulfill.request_id.as_slice()
-                {
-                    return Err(VAppPanic::RequestIdMismatch {
-                        request_id: address(&request_id)?,
-                        bid_request_id: address(&bid.request_id)?,
-                        settle_request_id: address(&settle.request_id)?,
-                        execute_request_id: address(&execute.request_id)?,
-                        fulfill_request_id: address(&fulfill.request_id)?,
-                    }
-                    .into());
-                }
-
                 // Validate the the bidder has the right to bid on behalf of the prover.
-                debug!("validate bidder has right to bid on behalf of prover");
+                //
+                // Provers are liable for their bids, so it's imported to verify that they are the
+                // ones that are bidding.
                 let prover_address = address(bid.prover.as_slice())?;
                 let prover_account = self.accounts.entry(prover_address).or_default();
                 let prover_owner = prover_account.get_owner();
@@ -479,7 +467,9 @@ impl<A: Storage<Address, Account>, R: Storage<RequestId, bool>> VAppState<A, R> 
                 }
 
                 // Validate that the prover is in the request whitelist, if a whitelist is provided.
-                debug!("validate prover is in whitelist");
+                //
+                // Requesters may whitelist what provers they want to work with to ensure better
+                // SLAs and quality of service.
                 if !request.whitelist.is_empty()
                     && !request.whitelist.contains(&prover_address.to_vec())
                 {
@@ -487,7 +477,6 @@ impl<A: Storage<Address, Account>, R: Storage<RequestId, bool>> VAppState<A, R> 
                 }
 
                 // Validate that the request, settle, and auctioneer addresses match.
-                debug!("validate request, settle, and auctioneer addresses match");
                 let request_auctioneer = address(request.auctioneer.as_slice())?;
                 if request_auctioneer != settle_signer && settle_signer != self.auctioneer {
                     return Err(VAppPanic::AuctioneerMismatch {
@@ -499,7 +488,6 @@ impl<A: Storage<Address, Account>, R: Storage<RequestId, bool>> VAppState<A, R> 
                 }
 
                 // Validate that the request, execute, and executor addresses match.
-                debug!("validate request, execute, and executor addresses match");
                 let request_executor = address(request.executor.as_slice())?;
                 if request_executor != execute_signer && request_executor != self.executor {
                     return Err(VAppPanic::ExecutorMismatch {
@@ -510,18 +498,109 @@ impl<A: Storage<Address, Account>, R: Storage<RequestId, bool>> VAppState<A, R> 
                     .into());
                 }
 
+                // Ensure that the bid price is less than the max price per pgu.
+                let base_fee =
+                    request.base_fee.parse::<U256>().map_err(VAppPanic::U256ParseError)?;
+                let max_price_per_pgu =
+                    request.max_price_per_pgu.parse::<U256>().map_err(VAppPanic::U256ParseError)?;
+                let price = bid.amount.parse::<U256>().map_err(VAppPanic::U256ParseError)?;
+                if price > max_price_per_pgu {
+                    return Err(
+                        VAppPanic::MaxPricePerPguExceeded { max_price_per_pgu, price }.into()
+                    );
+                }
+
+                // If the execution status is unexecutable, then punish the requester.
+                //
+                // This may happen in cases where the requester is malicious and doesn't provide
+                // a well-formed request that can actually be proven.
+                if execute.execution_status == ExecutionStatus::Unexecutable as i32 {
+                    // Extract the punishment.
+                    let punishment = execute
+                        .punishment
+                        .as_ref()
+                        .ok_or(VAppPanic::MissingPunishment)?
+                        .parse::<U256>()
+                        .map_err(VAppPanic::U256ParseError)?;
+
+                    // Check that the punishment is less than the max price.
+                    let max_price = max_price_per_pgu * U256::from(request.gas_limit) + base_fee;
+                    if punishment > max_price {
+                        return Err(
+                            VAppPanic::PunishmentExceedsMaxCost { punishment, max_price }.into()
+                        );
+                    }
+
+                    // Deduct the punishment from the requester.
+                    self.accounts.entry(request_signer).or_default().deduct_balance(punishment);
+
+                    return Ok(None);
+                }
+
                 // Validate that the execution status is successful.
-                debug!("validate execution status is successful");
+                //
+                // If this is true, then a prover should definitely be able to prove the request.
                 if execute.execution_status != ExecutionStatus::Executed as i32 {
                     return Err(
                         VAppPanic::ExecutionFailed { status: execute.execution_status }.into()
                     );
                 }
 
+                // Extract the fulfill body.
+                let fulfill = clear.fulfill.as_ref().ok_or(VAppPanic::MissingFulfill)?;
+                let fulfill_body = fulfill.body.as_ref().ok_or(VAppPanic::MissingProtoBody)?;
+
+                // Verify the signature of the fulfiller.
+                let fulfill_signer = proto_verify(fulfill_body, &fulfill.signature)
+                    .map_err(|_| VAppPanic::InvalidFulfillSignature)?;
+
+                // Verify the domain of the fulfill.
+                let fulfill_domain = B256::try_from(fulfill_body.domain.as_slice())
+                    .map_err(|_| VAppPanic::DomainDeserializationFailed)?;
+                if fulfill_domain != self.domain {
+                    return Err(VAppPanic::DomainMismatch {
+                        expected: self.domain,
+                        actual: fulfill_domain,
+                    }
+                    .into());
+                }
+
+                // Validate that the fulfill request ID matches the request ID.
+                let fulfill_request_id = fulfill_body.request_id.clone();
+                if fulfill_request_id != request_id {
+                    return Err(VAppPanic::RequestIdMismatch {
+                        found: address(&fulfill_request_id)?,
+                        expected: address(&request_id)?,
+                    }
+                    .into());
+                }
+
+                // Extract the public values hash from the execute or the request.
+                //
+                // If the request has a public values hash, then it must match the execute public
+                // values hash as well.
+                let execute_public_values_hash: [u8; 32] = execute
+                    .public_values_hash
+                    .as_ref()
+                    .ok_or(VAppPanic::MissingPublicValuesHash)?
+                    .as_slice()
+                    .try_into()
+                    .map_err(|_| VAppPanic::FailedToParseBytes)?;
+                let public_values_hash: [u8; 32] = match &request.public_values_hash {
+                    Some(hash) => {
+                        let request_public_values_hash = hash
+                            .as_slice()
+                            .try_into()
+                            .map_err(|_| VAppPanic::FailedToParseBytes)?;
+                        if request_public_values_hash != execute_public_values_hash {
+                            return Err(VAppPanic::PublicValuesHashMismatch.into());
+                        }
+                        request_public_values_hash
+                    }
+                    None => execute_public_values_hash,
+                };
+
                 // Verify the proof.
-                debug!("verify proof");
-                let mode = ProofMode::try_from(request.mode)
-                    .map_err(|_| VAppPanic::UnsupportedProofMode { mode: request.mode })?;
                 let vk = bytes_to_words_be(
                     &request
                         .vk_hash
@@ -529,18 +608,8 @@ impl<A: Storage<Address, Account>, R: Storage<RequestId, bool>> VAppState<A, R> 
                         .try_into()
                         .map_err(|_| VAppPanic::FailedToParseBytes)?,
                 )?;
-                let public_values_hash: [u8; 32] = match &request.public_values_hash {
-                    Some(hash) => {
-                        hash.as_slice().try_into().map_err(|_| VAppPanic::FailedToParseBytes)?
-                    }
-                    None => execute
-                        .public_values_hash
-                        .as_ref()
-                        .ok_or(VAppPanic::MissingPublicValuesHash)?
-                        .as_slice()
-                        .try_into()
-                        .map_err(|_| VAppPanic::FailedToParseBytes)?,
-                };
+                let mode = ProofMode::try_from(request.mode)
+                    .map_err(|_| VAppPanic::UnsupportedProofMode { mode: request.mode })?;
                 match mode {
                     ProofMode::Compressed => {
                         let verifier = V::default();
@@ -549,13 +618,12 @@ impl<A: Storage<Address, Account>, R: Storage<RequestId, bool>> VAppState<A, R> 
                             .map_err(|_| VAppPanic::InvalidProof)?;
                     }
                     ProofMode::Groth16 | ProofMode::Plonk => {
-                        // Verify the signature of the verifier signing the fulfillment.
-                        let fulfill_signer = proto_verify(fulfill, &clear.fulfill.signature)
-                            .map_err(|_| VAppPanic::InvalidFulfillSignature)?;
-                        let fulfillment_id = fulfill
+                        let verify =
+                            clear.verify.as_ref().ok_or(VAppPanic::MissingVerifierSignature)?;
+                        let fulfillment_id = fulfill_body
                             .hash_with_signer(fulfill_signer.as_slice())
                             .map_err(|_| VAppPanic::HashingBodyFailed)?;
-                        let verifier = eth_sign_verify(&fulfillment_id, &clear.verify)
+                        let verifier = eth_sign_verify(&fulfillment_id, verify)
                             .map_err(|_| VAppPanic::InvalidVerifierSignature)?;
                         if verifier != self.verifier {
                             return Err(VAppPanic::InvalidVerifierSignature.into());
@@ -566,21 +634,11 @@ impl<A: Storage<Address, Account>, R: Storage<RequestId, bool>> VAppState<A, R> 
                     }
                 }
 
-                // Parse the bid price.
-                debug!("parse bid price");
-                let price = bid
-                    .amount
-                    .parse::<U256>()
-                    .map_err(|_| VAppPanic::InvalidBidAmount { amount: bid.amount.clone() })?;
-
                 // Calculate the cost of the proof.
-                // TODO(jtguibas): rename to gas_used to pgus
-                debug!("calculate cost of proof");
                 let pgus = execute.pgus.ok_or(VAppPanic::MissingPgusUsed)?;
-                let cost = price * U256::from(pgus);
+                let cost = price * U256::from(pgus) + base_fee;
 
                 // Validate that the execute gas_used was lower than the request gas_limit.
-                debug!("validate execute gas_used was lower than request gas_limit");
                 if pgus > request.gas_limit {
                     return Err(
                         VAppPanic::GasLimitExceeded { pgus, gas_limit: request.gas_limit }.into()
@@ -588,7 +646,6 @@ impl<A: Storage<Address, Account>, R: Storage<RequestId, bool>> VAppState<A, R> 
                 }
 
                 // Ensure the user can afford the cost of the proof.
-                debug!("ensure user can afford cost of proof");
                 let account = self
                     .accounts
                     .get(&request_signer)
@@ -603,9 +660,10 @@ impl<A: Storage<Address, Account>, R: Storage<RequestId, bool>> VAppState<A, R> 
                 }
 
                 // Log the clear event.
-                debug!("log clear event");
                 let request_id: [u8; 32] = clear
                     .fulfill
+                    .as_ref()
+                    .ok_or(VAppPanic::MissingFulfill)?
                     .body
                     .as_ref()
                     .ok_or(VAppPanic::MissingProtoBody)?
@@ -626,23 +684,17 @@ impl<A: Storage<Address, Account>, R: Storage<RequestId, bool>> VAppState<A, R> 
                 info!("├── Requester Fee = {} PGUs × {} $PROVE/PGU = {} $PROVE", pgus, price, cost);
 
                 // Mark request as consumed before processing payment.
-                debug!("mark request as consumed before processing payment");
                 self.requests.entry(request_id).or_insert(true);
 
                 // Deduct the cost from the requester.
                 info!("├── Account({}): - {} $PROVE (Requester Fee)", request_signer, cost);
                 self.accounts.entry(request_signer).or_default().deduct_balance(cost);
 
-                // Deposit the cost into the protocol, prover vault, and prover owner.
-                debug!("deposit cost into protocol, prover vault, and prover owner");
-
                 // Get the protocol fee.
-                debug!("get protocol fee");
                 let protocol_address = self.treasury;
-                let protocol_fee_bips = U256::from(30); // 0.3%
+                let protocol_fee_bips = U256::from(0);
 
                 // Get the staker fee from the prover account.
-                debug!("get staker fee from prover account");
                 let prover_account = self
                     .accounts
                     .get(&prover_address)
@@ -650,7 +702,6 @@ impl<A: Storage<Address, Account>, R: Storage<RequestId, bool>> VAppState<A, R> 
                 let staker_fee_bips = prover_account.get_staker_fee_bips();
 
                 // Calculate the fee split for the protocol, prover vault stakers, and prover owner.
-                debug!("calculate fee split for protocol, prover vault stakers, and prover owner");
                 let (protocol_fee, prover_staker_fee, prover_owner_fee) =
                     fee(cost, protocol_fee_bips, staker_fee_bips);
 
@@ -837,6 +888,8 @@ mod tests {
             executor: test.executor.address().to_vec(),
             verifier: test.verifier.address().to_vec(),
             public_values_hash: None,
+            base_fee: "0".to_string(),
+            max_price_per_pgu: "1000000000000000000".to_string(),
         };
         let proof = vec![
             17, 182, 160, 157, 40, 242, 129, 34, 129, 204, 131, 191, 247, 169, 187, 69, 119, 90,
@@ -1032,6 +1085,8 @@ mod tests {
             executor: test.executor.address().to_vec(),
             verifier: test.verifier.address().to_vec(),
             public_values_hash: None,
+            base_fee: "0".to_string(),
+            max_price_per_pgu: "1000000000000000000".to_string(),
         };
 
         let clear_event1 = clear_vapp_event(
@@ -1062,7 +1117,7 @@ mod tests {
         );
         assert_eq!(
             test.state.accounts.get(&delegated_prover1_signer.address()).unwrap().get_balance(),
-            U256::from(99700000)
+            U256::from(100000000)
         );
     }
 
