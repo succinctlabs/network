@@ -12,9 +12,9 @@ use crate::{
 
 /// Result of executing a vApp transaction.
 pub enum VAppExecutionResult {
-    /// Transaction executed successfully, optionally producing a receipt.
+    /// Transaction execution succeeded, optionally producing a receipt.
     Success(Option<VAppReceipt>),
-    /// Transaction reverted with error, optionally producing a partial receipt.
+    /// Transaction execution reverted, optionally producing a receipt.
     Revert((Option<VAppReceipt>, VAppRevert)),
 }
 
