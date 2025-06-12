@@ -152,12 +152,12 @@ contract SuccinctVApp is
     //////////////////////////////////////////////////////////////*/
 
     /// @inheritdoc ISuccinctVApp
-    function root() public view override returns (bytes32) {
+    function root() external view override returns (bytes32) {
         return roots[blockNumber];
     }
 
     /// @inheritdoc ISuccinctVApp
-    function timestamp() public view override returns (uint64) {
+    function timestamp() external view override returns (uint64) {
         return timestamps[blockNumber];
     }
 
@@ -395,19 +395,19 @@ contract SuccinctVApp is
             // Increment the finalized onchain transaction ID.
             uint64 onchainTxId = ++finalizedOnchainTxId;
 
-            // Ensure that the receipt is consistent with the transaction.
-            Receipts.assertEq(transactions[onchainTxId], _publicValues.receipts[i]);
-
             // Ensure that the receipt is the next one to be processed.
             if (onchainTxId != _publicValues.receipts[i].onchainTxId) {
-                revert ReceiptOutOfOrder();
+                revert ReceiptOutOfOrder(onchainTxId, _publicValues.receipts[i].onchainTxId);
             }
 
             // Ensure that the receipt has of the expected statuses.
             TransactionStatus status = _publicValues.receipts[i].status;
             if (status == TransactionStatus.None || status == TransactionStatus.Pending) {
-                revert ReceiptStatusInvalid();
+                revert ReceiptStatusInvalid(status);
             }
+
+            // Ensure that the receipt is consistent with the transaction.
+            Receipts.assertEq(transactions[onchainTxId], _publicValues.receipts[i]);
 
             // Update the transaction status.
             transactions[onchainTxId].status = status;

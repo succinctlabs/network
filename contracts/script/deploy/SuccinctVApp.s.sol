@@ -47,7 +47,7 @@ contract SuccinctVAppScript is BaseScript, FixtureLoader {
 
         // Deploy contract
         address vappImpl = address(new SuccinctVApp{salt: salt}());
-        SuccinctVApp(payable(PROXY)).upgradeToAndCall(address(vappImpl), "");
+        SuccinctVApp(payable(PROXY)).upgradeToAndCall(vappImpl, "");
 
         // Proxy adress is still the same
     }
