@@ -5,7 +5,18 @@
 use alloy_sol_types::SolValue;
 use serde::{Deserialize, Serialize};
 
-use crate::sol::{CreateProver, Deposit, Receipt, TransactionStatus, TransactionVariant, Withdraw};
+use crate::{
+    errors::VAppRevert,
+    sol::{CreateProver, Deposit, Receipt, TransactionStatus, TransactionVariant, Withdraw},
+};
+
+/// Result of executing a vApp transaction.
+pub enum VAppExecutionResult {
+    /// Transaction executed successfully, optionally producing a receipt.
+    Success(Option<VAppReceipt>),
+    /// Transaction reverted with error, optionally producing a partial receipt.
+    Revert((Option<VAppReceipt>, VAppRevert)),
+}
 
 /// `VApp` Receipts represent the succesful execution of a [`crate::transactions::VAppTransaction`].
 ///

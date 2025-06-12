@@ -21,9 +21,6 @@ pub enum VAppError {
 pub enum VAppRevert {
     #[error("Insufficient balance for withdrawal: {account}: {amount} > {balance}")]
     InsufficientBalance { account: Address, amount: U256, balance: U256 },
-
-    #[error("Account does not exist: {prover}")]
-    ProverDoesNotExist { prover: Address },
 }
 
 /// An unrecoverable error that will prevent a transaction from being included in the ledger.
@@ -154,6 +151,12 @@ pub enum VAppPanic {
 
     #[error("Public values hash mismatch")]
     PublicValuesHashMismatch,
+
+    #[error("Prover does not exist: {prover}")]
+    ProverDoesNotExist { prover: Address },
+
+    #[error("Generic error: {0}")]
+    Generic(String),
 }
 
 impl From<VAppRevert> for VAppError {
@@ -165,6 +168,19 @@ impl From<VAppRevert> for VAppError {
 impl From<VAppPanic> for VAppError {
     fn from(err: VAppPanic) -> Self {
         VAppError::Panic(err)
+    }
+}
+
+impl From<VAppError> for VAppPanic {
+    fn from(err: VAppError) -> Self {
+        match err {
+            VAppError::Panic(panic) => panic,
+            VAppError::Revert(revert) => {
+                // Convert revert to panic - this represents a critical error
+                // where a revert condition became a panic
+                VAppPanic::Generic(format!("Revert escalated to panic: {}", revert))
+            }
+        }
     }
 }
 

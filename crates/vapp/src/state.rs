@@ -13,7 +13,7 @@ use crate::{
     errors::{VAppError, VAppPanic, VAppRevert},
     fee::fee,
     merkle::{MerkleStorage, MerkleTreeHasher},
-    receipts::{OnchainReceipt, VAppReceipt},
+    receipts::{OnchainReceipt, VAppExecutionResult, VAppReceipt},
     signing::{eth_sign_verify, proto_verify},
     sol::{Account, TransactionStatus, VAppStateContainer},
     sparse::SparseStorage,
@@ -184,7 +184,7 @@ impl<A: Storage<Address, Account>, R: Storage<RequestId, bool>> VAppState<A, R> 
     pub fn execute<V: VAppVerifier>(
         &mut self,
         event: &VAppTransaction,
-    ) -> Result<Option<VAppReceipt>, VAppError> {
+    ) -> Result<VAppExecutionResult, VAppPanic> {
         let action = match event {
             VAppTransaction::Deposit(deposit) => {
                 // Log the deposit event.
@@ -211,11 +211,11 @@ impl<A: Storage<Address, Account>, R: Storage<RequestId, bool>> VAppState<A, R> 
                     .add_balance(deposit.action.amount);
 
                 // Return the deposit action.
-                Ok(Some(VAppReceipt::Deposit(OnchainReceipt {
+                Ok(VAppExecutionResult::Success(Some(VAppReceipt::Deposit(OnchainReceipt {
                     onchain_tx_id: deposit.onchain_tx,
                     action: deposit.action.clone(),
                     status: TransactionStatus::Completed,
-                })))
+                }))))
             }
             VAppTransaction::Withdraw(withdraw) => {
                 // Log the withdraw event.
@@ -239,12 +239,16 @@ impl<A: Storage<Address, Account>, R: Storage<RequestId, bool>> VAppState<A, R> 
                     balance
                 } else {
                     if balance < withdraw.action.amount {
-                        return Err(VAppRevert::InsufficientBalance {
-                            account: withdraw.action.account,
-                            amount: withdraw.action.amount,
-                            balance,
-                        }
-                        .into());
+                        // Increment tx_id before returning.
+                        self.tx_id += 1;
+                        return Ok(VAppExecutionResult::Revert((
+                            None,
+                            VAppRevert::InsufficientBalance {
+                                account: withdraw.action.account,
+                                amount: withdraw.action.amount,
+                                balance,
+                            },
+                        )));
                     }
                     withdraw.action.amount
                 };
@@ -254,11 +258,11 @@ impl<A: Storage<Address, Account>, R: Storage<RequestId, bool>> VAppState<A, R> 
                 account.deduct_balance(withdrawal_amount);
 
                 // Return the withdraw action.
-                Ok(Some(VAppReceipt::Withdraw(OnchainReceipt {
+                Ok(VAppExecutionResult::Success(Some(VAppReceipt::Withdraw(OnchainReceipt {
                     onchain_tx_id: withdraw.onchain_tx,
                     action: withdraw.action.clone(),
                     status: TransactionStatus::Completed,
-                })))
+                }))))
             }
             VAppTransaction::CreateProver(prover) => {
                 // Log the set delegated signer event.
@@ -287,11 +291,11 @@ impl<A: Storage<Address, Account>, R: Storage<RequestId, bool>> VAppState<A, R> 
                     .set_staker_fee_bips(prover.action.stakerFeeBips);
 
                 // Return the set delegated signer action.
-                Ok(Some(VAppReceipt::CreateProver(OnchainReceipt {
+                Ok(VAppExecutionResult::Success(Some(VAppReceipt::CreateProver(OnchainReceipt {
                     action: prover.action.clone(),
                     onchain_tx_id: prover.onchain_tx,
                     status: TransactionStatus::Completed,
-                })))
+                }))))
             }
             VAppTransaction::Delegate(delegation) => {
                 // Log the delegation event.
@@ -327,7 +331,7 @@ impl<A: Storage<Address, Account>, R: Storage<RequestId, bool>> VAppState<A, R> 
                 // Verify that the prover exists.
                 debug!("verify prover exists");
                 let Some(prover) = self.accounts.get_mut(&prover) else {
-                    return Err(VAppRevert::ProverDoesNotExist { prover }.into());
+                    return Err(VAppPanic::ProverDoesNotExist { prover }.into());
                 };
 
                 // Verify that the signer of the delegation is the owner of the prover.
@@ -346,7 +350,7 @@ impl<A: Storage<Address, Account>, R: Storage<RequestId, bool>> VAppState<A, R> 
                 prover.set_signer(delegate);
 
                 // No action returned since delegation is off-chain.
-                Ok(None)
+                Ok(VAppExecutionResult::Success(None))
             }
             VAppTransaction::Transfer(transfer) => {
                 // Log the transfer event.
@@ -396,7 +400,7 @@ impl<A: Storage<Address, Account>, R: Storage<RequestId, bool>> VAppState<A, R> 
                 info!("├── Account({}): + {} $PROVE", to, amount);
                 self.accounts.entry(to).or_default().add_balance(amount);
 
-                Ok(None)
+                Ok(VAppExecutionResult::Success(None))
             }
             VAppTransaction::Clear(clear) => {
                 // Make sure the proto bodies are present for (request, bid, settle, execute).
@@ -534,7 +538,9 @@ impl<A: Storage<Address, Account>, R: Storage<RequestId, bool>> VAppState<A, R> 
                     // Deduct the punishment from the requester.
                     self.accounts.entry(request_signer).or_default().deduct_balance(punishment);
 
-                    return Ok(None);
+                    // Increment tx_id before returning.
+                    self.tx_id += 1;
+                    return Ok(VAppExecutionResult::Success(None));
                 }
 
                 // Validate that the execution status is successful.
@@ -723,7 +729,7 @@ impl<A: Storage<Address, Account>, R: Storage<RequestId, bool>> VAppState<A, R> 
                 );
                 self.accounts.entry(prover_owner).or_default().add_balance(prover_owner_fee);
 
-                Ok(None)
+                Ok(VAppExecutionResult::Success(None))
             }
         };
 
