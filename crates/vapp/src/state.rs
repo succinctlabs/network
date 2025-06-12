@@ -181,10 +181,35 @@ impl<A: Storage<Address, Account>, R: Storage<RequestId, bool>> VAppState<A, R> 
 
     /// Executes an [`VAppTransaction`] and returns an optional [`VAppReceipt`].
     #[allow(clippy::too_many_lines)]
+    /// Helper function to convert VAppError to VAppExecutionResult and increment tx_id.
+    fn finalize_execution(&mut self, result: Result<Option<VAppReceipt>, VAppError>) -> Result<VAppExecutionResult, VAppPanic> {
+        self.tx_id += 1;
+        match result {
+            Ok(receipt) => Ok(VAppExecutionResult::Success(receipt)),
+            Err(VAppError::Revert(revert)) => Ok(VAppExecutionResult::Revert((None, revert))),
+            Err(VAppError::Panic(panic)) => Err(panic),
+        }
+    }
+
+    /// Executes a [`VAppTransaction`] and returns a [`VAppExecutionResult`].
+    ///
+    /// Returns `Ok(VAppExecutionResult::Success)` for successful execution,
+    /// `Ok(VAppExecutionResult::Revert)` for recoverable errors that should be included in the ledger,
+    /// or `Err(VAppPanic)` for unrecoverable errors that should not be included in the ledger.
     pub fn execute<V: VAppVerifier>(
         &mut self,
         event: &VAppTransaction,
     ) -> Result<VAppExecutionResult, VAppPanic> {
+        let result = self.execute_internal::<V>(event);
+        self.finalize_execution(result)
+    }
+
+    /// Internal execution function that returns the original VAppError types.
+    #[allow(clippy::too_many_lines)]
+    fn execute_internal<V: VAppVerifier>(
+        &mut self,
+        event: &VAppTransaction,
+    ) -> Result<Option<VAppReceipt>, VAppError> {
         let action = match event {
             VAppTransaction::Deposit(deposit) => {
                 // Log the deposit event.
@@ -211,11 +236,11 @@ impl<A: Storage<Address, Account>, R: Storage<RequestId, bool>> VAppState<A, R> 
                     .add_balance(deposit.action.amount);
 
                 // Return the deposit action.
-                Ok(VAppExecutionResult::Success(Some(VAppReceipt::Deposit(OnchainReceipt {
+                Ok(Some(VAppReceipt::Deposit(OnchainReceipt {
                     onchain_tx_id: deposit.onchain_tx,
                     action: deposit.action.clone(),
                     status: TransactionStatus::Completed,
-                }))))
+                })))
             }
             VAppTransaction::Withdraw(withdraw) => {
                 // Log the withdraw event.
@@ -239,16 +264,11 @@ impl<A: Storage<Address, Account>, R: Storage<RequestId, bool>> VAppState<A, R> 
                     balance
                 } else {
                     if balance < withdraw.action.amount {
-                        // Increment tx_id before returning.
-                        self.tx_id += 1;
-                        return Ok(VAppExecutionResult::Revert((
-                            None,
-                            VAppRevert::InsufficientBalance {
-                                account: withdraw.action.account,
-                                amount: withdraw.action.amount,
-                                balance,
-                            },
-                        )));
+                        return Err(VAppRevert::InsufficientBalance {
+                            account: withdraw.action.account,
+                            amount: withdraw.action.amount,
+                            balance,
+                        }.into());
                     }
                     withdraw.action.amount
                 };
@@ -258,11 +278,11 @@ impl<A: Storage<Address, Account>, R: Storage<RequestId, bool>> VAppState<A, R> 
                 account.deduct_balance(withdrawal_amount);
 
                 // Return the withdraw action.
-                Ok(VAppExecutionResult::Success(Some(VAppReceipt::Withdraw(OnchainReceipt {
+                Ok(Some(VAppReceipt::Withdraw(OnchainReceipt {
                     onchain_tx_id: withdraw.onchain_tx,
                     action: withdraw.action.clone(),
                     status: TransactionStatus::Completed,
-                }))))
+                })))
             }
             VAppTransaction::CreateProver(prover) => {
                 // Log the set delegated signer event.
@@ -291,11 +311,11 @@ impl<A: Storage<Address, Account>, R: Storage<RequestId, bool>> VAppState<A, R> 
                     .set_staker_fee_bips(prover.action.stakerFeeBips);
 
                 // Return the set delegated signer action.
-                Ok(VAppExecutionResult::Success(Some(VAppReceipt::CreateProver(OnchainReceipt {
+                Ok(Some(VAppReceipt::CreateProver(OnchainReceipt {
                     action: prover.action.clone(),
                     onchain_tx_id: prover.onchain_tx,
                     status: TransactionStatus::Completed,
-                }))))
+                })))
             }
             VAppTransaction::Delegate(delegation) => {
                 // Log the delegation event.
@@ -350,7 +370,7 @@ impl<A: Storage<Address, Account>, R: Storage<RequestId, bool>> VAppState<A, R> 
                 prover.set_signer(delegate);
 
                 // No action returned since delegation is off-chain.
-                Ok(VAppExecutionResult::Success(None))
+                Ok(None)
             }
             VAppTransaction::Transfer(transfer) => {
                 // Log the transfer event.
@@ -400,7 +420,7 @@ impl<A: Storage<Address, Account>, R: Storage<RequestId, bool>> VAppState<A, R> 
                 info!("├── Account({}): + {} $PROVE", to, amount);
                 self.accounts.entry(to).or_default().add_balance(amount);
 
-                Ok(VAppExecutionResult::Success(None))
+                Ok(None)
             }
             VAppTransaction::Clear(clear) => {
                 // Make sure the proto bodies are present for (request, bid, settle, execute).
@@ -538,9 +558,7 @@ impl<A: Storage<Address, Account>, R: Storage<RequestId, bool>> VAppState<A, R> 
                     // Deduct the punishment from the requester.
                     self.accounts.entry(request_signer).or_default().deduct_balance(punishment);
 
-                    // Increment tx_id before returning.
-                    self.tx_id += 1;
-                    return Ok(VAppExecutionResult::Success(None));
+                    return Ok(None);
                 }
 
                 // Validate that the execution status is successful.
@@ -729,12 +747,9 @@ impl<A: Storage<Address, Account>, R: Storage<RequestId, bool>> VAppState<A, R> 
                 );
                 self.accounts.entry(prover_owner).or_default().add_balance(prover_owner_fee);
 
-                Ok(VAppExecutionResult::Success(None))
+                Ok(None)
             }
         };
-
-        // Increment the step.
-        self.tx_id += 1;
 
         action
     }

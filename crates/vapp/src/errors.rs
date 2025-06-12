@@ -154,9 +154,6 @@ pub enum VAppPanic {
 
     #[error("Prover does not exist: {prover}")]
     ProverDoesNotExist { prover: Address },
-
-    #[error("Generic error: {0}")]
-    Generic(String),
 }
 
 impl From<VAppRevert> for VAppError {
@@ -171,18 +168,6 @@ impl From<VAppPanic> for VAppError {
     }
 }
 
-impl From<VAppError> for VAppPanic {
-    fn from(err: VAppError) -> Self {
-        match err {
-            VAppError::Panic(panic) => panic,
-            VAppError::Revert(revert) => {
-                // Convert revert to panic - this represents a critical error
-                // where a revert condition became a panic
-                VAppPanic::Generic(format!("Revert escalated to panic: {}", revert))
-            }
-        }
-    }
-}
 
 impl StdError for VAppError {
     fn source(&self) -> Option<&(dyn StdError + 'static)> {
