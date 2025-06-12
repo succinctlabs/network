@@ -4,10 +4,10 @@
 
 use alloy_primitives::Address;
 
-use crate::errors::{VAppError, VAppPanic};
+use crate::errors::VAppPanic;
 
 /// Converts a 32-byte array to a 8-word array in big-endian order.
-pub fn bytes_to_words_be(bytes: &[u8; 32]) -> Result<[u32; 8], VAppError> {
+pub fn bytes_to_words_be(bytes: &[u8; 32]) -> Result<[u32; 8], VAppPanic> {
     let mut words = [0u32; 8];
     for i in 0..8 {
         let chunk: [u8; 4] =
@@ -18,8 +18,8 @@ pub fn bytes_to_words_be(bytes: &[u8; 32]) -> Result<[u32; 8], VAppError> {
 }
 
 /// Converts a byte array to an address.
-pub fn address(bytes: &[u8]) -> Result<Address, VAppError> {
-    Address::try_from(bytes).map_err(|_| VAppPanic::AddressDeserializationFailed.into())
+pub fn address(bytes: &[u8]) -> Result<Address, VAppPanic> {
+    Address::try_from(bytes).map_err(|_| VAppPanic::AddressDeserializationFailed)
 }
 
 /// Test utilities for creating and verifying signatures.

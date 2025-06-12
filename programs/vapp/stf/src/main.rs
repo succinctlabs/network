@@ -7,7 +7,6 @@ use sp1_zkvm::lib::verify::verify_sp1_proof;
 use spn_vapp_core::{
     input::VAppStfInput,
     merkle::MerkleStorage,
-    receipts::VAppExecutionResult,
     sol::StepPublicValues,
     verifier::{VAppVerifier, VAppVerifierError},
 };
@@ -54,18 +53,12 @@ pub fn main() {
     for (pos, tx) in input.txs {
         let action = state.execute::<SP1RecursiveVerifier>(&tx);
         match action {
-            Ok(VAppExecutionResult::Success(Some(receipt))) => {
+            Ok(Some(receipt)) => {
                 println!("tx {} processed", pos);
                 receipts.push(receipt);
             }
-            Ok(VAppExecutionResult::Success(None)) => {
+            Ok(None) => {
                 println!("tx {} processed", pos);
-            }
-            Ok(VAppExecutionResult::Revert((receipt, revert))) => {
-                println!("tx {} reverted: {:?}", pos, revert);
-                if let Some(receipt) = receipt {
-                    receipts.push(receipt);
-                }
             }
             Err(panic) => {
                 panic!("tx {} panicked: {:?}", pos, panic);

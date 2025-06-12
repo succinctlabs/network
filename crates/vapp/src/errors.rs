@@ -3,7 +3,6 @@
 //! This module contains error types that can be emitted by the crate.
 
 use alloy_primitives::{ruint::ParseError, Address, B256, U256};
-use std::error::Error as StdError;
 use thiserror::Error;
 
 /// An unrecoverable error that will prevent a transaction from being included in the ledger.
@@ -137,28 +136,4 @@ pub enum VAppPanic {
 
     #[error("Prover does not exist: {prover}")]
     ProverDoesNotExist { prover: Address },
-}
-
-impl From<VAppPanic> for VAppError {
-    fn from(err: VAppPanic) -> Self {
-        VAppError::Panic(err)
-    }
-}
-
-impl StdError for VAppError {
-    fn source(&self) -> Option<&(dyn StdError + 'static)> {
-        match self {
-            VAppError::Revert(err) => Some(err),
-            VAppError::Panic(err) => Some(err),
-        }
-    }
-}
-
-impl std::fmt::Display for VAppError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            VAppError::Revert(err) => write!(f, "VApp Revert: {err}"),
-            VAppError::Panic(err) => write!(f, "VApp Panic: {err}"),
-        }
-    }
 }

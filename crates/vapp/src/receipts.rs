@@ -5,10 +5,7 @@
 use alloy_sol_types::SolValue;
 use serde::{Deserialize, Serialize};
 
-use crate::{
-    sol::{CreateProver, Deposit, Receipt, TransactionStatus, TransactionVariant, Withdraw},
-};
-
+use crate::sol::{CreateProver, Deposit, Receipt, TransactionStatus, TransactionVariant, Withdraw};
 
 /// `VApp` Receipts represent the succesful execution of a [`crate::transactions::VAppTransaction`].
 ///

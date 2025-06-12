@@ -10,7 +10,7 @@ use tracing::{debug, info};
 use spn_network_types::{ExecutionStatus, HashableWithSender, ProofMode};
 
 use crate::{
-    errors::{VAppError, VAppPanic},
+    errors::VAppPanic,
     fee::fee,
     merkle::{MerkleStorage, MerkleTreeHasher},
     receipts::{OnchainReceipt, VAppReceipt},
@@ -148,14 +148,13 @@ impl<A: Storage<Address, Account>, R: Storage<RequestId, bool>> VAppState<A, R> 
         &self,
         event: &OnchainTransaction<T>,
         l1_tx: u64,
-    ) -> Result<(), VAppError> {
+    ) -> Result<(), VAppPanic> {
         debug!("check l1 tx is not out of order");
         if l1_tx != self.onchain_tx_id {
             return Err(VAppPanic::OnchainTxOutOfOrder {
                 expected: self.onchain_tx_id,
                 actual: l1_tx,
-            }
-            .into());
+            });
         }
 
         debug!("check l1 block is not out of order");
@@ -163,8 +162,7 @@ impl<A: Storage<Address, Account>, R: Storage<RequestId, bool>> VAppState<A, R> 
             return Err(VAppPanic::BlockNumberOutOfOrder {
                 expected: self.onchain_block,
                 actual: event.block,
-            }
-            .into());
+            });
         }
 
         debug!("check l1 log index is not out of order");
@@ -172,31 +170,18 @@ impl<A: Storage<Address, Account>, R: Storage<RequestId, bool>> VAppState<A, R> 
             return Err(VAppPanic::LogIndexOutOfOrder {
                 current: self.onchain_log_index,
                 next: event.log_index,
-            }
-            .into());
+            });
         }
 
         Ok(())
     }
 
     /// Executes a [`VAppTransaction`] and returns an optional [`VAppReceipt`].
+    #[allow(clippy::too_many_lines)]
     pub fn execute<V: VAppVerifier>(
         &mut self,
         event: &VAppTransaction,
     ) -> Result<Option<VAppReceipt>, VAppPanic> {
-        let result = self.validate_execution::<V>(event)?;
-
-        self.tx_id += 1;
-
-        Ok(result)
-    }
-
-    /// Internal execution function that returns the original VAppError types.
-    #[allow(clippy::too_many_lines)]
-    fn validate_execution<V: VAppVerifier>(
-        &mut self,
-        event: &VAppTransaction,
-    ) -> Result<Option<VAppReceipt>, VAppError> {
         let action = match event {
             VAppTransaction::Deposit(deposit) => {
                 // Log the deposit event.
@@ -735,6 +720,9 @@ impl<A: Storage<Address, Account>, R: Storage<RequestId, bool>> VAppState<A, R> 
             }
         };
 
+        // Increment the step.
+        self.tx_id += 1;
+
         action
     }
 }
@@ -742,7 +730,6 @@ impl<A: Storage<Address, Account>, R: Storage<RequestId, bool>> VAppState<A, R> 
 #[cfg(test)]
 mod tests {
     use crate::{
-        receipts::VAppExecutionResult,
         sol::{CreateProver, Deposit, Withdraw},
         transactions::{DelegateTransaction, OnchainTransaction, VAppTransaction},
         utils::tests::{
@@ -779,7 +766,7 @@ mod tests {
 
         // Assert the action
         match result {
-            VAppExecutionResult::Success(Some(action)) => match &action {
+            Some(action) => match &action {
                 VAppReceipt::Deposit(deposit) => {
                     assert_eq!(deposit.action.account, account);
                     assert_eq!(deposit.action.amount, U256::from(100));
@@ -825,7 +812,7 @@ mod tests {
 
         // Assert the action
         match action {
-            VAppExecutionResult::Success(Some(VAppReceipt::Withdraw(withdraw))) => {
+            Some(VAppReceipt::Withdraw(withdraw)) => {
                 assert_eq!(withdraw.action.account, account_address,);
                 assert_eq!(withdraw.action.amount, U256::from(100));
                 assert_eq!(withdraw.status, TransactionStatus::Completed);
@@ -1033,9 +1020,7 @@ mod tests {
         // Apply setup events.
         let mut action_count = 0;
         for event in events {
-            if let Ok(VAppExecutionResult::Success(Some(_))) =
-                test.state.execute::<MockVerifier>(&event)
-            {
+            if let Ok(Some(_)) = test.state.execute::<MockVerifier>(&event) {
                 action_count += 1;
             }
         }
@@ -1188,7 +1173,7 @@ mod tests {
             delegate_vapp_event(prover_owner, prover_address, delegate_address, 1);
         let result = test.state.execute::<MockVerifier>(&delegation_event).unwrap();
         match result {
-            VAppExecutionResult::Success(None) => {}
+            None => {}
             _ => panic!("Expected successful execution with no receipt"),
         }
 
