@@ -5,9 +5,9 @@ use alloy_primitives::Keccak256;
 use alloy_sol_types::SolType;
 use sp1_zkvm::lib::verify::verify_sp1_proof;
 use spn_vapp_core::{
-    errors::VAppError,
     input::VAppStfInput,
     merkle::MerkleStorage,
+    receipts::VAppExecutionResult,
     sol::StepPublicValues,
     verifier::{VAppVerifier, VAppVerifierError},
 };
@@ -54,17 +54,20 @@ pub fn main() {
     for (pos, tx) in input.txs {
         let action = state.execute::<SP1RecursiveVerifier>(&tx);
         match action {
-            Ok(Some(action)) => {
+            Ok(VAppExecutionResult::Success(Some(receipt))) => {
                 println!("tx {} processed", pos);
-                receipts.push(action);
+                receipts.push(receipt);
             }
-            Ok(None) => {
+            Ok(VAppExecutionResult::Success(None)) => {
                 println!("tx {} processed", pos);
             }
-            Err(VAppError::Revert(revert)) => {
+            Ok(VAppExecutionResult::Revert((receipt, revert))) => {
                 println!("tx {} reverted: {:?}", pos, revert);
+                if let Some(receipt) = receipt {
+                    receipts.push(receipt);
+                }
             }
-            Err(VAppError::Panic(panic)) => {
+            Err(panic) => {
                 panic!("tx {} panicked: {:?}", pos, panic);
             }
         }

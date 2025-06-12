@@ -189,13 +189,13 @@ impl<A: Storage<Address, Account>, R: Storage<RequestId, bool>> VAppState<A, R> 
         &mut self,
         event: &VAppTransaction,
     ) -> Result<VAppExecutionResult, VAppPanic> {
-        let result = self.execute_internal::<V>(event);
+        let result = self.validate_execution::<V>(event);
         self.finalize_execution(result)
     }
 
     /// Internal execution function that returns the original VAppError types.
     #[allow(clippy::too_many_lines)]
-    fn execute_internal<V: VAppVerifier>(
+    fn validate_execution<V: VAppVerifier>(
         &mut self,
         event: &VAppTransaction,
     ) -> Result<Option<VAppReceipt>, VAppError> {
@@ -765,6 +765,7 @@ impl<A: Storage<Address, Account>, R: Storage<RequestId, bool>> VAppState<A, R> 
 #[cfg(test)]
 mod tests {
     use crate::{
+        receipts::VAppExecutionResult,
         sol::{CreateProver, Deposit, Withdraw},
         transactions::{DelegateTransaction, OnchainTransaction, VAppTransaction},
         utils::tests::{
@@ -796,11 +797,12 @@ mod tests {
             action: Deposit { account, amount: U256::from(100) },
         });
 
-        let action = test.state.execute::<MockVerifier>(&event).unwrap();
+        let result = test.state.execute::<MockVerifier>(&event).unwrap();
         assert_eq!(test.state.accounts.get(&account).unwrap().get_balance(), U256::from(100),);
 
         // Assert the action
-        match &action.unwrap() {
+        match result {
+            VAppExecutionResult::Success(Some(action)) => match &action {
             VAppReceipt::Deposit(deposit) => {
                 assert_eq!(deposit.action.account, account);
                 assert_eq!(deposit.action.amount, U256::from(100));
