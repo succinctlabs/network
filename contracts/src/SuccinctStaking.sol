@@ -341,7 +341,7 @@ contract SuccinctStaking is
         if (amount > available) revert AmountExceedsAvailableDispense();
 
         // Update the timestamp based on the (possibly‐adjusted) amount
-        uint256 timeConsumed = amount / dispenseRate;
+        uint256 timeConsumed = (amount + dispenseRate - 1) / dispenseRate;
         lastDispenseTimestamp += timeConsumed;
 
         // Transfer the amount to the iPROVE vault. This distributes the $PROVE to all stakers.
