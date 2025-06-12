@@ -6,23 +6,6 @@ use alloy_primitives::{ruint::ParseError, Address, B256, U256};
 use std::error::Error as StdError;
 use thiserror::Error;
 
-/// The error that can be emitted during [`crate::state::VAppState::execute`].
-#[derive(Debug)]
-pub enum VAppError {
-    /// A recoverable error that will be recorded in the ledger.
-    Revert(VAppRevert),
-    /// Unrecoverable errors that will stop inclusion in the ledger.
-    Panic(VAppPanic),
-}
-
-/// A recoverable error that will be recorded in the ledger.
-#[derive(Debug, Error, PartialEq)]
-#[allow(missing_docs)]
-pub enum VAppRevert {
-    #[error("Insufficient balance for withdrawal: {account}: {amount} > {balance}")]
-    InsufficientBalance { account: Address, amount: U256, balance: U256 },
-}
-
 /// An unrecoverable error that will prevent a transaction from being included in the ledger.
 #[derive(Debug, Error, PartialEq)]
 #[allow(missing_docs)]
@@ -154,12 +137,6 @@ pub enum VAppPanic {
 
     #[error("Prover does not exist: {prover}")]
     ProverDoesNotExist { prover: Address },
-}
-
-impl From<VAppRevert> for VAppError {
-    fn from(err: VAppRevert) -> Self {
-        VAppError::Revert(err)
-    }
 }
 
 impl From<VAppPanic> for VAppError {

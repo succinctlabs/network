@@ -10,10 +10,10 @@ use tracing::{debug, info};
 use spn_network_types::{ExecutionStatus, HashableWithSender, ProofMode};
 
 use crate::{
-    errors::{VAppError, VAppPanic, VAppRevert},
+    errors::{VAppError, VAppPanic},
     fee::fee,
     merkle::{MerkleStorage, MerkleTreeHasher},
-    receipts::{OnchainReceipt, VAppExecutionResult, VAppReceipt},
+    receipts::{OnchainReceipt, VAppReceipt},
     signing::{eth_sign_verify, proto_verify},
     sol::{Account, TransactionStatus, VAppStateContainer},
     sparse::SparseStorage,
@@ -179,18 +179,16 @@ impl<A: Storage<Address, Account>, R: Storage<RequestId, bool>> VAppState<A, R> 
         Ok(())
     }
 
-    /// Executes a [`VAppTransaction`] and returns a [`VAppExecutionResult`].
-    ///
-    /// Returns `Ok(VAppExecutionResult::Success)` for successful execution that should be included
-    /// in the ledger, `Ok(VAppExecutionResult::Revert)` for recoverable errors that should be
-    /// included in the ledger, or `Err(VAppPanic)` for unrecoverable errors that should not be
-    /// included in the ledger.
+    /// Executes a [`VAppTransaction`] and returns an optional [`VAppReceipt`].
     pub fn execute<V: VAppVerifier>(
         &mut self,
         event: &VAppTransaction,
-    ) -> Result<VAppExecutionResult, VAppPanic> {
-        let result = self.validate_execution::<V>(event);
-        self.finalize_execution(result)
+    ) -> Result<Option<VAppReceipt>, VAppPanic> {
+        let result = self.validate_execution::<V>(event)?;
+
+        self.tx_id += 1;
+
+        Ok(result)
     }
 
     /// Internal execution function that returns the original VAppError types.
@@ -253,12 +251,12 @@ impl<A: Storage<Address, Account>, R: Storage<RequestId, bool>> VAppState<A, R> 
                     balance
                 } else {
                     if balance < withdraw.action.amount {
-                        return Err(VAppRevert::InsufficientBalance {
-                            account: withdraw.action.account,
-                            amount: withdraw.action.amount,
-                            balance,
-                        }
-                        .into());
+                        // Return the withdraw action with a reverted status.
+                        return Ok(Some(VAppReceipt::Withdraw(OnchainReceipt {
+                            onchain_tx_id: withdraw.onchain_tx,
+                            action: withdraw.action.clone(),
+                            status: TransactionStatus::Reverted,
+                        })))
                     }
                     withdraw.action.amount
                 };
@@ -738,27 +736,6 @@ impl<A: Storage<Address, Account>, R: Storage<RequestId, bool>> VAppState<A, R> 
         };
 
         action
-    }
-
-    /// Convert the result of an execution to a VAppExecutionResult and increment tx_id.
-    ///
-    /// Only increments tx_id for Success and Revert cases (which get included in the ledger).
-    /// Panic cases do not increment tx_id as they should not be included in the ledger.
-    fn finalize_execution(
-        &mut self,
-        result: Result<Option<VAppReceipt>, VAppError>,
-    ) -> Result<VAppExecutionResult, VAppPanic> {
-        match result {
-            Ok(receipt) => {
-                self.tx_id += 1;
-                Ok(VAppExecutionResult::Success(receipt))
-            }
-            Err(VAppError::Revert(revert)) => {
-                self.tx_id += 1;
-                Ok(VAppExecutionResult::Revert((None, revert)))
-            }
-            Err(VAppError::Panic(panic)) => Err(panic),
-        }
     }
 }
 
