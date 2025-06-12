@@ -1117,7 +1117,7 @@ mod tests {
         );
         assert_eq!(
             test.state.accounts.get(&delegated_prover1_signer.address()).unwrap().get_balance(),
-            U256::from(99700000)
+            U256::from(100000000)
         );
     }
 
