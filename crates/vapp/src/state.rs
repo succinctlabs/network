@@ -803,12 +803,14 @@ mod tests {
         // Assert the action
         match result {
             VAppExecutionResult::Success(Some(action)) => match &action {
-            VAppReceipt::Deposit(deposit) => {
-                assert_eq!(deposit.action.account, account);
-                assert_eq!(deposit.action.amount, U256::from(100));
-                assert_eq!(deposit.status, TransactionStatus::Completed);
-            }
-            _ => panic!("Expected a deposit action"),
+                VAppReceipt::Deposit(deposit) => {
+                    assert_eq!(deposit.action.account, account);
+                    assert_eq!(deposit.action.amount, U256::from(100));
+                    assert_eq!(deposit.status, TransactionStatus::Completed);
+                }
+                _ => panic!("Expected a deposit action"),
+            },
+            _ => panic!("Expected successful execution"),
         }
     }
 
@@ -845,13 +847,13 @@ mod tests {
         assert_eq!(test.state.accounts.get(&account_address).unwrap().get_balance(), U256::from(0),);
 
         // Assert the action
-        match &action.unwrap() {
-            VAppReceipt::Withdraw(withdraw) => {
+        match action {
+            VAppExecutionResult::Success(Some(VAppReceipt::Withdraw(withdraw))) => {
                 assert_eq!(withdraw.action.account, account_address,);
                 assert_eq!(withdraw.action.amount, U256::from(100));
                 assert_eq!(withdraw.status, TransactionStatus::Completed);
             }
-            _ => panic!("Expected a withdraw action"),
+            _ => panic!("Expected a successful withdraw action"),
         }
     }
 
@@ -1054,7 +1056,9 @@ mod tests {
         // Apply setup events.
         let mut action_count = 0;
         for event in events {
-            if let Ok(Some(_)) = test.state.execute::<MockVerifier>(&event) {
+            if let Ok(VAppExecutionResult::Success(Some(_))) =
+                test.state.execute::<MockVerifier>(&event)
+            {
                 action_count += 1;
             }
         }
@@ -1206,7 +1210,10 @@ mod tests {
         let delegation_event =
             delegate_vapp_event(prover_owner, prover_address, delegate_address, 1);
         let result = test.state.execute::<MockVerifier>(&delegation_event).unwrap();
-        assert!(result.is_none());
+        match result {
+            VAppExecutionResult::Success(None) => {}
+            _ => panic!("Expected successful execution with no receipt"),
+        }
 
         // Verify the delegate was added as a signer for the prover account
         let prover_account = test.state.accounts.get(&prover_address).unwrap();
@@ -1241,7 +1248,7 @@ mod tests {
             delegate_vapp_event(wrong_signer, prover_address, delegate_address, 1);
 
         let result = test.state.execute::<MockVerifier>(&delegation_event);
-        assert!(matches!(result, Err(VAppError::Panic(VAppPanic::OnlyOwnerCanDelegate))));
+        assert!(matches!(result, Err(VAppPanic::OnlyOwnerCanDelegate)));
     }
 
     #[test]
@@ -1271,7 +1278,7 @@ mod tests {
 
         // Should fail with domain mismatch
         let result = test.state.execute::<MockVerifier>(&delegation_event);
-        assert!(matches!(result, Err(VAppError::Panic(VAppPanic::DomainMismatch { .. }))));
+        assert!(matches!(result, Err(VAppPanic::DomainMismatch { .. })));
     }
 
     #[test]
@@ -1291,10 +1298,7 @@ mod tests {
 
         // Should fail with missing delegation
         let result = test.state.execute::<MockVerifier>(&delegation_event);
-        assert!(matches!(
-            result,
-            Err(crate::errors::VAppError::Panic(crate::errors::VAppPanic::MissingProtoBody))
-        ));
+        assert!(matches!(result, Err(crate::errors::VAppPanic::MissingProtoBody)));
     }
 
     #[test]
