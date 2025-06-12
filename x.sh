@@ -4,6 +4,11 @@
 set -e
 set -o pipefail
 
+# If you're not on Linux, warn that the ELF and VKey will be different.
+if [ "$(uname)" != "Linux" ]; then
+  echo "WARNING: You are not on Linux. The ELF and VKey will be different."
+fi
+
 # Parse command line arguments.
 USE_DOCKER=""
 while [[ $# -gt 0 ]]; do
