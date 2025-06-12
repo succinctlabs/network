@@ -224,7 +224,7 @@ impl<A: Storage<Address, Account>, R: Storage<RequestId, bool>> VAppState<A, R> 
                     onchain_tx_id: deposit.onchain_tx,
                     action: deposit.action.clone(),
                     status: TransactionStatus::Completed,
-                })))
+                })));
             }
             VAppTransaction::Withdraw(withdraw) => {
                 // Log the withdraw event.
@@ -267,7 +267,7 @@ impl<A: Storage<Address, Account>, R: Storage<RequestId, bool>> VAppState<A, R> 
                     onchain_tx_id: withdraw.onchain_tx,
                     action: withdraw.action.clone(),
                     status: TransactionStatus::Completed,
-                })))
+                })));
             }
             VAppTransaction::CreateProver(prover) => {
                 // Log the set delegated signer event.
@@ -300,7 +300,7 @@ impl<A: Storage<Address, Account>, R: Storage<RequestId, bool>> VAppState<A, R> 
                     action: prover.action.clone(),
                     onchain_tx_id: prover.onchain_tx,
                     status: TransactionStatus::Completed,
-                })))
+                })));
             }
             VAppTransaction::Delegate(delegation) => {
                 // Log the delegation event.
@@ -392,9 +392,7 @@ impl<A: Storage<Address, Account>, R: Storage<RequestId, bool>> VAppState<A, R> 
                 debug!("validate from account has sufficient balance");
                 let balance = self.accounts.entry(from).or_default().get_balance();
                 if balance < amount {
-                    return Err(
-                        VAppPanic::InsufficientBalance { account: from, amount, balance }
-                    );
+                    return Err(VAppPanic::InsufficientBalance { account: from, amount, balance });
                 }
 
                 // Transfer the amount from the transferer to the recipient.
@@ -451,9 +449,7 @@ impl<A: Storage<Address, Account>, R: Storage<RequestId, bool>> VAppState<A, R> 
                 //
                 // This check ensures that a request can't be used multiple times to pay a prover.
                 if self.requests.get(&request_id).copied().unwrap_or_default() {
-                    return Err(
-                        VAppPanic::RequestAlreadyFulfilled { id: hex::encode(request_id) }
-                    );
+                    return Err(VAppPanic::RequestAlreadyFulfilled { id: hex::encode(request_id) });
                 }
 
                 // Validate the the bidder has the right to bid on behalf of the prover.
@@ -507,9 +503,7 @@ impl<A: Storage<Address, Account>, R: Storage<RequestId, bool>> VAppState<A, R> 
                     request.max_price_per_pgu.parse::<U256>().map_err(VAppPanic::U256ParseError)?;
                 let price = bid.amount.parse::<U256>().map_err(VAppPanic::U256ParseError)?;
                 if price > max_price_per_pgu {
-                    return Err(
-                        VAppPanic::MaxPricePerPguExceeded { max_price_per_pgu, price }
-                    );
+                    return Err(VAppPanic::MaxPricePerPguExceeded { max_price_per_pgu, price });
                 }
 
                 // If the execution status is unexecutable, then punish the requester.
@@ -528,9 +522,7 @@ impl<A: Storage<Address, Account>, R: Storage<RequestId, bool>> VAppState<A, R> 
                     // Check that the punishment is less than the max price.
                     let max_price = max_price_per_pgu * U256::from(request.gas_limit) + base_fee;
                     if punishment > max_price {
-                        return Err(
-                            VAppPanic::PunishmentExceedsMaxCost { punishment, max_price }
-                        );
+                        return Err(VAppPanic::PunishmentExceedsMaxCost { punishment, max_price });
                     }
 
                     // Deduct the punishment from the requester.
@@ -543,9 +535,7 @@ impl<A: Storage<Address, Account>, R: Storage<RequestId, bool>> VAppState<A, R> 
                 //
                 // If this is true, then a prover should definitely be able to prove the request.
                 if execute.execution_status != ExecutionStatus::Executed as i32 {
-                    return Err(
-                        VAppPanic::ExecutionFailed { status: execute.execution_status }
-                    );
+                    return Err(VAppPanic::ExecutionFailed { status: execute.execution_status });
                 }
 
                 // Extract the fulfill body.
@@ -640,9 +630,7 @@ impl<A: Storage<Address, Account>, R: Storage<RequestId, bool>> VAppState<A, R> 
 
                 // Validate that the execute gas_used was lower than the request gas_limit.
                 if pgus > request.gas_limit {
-                    return Err(
-                        VAppPanic::GasLimitExceeded { pgus, gas_limit: request.gas_limit }
-                    );
+                    return Err(VAppPanic::GasLimitExceeded { pgus, gas_limit: request.gas_limit });
                 }
 
                 // Ensure the user can afford the cost of the proof.
