@@ -189,6 +189,7 @@ impl<A: Storage<Address, Account>, R: Storage<RequestId, bool>> VAppState<A, R> 
         Ok(action)
     }
 
+    #[allow(clippy::needless_return)]
     #[allow(clippy::too_many_lines)]
     fn execute_inner<V: VAppVerifier>(
         &mut self,
