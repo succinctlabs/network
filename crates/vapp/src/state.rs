@@ -179,23 +179,12 @@ impl<A: Storage<Address, Account>, R: Storage<RequestId, bool>> VAppState<A, R> 
         Ok(())
     }
 
-    /// Executes an [`VAppTransaction`] and returns an optional [`VAppReceipt`].
-    #[allow(clippy::too_many_lines)]
-    /// Helper function to convert VAppError to VAppExecutionResult and increment tx_id.
-    fn finalize_execution(&mut self, result: Result<Option<VAppReceipt>, VAppError>) -> Result<VAppExecutionResult, VAppPanic> {
-        self.tx_id += 1;
-        match result {
-            Ok(receipt) => Ok(VAppExecutionResult::Success(receipt)),
-            Err(VAppError::Revert(revert)) => Ok(VAppExecutionResult::Revert((None, revert))),
-            Err(VAppError::Panic(panic)) => Err(panic),
-        }
-    }
-
     /// Executes a [`VAppTransaction`] and returns a [`VAppExecutionResult`].
     ///
-    /// Returns `Ok(VAppExecutionResult::Success)` for successful execution,
-    /// `Ok(VAppExecutionResult::Revert)` for recoverable errors that should be included in the ledger,
-    /// or `Err(VAppPanic)` for unrecoverable errors that should not be included in the ledger.
+    /// Returns `Ok(VAppExecutionResult::Success)` for successful execution that should be included
+    /// in the ledger, `Ok(VAppExecutionResult::Revert)` for recoverable errors that should be
+    /// included in the ledger, or `Err(VAppPanic)` for unrecoverable errors that should not be
+    /// included in the ledger.
     pub fn execute<V: VAppVerifier>(
         &mut self,
         event: &VAppTransaction,
@@ -268,7 +257,8 @@ impl<A: Storage<Address, Account>, R: Storage<RequestId, bool>> VAppState<A, R> 
                             account: withdraw.action.account,
                             amount: withdraw.action.amount,
                             balance,
-                        }.into());
+                        }
+                        .into());
                     }
                     withdraw.action.amount
                 };
@@ -331,11 +321,9 @@ impl<A: Storage<Address, Account>, R: Storage<RequestId, bool>> VAppState<A, R> 
                 let domain = B256::try_from(body.domain.as_slice())
                     .map_err(|_| VAppPanic::DomainDeserializationFailed)?;
                 if domain != self.domain {
-                    return Err(VAppPanic::DomainMismatch {
-                        expected: self.domain,
-                        actual: domain,
-                    }
-                    .into());
+                    return Err(
+                        VAppPanic::DomainMismatch { expected: self.domain, actual: domain }.into()
+                    );
                 }
 
                 // Verify the proto signature.
@@ -390,11 +378,9 @@ impl<A: Storage<Address, Account>, R: Storage<RequestId, bool>> VAppState<A, R> 
                 let domain = B256::try_from(body.domain.as_slice())
                     .map_err(|_| VAppPanic::DomainDeserializationFailed)?;
                 if domain != self.domain {
-                    return Err(VAppPanic::DomainMismatch {
-                        expected: self.domain,
-                        actual: domain,
-                    }
-                    .into());
+                    return Err(
+                        VAppPanic::DomainMismatch { expected: self.domain, actual: domain }.into()
+                    );
                 }
 
                 // Transfer the amount from the requester to the recipient.
@@ -494,8 +480,8 @@ impl<A: Storage<Address, Account>, R: Storage<RequestId, bool>> VAppState<A, R> 
                 //
                 // Requesters may whitelist what provers they want to work with to ensure better
                 // SLAs and quality of service.
-                if !request.whitelist.is_empty()
-                    && !request.whitelist.contains(&prover_address.to_vec())
+                if !request.whitelist.is_empty() &&
+                    !request.whitelist.contains(&prover_address.to_vec())
                 {
                     return Err(VAppPanic::ProverNotInWhitelist { prover: prover_address }.into());
                 }
@@ -752,6 +738,20 @@ impl<A: Storage<Address, Account>, R: Storage<RequestId, bool>> VAppState<A, R> 
         };
 
         action
+    }
+
+    /// Convert the result of an execution to a VAppExecutionResult and increment tx_id.
+    fn finalize_execution(
+        &mut self,
+        result: Result<Option<VAppReceipt>, VAppError>,
+    ) -> Result<VAppExecutionResult, VAppPanic> {
+        self.tx_id += 1;
+
+        match result {
+            Ok(receipt) => Ok(VAppExecutionResult::Success(receipt)),
+            Err(VAppError::Revert(revert)) => Ok(VAppExecutionResult::Revert((None, revert))),
+            Err(VAppError::Panic(panic)) => Err(panic),
+        }
     }
 }
 

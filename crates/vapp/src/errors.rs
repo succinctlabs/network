@@ -168,7 +168,6 @@ impl From<VAppPanic> for VAppError {
     }
 }
 
-
 impl StdError for VAppError {
     fn source(&self) -> Option<&(dyn StdError + 'static)> {
         match self {
