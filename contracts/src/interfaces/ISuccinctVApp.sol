@@ -102,10 +102,10 @@ interface ISuccinctVApp {
     error CannotWithdrawToDifferentAddress();
 
     /// @dev Thrown when a receipt is processed out of order.
-    error ReceiptOutOfOrder();
+    error ReceiptOutOfOrder(uint64 expected, uint64 actual);
 
-    /// @dev Thrown when a receipt is reverted.
-    error ReceiptStatusInvalid();
+    /// @dev Thrown when a receipt status is invalid.
+    error ReceiptStatusInvalid(TransactionStatus status);
 
     /// @dev Thrown when a transaction variant is invalid.
     error TransactionVariantInvalid();
