@@ -184,6 +184,9 @@ pub struct ExecuteProofRequestBody {
     /// The punishment amount for the requester.
     #[prost(string, optional, tag = "8")]
     pub punishment: ::core::option::Option<::prost::alloc::string::String>,
+    /// The cause of execution failure, if it failed.
+    #[prost(enumeration = "ExecuteFailureCause", optional, tag = "9")]
+    pub failure_cause: ::core::option::Option<i32>,
 }
 #[derive(serde::Serialize, serde::Deserialize)]
 #[derive(Clone, PartialEq, ::prost::Message)]

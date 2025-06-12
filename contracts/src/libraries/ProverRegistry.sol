@@ -74,6 +74,10 @@ abstract contract ProverRegistry is IProverRegistry {
 
     /// @inheritdoc IProverRegistry
     function createProver(uint256 _stakerFeeBips) external override returns (address) {
+        if (_stakerFeeBips > 10000) {
+            revert InvalidStakerFeeBips();
+        }
+
         if (hasProver(msg.sender)) {
             revert ProverAlreadyExists();
         }

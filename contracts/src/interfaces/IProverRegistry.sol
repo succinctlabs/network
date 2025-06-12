@@ -20,6 +20,9 @@ interface IProverRegistry {
     /// @dev Thrown if a prover already exists for this owner.
     error ProverAlreadyExists();
 
+    /// @dev Thrown if the staker fee is greater than 100%.
+    error InvalidStakerFeeBips();
+
     /// @notice The address of the VApp.
     function vapp() external view returns (address);
 

@@ -91,7 +91,7 @@ pub enum VAppPanic {
     ExecutionFailed { status: i32 },
 
     #[error("Request already consumed: {id}")]
-    RequestAlreadyConsumed { id: String },
+    RequestAlreadyFulfilled { id: String },
 
     #[error("Unsupported proof mode: {mode}")]
     UnsupportedProofMode { mode: i32 },
@@ -138,7 +138,7 @@ pub enum VAppPanic {
     MaxPricePerPguExceeded { max_price_per_pgu: U256, price: U256 },
 
     #[error("Parse error: {0}")]
-    ParseError(#[from] ParseError),
+    U256ParseError(#[from] ParseError),
 
     #[error("Missing fulfill field in clear transaction")]
     MissingFulfill,
@@ -150,7 +150,10 @@ pub enum VAppPanic {
     MissingPunishment,
 
     #[error("Punishment {punishment} exceeds max price {max_price}")]
-    PunishmentExceedsMaxPrice { punishment: U256, max_price: U256 },
+    PunishmentExceedsMaxCost { punishment: U256, max_price: U256 },
+
+    #[error("Public values hash mismatch")]
+    PublicValuesHashMismatch,
 }
 
 impl From<VAppRevert> for VAppError {

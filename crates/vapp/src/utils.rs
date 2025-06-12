@@ -131,6 +131,7 @@ pub mod tests {
                 pgus: Some(1),
                 domain: spn_utils::SPN_SEPOLIA_V1_DOMAIN.to_vec(),
                 punishment: None,
+                failure_cause: None,
             };
             let execute_signature = proto_sign(executor, &execute);
 

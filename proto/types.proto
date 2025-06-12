@@ -66,6 +66,7 @@ message RequestProofRequestBody {
   string max_price_per_pgu = 18;
 }
 
+
 message RequestProofResponse {
   // The transaction hash.
   bytes tx_hash = 1;
@@ -143,6 +144,8 @@ message ExecuteProofRequestBody {
   bytes domain = 7;
   // The punishment amount for the requester.
   optional string punishment = 8;
+  // The cause of execution failure, if it failed.
+  optional ExecuteFailureCause failure_cause = 9;
 }
 
 message ExecuteProofResponse {
