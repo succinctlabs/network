@@ -741,15 +741,22 @@ impl<A: Storage<Address, Account>, R: Storage<RequestId, bool>> VAppState<A, R> 
     }
 
     /// Convert the result of an execution to a VAppExecutionResult and increment tx_id.
+    ///
+    /// Only increments tx_id for Success and Revert cases (which get included in the ledger).
+    /// Panic cases do not increment tx_id as they should not be included in the ledger.
     fn finalize_execution(
         &mut self,
         result: Result<Option<VAppReceipt>, VAppError>,
     ) -> Result<VAppExecutionResult, VAppPanic> {
-        self.tx_id += 1;
-
         match result {
-            Ok(receipt) => Ok(VAppExecutionResult::Success(receipt)),
-            Err(VAppError::Revert(revert)) => Ok(VAppExecutionResult::Revert((None, revert))),
+            Ok(receipt) => {
+                self.tx_id += 1;
+                Ok(VAppExecutionResult::Success(receipt))
+            }
+            Err(VAppError::Revert(revert)) => {
+                self.tx_id += 1;
+                Ok(VAppExecutionResult::Revert((None, revert)))
+            }
             Err(VAppError::Panic(panic)) => Err(panic),
         }
     }
