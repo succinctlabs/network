@@ -115,6 +115,7 @@ contract SuccinctVApp is
         address _auctioneer,
         address _staking,
         address _verifier,
+        uint256 _minDepositAmount,
         bytes32 _vkey,
         bytes32 _genesisStateRoot,
         uint64 _genesisTimestamp
@@ -134,6 +135,7 @@ contract SuccinctVApp is
         _updateAuctioneer(_auctioneer);
         _updateStaking(_staking);
         _updateVerifier(_verifier);
+        _updateMinDepositAmount(_minDepositAmount);
 
         // Set the genesis state root.
         roots[0] = _genesisStateRoot;

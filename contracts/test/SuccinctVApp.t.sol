@@ -33,6 +33,7 @@ contract SuccinctVAppTest is Test, FixtureLoader {
     uint64 constant MAX_ACTION_DELAY = 1 days;
     uint256 constant PROTOCOL_FEE_BIPS = 30; // 0.3%
     uint256 constant STAKER_FEE_BIPS = 1000; // 10%
+    uint256 constant MIN_DEPOSIT_AMOUNT = 1e16; // 0.01 $PROVE
 
     // Fixtures
     SP1ProofFixtureJson public jsonFixture;
@@ -114,6 +115,7 @@ contract SuccinctVAppTest is Test, FixtureLoader {
             AUCTIONEER,
             STAKING,
             VERIFIER,
+            MIN_DEPOSIT_AMOUNT,
             VKEY,
             GENESIS_STATE_ROOT,
             GENESIS_TIMESTAMP
@@ -182,6 +184,7 @@ contract SuccinctVAppSetupTests is SuccinctVAppTest {
             AUCTIONEER,
             STAKING,
             VERIFIER,
+            MIN_DEPOSIT_AMOUNT,
             VKEY,
             GENESIS_STATE_ROOT,
             GENESIS_TIMESTAMP
