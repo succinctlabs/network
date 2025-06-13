@@ -19,7 +19,7 @@ import {MockERC20} from "./utils/MockERC20.sol";
 
 contract SuccinctVAppDepositTest is SuccinctVAppTest {
     function test_Deposit_WhenValid() public {
-        uint256 amount = 100e6;
+        uint256 amount = SuccinctVApp(VAPP).minDepositAmount();
         MockERC20(PROVE).mint(REQUESTER_1, amount);
 
         assertEq(MockERC20(PROVE).balanceOf(REQUESTER_1), amount);
@@ -76,7 +76,7 @@ contract SuccinctVAppDepositTest is SuccinctVAppTest {
     }
 
     function test_PermitAndDeposit_WhenValid() public {
-        uint256 amount = 100e6;
+        uint256 amount = SuccinctVApp(VAPP).minDepositAmount();
         MockERC20(PROVE).mint(REQUESTER_1, amount);
 
         // Deposit
@@ -125,11 +125,7 @@ contract SuccinctVAppDepositTest is SuccinctVAppTest {
     }
 
     function test_RevertDeposit_WhenBelowMinimum() public {
-        uint256 minAmount = 10e6; // 10 PROVE
-        uint256 depositAmount = minAmount / 2; // 5 PROVE - below minimum
-
-        // Set minimum amount
-        SuccinctVApp(VAPP).updateMinDepositAmount(minAmount);
+        uint256 depositAmount = SuccinctVApp(VAPP).minDepositAmount() / 2;
 
         // Try to deposit below minimum
         MockERC20(PROVE).mint(REQUESTER_1, depositAmount);
