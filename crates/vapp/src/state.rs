@@ -435,8 +435,8 @@ impl<A: Storage<Address, Account>, R: Storage<RequestId, bool>> VAppState<A, R> 
                 for other_request_id in [&bid.request_id, &settle.request_id, &execute.request_id] {
                     if request_id.as_slice() != other_request_id.as_slice() {
                         return Err(VAppPanic::RequestIdMismatch {
-                            found: address(&request_id)?,
-                            expected: address(other_request_id)?,
+                            found: request_id.to_vec(),
+                            expected: other_request_id.clone(),
                         }
                         .into());
                     }
@@ -450,6 +450,7 @@ impl<A: Storage<Address, Account>, R: Storage<RequestId, bool>> VAppState<A, R> 
                         VAppPanic::RequestAlreadyFulfilled { id: hex::encode(request_id) }.into()
                     );
                 }
+                println!("hi");
 
                 // Validate the the bidder has the right to bid on behalf of the prover.
                 //
@@ -466,6 +467,8 @@ impl<A: Storage<Address, Account>, R: Storage<RequestId, bool>> VAppState<A, R> 
                     .into());
                 }
 
+                println!("hi");
+
                 // Validate that the prover is in the request whitelist, if a whitelist is provided.
                 //
                 // Requesters may whitelist what provers they want to work with to ensure better
@@ -478,7 +481,7 @@ impl<A: Storage<Address, Account>, R: Storage<RequestId, bool>> VAppState<A, R> 
 
                 // Validate that the request, settle, and auctioneer addresses match.
                 let request_auctioneer = address(request.auctioneer.as_slice())?;
-                if request_auctioneer != settle_signer && settle_signer != self.auctioneer {
+                if request_auctioneer != settle_signer || settle_signer != self.auctioneer {
                     return Err(VAppPanic::AuctioneerMismatch {
                         request_auctioneer,
                         settle_signer,
@@ -489,7 +492,7 @@ impl<A: Storage<Address, Account>, R: Storage<RequestId, bool>> VAppState<A, R> 
 
                 // Validate that the request, execute, and executor addresses match.
                 let request_executor = address(request.executor.as_slice())?;
-                if request_executor != execute_signer && request_executor != self.executor {
+                if request_executor != execute_signer || request_executor != self.executor {
                     return Err(VAppPanic::ExecutorMismatch {
                         request_executor,
                         execute_signer,
@@ -569,8 +572,8 @@ impl<A: Storage<Address, Account>, R: Storage<RequestId, bool>> VAppState<A, R> 
                 let fulfill_request_id = fulfill_body.request_id.clone();
                 if fulfill_request_id != request_id {
                     return Err(VAppPanic::RequestIdMismatch {
-                        found: address(&fulfill_request_id)?,
-                        expected: address(&request_id)?,
+                        found: fulfill_request_id.clone(),
+                        expected: request_id.to_vec(),
                     }
                     .into());
                 }

@@ -1,7 +1,6 @@
-
 mod common;
 
-use alloy_primitives::{U256};
+use alloy_primitives::U256;
 use spn_vapp_core::{
     errors::{VAppError, VAppPanic, VAppRevert},
     verifier::MockVerifier,

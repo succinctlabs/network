@@ -1,9 +1,7 @@
 mod common;
 
 use alloy_primitives::U256;
-use spn_network_types::{
-    MessageFormat, TransferRequest, TransferRequestBody,
-};
+use spn_network_types::{MessageFormat, TransferRequest, TransferRequestBody};
 use spn_vapp_core::{
     errors::{VAppError, VAppPanic},
     transactions::{TransferTransaction, VAppTransaction},
@@ -220,8 +218,7 @@ fn test_transfer_from_signer_without_balance() {
     test.state.execute::<MockVerifier>(&deposit_tx).unwrap();
 
     // Create transfer signed by signer without balance (this tests the logic properly).
-    let transfer_tx =
-        transfer_tx(from_signer_without_balance, to_address, U256::from(100), 1);
+    let transfer_tx = transfer_tx(from_signer_without_balance, to_address, U256::from(100), 1);
     let result = test.state.execute::<MockVerifier>(&transfer_tx);
 
     // Verify the correct panic error is returned (signer has insufficient balance).
@@ -290,8 +287,7 @@ fn test_transfer_invalid_amount_parsing() {
     test.state.execute::<MockVerifier>(&deposit_tx).unwrap();
 
     // Try to transfer with invalid amount string.
-    let transfer_tx =
-        transfer_tx_invalid_amount(from_signer, to_address, "invalid_amount", 1);
+    let transfer_tx = transfer_tx_invalid_amount(from_signer, to_address, "invalid_amount", 1);
     let result = test.state.execute::<MockVerifier>(&transfer_tx);
 
     // Verify the correct panic error is returned.

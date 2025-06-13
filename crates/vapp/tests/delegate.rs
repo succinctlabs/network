@@ -1,10 +1,7 @@
-
 mod common;
 
 use alloy_primitives::U256;
-use spn_network_types::{
-    MessageFormat, SetDelegationRequest, SetDelegationRequestBody,
-};
+use spn_network_types::{MessageFormat, SetDelegationRequest, SetDelegationRequestBody};
 use spn_vapp_core::{
     errors::{VAppError, VAppPanic, VAppRevert},
     transactions::{DelegateTransaction, VAppTransaction},

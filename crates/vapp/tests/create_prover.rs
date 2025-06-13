@@ -1,4 +1,3 @@
-
 mod common;
 
 use alloy_primitives::U256;
@@ -12,7 +11,7 @@ use crate::common::*;
 #[test]
 fn test_create_prover_basic() {
     let mut test = setup();
-    let prover_address = test.prover.address();
+    let prover_address = test.fulfiller.address();
     let owner_address = test.requester.address();
     let staker_fee_bips = U256::from(500);
 
@@ -29,7 +28,7 @@ fn test_create_prover_basic() {
 #[test]
 fn test_create_prover_self_delegated() {
     let mut test = setup();
-    let prover_owner = test.prover.address();
+    let prover_owner = test.fulfiller.address();
     let staker_fee_bips = U256::from(1000);
 
     // Execute create prover where owner = prover (self-delegated).
@@ -103,7 +102,7 @@ fn test_create_prover_various_staker_fees() {
 #[test]
 fn test_create_prover_max_staker_fee() {
     let mut test = setup();
-    let prover_address = test.prover.address();
+    let prover_address = test.fulfiller.address();
     let owner_address = test.requester.address();
 
     // Test with maximum staker fee (100% = 10000 basis points).
@@ -146,7 +145,7 @@ fn test_create_prover_multiple_provers() {
 #[test]
 fn test_create_prover_onchain_tx_out_of_order() {
     let mut test = setup();
-    let prover_address = test.prover.address();
+    let prover_address = test.fulfiller.address();
     let owner_address = test.requester.address();
 
     // Execute first create prover.
@@ -173,7 +172,7 @@ fn test_create_prover_onchain_tx_out_of_order() {
 #[test]
 fn test_create_prover_block_number_regression() {
     let mut test = setup();
-    let prover_address = test.prover.address();
+    let prover_address = test.fulfiller.address();
     let owner_address = test.requester.address();
 
     // Execute first create prover at block 15.
@@ -200,7 +199,7 @@ fn test_create_prover_block_number_regression() {
 #[test]
 fn test_create_prover_log_index_out_of_order() {
     let mut test = setup();
-    let prover_address = test.prover.address();
+    let prover_address = test.fulfiller.address();
     let owner_address = test.requester.address();
 
     // Execute first create prover at block 0, log_index 20.
@@ -237,7 +236,7 @@ fn test_create_prover_log_index_out_of_order() {
 #[test]
 fn test_create_prover_log_index_valid_progression() {
     let mut test = setup();
-    let prover1 = test.prover.address();
+    let prover1 = test.fulfiller.address();
     let owner1 = test.requester.address();
 
     // Execute first create prover at block 0, log_index 10.
