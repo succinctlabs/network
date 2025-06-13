@@ -274,3 +274,34 @@ fn test_delegate_invalid_delegate_address() {
     // Verify signer remains unchanged.
     assert_prover_signer(&test, prover_address, prover_owner.address());
 }
+
+#[test]
+fn test_delegate_replay_protection() {
+    let mut test = setup();
+    let prover_owner = &test.signers[0];
+    let prover_address = test.signers[1].address();
+    let delegate_address = test.signers[2].address();
+
+    // Create prover first.
+    let create_prover_tx =
+        create_prover_tx(prover_address, prover_owner.address(), U256::from(500), 0, 1, 1);
+    test.state.execute::<MockVerifier>(&create_prover_tx).unwrap();
+
+    // Execute first delegation.
+    let delegate_tx = delegate_tx(prover_owner, prover_address, delegate_address, 1);
+    let result = test.state.execute::<MockVerifier>(&delegate_tx);
+
+    // Verify first delegation succeeds.
+    assert!(result.is_ok());
+    assert_prover_signer(&test, prover_address, delegate_address);
+
+    // Attempt to execute the exact same delegation transaction again.
+    let result = test.state.execute::<MockVerifier>(&delegate_tx);
+
+    // Verify the second execution fails with TransactionAlreadyProcessed error.
+    assert!(matches!(result, Err(VAppPanic::TransactionAlreadyProcessed { .. })));
+
+    // Verify the delegation state remains unchanged after replay attempt.
+    assert_prover_signer(&test, prover_address, delegate_address);
+    assert_state_counters(&test, 3, 2, 0, 1);
+}

@@ -70,7 +70,7 @@ pub enum VAppPanic {
     ExecutionFailed { status: i32 },
 
     #[error("Request already consumed: {id}")]
-    RequestAlreadyFulfilled { id: String },
+    TransactionAlreadyProcessed { id: String },
 
     #[error("Unsupported proof mode: {mode}")]
     UnsupportedProofMode { mode: i32 },

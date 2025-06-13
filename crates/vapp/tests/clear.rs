@@ -716,7 +716,7 @@ fn test_clear_already_fulfilled_request() {
 
     // Second execution should fail with RequestAlreadyFulfilled.
     let result = test.state.execute::<MockVerifier>(&clear_tx2);
-    assert!(matches!(result, Err(VAppPanic::RequestAlreadyFulfilled { .. })));
+    assert!(matches!(result, Err(VAppPanic::TransactionAlreadyProcessed { .. })));
 }
 
 #[test]

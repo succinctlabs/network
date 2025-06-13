@@ -332,3 +332,36 @@ fn test_transfer_invalid_to_address() {
     // Verify balance remains unchanged.
     assert_account_balance(&test, from_signer.address(), U256::from(500));
 }
+
+#[test]
+fn test_transfer_replay_protection() {
+    let mut test = setup();
+    let from_signer = &test.signers[0];
+    let to_address = test.signers[1].address();
+    let amount = U256::from(100);
+
+    // Set up initial balance for sender.
+    let deposit_tx = deposit_tx(from_signer.address(), U256::from(500), 0, 1, 1);
+    test.state.execute::<MockVerifier>(&deposit_tx).unwrap();
+    assert_account_balance(&test, from_signer.address(), U256::from(500));
+
+    // Execute first transfer.
+    let transfer_tx = transfer_tx(from_signer, to_address, amount, 1);
+    let result = test.state.execute::<MockVerifier>(&transfer_tx);
+
+    // Verify first transfer succeeds.
+    assert!(result.is_ok());
+    assert_account_balance(&test, from_signer.address(), U256::from(400));
+    assert_account_balance(&test, to_address, amount);
+
+    // Attempt to execute the exact same transfer transaction again.
+    let result = test.state.execute::<MockVerifier>(&transfer_tx);
+
+    // Verify the second execution fails with TransactionAlreadyProcessed error.
+    assert!(matches!(result, Err(VAppPanic::TransactionAlreadyProcessed { .. })));
+
+    // Verify balances remain unchanged after replay attempt.
+    assert_account_balance(&test, from_signer.address(), U256::from(400));
+    assert_account_balance(&test, to_address, amount);
+    assert_state_counters(&test, 3, 2, 0, 1);
+}
