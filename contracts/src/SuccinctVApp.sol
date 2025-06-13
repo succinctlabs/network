@@ -117,8 +117,7 @@ contract SuccinctVApp is
         address _verifier,
         uint256 _minDepositAmount,
         bytes32 _vkey,
-        bytes32 _genesisStateRoot,
-        uint64 _genesisTimestamp
+        bytes32 _genesisStateRoot
     ) external initializer {
         if (
             _owner == address(0) || _prove == address(0) || _iProve == address(0)
@@ -139,7 +138,6 @@ contract SuccinctVApp is
 
         // Set the genesis state root.
         roots[0] = _genesisStateRoot;
-        timestamps[0] = _genesisTimestamp;
 
         // Approve the $iPROVE contract to transfer $PROVE from this contract during prover withdrawal.
         IERC20(prove).approve(_iProve, type(uint256).max);

@@ -62,7 +62,6 @@ contract SuccinctVAppTest is Test, FixtureLoader {
     // Program and state root
     bytes32 public VKEY;
     bytes32 public GENESIS_STATE_ROOT;
-    uint64 public GENESIS_TIMESTAMP;
 
     function setUp() public {
         // Load fixtures
@@ -74,7 +73,6 @@ contract SuccinctVAppTest is Test, FixtureLoader {
         // Set program and state root
         VKEY = jsonFixture.vkey;
         GENESIS_STATE_ROOT = fixture.oldRoot;
-        GENESIS_TIMESTAMP = uint64(0);
 
         // Create owner
 
@@ -117,8 +115,7 @@ contract SuccinctVAppTest is Test, FixtureLoader {
             VERIFIER,
             MIN_DEPOSIT_AMOUNT,
             VKEY,
-            GENESIS_STATE_ROOT,
-            GENESIS_TIMESTAMP
+            GENESIS_STATE_ROOT
         );
         MockStaking(STAKING).setVApp(VAPP);
     }
@@ -171,7 +168,7 @@ contract SuccinctVAppSetupTests is SuccinctVAppTest {
         assertEq(SuccinctVApp(VAPP).verifier(), VERIFIER);
         assertEq(SuccinctVApp(VAPP).vkey(), VKEY);
         assertEq(SuccinctVApp(VAPP).root(), GENESIS_STATE_ROOT);
-        assertEq(SuccinctVApp(VAPP).timestamp(), GENESIS_TIMESTAMP);
+        assertEq(SuccinctVApp(VAPP).timestamp(), 0);
         assertEq(SuccinctVApp(VAPP).blockNumber(), 0);
     }
 
@@ -186,8 +183,7 @@ contract SuccinctVAppSetupTests is SuccinctVAppTest {
             VERIFIER,
             MIN_DEPOSIT_AMOUNT,
             VKEY,
-            GENESIS_STATE_ROOT,
-            GENESIS_TIMESTAMP
+            GENESIS_STATE_ROOT
         );
     }
 }

@@ -60,7 +60,6 @@ contract AllScript is BaseScript, FixtureLoader {
         bytes32 VKEY = bytes32(0x00a37d7ea5a0bbac5a390e3f3760d504f9288bd9fb9dd57f66da247c965cb08f);
         bytes32 GENESIS_STATE_ROOT =
             bytes32(0x4b15a7d34ea0ec471d0d6ab9170cc2910f590819ee168e2a799e25244e327116);
-        uint64 GENESIS_TIMESTAMP = 0;
 
         if (VERIFIER == address(0)) {
             // Deploy the SP1VerifierGatway
@@ -82,8 +81,7 @@ contract AllScript is BaseScript, FixtureLoader {
             VERIFIER,
             MIN_DEPOSIT_AMOUNT,
             VKEY,
-            GENESIS_STATE_ROOT,
-            GENESIS_TIMESTAMP
+            GENESIS_STATE_ROOT
         );
 
         return (VERIFIER, VAPP);
