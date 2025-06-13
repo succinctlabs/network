@@ -3,16 +3,6 @@
 <div>
   <img src=".github/assets/image.png" alt="Succinct Banner" />
   &nbsp;
-
-[gha-badge]: https://img.shields.io/github/actions/workflow/status/succinctlabs/network/pr.yml?branch=main
-[gha-url]: https://github.com/foundry-rs/foundry/actions
-[tg-badge]: https://img.shields.io/endpoint?color=neon&logo=telegram&label=chat&style=flat-square&url=https%3A%2F%2Ftg.sumanjay.workers.dev%2Ffoundry_rs
-[tg-url]: https://t.me/foundry_rs
-
-[Install](https://getfoundry.sh/getting-started/installation)
-| [Docs](https://docs.succinct.xyz/docs/network/introduction)
-| [Explorer](https://explorer.succinct.xyz/)
-
 </div>
 
 This is the monorepo for the Succinct Prover Network, a protocol on Ethereum that coordinates a 
