@@ -727,7 +727,7 @@ impl<A: Storage<Address, Account>, R: Storage<RequestId, bool>> VAppState<A, R> 
 
                 // Calculate the fee split for the protocol, prover vault stakers, and prover owner.
                 let (protocol_fee, prover_staker_fee, prover_owner_fee) =
-                    fee(cost, protocol_fee_bips, staker_fee_bips);
+                    fee(cost, protocol_fee_bips, staker_fee_bips)?;
 
                 info!(
                     "├── Account({}): + {} $PROVE (Protocol Fee)",
