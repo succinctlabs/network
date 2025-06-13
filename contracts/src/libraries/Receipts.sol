@@ -59,7 +59,8 @@ library Receipts {
         if (withdraw.account != withdrawReceipt.account) {
             revert TransactionReceiptMismatch(TransactionVariant.Withdraw, _receipt.onchainTxId);
         }
-        if (withdraw.amount != withdrawReceipt.amount) {
+        // If the requested amount to withdraw is max uint256, no validation is needed.
+        if (withdraw.amount != type(uint256).max && withdraw.amount != withdrawReceipt.amount) {
             revert TransactionReceiptMismatch(TransactionVariant.Withdraw, _receipt.onchainTxId);
         }
     }
