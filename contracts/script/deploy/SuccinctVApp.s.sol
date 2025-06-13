@@ -34,7 +34,15 @@ contract SuccinctVAppScript is BaseScript, FixtureLoader {
         address VAPP =
             address(SuccinctVApp(payable(address(new ERC1967Proxy{salt: salt}(vappImpl, "")))));
         SuccinctVApp(VAPP).initialize(
-            OWNER, PROVE, I_PROVE, AUCTIONEER, STAKING, VERIFIER, MIN_DEPOSIT_AMOUNT, VKEY, bytes32(uint256(0))
+            OWNER,
+            PROVE,
+            I_PROVE,
+            AUCTIONEER,
+            STAKING,
+            VERIFIER,
+            MIN_DEPOSIT_AMOUNT,
+            VKEY,
+            bytes32(uint256(0))
         );
 
         // Write address
