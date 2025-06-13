@@ -57,12 +57,12 @@ contract AllScript is BaseScript, FixtureLoader {
         address AUCTIONEER = readAddress("AUCTIONEER");
         address VERIFIER = vm.envOr("VERIFIER", address(0));
         uint256 MIN_DEPOSIT_AMOUNT = readUint256("MIN_DEPOSIT_AMOUNT");
-        bytes32 VKEY = bytes32(0x00a37d7ea5a0bbac5a390e3f3760d504f9288bd9fb9dd57f66da247c965cb08f);
+        bytes32 VKEY = bytes32(0x00c64f76c2a5d97de1c95d399cb8f4cc1337426ff01eda2f9d7a9f6d69bd58a2);
         bytes32 GENESIS_STATE_ROOT =
             bytes32(0x4b15a7d34ea0ec471d0d6ab9170cc2910f590819ee168e2a799e25244e327116);
 
+        // If the verifier is not provided, deploy the SP1VerifierGateway and add v5.0.0 Groth16 SP1Verifier to it
         if (VERIFIER == address(0)) {
-            // Deploy the SP1VerifierGatway
             VERIFIER = address(new SP1VerifierGateway{salt: salt}(OWNER));
             address groth16 = address(new SP1Verifier{salt: salt}());
             SP1VerifierGateway(VERIFIER).addRoute(groth16);

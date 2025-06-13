@@ -89,15 +89,11 @@ CHAIN_ID=$(cast chain-id --rpc-url "$ETH_RPC_URL") && export $(jq -r 'to_entries
 ### Deposit
 
 ```sh
-cast send $PROVE "mint(address,uint256)" $(cast wallet address --private-key $PRIVATE_KEY) 10000e18 --private-key $PRIVATE_KEY --rpc-url $ETH_RPC_URL
+cast send $PROVE "approve(address,uint256)" $VAPP 10000000e18 --private-key $PRIVATE_KEY --rpc-url $ETH_RPC_URL
 ```
 
 ```sh
-cast send $PROVE "approve(address,uint256)" $VAPP 10000e18 --private-key $PRIVATE_KEY --rpc-url $ETH_RPC_URL
-```
-
-```sh
-cast send $VAPP "deposit(uint256)" 100e18 --private-key $PRIVATE_KEY --rpc-url $ETH_RPC_URL
+cast send $VAPP "deposit(uint256)" 10000000e18 --private-key $PRIVATE_KEY --rpc-url $ETH_RPC_URL
 ```
 
 ### Withdraw
@@ -123,15 +119,11 @@ cast send $STAKING "createProver()" $(cast wallet address --private-key $PRIVATE
 ### Stake
 
 ```sh
-cast send $PROVE "mint(address,uint256)" $(cast wallet address --private-key $PRIVATE_KEY) 10000e18 --private-key $PRIVATE_KEY --rpc-url $ETH_RPC_URL
+cast send $PROVE "approve(address,uint256)" $STAKING 10000e18 --private-key $PRIVATE_KEY --rpc-url $ETH_RPC_URL
 ```
 
 ```sh
-cast send $PROVE "approve(address,uint256)" $STAKING 10e18 --private-key $PRIVATE_KEY --rpc-url $ETH_RPC_URL
-```
-
-```sh
-cast send $STAKING "stake(address,uint256)" $PROVER 10e18 --private-key $PRIVATE_KEY --rpc-url $ETH_RPC_URL
+cast send $STAKING "stake(address,uint256)" $PROVER 9990e18 --private-key $PRIVATE_KEY --rpc-url $ETH_RPC_URL
 ```
 
 ### Unstake
