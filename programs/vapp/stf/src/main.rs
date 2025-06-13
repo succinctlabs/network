@@ -44,7 +44,7 @@ pub fn main() {
         .expect("accounts root mismatch");
 
     state
-        .requests
+        .transactions
         .verify::<Keccak256>(input.requests_root, &input.request_proofs)
         .expect("requests root mismatch");
 
@@ -77,7 +77,7 @@ pub fn main() {
     let new_requests_root = MerkleStorage::calculate_new_root_sparse(
         input.requests_root,
         &input.request_proofs,
-        &state.requests,
+        &state.transactions,
     )
     .expect("failed to compute new requests root");
 
