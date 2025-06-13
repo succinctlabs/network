@@ -25,7 +25,7 @@ pub struct SparseStorage<K: StorageKey, V: StorageValue> {
 }
 
 /// Errors that can occur during sparse storage operations.
-#[derive(Debug, Error)]
+#[derive(Debug, Error, PartialEq)]
 #[allow(missing_docs)]
 pub enum SparseStorageError {
     #[error("missing proof for stored value: {index}")]
@@ -42,6 +42,12 @@ pub enum SparseStorageError {
 
     #[error("verification failed")]
     VerificationFailed,
+
+    #[error("duplicate proof supplied for key: {index}")]
+    DuplicateProof { index: U256 },
+
+    #[error("proof supplied for key that is not stored: {index}")]
+    UnusedProof { index: U256 },
 }
 
 impl<K: StorageKey, V: StorageValue> Storage<K, V> for SparseStorage<K, V> {
@@ -106,11 +112,16 @@ impl<K: StorageKey, V: StorageValue + PartialEq> SparseStorage<K, V> {
         root: B256,
         proofs: &[MerkleProof<K, V, H>],
     ) -> Result<(), SparseStorageError> {
-        // Create a map for quick proof lookup.
-        let proof_map: BTreeMap<U256, &MerkleProof<K, V, H>> =
-            proofs.iter().map(|proof| (proof.key.index(), proof)).collect();
+        // Build a map for quick proof lookup and detect duplicate proofs.
+        let mut proof_map: BTreeMap<U256, &MerkleProof<K, V, H>> = BTreeMap::new();
+        for proof in proofs {
+            let index = proof.key.index();
+            if proof_map.insert(index, proof).is_some() {
+                return Err(SparseStorageError::DuplicateProof { index });
+            }
+        }
 
-        // Verify that we have a proof for every stored value.
+        // Verify that every stored value has a matching, correct proof.
         for (index, value) in &self.inner {
             let Some(proof) = proof_map.get(index) else {
                 return Err(SparseStorageError::MissingProofForStoredValue { index: *index });
@@ -127,11 +138,15 @@ impl<K: StorageKey, V: StorageValue + PartialEq> SparseStorage<K, V> {
             }
         }
 
-        // Verify that we don't have proofs carrying a non-empty value for keys that aren't stored.
-        for proof in proofs {
-            let index = proof.key.index();
-            if !self.inner.contains_key(&index) && proof.value.is_some() {
-                return Err(SparseStorageError::ProofForNonStoredKeyWithValue { index });
+        // Reject any unused proofs for keys that are not stored.
+        if proof_map.len() != self.inner.len() {
+            for (index, proof) in proof_map {
+                if !self.inner.contains_key(&index) {
+                    if proof.value.is_some() {
+                        return Err(SparseStorageError::ProofForNonStoredKeyWithValue { index });
+                    }
+                    return Err(SparseStorageError::UnusedProof { index });
+                }
             }
         }
 
@@ -418,5 +433,60 @@ mod tests {
 
         // Verification should succeed.
         assert!(sparse_store.verify::<Keccak256>(root, &proofs).is_ok());
+    }
+
+    // Tests for stricter proof validation.
+
+    #[test]
+    fn verify_fails_with_duplicate_proofs() {
+        let mut merkle_tree = U256Tree::new();
+        let mut sparse_store = U256SparseStore::new();
+
+        let key = uint!(42_U256);
+        let value = uint!(7_U256);
+
+        merkle_tree.insert(key, value);
+        sparse_store.insert(key, value);
+
+        let root = merkle_tree.root();
+        let proof_data = merkle_tree.proof(&key).unwrap();
+
+        // Create duplicate proofs for the same key.
+        let proofs = vec![
+            MerkleProof::new(key, Some(value), proof_data.proof.clone()),
+            MerkleProof::new(key, Some(value), proof_data.proof),
+        ];
+
+        let result = sparse_store.verify::<Keccak256>(root, &proofs);
+        assert!(matches!(result, Err(SparseStorageError::DuplicateProof { index }) if index == key));
+    }
+
+    #[test]
+    fn verify_fails_with_unused_proof() {
+        let mut merkle_tree = U256Tree::new();
+        let mut sparse_store = U256SparseStore::new();
+
+        let key_stored = uint!(1_U256);
+        let value_stored = uint!(100_U256);
+        merkle_tree.insert(key_stored, value_stored);
+        sparse_store.insert(key_stored, value_stored);
+
+        // Create a key that is not stored in the sparse store.
+        let key_unused = uint!(999_U256);
+        let root = merkle_tree.root();
+
+        // Proof for stored key.
+        let proof_stored = merkle_tree.proof(&key_stored).unwrap();
+
+        // Create proof for the unused key.
+        let proof_unused = merkle_tree.proof(&key_unused).unwrap();
+
+        let proofs = vec![
+            MerkleProof::new(key_stored, Some(value_stored), proof_stored.proof),
+            MerkleProof::new(key_unused, None, proof_unused.proof),
+        ];
+
+        let result = sparse_store.verify::<Keccak256>(root, &proofs);
+        assert!(matches!(result, Err(SparseStorageError::UnusedProof { index }) if index == key_unused));
     }
 }
