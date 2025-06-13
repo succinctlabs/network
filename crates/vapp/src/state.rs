@@ -10,7 +10,7 @@ use tracing::{debug, info};
 use spn_network_types::{ExecutionStatus, HashableWithSender, ProofMode};
 
 use crate::{
-    errors::{VAppError, VAppPanic, VAppRevert},
+    errors::VAppPanic,
     fee::fee,
     merkle::{MerkleStorage, MerkleTreeHasher},
     receipts::{OnchainReceipt, VAppReceipt},
@@ -148,14 +148,13 @@ impl<A: Storage<Address, Account>, R: Storage<RequestId, bool>> VAppState<A, R> 
         &self,
         event: &OnchainTransaction<T>,
         l1_tx: u64,
-    ) -> Result<(), VAppError> {
+    ) -> Result<(), VAppPanic> {
         debug!("check l1 tx is not out of order");
         if l1_tx != self.onchain_tx_id {
             return Err(VAppPanic::OnchainTxOutOfOrder {
                 expected: self.onchain_tx_id,
                 actual: l1_tx,
-            }
-            .into());
+            });
         }
 
         debug!("check l1 block is not out of order");
@@ -163,8 +162,7 @@ impl<A: Storage<Address, Account>, R: Storage<RequestId, bool>> VAppState<A, R> 
             return Err(VAppPanic::BlockNumberOutOfOrder {
                 expected: self.onchain_block,
                 actual: event.block,
-            }
-            .into());
+            });
         }
 
         debug!("check l1 log index is not out of order");
@@ -172,20 +170,32 @@ impl<A: Storage<Address, Account>, R: Storage<RequestId, bool>> VAppState<A, R> 
             return Err(VAppPanic::LogIndexOutOfOrder {
                 current: self.onchain_log_index,
                 next: event.log_index,
-            }
-            .into());
+            });
         }
 
         Ok(())
     }
 
-    /// Executes an [`VAppTransaction`] and returns an optional [`VAppReceipt`].
-    #[allow(clippy::too_many_lines)]
+    /// Executes a [`VAppTransaction`] and returns an optional [`VAppReceipt`].
     pub fn execute<V: VAppVerifier>(
         &mut self,
         event: &VAppTransaction,
-    ) -> Result<Option<VAppReceipt>, VAppError> {
-        let action = match event {
+    ) -> Result<Option<VAppReceipt>, VAppPanic> {
+        let action = self.execute_inner::<V>(event)?;
+
+        // Increment the tx counter.
+        self.tx_id += 1;
+
+        Ok(action)
+    }
+
+    #[allow(clippy::needless_return)]
+    #[allow(clippy::too_many_lines)]
+    fn execute_inner<V: VAppVerifier>(
+        &mut self,
+        event: &VAppTransaction,
+    ) -> Result<Option<VAppReceipt>, VAppPanic> {
+        match event {
             VAppTransaction::Deposit(deposit) => {
                 // Log the deposit event.
                 info!("TX {}: DEPOSIT({:?})", self.tx_id, deposit);
@@ -211,11 +221,11 @@ impl<A: Storage<Address, Account>, R: Storage<RequestId, bool>> VAppState<A, R> 
                     .add_balance(deposit.action.amount);
 
                 // Return the deposit action.
-                Ok(Some(VAppReceipt::Deposit(OnchainReceipt {
+                return Ok(Some(VAppReceipt::Deposit(OnchainReceipt {
                     onchain_tx_id: deposit.onchain_tx,
                     action: deposit.action.clone(),
                     status: TransactionStatus::Completed,
-                })))
+                })));
             }
             VAppTransaction::Withdraw(withdraw) => {
                 // Log the withdraw event.
@@ -239,12 +249,12 @@ impl<A: Storage<Address, Account>, R: Storage<RequestId, bool>> VAppState<A, R> 
                     balance
                 } else {
                     if balance < withdraw.action.amount {
-                        return Err(VAppRevert::InsufficientBalance {
-                            account: withdraw.action.account,
-                            amount: withdraw.action.amount,
-                            balance,
-                        }
-                        .into());
+                        // Return the withdraw action with a reverted status.
+                        return Ok(Some(VAppReceipt::Withdraw(OnchainReceipt {
+                            onchain_tx_id: withdraw.onchain_tx,
+                            action: withdraw.action.clone(),
+                            status: TransactionStatus::Reverted,
+                        })));
                     }
                     withdraw.action.amount
                 };
@@ -254,11 +264,11 @@ impl<A: Storage<Address, Account>, R: Storage<RequestId, bool>> VAppState<A, R> 
                 account.deduct_balance(withdrawal_amount);
 
                 // Return the withdraw action.
-                Ok(Some(VAppReceipt::Withdraw(OnchainReceipt {
+                return Ok(Some(VAppReceipt::Withdraw(OnchainReceipt {
                     onchain_tx_id: withdraw.onchain_tx,
                     action: withdraw.action.clone(),
                     status: TransactionStatus::Completed,
-                })))
+                })));
             }
             VAppTransaction::CreateProver(prover) => {
                 // Log the set delegated signer event.
@@ -287,11 +297,11 @@ impl<A: Storage<Address, Account>, R: Storage<RequestId, bool>> VAppState<A, R> 
                     .set_staker_fee_bips(prover.action.stakerFeeBips);
 
                 // Return the set delegated signer action.
-                Ok(Some(VAppReceipt::CreateProver(OnchainReceipt {
+                return Ok(Some(VAppReceipt::CreateProver(OnchainReceipt {
                     action: prover.action.clone(),
                     onchain_tx_id: prover.onchain_tx,
                     status: TransactionStatus::Completed,
-                })))
+                })));
             }
             VAppTransaction::Delegate(delegation) => {
                 // Log the delegation event.
@@ -310,8 +320,7 @@ impl<A: Storage<Address, Account>, R: Storage<RequestId, bool>> VAppState<A, R> 
                     return Err(VAppPanic::DomainMismatch {
                         expected: self.domain,
                         actual: domain,
-                    }
-                    .into());
+                    });
                 }
 
                 // Verify the proto signature.
@@ -327,13 +336,13 @@ impl<A: Storage<Address, Account>, R: Storage<RequestId, bool>> VAppState<A, R> 
                 // Verify that the prover exists.
                 debug!("verify prover exists");
                 let Some(prover) = self.accounts.get_mut(&prover) else {
-                    return Err(VAppRevert::ProverDoesNotExist { prover }.into());
+                    return Err(VAppPanic::ProverDoesNotExist { prover });
                 };
 
                 // Verify that the signer of the delegation is the owner of the prover.
                 debug!("verify signer is owner");
                 if signer != prover.get_owner() {
-                    return Err(VAppPanic::OnlyOwnerCanDelegate.into());
+                    return Err(VAppPanic::OnlyOwnerCanDelegate);
                 }
 
                 // Extract the delegate address.
@@ -346,7 +355,7 @@ impl<A: Storage<Address, Account>, R: Storage<RequestId, bool>> VAppState<A, R> 
                 prover.set_signer(delegate);
 
                 // No action returned since delegation is off-chain.
-                Ok(None)
+                return Ok(None);
             }
             VAppTransaction::Transfer(transfer) => {
                 // Log the transfer event.
@@ -369,8 +378,7 @@ impl<A: Storage<Address, Account>, R: Storage<RequestId, bool>> VAppState<A, R> 
                     return Err(VAppPanic::DomainMismatch {
                         expected: self.domain,
                         actual: domain,
-                    }
-                    .into());
+                    });
                 }
 
                 // Transfer the amount from the requester to the recipient.
@@ -385,9 +393,7 @@ impl<A: Storage<Address, Account>, R: Storage<RequestId, bool>> VAppState<A, R> 
                 debug!("validate from account has sufficient balance");
                 let balance = self.accounts.entry(from).or_default().get_balance();
                 if balance < amount {
-                    return Err(
-                        VAppPanic::InsufficientBalance { account: from, amount, balance }.into()
-                    );
+                    return Err(VAppPanic::InsufficientBalance { account: from, amount, balance });
                 }
 
                 // Transfer the amount from the transferer to the recipient.
@@ -396,7 +402,7 @@ impl<A: Storage<Address, Account>, R: Storage<RequestId, bool>> VAppState<A, R> 
                 info!("├── Account({}): + {} $PROVE", to, amount);
                 self.accounts.entry(to).or_default().add_balance(amount);
 
-                Ok(None)
+                return Ok(None);
             }
             VAppTransaction::Clear(clear) => {
                 // Make sure the proto bodies are present for (request, bid, settle, execute).
@@ -423,8 +429,7 @@ impl<A: Storage<Address, Account>, R: Storage<RequestId, bool>> VAppState<A, R> 
                         return Err(VAppPanic::DomainMismatch {
                             expected: self.domain,
                             actual: domain,
-                        }
-                        .into());
+                        });
                     }
                 }
 
@@ -437,8 +442,7 @@ impl<A: Storage<Address, Account>, R: Storage<RequestId, bool>> VAppState<A, R> 
                         return Err(VAppPanic::RequestIdMismatch {
                             found: request_id.to_vec(),
                             expected: other_request_id.clone(),
-                        }
-                        .into());
+                        });
                     }
                 }
 
@@ -446,11 +450,8 @@ impl<A: Storage<Address, Account>, R: Storage<RequestId, bool>> VAppState<A, R> 
                 //
                 // This check ensures that a request can't be used multiple times to pay a prover.
                 if self.requests.get(&request_id).copied().unwrap_or_default() {
-                    return Err(
-                        VAppPanic::RequestAlreadyFulfilled { id: hex::encode(request_id) }.into()
-                    );
+                    return Err(VAppPanic::RequestAlreadyFulfilled { id: hex::encode(request_id) });
                 }
-                println!("hi");
 
                 // Validate the the bidder has the right to bid on behalf of the prover.
                 //
@@ -463,11 +464,8 @@ impl<A: Storage<Address, Account>, R: Storage<RequestId, bool>> VAppState<A, R> 
                     return Err(VAppPanic::ProverDelegatedSignerMismatch {
                         prover: prover_address,
                         delegated_signer: prover_account.delegatedSigner,
-                    }
-                    .into());
+                    });
                 }
-
-                println!("hi");
 
                 // Validate that the prover is in the request whitelist, if a whitelist is provided.
                 //
@@ -476,7 +474,7 @@ impl<A: Storage<Address, Account>, R: Storage<RequestId, bool>> VAppState<A, R> 
                 if !request.whitelist.is_empty()
                     && !request.whitelist.contains(&prover_address.to_vec())
                 {
-                    return Err(VAppPanic::ProverNotInWhitelist { prover: prover_address }.into());
+                    return Err(VAppPanic::ProverNotInWhitelist { prover: prover_address });
                 }
 
                 // Validate that the request, settle, and auctioneer addresses match.
@@ -486,8 +484,7 @@ impl<A: Storage<Address, Account>, R: Storage<RequestId, bool>> VAppState<A, R> 
                         request_auctioneer,
                         settle_signer,
                         auctioneer: self.auctioneer,
-                    }
-                    .into());
+                    });
                 }
 
                 // Validate that the request, execute, and executor addresses match.
@@ -497,8 +494,7 @@ impl<A: Storage<Address, Account>, R: Storage<RequestId, bool>> VAppState<A, R> 
                         request_executor,
                         execute_signer,
                         executor: self.executor,
-                    }
-                    .into());
+                    });
                 }
 
                 // Ensure that the bid price is less than the max price per pgu.
@@ -508,9 +504,7 @@ impl<A: Storage<Address, Account>, R: Storage<RequestId, bool>> VAppState<A, R> 
                     request.max_price_per_pgu.parse::<U256>().map_err(VAppPanic::U256ParseError)?;
                 let price = bid.amount.parse::<U256>().map_err(VAppPanic::U256ParseError)?;
                 if price > max_price_per_pgu {
-                    return Err(
-                        VAppPanic::MaxPricePerPguExceeded { max_price_per_pgu, price }.into()
-                    );
+                    return Err(VAppPanic::MaxPricePerPguExceeded { max_price_per_pgu, price });
                 }
 
                 // If the execution status is unexecutable, then punish the requester.
@@ -529,9 +523,7 @@ impl<A: Storage<Address, Account>, R: Storage<RequestId, bool>> VAppState<A, R> 
                     // Check that the punishment is less than the max price.
                     let max_price = max_price_per_pgu * U256::from(request.gas_limit) + base_fee;
                     if punishment > max_price {
-                        return Err(
-                            VAppPanic::PunishmentExceedsMaxCost { punishment, max_price }.into()
-                        );
+                        return Err(VAppPanic::PunishmentExceedsMaxCost { punishment, max_price });
                     }
 
                     // Deduct the punishment from the requester.
@@ -544,9 +536,7 @@ impl<A: Storage<Address, Account>, R: Storage<RequestId, bool>> VAppState<A, R> 
                 //
                 // If this is true, then a prover should definitely be able to prove the request.
                 if execute.execution_status != ExecutionStatus::Executed as i32 {
-                    return Err(
-                        VAppPanic::ExecutionFailed { status: execute.execution_status }.into()
-                    );
+                    return Err(VAppPanic::ExecutionFailed { status: execute.execution_status });
                 }
 
                 // Extract the fulfill body.
@@ -564,8 +554,7 @@ impl<A: Storage<Address, Account>, R: Storage<RequestId, bool>> VAppState<A, R> 
                     return Err(VAppPanic::DomainMismatch {
                         expected: self.domain,
                         actual: fulfill_domain,
-                    }
-                    .into());
+                    });
                 }
 
                 // Validate that the fulfill request ID matches the request ID.
@@ -574,8 +563,7 @@ impl<A: Storage<Address, Account>, R: Storage<RequestId, bool>> VAppState<A, R> 
                     return Err(VAppPanic::RequestIdMismatch {
                         found: fulfill_request_id.clone(),
                         expected: request_id.to_vec(),
-                    }
-                    .into());
+                    });
                 }
 
                 // Extract the public values hash from the execute or the request.
@@ -596,7 +584,7 @@ impl<A: Storage<Address, Account>, R: Storage<RequestId, bool>> VAppState<A, R> 
                             .try_into()
                             .map_err(|_| VAppPanic::FailedToParseBytes)?;
                         if request_public_values_hash != execute_public_values_hash {
-                            return Err(VAppPanic::PublicValuesHashMismatch.into());
+                            return Err(VAppPanic::PublicValuesHashMismatch);
                         }
                         request_public_values_hash
                     }
@@ -629,11 +617,11 @@ impl<A: Storage<Address, Account>, R: Storage<RequestId, bool>> VAppState<A, R> 
                         let verifier = eth_sign_verify(&fulfillment_id, verify)
                             .map_err(|_| VAppPanic::InvalidVerifierSignature)?;
                         if verifier != self.verifier {
-                            return Err(VAppPanic::InvalidVerifierSignature.into());
+                            return Err(VAppPanic::InvalidVerifierSignature);
                         }
                     }
                     _ => {
-                        return Err(VAppPanic::UnsupportedProofMode { mode: request.mode }.into());
+                        return Err(VAppPanic::UnsupportedProofMode { mode: request.mode });
                     }
                 }
 
@@ -643,9 +631,7 @@ impl<A: Storage<Address, Account>, R: Storage<RequestId, bool>> VAppState<A, R> 
 
                 // Validate that the execute gas_used was lower than the request gas_limit.
                 if pgus > request.gas_limit {
-                    return Err(
-                        VAppPanic::GasLimitExceeded { pgus, gas_limit: request.gas_limit }.into()
-                    );
+                    return Err(VAppPanic::GasLimitExceeded { pgus, gas_limit: request.gas_limit });
                 }
 
                 // Ensure the user can afford the cost of the proof.
@@ -658,8 +644,7 @@ impl<A: Storage<Address, Account>, R: Storage<RequestId, bool>> VAppState<A, R> 
                         account: request_signer,
                         amount: cost,
                         balance: account.get_balance(),
-                    }
-                    .into());
+                    });
                 }
 
                 // Log the clear event.
@@ -726,13 +711,8 @@ impl<A: Storage<Address, Account>, R: Storage<RequestId, bool>> VAppState<A, R> 
                 );
                 self.accounts.entry(prover_owner).or_default().add_balance(prover_owner_fee);
 
-                Ok(None)
+                return Ok(None);
             }
-        };
-
-        // Increment the step.
-        self.tx_id += 1;
-
-        action
+        }
     }
 }

@@ -26,7 +26,7 @@ jobs:
 
       - name: Build RISC-V ELFs
         run: |
-          ./x.sh
+          ./x.sh --docker
 
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4

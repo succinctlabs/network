@@ -3,28 +3,7 @@
 //! This module contains error types that can be emitted by the crate.
 
 use alloy_primitives::{ruint::ParseError, Address, B256, U256};
-use std::error::Error as StdError;
 use thiserror::Error;
-
-/// The error that can be emitted during [`crate::state::VAppState::execute`].
-#[derive(Debug)]
-pub enum VAppError {
-    /// A recoverable error that will be recorded in the ledger.
-    Revert(VAppRevert),
-    /// Unrecoverable errors that will stop inclusion in the ledger.
-    Panic(VAppPanic),
-}
-
-/// A recoverable error that will be recorded in the ledger.
-#[derive(Debug, Error, PartialEq)]
-#[allow(missing_docs)]
-pub enum VAppRevert {
-    #[error("Insufficient balance for withdrawal: {account}: {amount} > {balance}")]
-    InsufficientBalance { account: Address, amount: U256, balance: U256 },
-
-    #[error("Account does not exist: {prover}")]
-    ProverDoesNotExist { prover: Address },
-}
 
 /// An unrecoverable error that will prevent a transaction from being included in the ledger.
 #[derive(Debug, Error, PartialEq)]
@@ -154,34 +133,7 @@ pub enum VAppPanic {
 
     #[error("Public values hash mismatch")]
     PublicValuesHashMismatch,
-}
 
-impl From<VAppRevert> for VAppError {
-    fn from(err: VAppRevert) -> Self {
-        VAppError::Revert(err)
-    }
-}
-
-impl From<VAppPanic> for VAppError {
-    fn from(err: VAppPanic) -> Self {
-        VAppError::Panic(err)
-    }
-}
-
-impl StdError for VAppError {
-    fn source(&self) -> Option<&(dyn StdError + 'static)> {
-        match self {
-            VAppError::Revert(err) => Some(err),
-            VAppError::Panic(err) => Some(err),
-        }
-    }
-}
-
-impl std::fmt::Display for VAppError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            VAppError::Revert(err) => write!(f, "VApp Revert: {err}"),
-            VAppError::Panic(err) => write!(f, "VApp Panic: {err}"),
-        }
-    }
+    #[error("Prover does not exist: {prover}")]
+    ProverDoesNotExist { prover: Address },
 }

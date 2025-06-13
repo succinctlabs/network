@@ -14,5 +14,9 @@ fn main() {
 
     // Create key.rs file with the hash as [u32; 8]
     let content = format!("pub const STF_VKEY: [u32; 8] = {:?};", hash);
-    fs::write("src/key.rs", content).expect("Failed to write key.rs file");
+
+    // Write the generated file into OUT_DIR.
+    let out_dir = std::env::var("OUT_DIR").expect("OUT_DIR environment variable not set");
+    let dest_path = std::path::Path::new(&out_dir).join("key.rs");
+    fs::write(dest_path, content).expect("failed to write key.rs file");
 }

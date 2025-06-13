@@ -38,9 +38,7 @@ spn-rpc = { path = "crates/rpc" }
 spn-vapp-core = { path = "crates/vapp" }
 
 # sp1
-sp1-sdk = { git = "https://github.com/succinctlabs/sp1.git", branch = "ernesto/sdk-v5-network-v3", features = [
-    "native-gnark",
-] }
+sp1-sdk = { git = "https://github.com/succinctlabs/sp1.git", branch = "ernesto/sdk-v5-network-v3" }
 sp1-prover = { git = "https://github.com/succinctlabs/sp1.git", branch = "ernesto/sdk-v5-network-v3" }
 sp1-verifier = { git = "https://github.com/succinctlabs/sp1.git", branch = "ernesto/sdk-v5-network-v3" }
 sp1-zkvm = { git = "https://github.com/succinctlabs/sp1.git", branch = "ernesto/sdk-v5-network-v3" }
