@@ -13,7 +13,7 @@ contract CreateProverAndStakeScript is BaseScript {
         address STAKING = readAddress("STAKING");
         address PROVE = readAddress("PROVE");
         uint256 STAKER_FEE_BIPS = 1000; // 10%
-        uint256 STAKE_AMOUNT = 10e18;
+        uint256 STAKE_AMOUNT = 10_000e18;
 
         // Ensure not already a prover owner
         if (SuccinctStaking(STAKING).hasProver(msg.sender)) {
