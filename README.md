@@ -1,8 +1,7 @@
 # Succinct Prover Network
 
 <div>
-  <img src=".github/assets/banner.png" alt="Succinct Banner" />
-
+  <img src=".github/assets/image.png" alt="Succinct Banner" />
   &nbsp;
 
 [gha-badge]: https://img.shields.io/github/actions/workflow/status/succinctlabs/network/pr.yml?branch=main
