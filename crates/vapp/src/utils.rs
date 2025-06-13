@@ -166,6 +166,7 @@ pub mod tests {
                     signature: execute_signature.as_bytes().to_vec(),
                 },
                 verify: Some(verifier_signature.as_bytes().to_vec()),
+                vk: None,
             })
         }
 
