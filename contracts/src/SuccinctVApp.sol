@@ -224,11 +224,8 @@ contract SuccinctVApp is
         //
         // Otherwise if the `_to` is not a prover vault, we can just transfer the $PROVE directly.
         if (ISuccinctStaking(staking).isProver(_to)) {
-            // Deposit $PROVE to mint $iPROVE, sending it to this contract.
-            uint256 iPROVE = IERC4626(iProve).deposit(amount, address(this));
-
-            // Transfer the $iPROVE from this contract to the prover vault.
-            IERC20(iProve).safeTransfer(_to, iPROVE);
+            // Deposit $PROVE to mint $iPROVE, sending it to the prover vault.
+            IERC4626(iProve).deposit(amount, _to);
         } else {
             // Transfer the $PROVE from this contract to the `_to` address.
             IERC20(prove).safeTransfer(_to, amount);
