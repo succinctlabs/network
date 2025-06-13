@@ -136,4 +136,13 @@ pub enum VAppPanic {
 
     #[error("Prover does not exist: {prover}")]
     ProverDoesNotExist { prover: Address },
+
+    #[error("Protocol fee bips exceeds 100%: {bips}")]
+    ProtocolFeeTooHigh { bips: U256 },
+
+    #[error("Staker fee bips exceeds 100%: {bips}")]
+    StakerFeeTooHigh { bips: U256 },
+
+    #[error("Sum of protocol and staker fee bips exceeds 100%: {protocol_bips} + {staker_bips}")]
+    TotalFeeTooHigh { protocol_bips: U256, staker_bips: U256 },
 }
