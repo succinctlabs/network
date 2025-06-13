@@ -10,4 +10,4 @@ sha2 = { workspace = true }
 sp1-zkvm = { version = "5.0.0", features = ["verify"] }
 
 [build-dependencies]
-sp1-sdk = { workspace = true }
+sp1-sdk = { workspace = true, default-features = false }
