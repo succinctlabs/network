@@ -2,8 +2,7 @@ mod common;
 
 use alloy_primitives::U256;
 use spn_vapp_core::{
-    errors::{VAppError, VAppPanic, VAppRevert},
-    verifier::MockVerifier,
+    errors::VAppPanic, receipts::VAppReceipt, sol::TransactionStatus, verifier::MockVerifier,
 };
 
 use crate::common::*;
@@ -110,19 +109,21 @@ fn test_withdraw_insufficient_balance() {
     let withdraw_tx = withdraw_tx(account, U256::from(150), 0, 2, 2);
     let result = test.state.execute::<MockVerifier>(&withdraw_tx);
 
-    // Verify the correct revert error is returned.
-    assert!(matches!(
-        result,
-        Err(VAppError::Revert(VAppRevert::InsufficientBalance {
-            account: acc,
-            amount,
-            balance
-        })) if acc == account && amount == U256::from(150) && balance == U256::from(100)
-    ));
+    // Verify the transaction succeeds but reverts.
+    let receipt = result.unwrap().unwrap();
+    match &receipt {
+        VAppReceipt::Withdraw(withdraw) => {
+            assert_eq!(withdraw.action.account, account);
+            assert_eq!(withdraw.action.amount, U256::from(150));
+            assert_eq!(withdraw.onchain_tx_id, 2);
+            assert_eq!(withdraw.status, TransactionStatus::Reverted);
+        }
+        _ => panic!("Expected a withdraw receipt"),
+    }
 
     // Verify state remains unchanged after error (onchain counters increment, but tx_id does not).
     assert_account_balance(&test, account, U256::from(100));
-    assert_state_counters(&test, 2, 3, 0, 2);
+    assert_state_counters(&test, 3, 3, 0, 2);
 }
 
 #[test]
@@ -134,18 +135,20 @@ fn test_withdraw_zero_balance_account() {
     let withdraw_tx = withdraw_tx(account, U256::from(1), 0, 1, 1);
     let result = test.state.execute::<MockVerifier>(&withdraw_tx);
 
-    // Verify the correct revert error is returned.
-    assert!(matches!(
-        result,
-        Err(VAppError::Revert(VAppRevert::InsufficientBalance {
-            account: acc,
-            amount,
-            balance
-        })) if acc == account && amount == U256::from(1) && balance == U256::ZERO
-    ));
+    // Verify the transaction succeeds but reverts.
+    let receipt = result.unwrap().unwrap();
+    match &receipt {
+        VAppReceipt::Withdraw(withdraw) => {
+            assert_eq!(withdraw.action.account, account);
+            assert_eq!(withdraw.action.amount, U256::from(1));
+            assert_eq!(withdraw.onchain_tx_id, 1);
+            assert_eq!(withdraw.status, TransactionStatus::Reverted);
+        }
+        _ => panic!("Expected a withdraw receipt"),
+    }
 
     // Verify state counters behavior for failed transaction (onchain counters increment, but tx_id does not).
-    assert_state_counters(&test, 1, 2, 0, 1);
+    assert_state_counters(&test, 2, 2, 0, 1);
 }
 
 #[test]
@@ -165,10 +168,7 @@ fn test_withdraw_onchain_tx_out_of_order() {
     let result = test.state.execute::<MockVerifier>(&withdraw2);
 
     // Verify the correct panic error is returned.
-    assert!(matches!(
-        result,
-        Err(VAppError::Panic(VAppPanic::OnchainTxOutOfOrder { expected: 3, actual: 5 }))
-    ));
+    assert!(matches!(result, Err(VAppPanic::OnchainTxOutOfOrder { expected: 3, actual: 5 })));
 
     // Verify state remains unchanged after error.
     assert_account_balance(&test, account, U256::from(150));
@@ -189,10 +189,7 @@ fn test_withdraw_block_number_regression() {
     let result = test.state.execute::<MockVerifier>(&withdraw_tx);
 
     // Verify the correct panic error is returned.
-    assert!(matches!(
-        result,
-        Err(VAppError::Panic(VAppPanic::BlockNumberOutOfOrder { expected: 10, actual: 8 }))
-    ));
+    assert!(matches!(result, Err(VAppPanic::BlockNumberOutOfOrder { expected: 10, actual: 8 })));
 
     // Verify state remains unchanged after error.
     assert_account_balance(&test, account, U256::from(200));
@@ -213,20 +210,14 @@ fn test_withdraw_log_index_out_of_order() {
     let result = test.state.execute::<MockVerifier>(&withdraw1);
 
     // Verify the correct panic error is returned.
-    assert!(matches!(
-        result,
-        Err(VAppError::Panic(VAppPanic::LogIndexOutOfOrder { current: 10, next: 10 }))
-    ));
+    assert!(matches!(result, Err(VAppPanic::LogIndexOutOfOrder { current: 10, next: 10 })));
 
     // Try with log_index lower than current.
     let withdraw2 = withdraw_tx(account, U256::from(50), 0, 5, 2);
     let result = test.state.execute::<MockVerifier>(&withdraw2);
 
     // Verify the correct panic error is returned.
-    assert!(matches!(
-        result,
-        Err(VAppError::Panic(VAppPanic::LogIndexOutOfOrder { current: 10, next: 5 }))
-    ));
+    assert!(matches!(result, Err(VAppPanic::LogIndexOutOfOrder { current: 10, next: 5 })));
 
     // Verify state remains unchanged after error.
     assert_account_balance(&test, account, U256::from(200));

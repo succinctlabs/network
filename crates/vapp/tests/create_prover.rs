@@ -1,10 +1,7 @@
 mod common;
 
 use alloy_primitives::U256;
-use spn_vapp_core::{
-    errors::{VAppError, VAppPanic},
-    verifier::MockVerifier,
-};
+use spn_vapp_core::{errors::VAppPanic, verifier::MockVerifier};
 
 use crate::common::*;
 
@@ -159,10 +156,7 @@ fn test_create_prover_onchain_tx_out_of_order() {
     let result = test.state.execute::<MockVerifier>(&tx2);
 
     // Verify the correct panic error is returned.
-    assert!(matches!(
-        result,
-        Err(VAppError::Panic(VAppPanic::OnchainTxOutOfOrder { expected: 2, actual: 4 }))
-    ));
+    assert!(matches!(result, Err(VAppPanic::OnchainTxOutOfOrder { expected: 2, actual: 4 })));
 
     // Verify state remains unchanged after error.
     assert_prover_account(&test, prover_address, owner_address, owner_address, U256::from(500));
@@ -186,10 +180,7 @@ fn test_create_prover_block_number_regression() {
     let result = test.state.execute::<MockVerifier>(&tx2);
 
     // Verify the correct panic error is returned.
-    assert!(matches!(
-        result,
-        Err(VAppError::Panic(VAppPanic::BlockNumberOutOfOrder { expected: 15, actual: 10 }))
-    ));
+    assert!(matches!(result, Err(VAppPanic::BlockNumberOutOfOrder { expected: 15, actual: 10 })));
 
     // Verify state remains unchanged after error.
     assert_prover_account(&test, prover_address, owner_address, owner_address, U256::from(500));
@@ -213,20 +204,14 @@ fn test_create_prover_log_index_out_of_order() {
     let result = test.state.execute::<MockVerifier>(&tx2);
 
     // Verify the correct panic error is returned.
-    assert!(matches!(
-        result,
-        Err(VAppError::Panic(VAppPanic::LogIndexOutOfOrder { current: 20, next: 20 }))
-    ));
+    assert!(matches!(result, Err(VAppPanic::LogIndexOutOfOrder { current: 20, next: 20 })));
 
     // Try with log_index lower than current.
     let tx3 = create_prover_tx(prover2, owner2, U256::from(500), 0, 15, 2);
     let result = test.state.execute::<MockVerifier>(&tx3);
 
     // Verify the correct panic error is returned.
-    assert!(matches!(
-        result,
-        Err(VAppError::Panic(VAppPanic::LogIndexOutOfOrder { current: 20, next: 15 }))
-    ));
+    assert!(matches!(result, Err(VAppPanic::LogIndexOutOfOrder { current: 20, next: 15 })));
 
     // Verify state remains unchanged after error.
     assert_prover_account(&test, prover_address, owner_address, owner_address, U256::from(500));

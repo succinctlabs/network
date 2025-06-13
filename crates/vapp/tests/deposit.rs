@@ -1,10 +1,7 @@
 mod common;
 
 use alloy_primitives::U256;
-use spn_vapp_core::{
-    errors::{VAppError, VAppPanic},
-    verifier::MockVerifier,
-};
+use spn_vapp_core::{errors::VAppPanic, verifier::MockVerifier};
 
 use crate::common::*;
 
@@ -121,10 +118,7 @@ fn test_deposit_onchain_tx_out_of_order() {
     let result = test.state.execute::<MockVerifier>(&tx2);
 
     // Verify the correct panic error is returned.
-    assert!(matches!(
-        result,
-        Err(VAppError::Panic(VAppPanic::OnchainTxOutOfOrder { expected: 2, actual: 3 }))
-    ));
+    assert!(matches!(result, Err(VAppPanic::OnchainTxOutOfOrder { expected: 2, actual: 3 })));
 
     // Verify state remains unchanged after error.
     assert_account_balance(&test, account, U256::from(100));
@@ -145,10 +139,7 @@ fn test_deposit_block_number_regression() {
     let result = test.state.execute::<MockVerifier>(&tx2);
 
     // Verify the correct panic error is returned.
-    assert!(matches!(
-        result,
-        Err(VAppError::Panic(VAppPanic::BlockNumberOutOfOrder { expected: 5, actual: 3 }))
-    ));
+    assert!(matches!(result, Err(VAppPanic::BlockNumberOutOfOrder { expected: 5, actual: 3 })));
 
     // Verify state remains unchanged after error.
     assert_account_balance(&test, account, U256::from(100));
@@ -169,20 +160,14 @@ fn test_deposit_log_index_out_of_order() {
     let result = test.state.execute::<MockVerifier>(&tx2);
 
     // Verify the correct panic error is returned.
-    assert!(matches!(
-        result,
-        Err(VAppError::Panic(VAppPanic::LogIndexOutOfOrder { current: 5, next: 5 }))
-    ));
+    assert!(matches!(result, Err(VAppPanic::LogIndexOutOfOrder { current: 5, next: 5 })));
 
     // Try with log_index lower than current.
     let tx3 = deposit_tx(account, U256::from(100), 0, 3, 2);
     let result = test.state.execute::<MockVerifier>(&tx3);
 
     // Verify the correct panic error is returned.
-    assert!(matches!(
-        result,
-        Err(VAppError::Panic(VAppPanic::LogIndexOutOfOrder { current: 5, next: 3 }))
-    ));
+    assert!(matches!(result, Err(VAppPanic::LogIndexOutOfOrder { current: 5, next: 3 })));
 
     // Verify state remains unchanged after error.
     assert_account_balance(&test, account, U256::from(100));

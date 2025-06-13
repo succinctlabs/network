@@ -3,7 +3,7 @@ mod common;
 use alloy_primitives::U256;
 use spn_network_types::{MessageFormat, TransferRequest, TransferRequestBody};
 use spn_vapp_core::{
-    errors::{VAppError, VAppPanic},
+    errors::VAppPanic,
     transactions::{TransferTransaction, VAppTransaction},
     verifier::MockVerifier,
 };
@@ -169,11 +169,11 @@ fn test_transfer_insufficient_balance() {
     // Verify the correct panic error is returned.
     assert!(matches!(
         result,
-        Err(VAppError::Panic(VAppPanic::InsufficientBalance {
+        Err(VAppPanic::InsufficientBalance {
             account,
             amount,
             balance
-        })) if account == from_signer.address() && amount == U256::from(150) && balance == U256::from(100)
+        }) if account == from_signer.address() && amount == U256::from(150) && balance == U256::from(100)
     ));
 
     // Verify balances remain unchanged.
@@ -195,11 +195,11 @@ fn test_transfer_from_zero_balance_account() {
     // Verify the correct panic error is returned.
     assert!(matches!(
         result,
-        Err(VAppError::Panic(VAppPanic::InsufficientBalance {
+        Err(VAppPanic::InsufficientBalance {
             account,
             amount,
             balance
-        })) if account == from_signer.address() && amount == U256::from(1) && balance == U256::ZERO
+        }) if account == from_signer.address() && amount == U256::from(1) && balance == U256::ZERO
     ));
 
     // Verify state remains unchanged.
@@ -224,11 +224,11 @@ fn test_transfer_from_signer_without_balance() {
     // Verify the correct panic error is returned (signer has insufficient balance).
     assert!(matches!(
         result,
-        Err(VAppError::Panic(VAppPanic::InsufficientBalance {
+        Err(VAppPanic::InsufficientBalance {
             account,
             amount,
             balance
-        })) if account == from_signer_without_balance.address() && amount == U256::from(100) && balance == U256::ZERO
+        }) if account == from_signer_without_balance.address() && amount == U256::from(100) && balance == U256::ZERO
     ));
 
     // Verify balances remain unchanged.
@@ -254,7 +254,7 @@ fn test_transfer_domain_mismatch() {
     let result = test.state.execute::<MockVerifier>(&transfer_tx);
 
     // Verify the correct panic error is returned.
-    assert!(matches!(result, Err(VAppError::Panic(VAppPanic::DomainMismatch { .. }))));
+    assert!(matches!(result, Err(VAppPanic::DomainMismatch { .. })));
 
     // Verify balances remain unchanged.
     assert_account_balance(&test, from_signer.address(), U256::from(500));
@@ -270,7 +270,7 @@ fn test_transfer_missing_body() {
     let result = test.state.execute::<MockVerifier>(&transfer_tx);
 
     // Verify the correct panic error is returned.
-    assert!(matches!(result, Err(VAppError::Panic(VAppPanic::MissingProtoBody))));
+    assert!(matches!(result, Err(VAppPanic::MissingProtoBody)));
 
     // Verify state remains unchanged.
     assert_state_counters(&test, 1, 1, 0, 0);
@@ -291,7 +291,7 @@ fn test_transfer_invalid_amount_parsing() {
     let result = test.state.execute::<MockVerifier>(&transfer_tx);
 
     // Verify the correct panic error is returned.
-    assert!(matches!(result, Err(VAppError::Panic(VAppPanic::InvalidTransferAmount { .. }))));
+    assert!(matches!(result, Err(VAppPanic::InvalidTransferAmount { .. })));
 
     // Verify balances remain unchanged.
     assert_account_balance(&test, from_signer.address(), U256::from(500));
@@ -327,7 +327,7 @@ fn test_transfer_invalid_to_address() {
     let result = test.state.execute::<MockVerifier>(&transfer_tx);
 
     // Verify the correct panic error is returned.
-    assert!(matches!(result, Err(VAppError::Panic(VAppPanic::AddressDeserializationFailed))));
+    assert!(matches!(result, Err(VAppPanic::AddressDeserializationFailed)));
 
     // Verify balance remains unchanged.
     assert_account_balance(&test, from_signer.address(), U256::from(500));
