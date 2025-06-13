@@ -529,6 +529,9 @@ impl<A: Storage<Address, Account>, R: Storage<RequestId, bool>> VAppState<A, R> 
                     // Deduct the punishment from the requester.
                     self.accounts.entry(request_signer).or_default().deduct_balance(punishment);
 
+                    // Send the punishment to the treasury
+                    self.accounts.entry(self.treasury).or_default().add_balance(punishment);
+
                     return Ok(None);
                 }
 
@@ -680,7 +683,7 @@ impl<A: Storage<Address, Account>, R: Storage<RequestId, bool>> VAppState<A, R> 
 
                 // Get the protocol fee.
                 let protocol_address = self.treasury;
-                let protocol_fee_bips = U256::from(0);
+                let protocol_fee_bips = U256::ZERO;
 
                 // Get the staker fee from the prover account.
                 let prover_account = self
