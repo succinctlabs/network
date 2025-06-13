@@ -458,7 +458,9 @@ mod tests {
         ];
 
         let result = sparse_store.verify::<Keccak256>(root, &proofs);
-        assert!(matches!(result, Err(SparseStorageError::DuplicateProof { index }) if index == key));
+        assert!(
+            matches!(result, Err(SparseStorageError::DuplicateProof { index }) if index == key)
+        );
     }
 
     #[test]
@@ -487,6 +489,8 @@ mod tests {
         ];
 
         let result = sparse_store.verify::<Keccak256>(root, &proofs);
-        assert!(matches!(result, Err(SparseStorageError::UnusedProof { index }) if index == key_unused));
+        assert!(
+            matches!(result, Err(SparseStorageError::UnusedProof { index }) if index == key_unused)
+        );
     }
 }
