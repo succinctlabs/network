@@ -627,7 +627,15 @@ pub fn create_clear_tx_with_options(
         None
     };
 
-    VAppTransaction::Clear(ClearTransaction { request, bid, settle, execute, fulfill, verify })
+    VAppTransaction::Clear(ClearTransaction {
+        request,
+        bid,
+        settle,
+        execute,
+        fulfill,
+        verify,
+        vk: None,
+    })
 }
 
 /// Creates a clear transaction with custom whitelist.
@@ -898,6 +906,7 @@ pub fn create_clear_tx_with_public_values_hash(
         execute,
         fulfill: Some(fulfill),
         verify,
+        vk: None,
     })
 }
 

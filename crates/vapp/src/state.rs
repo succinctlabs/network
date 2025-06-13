@@ -479,7 +479,7 @@ impl<A: Storage<Address, Account>, R: Storage<RequestId, bool>> VAppState<A, R> 
 
                 // Validate that the request, settle, and auctioneer addresses match.
                 let request_auctioneer = address(request.auctioneer.as_slice())?;
-                if request_auctioneer != settle_signer || settle_signer != self.auctioneer {
+                if !(request_auctioneer == settle_signer && settle_signer == self.auctioneer) {
                     return Err(VAppPanic::AuctioneerMismatch {
                         request_auctioneer,
                         settle_signer,
@@ -489,7 +489,7 @@ impl<A: Storage<Address, Account>, R: Storage<RequestId, bool>> VAppState<A, R> 
 
                 // Validate that the request, execute, and executor addresses match.
                 let request_executor = address(request.executor.as_slice())?;
-                if request_executor != execute_signer || request_executor != self.executor {
+                if !(request_executor == execute_signer && request_executor == self.executor) {
                     return Err(VAppPanic::ExecutorMismatch {
                         request_executor,
                         execute_signer,
