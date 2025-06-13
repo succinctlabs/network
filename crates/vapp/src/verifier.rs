@@ -35,3 +35,17 @@ impl VAppVerifier for MockVerifier {
         Ok(())
     }
 }
+
+/// A reject verifier for testing.
+#[derive(Debug, Clone, Default)]
+pub struct RejectVerifier;
+
+impl VAppVerifier for RejectVerifier {
+    fn verify(
+        &self,
+        _vk_digest_array: [u32; 8],
+        _pv_digest_array: [u8; 32],
+    ) -> Result<(), VAppVerifierError> {
+        Err(VAppVerifierError::InvalidProof)
+    }
+}

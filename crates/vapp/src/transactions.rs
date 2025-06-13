@@ -93,6 +93,9 @@ pub struct ClearTransaction {
     pub fulfill: Option<FulfillProofRequest>,
     /// The verifier signature.
     pub verify: Option<Vec<u8>>,
-    /// The vk request.
+    /// The verifying key.
+    ///
+    /// Note: This is only used as a hint outside the zkVM so that we can get the verifying key.
+    #[serde(skip)]
     pub vk: Option<Vec<u8>>,
 }
