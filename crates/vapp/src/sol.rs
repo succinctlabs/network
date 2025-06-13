@@ -96,7 +96,7 @@ sol! {
         uint64 onchainBlock;
         uint64 onchainLogIndex;
         bytes32 accountsRoot;
-        bytes32 requestsRoot;
+        bytes32 transactionsRoot;
         address treasury;
         address auctioneer;
         address executor;

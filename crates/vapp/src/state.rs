@@ -84,7 +84,7 @@ impl VAppState<MerkleStorage<Address, Account>, MerkleStorage<RequestId, bool>> 
             onchainBlock: self.onchain_block,
             onchainLogIndex: self.onchain_log_index,
             accountsRoot: self.accounts.root(),
-            requestsRoot: self.transactions.root(),
+            transactionsRoot: self.transactions.root(),
             treasury: self.treasury,
             auctioneer: self.auctioneer,
             executor: self.executor,
@@ -97,7 +97,7 @@ impl VAppState<MerkleStorage<Address, Account>, MerkleStorage<RequestId, bool>> 
 impl VAppState<SparseStorage<Address, Account>, SparseStorage<RequestId, bool>> {
     /// Computes the state root.
     #[must_use]
-    pub fn root<H: MerkleTreeHasher>(&self, account_root: B256, requests_root: B256) -> B256 {
+    pub fn root<H: MerkleTreeHasher>(&self, account_root: B256, transactions_root: B256) -> B256 {
         let state = VAppStateContainer {
             domain: self.domain,
             txId: self.tx_id,
@@ -105,7 +105,7 @@ impl VAppState<SparseStorage<Address, Account>, SparseStorage<RequestId, bool>> 
             onchainBlock: self.onchain_block,
             onchainLogIndex: self.onchain_log_index,
             accountsRoot: account_root,
-            requestsRoot: requests_root,
+            transactionsRoot: transactions_root,
             treasury: self.treasury,
             auctioneer: self.auctioneer,
             executor: self.executor,
