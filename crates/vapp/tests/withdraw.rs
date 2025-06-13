@@ -72,8 +72,8 @@ fn test_withdraw_full_balance_with_max() {
 
     // Verify entire balance was withdrawn.
     assert_account_balance(&test, account, U256::ZERO);
-    // Note: Receipt shows the original withdraw action amount (U256::MAX), not actual withdrawn amount.
-    assert_withdraw_receipt(&receipt, account, U256::MAX, 2);
+    // Receipt should show the actual withdrawn amount, not U256::MAX.
+    assert_withdraw_receipt(&receipt, account, initial_amount, 2);
     assert_state_counters(&test, 3, 3, 0, 2);
 }
 

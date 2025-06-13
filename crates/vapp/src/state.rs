@@ -15,7 +15,7 @@ use crate::{
     merkle::{MerkleStorage, MerkleTreeHasher},
     receipts::{OnchainReceipt, VAppReceipt},
     signing::{eth_sign_verify, proto_verify},
-    sol::{Account, TransactionStatus, VAppStateContainer},
+    sol::{Account, TransactionStatus, VAppStateContainer, Withdraw},
     sparse::SparseStorage,
     storage::{RequestId, Storage},
     transactions::{OnchainTransaction, VAppTransaction},
@@ -263,10 +263,15 @@ impl<A: Storage<Address, Account>, R: Storage<RequestId, bool>> VAppState<A, R> 
                 info!("├── Account({}): - {} $PROVE", withdraw.action.account, withdrawal_amount);
                 account.deduct_balance(withdrawal_amount);
 
-                // Return the withdraw action.
+                // Return the withdraw action, replacing the amount with the actual
+                // withdrawal amount (which in the case of U256::MAX, is not the same value as
+                // the requested amount).
                 return Ok(Some(VAppReceipt::Withdraw(OnchainReceipt {
                     onchain_tx_id: withdraw.onchain_tx,
-                    action: withdraw.action.clone(),
+                    action: Withdraw {
+                        account: withdraw.action.account,
+                        amount: withdrawal_amount,
+                    },
                     status: TransactionStatus::Completed,
                 })));
             }
