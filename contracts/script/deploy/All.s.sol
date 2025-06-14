@@ -57,7 +57,7 @@ contract AllScript is BaseScript, FixtureLoader {
         address AUCTIONEER = readAddress("AUCTIONEER");
         address VERIFIER = vm.envOr("VERIFIER", address(0));
         uint256 MIN_DEPOSIT_AMOUNT = readUint256("MIN_DEPOSIT_AMOUNT");
-        bytes32 VKEY = bytes32(0x00c64f76c2a5d97de1c95d399cb8f4cc1337426ff01eda2f9d7a9f6d69bd58a2);
+        bytes32 VKEY = bytes32(0x00e76fb5ef418452b5e97124585bafbaeb300468cc863e052341ec81b8daa5d8);
         bytes32 GENESIS_STATE_ROOT =
             bytes32(0xde6c5941bbaeab97cabda7eaba5e6dd8b5dfb58cb2fb43238a7e707c6b2c587f);
 
