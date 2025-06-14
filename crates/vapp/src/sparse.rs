@@ -138,15 +138,21 @@ impl<K: StorageKey, V: StorageValue + PartialEq> SparseStorage<K, V> {
             }
         }
 
-        // Reject any unused proofs for keys that are not stored.
-        if proof_map.len() != self.inner.len() {
-            for (index, proof) in proof_map {
-                if !self.inner.contains_key(&index) {
-                    if proof.value.is_some() {
-                        return Err(SparseStorageError::ProofForNonStoredKeyWithValue { index });
-                    }
-                    return Err(SparseStorageError::UnusedProof { index });
-                }
+        // Verify that every proof for a key that is not stored is a non-inclusion proof.
+        for (index, proof) in &proof_map {
+            // Skip keys we have already verified above.
+            if self.inner.contains_key(index) {
+                continue;
+            }
+
+            // Non-inclusion proofs **must** have an empty value.
+            if proof.value.is_some() {
+                return Err(SparseStorageError::ProofForNonStoredKeyWithValue { index: *index });
+            }
+
+            // Verify the non-inclusion proof against the expected root.
+            if MerkleStorage::<K, V, H>::verify_proof(root, proof).is_err() {
+                return Err(SparseStorageError::VerificationFailed);
             }
         }
 
@@ -424,12 +430,8 @@ mod tests {
 
         // Get root and all proofs.
         let root = merkle_tree.root();
-        let proofs: Vec<MerkleProof<U256, U256, Keccak256>> = keys_values
-            .iter()
-            .map(|(key, value)| {
-                MerkleProof::new(*key, Some(*value), merkle_tree.proof(key).unwrap().proof)
-            })
-            .collect();
+        let proofs: Vec<MerkleProof<U256, U256, Keccak256>> =
+            keys_values.iter().map(|(key, _)| merkle_tree.proof(key).unwrap()).collect();
 
         // Verification should succeed.
         assert!(sparse_store.verify::<Keccak256>(root, &proofs).is_ok());
@@ -452,10 +454,7 @@ mod tests {
         let proof_data = merkle_tree.proof(&key).unwrap();
 
         // Create duplicate proofs for the same key.
-        let proofs = vec![
-            MerkleProof::new(key, Some(value), proof_data.proof.clone()),
-            MerkleProof::new(key, Some(value), proof_data.proof),
-        ];
+        let proofs = vec![proof_data.clone(), proof_data];
 
         let result = sparse_store.verify::<Keccak256>(root, &proofs);
         assert!(
@@ -464,7 +463,7 @@ mod tests {
     }
 
     #[test]
-    fn verify_fails_with_unused_proof() {
+    fn verify_non_inclusion_proof_succeeds() {
         let mut merkle_tree = U256Tree::new();
         let mut sparse_store = U256SparseStore::new();
 
@@ -480,17 +479,38 @@ mod tests {
         // Proof for stored key.
         let proof_stored = merkle_tree.proof(&key_stored).unwrap();
 
-        // Create proof for the unused key.
+        // Create proof for the unused key (non-inclusion proof).
         let proof_unused = merkle_tree.proof(&key_unused).unwrap();
 
-        let proofs = vec![
-            MerkleProof::new(key_stored, Some(value_stored), proof_stored.proof),
-            MerkleProof::new(key_unused, None, proof_unused.proof),
-        ];
+        let proofs = vec![proof_stored, proof_unused];
 
-        let result = sparse_store.verify::<Keccak256>(root, &proofs);
+        // Verification should now succeed because non-inclusion proofs are accepted.
+        assert!(sparse_store.verify::<Keccak256>(root, &proofs).is_ok());
+    }
+
+    #[test]
+    fn verify_fails_when_non_inclusion_proof_has_value() {
+        let mut merkle_tree = U256Tree::new();
+        let mut sparse_store = U256SparseStore::new();
+
+        // Key/value that will be stored in both data structures.
+        let key_stored = uint!(55_U256);
+        let value_stored = uint!(1234_U256);
+        merkle_tree.insert(key_stored, value_stored);
+        sparse_store.insert(key_stored, value_stored);
+
+        // Compute the root.
+        let root = merkle_tree.root();
+
+        // Generate proofs for included and non-included keys.
+        let key_not_stored = uint!(777_U256);
+        let proof_stored = merkle_tree.proof(&key_stored).unwrap();
+        let mut proof_not_stored = merkle_tree.proof(&key_not_stored).unwrap();
+        proof_not_stored.value = Some(uint!(1_U256));
+
+        let result = sparse_store.verify::<Keccak256>(root, &[proof_stored, proof_not_stored]);
         assert!(
-            matches!(result, Err(SparseStorageError::UnusedProof { index }) if index == key_unused)
+            matches!(result, Err(SparseStorageError::ProofForNonStoredKeyWithValue { index }) if index == key_not_stored)
         );
     }
 }
