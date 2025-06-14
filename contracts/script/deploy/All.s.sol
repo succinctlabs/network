@@ -59,7 +59,7 @@ contract AllScript is BaseScript, FixtureLoader {
         uint256 MIN_DEPOSIT_AMOUNT = readUint256("MIN_DEPOSIT_AMOUNT");
         bytes32 VKEY = bytes32(0x00c64f76c2a5d97de1c95d399cb8f4cc1337426ff01eda2f9d7a9f6d69bd58a2);
         bytes32 GENESIS_STATE_ROOT =
-            bytes32(0x4b15a7d34ea0ec471d0d6ab9170cc2910f590819ee168e2a799e25244e327116);
+            bytes32(0xde6c5941bbaeab97cabda7eaba5e6dd8b5dfb58cb2fb43238a7e707c6b2c587f);
 
         // If the verifier is not provided, deploy the SP1VerifierGateway and add v5.0.0 Groth16 SP1Verifier to it
         if (VERIFIER == address(0)) {
