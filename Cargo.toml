@@ -9,15 +9,14 @@ categories = ["cryptography"]
 
 [workspace]
 members = [
-    "bin/cli",
+    "crates/network/artifacts",
+    "crates/network/rpc",
+    "crates/network/utils",
+    "crates/node/calibrator",
+    "crates/node/core",
+    "crates/node/metrics",
     "crates/types/artifact",
     "crates/types/network",
-    "crates/utils",
-    "crates/node",
-    "crates/artifacts",
-    "crates/calibrator",
-    "crates/rpc",
-    "crates/metrics",
     "crates/vapp",
     "programs/examples/fibonacci",
     "programs/examples/is-prime",
@@ -28,13 +27,13 @@ resolver = "2"
 
 [workspace.dependencies]
 # spn
-spn-artifacts = { path = "crates/artifacts" }
+spn-artifacts = { path = "crates/network/artifacts" }
+spn-rpc = { path = "crates/network/rpc" }
+spn-utils = { path = "crates/network/utils" }
+spn-calibrator = { path = "crates/node/calibrator" }
+spn-node = { path = "crates/node/core" }
 spn-artifact-types = { path = "crates/types/artifact" }
-spn-calibrator = { path = "crates/calibrator" }
 spn-network-types = { path = "crates/types/network" }
-spn-node = { path = "crates/node" }
-spn-utils = { path = "crates/utils" }
-spn-rpc = { path = "crates/rpc" }
 spn-vapp-core = { path = "crates/vapp" }
 
 # sp1

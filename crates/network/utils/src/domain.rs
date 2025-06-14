@@ -22,7 +22,7 @@ pub fn get_domain(name: &str) -> Result<B256> {
     }
 }
 
-/// The [Eip712Domain] separator for the vApp on Sepolia.
+/// The [`alloy_sol_types::Eip712Domain`] separator for the vApp on Sepolia.
 pub static SPN_SEPOLIA_V1_DOMAIN: LazyLock<B256> = LazyLock::new(|| {
     let domain = eip712_domain! {
         name: "Succinct Prover Network",
@@ -32,7 +32,7 @@ pub static SPN_SEPOLIA_V1_DOMAIN: LazyLock<B256> = LazyLock::new(|| {
     domain.separator()
 });
 
-/// The [Eip712Domain] separator for the vApp on Sepolia.
+/// The [`alloy_sol_types::Eip712Domain`] separator for the vApp on Sepolia.
 pub static SPN_MAINNET_V1_DOMAIN: LazyLock<B256> = LazyLock::new(|| {
     let domain = eip712_domain! {
         name: "Succinct Prover Network",

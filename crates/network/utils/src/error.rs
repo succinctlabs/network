@@ -7,14 +7,14 @@ pub struct ErrorCapture {
 
 impl ErrorCapture {
     /// Creates a new error capture instance.
-    pub fn new() -> Self {
+    #[must_use] pub fn new() -> Self {
         let (tx, rx) = std::sync::mpsc::channel();
         let tx_clone = tx;
 
         // Set up the new hook that captures panic messages
         panic::set_hook(Box::new(move |panic_info| {
             if let Some(location) = panic_info.location() {
-                let msg = format!("panic occurred at {}: {}", location, panic_info);
+                let msg = format!("panic occurred at {location}: {panic_info}");
                 let _ = tx_clone.send(msg);
             }
         }));
@@ -35,24 +35,24 @@ impl ErrorCapture {
     pub fn format_error(&self, error: impl std::fmt::Display) -> String {
         let messages = self.collect_messages();
         if messages.is_empty() {
-            format!("{}", error)
+            format!("{error}")
         } else {
             format!("{}\nPanic details:\n{}", error, messages.join("\n"))
         }
     }
 
     /// Extracts a readable message from a panic payload.
-    pub fn extract_panic_message(panic_err: Box<dyn std::any::Any + Send>) -> String {
+    #[must_use] pub fn extract_panic_message(panic_err: &Box<dyn std::any::Any + Send>) -> String {
         if let Some(s) = panic_err.downcast_ref::<&str>() {
-            s.to_string()
+            (*s).to_string()
         } else if let Some(s) = panic_err.downcast_ref::<String>() {
             s.clone()
         } else if let Some(e) = panic_err.downcast_ref::<Box<dyn Error + Send>>() {
             e.to_string()
         } else if let Some(e) = panic_err.downcast_ref::<anyhow::Error>() {
-            format!("{:#}", e)
+            format!("{e:#}")
         } else {
-            format!("{:?}", panic_err)
+            format!("{panic_err:?}")
         }
     }
 }
@@ -68,7 +68,7 @@ impl Drop for ErrorCapture {
         // Remove the current hook and set a basic default one
         let _ = panic::take_hook();
         panic::set_hook(Box::new(|info| {
-            eprintln!("{}", info);
+            eprintln!("{info}");
         }));
     }
 }
