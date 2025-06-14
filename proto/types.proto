@@ -60,12 +60,11 @@ message RequestProofRequestBody {
   bytes verifier = 15;
   // The optional public values hash.
   optional bytes public_values_hash = 16;
-  // The base fee for the request.
+  // The base fee for the request.``
   string base_fee = 17;
   // The max price per prover gas unit for the request.
   string max_price_per_pgu = 18;
 }
-
 
 message RequestProofResponse {
   // The transaction hash.
@@ -2820,6 +2819,7 @@ message ProverStats {
   uint64 block_number = 12;
   bytes tx_hash = 13;
   uint64 lifetime_rewards = 14;
+  optional string image_url = 15;
 }
 
 message GetFilteredProverStatsRequest {
@@ -2865,6 +2865,16 @@ message GetFilteredBidHistoryRequest {
 
 message GetFilteredBidHistoryResponse {
   repeated BidHistory bids = 1;
+}
+
+message GetProverStatsDetailRequest {
+  // The prover address to get stats for.
+  bytes address = 1;
+}
+
+message GetProverStatsDetailResponse {
+  // The prover stats.
+  ProverStats stats = 1;
 }
  
 /******************

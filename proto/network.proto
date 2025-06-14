@@ -20,8 +20,6 @@ service ProverNetwork {
 
   // Fails fulfillment. Only callable by the assigned fulfiller.
   rpc FailFulfillment(types.FailFulfillmentRequest) returns (types.FailFulfillmentResponse) {}
-  // Fails execution. Only callable by the execution oracle.
-  rpc FailExecution(types.FailExecutionRequest) returns (types.FailExecutionResponse) {}
 
   // Get the status of a proof request.
   rpc GetProofRequestStatus(types.GetProofRequestStatusRequest)
@@ -316,6 +314,8 @@ service ProverNetwork {
   rpc GetProverStats(types.GetProverStatsRequest) returns (types.GetProverStatsResponse) {}
   // Get statistics for all provers with pagination
   rpc GetFilteredProverStats(types.GetFilteredProverStatsRequest) returns (types.GetFilteredProverStatsResponse) {}
+  // Get detailed statistics for a single prover by address
+  rpc GetProverStatsDetail(types.GetProverStatsDetailRequest) returns (types.GetProverStatsDetailResponse) {}
   // Get search results for provers
   rpc GetProverSearchResults(types.GetProverSearchResultsRequest) returns (types.GetProverSearchResultsResponse) {}
   // Get paginated auction history

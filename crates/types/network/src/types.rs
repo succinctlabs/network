@@ -65,7 +65,7 @@ pub struct RequestProofRequestBody {
     /// The optional public values hash.
     #[prost(bytes = "vec", optional, tag = "16")]
     pub public_values_hash: ::core::option::Option<::prost::alloc::vec::Vec<u8>>,
-    /// The base fee for the request.
+    /// The base fee for the request.``
     #[prost(string, tag = "17")]
     pub base_fee: ::prost::alloc::string::String,
     /// The max price per prover gas unit for the request.
@@ -3973,6 +3973,8 @@ pub struct ProverStats {
     pub tx_hash: ::prost::alloc::vec::Vec<u8>,
     #[prost(uint64, tag = "14")]
     pub lifetime_rewards: u64,
+    #[prost(string, optional, tag = "15")]
+    pub image_url: ::core::option::Option<::prost::alloc::string::String>,
 }
 #[derive(serde::Serialize, serde::Deserialize)]
 #[derive(Clone, Copy, PartialEq, ::prost::Message)]
@@ -4038,6 +4040,20 @@ pub struct GetFilteredBidHistoryRequest {
 pub struct GetFilteredBidHistoryResponse {
     #[prost(message, repeated, tag = "1")]
     pub bids: ::prost::alloc::vec::Vec<BidHistory>,
+}
+#[derive(serde::Serialize, serde::Deserialize)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct GetProverStatsDetailRequest {
+    /// The prover address to get stats for.
+    #[prost(bytes = "vec", tag = "1")]
+    pub address: ::prost::alloc::vec::Vec<u8>,
+}
+#[derive(serde::Serialize, serde::Deserialize)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct GetProverStatsDetailResponse {
+    /// The prover stats.
+    #[prost(message, optional, tag = "1")]
+    pub stats: ::core::option::Option<ProverStats>,
 }
 #[derive(serde::Serialize, serde::Deserialize)]
 #[derive(Clone, PartialEq, ::prost::Message)]
