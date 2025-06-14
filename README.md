@@ -10,13 +10,17 @@ distributed network of provers to generate zero knowledge proofs for any piece o
 protocol creates a two-sided marketplace between provers and requesters, enabling anyone to receive 
 proofs for applications such as blockchains, bridges, oracles, AI agents, video games, and more.
 
+For more details, refer to the [network](https://docs.succinct.xyz/docs/network/introduction) and [provers](https://docs.succinct.xyz/docs/provers/introduction) section of our documentation.
+
+**Warning**: This codebase is still under active development and has not yet undergone a full security audit. It is not production-ready.
+
 ## Overview
 
 This repository offers the following components:
 
 - **Contracts**: Solidity smart contracts for the protocol, including the $PROVE ERC20 token, 
 staking mechanisms, and the network's settlement contract.
-- **Verifiable Application**: The network’s state transition function, handling tasks such as balance
+- **Verifiable Application**: The network's state transition function, handling tasks such as balance
 management, proof clearing, and more, is implemented as verifiable RISC-V programs, proven using SP1.
 - **Reference Prover**: We provide a reference prover implementation that demonstrates a basic 
 interaction with the network, including bidding and generating a proof.
