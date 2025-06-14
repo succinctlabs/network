@@ -38,7 +38,7 @@ contract DeployProveAndVAppScript is BaseScript, FixtureLoader {
         IntermediateSuccinct iProve = new IntermediateSuccinct(address(prove), address(staking));
 
         // Deploy VApp contract
-        bytes32 vkey = bytes32(0x0014db01089b46d09315270d51ca9446ad2faeffd4723f8ab38dd45d000b1821);
+        bytes32 vkey = bytes32(0x008191fd1466cbb0dc44b6bf0b09d3c302fc2891c15bd66a28106e74c8edc907);
         bytes32 genesisStateRoot =
             bytes32(0x4b15a7d34ea0ec471d0d6ab9170cc2910f590819ee168e2a799e25244e327116);
         uint64 genesisTimestamp = 0;

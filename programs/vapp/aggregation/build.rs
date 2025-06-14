@@ -2,7 +2,8 @@ use sp1_sdk::{HashableKey, ProverClient};
 use std::fs;
 
 fn main() {
-    // Fetch the ELF.
+    // Ensure the build script is re-run whenever the ELF file changes.
+    println!("cargo:rerun-if-changed=../../../elf/spn-vapp-stf");
     let elf = fs::read("../../../elf/spn-vapp-stf").expect("failed to read elf");
 
     // Setup the prover client.
