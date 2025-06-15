@@ -12,9 +12,8 @@ pub fn has_cuda_support() -> bool {
                 if output.status.success() {
                     debug!("found working nvidia-smi at: {}", path);
                     return true;
-                } else {
-                    debug!("nvidia-smi at {} exists but returned error status", path);
                 }
+                debug!("nvidia-smi at {} exists but returned error status", path);
             }
             Err(e) => {
                 debug!("failed to execute nvidia-smi at {}: {}", path, e);

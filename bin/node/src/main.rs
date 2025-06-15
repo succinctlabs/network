@@ -5,7 +5,7 @@
 
 use std::str::FromStr;
 
-use alloy_primitives::U256;
+use alloy_primitives::{Address, U256};
 use alloy_signer_local::PrivateKeySigner;
 use anyhow::{anyhow, Result};
 use clap::Parser;
@@ -13,10 +13,10 @@ use rustls::crypto::ring;
 use tabled::{settings::Style, Table, Tabled};
 use tracing::info;
 
-use sp1_sdk::{include_elf, HashableKey, Prover, ProverClient, SP1Stdin};
+use sp1_sdk::{include_elf, SP1Stdin};
 use spn_calibrator::{Calibrator, SinglePassCalibrator};
 use spn_network_types::prover_network_client::ProverNetworkClient;
-use spn_node::{Node, NodeContext, SerialBidder, SerialContext, SerialMonitor, SerialProver};
+use spn_node_core::{Node, NodeContext, SerialBidder, SerialContext, SerialMonitor, SerialProver};
 
 /// The CLI application that defines all available commands.
 #[derive(Parser)]
@@ -26,8 +26,6 @@ enum Args {
     Calibrate(CalibrateArgs),
     /// Run the prover with previously benchmarked parameters.  
     Prove(ProveArgs),
-    /// Compute the verification key of an RISC-V ELF.
-    Vkey(VkeyArgs),
 }
 
 /// The arguments for the `calibrate` command.
@@ -62,14 +60,9 @@ struct ProveArgs {
     /// The private key for the prover.
     #[arg(long)]
     private_key: String,
-}
-
-/// The arguments for the `vkey` command.
-#[derive(Debug, Clone, Parser)]
-struct VkeyArgs {
-    /// The path to the RISC-V ELF file.
+    /// The address of the prover.
     #[arg(long)]
-    elf_path: String,
+    prover: Address,
 }
 
 /// The main entry point for the CLI.
@@ -80,6 +73,10 @@ async fn main() -> Result<()> {
 
     // Parse the arguments.
     let cli = Args::parse();
+
+    // Print the header.
+    let header = include_str!("./header.txt");
+    println!("{header}");
 
     // Run the command.
     match cli {
@@ -125,7 +122,7 @@ async fn main() -> Result<()> {
             println!("{params_table}\n");
 
             // Create the input stream.
-            let n: u32 = 20;
+            let n: u64 = 20;
             let mut stdin = SP1Stdin::new();
             stdin.write(&n);
 
@@ -187,7 +184,7 @@ async fn main() -> Result<()> {
             let ctx = SerialContext::new(network, signer);
 
             // Setup the bidder.
-            let bidder = SerialBidder::new(U256::from(args.bid), args.throughput);
+            let bidder = SerialBidder::new(U256::from(args.bid), args.throughput, args.prover);
 
             // Setup the prover
             let prover = SerialProver::new();
@@ -207,18 +204,6 @@ async fn main() -> Result<()> {
 
             // Run the node.
             node.run().await?;
-        }
-        Args::Vkey(args) => {
-            // Read the ELF file.
-            let elf = std::fs::read(&args.elf_path)?;
-
-            // Compute the verification key.
-            let client = ProverClient::builder().cpu().build();
-            let (_, vk) = client.setup(&elf);
-            let hash = vk.bytes32();
-
-            // Print the verification key.
-            println!("Verification Key (Bytes32): {hash:?}");
         }
     }
 

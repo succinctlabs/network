@@ -5,16 +5,24 @@ use tracing_subscriber::{
     EnvFilter,
 };
 
+/// Format for log output.
 #[derive(Debug, Deserialize, Clone, Copy)]
 pub enum LogFormat {
+    /// Human-readable pretty-printed format.
     Pretty,
+    /// JSON format for structured logging.
     Json,
+    /// Minimal format with only essential information.
     Minimal,
 }
 
 /// Initializes the logging system.
 ///
 /// Filters out crate dependencies to reduce noise.
+///
+/// # Panics
+///
+/// Panics if any of the log filter directives fail to parse.
 pub fn init_logger(log_format: LogFormat) {
     // Set default log level to info if RUST_LOG is not set.
     if std::env::var("RUST_LOG").is_err() {

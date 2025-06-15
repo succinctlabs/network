@@ -1,5 +1,5 @@
 [package]
-name = "spn-cli"
+name = "spn-node"
 version = { workspace = true }
 edition = { workspace = true }
 publish = false
@@ -13,7 +13,7 @@ sp1-sdk = { workspace = true }
 
 # spn
 spn-calibrator = { workspace = true }
-spn-node = { workspace = true }
+spn-node-core = { workspace = true }
 spn-network-types = { workspace = true }
 spn-utils = { workspace = true }
 spn-rpc = { workspace = true }

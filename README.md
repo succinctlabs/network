@@ -1,19 +1,8 @@
 # Succinct Prover Network
 
 <div>
-  <img src=".github/assets/banner.png" alt="Succinct Banner" />
-
+  <img src=".github/assets/image.png" alt="Succinct Banner" />
   &nbsp;
-
-[gha-badge]: https://img.shields.io/github/actions/workflow/status/succinctlabs/network/pr.yml?branch=main
-[gha-url]: https://github.com/foundry-rs/foundry/actions
-[tg-badge]: https://img.shields.io/endpoint?color=neon&logo=telegram&label=chat&style=flat-square&url=https%3A%2F%2Ftg.sumanjay.workers.dev%2Ffoundry_rs
-[tg-url]: https://t.me/foundry_rs
-
-[Install](https://getfoundry.sh/getting-started/installation)
-| [Docs](https://docs.succinct.xyz/docs/network/introduction)
-| [Explorer](https://explorer.succinct.xyz/)
-
 </div>
 
 This is the monorepo for the Succinct Prover Network, a protocol on Ethereum that coordinates a 
@@ -21,13 +10,17 @@ distributed network of provers to generate zero knowledge proofs for any piece o
 protocol creates a two-sided marketplace between provers and requesters, enabling anyone to receive 
 proofs for applications such as blockchains, bridges, oracles, AI agents, video games, and more.
 
+For more details, refer to the [network](https://docs.succinct.xyz/docs/network/introduction) and [provers](https://docs.succinct.xyz/docs/provers/introduction) section of our documentation.
+
+**Warning**: This codebase is still under active development and has not yet undergone a full security audit. It is not production-ready.
+
 ## Overview
 
 This repository offers the following components:
 
 - **Contracts**: Solidity smart contracts for the protocol, including the $PROVE ERC20 token, 
 staking mechanisms, and the network's settlement contract.
-- **Verifiable Application**: The network’s state transition function, handling tasks such as balance
+- **Verifiable Application**: The network's state transition function, handling tasks such as balance
 management, proof clearing, and more, is implemented as verifiable RISC-V programs, proven using SP1.
 - **Reference Prover**: We provide a reference prover implementation that demonstrates a basic 
 interaction with the network, including bidding and generating a proof.
@@ -53,7 +46,7 @@ To build the prover node and rust crates, run:
 
 ```bash
 cargo build --release
-./target/release/node --help
+./target/release/spn-node --help
 ```
 
 To build and test the contracts, run:

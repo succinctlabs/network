@@ -6,7 +6,7 @@ use std::{
     time::{Duration, Instant, SystemTime},
 };
 
-use alloy_primitives::U256;
+use alloy_primitives::{Address, U256};
 use alloy_signer_local::PrivateKeySigner;
 use anyhow::{Context, Result};
 use chrono::{self, DateTime};
@@ -20,7 +20,7 @@ use spn_network_types::{
     GetProofRequestDetailsRequest, MessageFormat, ProofMode, Signable,
 };
 use spn_rpc::{fetch_owner, RetryableRpc};
-use spn_utils::time_now;
+use spn_utils::{time_now, SPN_SEPOLIA_V1_DOMAIN};
 use sysinfo::{CpuExt, System, SystemExt};
 use tokio::sync::Mutex;
 use tonic::{async_trait, transport::Channel};
@@ -82,13 +82,15 @@ pub struct SerialBidder {
     pub bid: U256,
     /// The throughput for the prover in proving gas units (PGUs) per second.
     pub throughput: f64,
+    /// The prover we are bidding on behalf of.
+    pub prover: Address,
 }
 
 impl SerialBidder {
     /// Create a new [`SerialBidder`].
     #[must_use]
-    pub fn new(bid: U256, throughput: f64) -> Self {
-        Self { bid, throughput }
+    pub fn new(bid: U256, throughput: f64, prover: Address) -> Self {
+        Self { bid, throughput, prover }
     }
 }
 
@@ -230,8 +232,8 @@ impl<C: NodeContext> NodeBidder<C> for SerialBidder {
                         request_id: hex::decode(request_id.clone())
                             .context("failed to decode request_id")?,
                         amount: self.bid.to_string(),
-                        prover: vec![],
-                        domain: vec![],
+                        prover: self.prover.to_vec(),
+                        domain: SPN_SEPOLIA_V1_DOMAIN.to_vec(),
                     };
                     let bid_request = BidRequest {
                         format: MessageFormat::Binary.into(),
@@ -720,7 +722,7 @@ impl<C: NodeContext> NodeProver<C> for SerialProver {
                                                 request_id: request.request_id.clone(),
                                                 proof: proof_bytes.clone(),
                                                 reserved_metadata: None,
-                                                domain: vec![],
+                                                domain: SPN_SEPOLIA_V1_DOMAIN.to_vec(),
                                             };
                                             let fulfill_request = FulfillProofRequest {
                                                 format: MessageFormat::Binary.into(),
