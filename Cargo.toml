@@ -9,6 +9,7 @@ categories = ["cryptography"]
 
 [workspace]
 members = [
+    "bin/cli",
     "crates/network/artifacts",
     "crates/network/rpc",
     "crates/network/utils",
