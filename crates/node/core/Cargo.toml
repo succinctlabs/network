@@ -1,5 +1,5 @@
 [package]
-name = "spn-node"
+name = "spn-node-core"
 description = "Prover implementation for SPN."
 version = { workspace = true }
 edition = { workspace = true }

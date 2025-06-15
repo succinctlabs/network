@@ -16,7 +16,7 @@ use tracing::info;
 use sp1_sdk::{include_elf, SP1Stdin};
 use spn_calibrator::{Calibrator, SinglePassCalibrator};
 use spn_network_types::prover_network_client::ProverNetworkClient;
-use spn_node::{Node, NodeContext, SerialBidder, SerialContext, SerialMonitor, SerialProver};
+use spn_node_core::{Node, NodeContext, SerialBidder, SerialContext, SerialMonitor, SerialProver};
 
 /// The CLI application that defines all available commands.
 #[derive(Parser)]

@@ -9,7 +9,7 @@ categories = ["cryptography"]
 
 [workspace]
 members = [
-    "bin/cli",
+    "bin/node",
     "crates/network/artifacts",
     "crates/network/rpc",
     "crates/network/utils",
@@ -32,7 +32,7 @@ spn-artifacts = { path = "crates/network/artifacts" }
 spn-rpc = { path = "crates/network/rpc" }
 spn-utils = { path = "crates/network/utils" }
 spn-calibrator = { path = "crates/node/calibrator" }
-spn-node = { path = "crates/node/core" }
+spn-node-core = { path = "crates/node/core" }
 spn-artifact-types = { path = "crates/types/artifact" }
 spn-network-types = { path = "crates/types/network" }
 spn-vapp-core = { path = "crates/vapp" }
