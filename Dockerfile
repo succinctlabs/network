@@ -1,5 +1,5 @@
 # Build stage
-FROM rustlang/rust:nightly-slim AS build
+FROM rustlang/rust:nightly-slim AS builder
 
 # Install necessary packages for building
 RUN DEBIAN_FRONTEND=noninteractive apt-get update -y && \
@@ -47,8 +47,45 @@ RUN --mount=type=ssh \
     cargo build --release -p spn-node && \
     cp target/release/spn-node /spn-node-temp
 
-# Runtime stage
-FROM --platform=linux/amd64 nvidia/cuda:12.5.0-runtime-ubuntu22.04 AS runtime
+# CPU Runtime stage
+FROM debian:bookworm-slim AS cpu
+
+# Install necessary runtime dependencies and Docker
+RUN DEBIAN_FRONTEND=noninteractive apt-get update -y && \
+    DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+    ca-certificates \
+    gcc \
+    libc6-dev \
+    wget \
+    curl \
+    gnupg && \
+    update-ca-certificates && \
+    install -m 0755 -d /etc/apt/keyrings && \
+    curl -fsSL --insecure https://download.docker.com/linux/debian/gpg | gpg --dearmor -o /etc/apt/keyrings/docker.gpg && \
+    chmod a+r /etc/apt/keyrings/docker.gpg && \
+    echo \
+    "deb [arch="$(dpkg --print-architecture)" signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/debian \
+    "$(. /etc/os-release && echo "$VERSION_CODENAME")" stable" | \
+    tee /etc/apt/sources.list.d/docker.list > /dev/null && \
+    DEBIAN_FRONTEND=noninteractive apt-get update && \
+    DEBIAN_FRONTEND=noninteractive apt-get install -y docker-ce docker-ce-cli containerd.io && \
+    DEBIAN_FRONTEND=noninteractive apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
+
+# Set up working directory
+WORKDIR /app
+
+# Copy the built binary from the build stage
+COPY --from=builder /spn-node-temp /app/spn-node
+
+# Configure default prover settings
+ENV SP1_PROVER=cpu
+
+# Set the entrypoint to run the node binary
+ENTRYPOINT ["/app/spn-node"]
+
+# GPU Runtime stage
+FROM --platform=linux/amd64 nvidia/cuda:12.5.0-runtime-ubuntu22.04 AS gpu
 
 # Install necessary runtime dependencies and Docker
 RUN DEBIAN_FRONTEND=noninteractive apt-get update -y && \
@@ -76,7 +113,10 @@ RUN DEBIAN_FRONTEND=noninteractive apt-get update -y && \
 WORKDIR /app
 
 # Copy the built binary from the build stage
-COPY --from=build /spn-node-temp /app/spn-node
+COPY --from=builder /spn-node-temp /app/spn-node
+
+# Configure default prover settings
+ENV SP1_PROVER=cuda
 
 # Set the entrypoint to run the node binary
-ENTRYPOINT ["/app/spn-node"]
+ENTRYPOINT ["/app/spn-node"] 

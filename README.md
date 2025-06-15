@@ -46,7 +46,7 @@ To build the prover node and rust crates, run:
 
 ```bash
 cargo build --release
-./target/release/node --help
+./target/release/spn-node --help
 ```
 
 To build and test the contracts, run:
