@@ -79,6 +79,7 @@ jobs:
                   tags: |
                       ${{ env.ECR_REPOSITORY }}:${{ env.SHORT_SHA }}-gpu
                       ${{ env.ECR_REPOSITORY }}:latest-gpu
+                      ${{ github.event_name == 'release' && format('{0}:{1}-gpu', env.ECR_REPOSITORY, github.ref_name) || '' }}
                   cache-from: type=gha
                   cache-to: type=gha,mode=max
 
@@ -93,5 +94,6 @@ jobs:
                   tags: |
                       ${{ env.ECR_REPOSITORY }}:${{ env.SHORT_SHA }}-cpu
                       ${{ env.ECR_REPOSITORY }}:latest-cpu
+                      ${{ github.event_name == 'release' && format('{0}:{1}-cpu', env.ECR_REPOSITORY, github.ref_name) || '' }}
                   cache-from: type=gha
                   cache-to: type=gha,mode=max
