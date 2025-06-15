@@ -1,5 +1,5 @@
 [package]
-name = "spn-cli"
+name = "spn-node"
 version = { workspace = true }
 edition = { workspace = true }
 publish = false
