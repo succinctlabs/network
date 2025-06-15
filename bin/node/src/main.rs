@@ -204,7 +204,7 @@ async fn main() -> Result<()> {
 
             // Run the node.
             node.run().await?;
-        } 
+        }
     }
 
     Ok(())

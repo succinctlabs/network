@@ -341,7 +341,6 @@ impl Artifact {
     }
 }
 
-
 /// Given a S3 URL (e.g. <s3://prover-network-staging/artifacts/artifact_01j92x39ngfnrra5br9n8zr07x>),
 /// extract the artifact name from the URL (e.g. `artifact_01j92x39ngfnrra5br9n8zr07x`).
 ///
@@ -381,10 +380,11 @@ async fn get_s3_client(s3_region: &str) -> Arc<S3Client> {
         let lock = S3_CLIENTS.read().await;
         lock.get(s3_region).cloned()
     };
-    if let Some(client) = client { client } else {
+    if let Some(client) = client {
+        client
+    } else {
         let client = {
-            let mut base =
-                aws_config::load_defaults(BehaviorVersion::latest()).await.to_builder();
+            let mut base = aws_config::load_defaults(BehaviorVersion::latest()).await.to_builder();
             base.set_retry_config(Some(
                 RetryConfig::standard()
                     .with_max_attempts(7)

@@ -7,7 +7,8 @@ pub struct ErrorCapture {
 
 impl ErrorCapture {
     /// Creates a new error capture instance.
-    #[must_use] pub fn new() -> Self {
+    #[must_use]
+    pub fn new() -> Self {
         let (tx, rx) = std::sync::mpsc::channel();
         let tx_clone = tx;
 
@@ -42,7 +43,8 @@ impl ErrorCapture {
     }
 
     /// Extracts a readable message from a panic payload.
-    #[must_use] pub fn extract_panic_message(panic_err: &Box<dyn std::any::Any + Send>) -> String {
+    #[must_use]
+    pub fn extract_panic_message(panic_err: &Box<dyn std::any::Any + Send>) -> String {
         if let Some(s) = panic_err.downcast_ref::<&str>() {
             (*s).to_string()
         } else if let Some(s) = panic_err.downcast_ref::<String>() {

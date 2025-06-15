@@ -1,5 +1,5 @@
 //! SPN RPC.
-//! 
+//!
 //! Utilities for interacting with the Succinct Prover Network.
 
 #![warn(clippy::pedantic)]
