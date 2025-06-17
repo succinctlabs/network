@@ -309,9 +309,10 @@ contract SuccinctVApp is
         // Get the old root.
         bytes32 oldRoot = roots[blockNumber];
 
-        // Update the root and produce a new block.
+        // Update the root, timestamp, and produce a new block.
         uint64 newBlock = ++blockNumber;
         roots[newBlock] = _root;
+        timestamps[newBlock] = block.timestamp;
 
         // Emit the events.
         emit Fork(newBlock, oldVkey, _vkey);
