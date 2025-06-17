@@ -59,6 +59,9 @@ contract SuccinctStakingStakeTests is SuccinctStakingTest {
     function test_RevertStake_WhenZeroAmount() public {
         uint256 stakeAmount = 0;
 
+        vm.prank(STAKER_1);
+        IERC20(PROVE).approve(STAKING, stakeAmount);
+
         vm.expectRevert(abi.encodeWithSelector(ISuccinctStaking.ZeroAmount.selector));
         vm.prank(STAKER_1);
         SuccinctStaking(STAKING).stake(ALICE_PROVER, stakeAmount);
@@ -67,6 +70,9 @@ contract SuccinctStakingStakeTests is SuccinctStakingTest {
     // Must stake over min stake amount
     function test_RevertStake_WhenBelowMinStakeAmount() public {
         uint256 stakeAmount = MIN_STAKE_AMOUNT - 1;
+
+        vm.prank(STAKER_1);
+        IERC20(PROVE).approve(STAKING, stakeAmount);
 
         vm.expectRevert(abi.encodeWithSelector(ISuccinctStaking.StakeBelowMinimum.selector));
         vm.prank(STAKER_1);
@@ -126,7 +132,8 @@ contract SuccinctStakingStakeTests is SuccinctStakingTest {
         uint256 wrongPK = 0xBEEF;
 
         // Get permit signature with wrong private key
-        (uint8 v, bytes32 r, bytes32 s) = _signPermit(wrongPK, STAKER_1, stakeAmount, deadline);
+        (uint8 v, bytes32 r, bytes32 s) =
+            _signPermit(wrongPK, STAKER_1, ALICE_PROVER, stakeAmount, deadline);
 
         // Should revert with invalid signature
         vm.prank(STAKER_1);
@@ -146,7 +153,8 @@ contract SuccinctStakingStakeTests is SuccinctStakingTest {
         uint256 deadline = block.timestamp - 1;
 
         // Get permit signature
-        (uint8 v, bytes32 r, bytes32 s) = _signPermit(STAKER_1_PK, STAKER_1, stakeAmount, deadline);
+        (uint8 v, bytes32 r, bytes32 s) =
+            _signPermit(STAKER_1_PK, STAKER_1, ALICE_PROVER, stakeAmount, deadline);
 
         // Should revert with expired deadline
         vm.prank(STAKER_1);
@@ -169,7 +177,7 @@ contract SuccinctStakingStakeTests is SuccinctStakingTest {
 
         // Get permit signature for less than deposit amount
         (uint8 v, bytes32 r, bytes32 s) =
-            _signPermit(STAKER_1_PK, STAKER_1, approveAmount, deadline);
+            _signPermit(STAKER_1_PK, STAKER_1, ALICE_PROVER, approveAmount, deadline);
 
         // Should revert with the same InvalidSigner error as in the invalid signature test
         vm.prank(STAKER_1);

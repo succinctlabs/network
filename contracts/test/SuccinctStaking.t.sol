@@ -162,7 +162,8 @@ contract SuccinctStakingTest is Test {
         uint256 _amount,
         uint256 _deadline
     ) internal {
-        (uint8 v, bytes32 r, bytes32 s) = _signPermit(_stakerPK, _staker, _amount, _deadline);
+        (uint8 v, bytes32 r, bytes32 s) =
+            _signPermit(_stakerPK, _staker, _prover, _amount, _deadline);
         SuccinctStaking(STAKING).permitAndStake(_prover, _staker, _amount, _deadline, v, r, s);
     }
 
@@ -207,11 +208,13 @@ contract SuccinctStakingTest is Test {
         skip(_amount * DISPENSE_RATE);
     }
 
-    function _signPermit(uint256 _pk, address _owner, uint256 _amount, uint256 _deadline)
-        internal
-        view
-        returns (uint8 v, bytes32 r, bytes32 s)
-    {
+    function _signPermit(
+        uint256 _pk,
+        address _owner,
+        address _prover,
+        uint256 _amount,
+        uint256 _deadline
+    ) internal view returns (uint8 v, bytes32 r, bytes32 s) {
         bytes32 PERMIT_TYPEHASH = keccak256(
             "Permit(address owner,address spender,uint256 value,uint256 nonce,uint256 deadline)"
         );
@@ -221,7 +224,7 @@ contract SuccinctStakingTest is Test {
 
         // Construct the permit digest
         bytes32 structHash =
-            keccak256(abi.encode(PERMIT_TYPEHASH, _owner, STAKING, _amount, nonce, _deadline));
+            keccak256(abi.encode(PERMIT_TYPEHASH, _owner, _prover, _amount, nonce, _deadline));
         bytes32 digest = keccak256(
             abi.encodePacked("\x19\x01", IERC20Permit(PROVE).DOMAIN_SEPARATOR(), structHash)
         );

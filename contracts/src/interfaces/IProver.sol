@@ -5,6 +5,14 @@ interface IProver {
     /// @dev Thrown when a transfer is attempted.
     error NonTransferable();
 
+    /// @dev Thrown when the caller is not the staking contract.
+    error NotStaking();
+
+    /// @notice Get the $PROVE token
+    /// @dev This address cannot be changed.
+    /// @return The address of the $PROVE token.
+    function prove() external view returns (address);
+
     /// @notice Get the staking contract for this prover.
     /// @dev This address cannot be changed.
     /// @return The address of the staking contract.
@@ -28,4 +36,11 @@ interface IProver {
     /// @dev This fee cannot be changed.
     /// @return The staker fee percentage in basis points.
     function stakerFeeBips() external view returns (uint256);
+
+    /// @notice Transfer $PROVE to the staking contract. Only callable by the staking contract.
+    /// @dev Since in SuccinctStaking.permitAndStake(), the staker approves the prover to spend $PROVE,
+    ///      the staking contract needs to transfer the $PROVE utilizing this contract as the spender.
+    /// @param from The address to transfer $PROVE from.
+    /// @param amount The amount of $PROVE to transfer.
+    function transferProveToStaking(address from, uint256 amount) external;
 }
