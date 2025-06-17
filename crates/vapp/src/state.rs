@@ -337,14 +337,14 @@ impl<A: Storage<Address, Account>, R: Storage<RequestId, bool>> VAppState<A, R> 
                 let delegate_id = body
                     .hash_with_signer(signer.as_slice())
                     .map_err(|_| VAppPanic::HashingBodyFailed)?;
-                if self.transactions.get(&delegate_id)?.copied().unwrap_or_default() {
+                if *self.transactions.entry(delegate_id)?.or_default() {
                     return Err(VAppPanic::TransactionAlreadyProcessed {
                         id: hex::encode(delegate_id),
                     });
                 }
 
                 // Mark the transaction as processed.
-                self.transactions.entry(delegate_id)?.or_insert(true);
+                self.transactions.insert(delegate_id, true)?;
 
                 // Extract the prover address.
                 debug!("extract prover address");
@@ -403,14 +403,14 @@ impl<A: Storage<Address, Account>, R: Storage<RequestId, bool>> VAppState<A, R> 
                 let transfer_id = body
                     .hash_with_signer(from.as_slice())
                     .map_err(|_| VAppPanic::HashingBodyFailed)?;
-                if self.transactions.get(&transfer_id)?.copied().unwrap_or_default() {
+                if *self.transactions.entry(transfer_id)?.or_default() {
                     return Err(VAppPanic::TransactionAlreadyProcessed {
                         id: hex::encode(transfer_id),
                     });
                 }
 
                 // Mark the transaction as processed.
-                self.transactions.entry(transfer_id)?.or_insert(true);
+                self.transactions.insert(transfer_id, true)?;
 
                 // Transfer the amount from the requester to the recipient.
                 debug!("extract to address");
@@ -480,7 +480,7 @@ impl<A: Storage<Address, Account>, R: Storage<RequestId, bool>> VAppState<A, R> 
                 // Check that the request ID has not been fulfilled yet.
                 //
                 // This check ensures that a request can't be used multiple times to pay a prover.
-                if self.transactions.get(&request_id)?.copied().unwrap_or_default() {
+                if *self.transactions.entry(request_id)?.or_default() {
                     return Err(VAppPanic::TransactionAlreadyProcessed {
                         id: hex::encode(request_id),
                     });
@@ -708,7 +708,7 @@ impl<A: Storage<Address, Account>, R: Storage<RequestId, bool>> VAppState<A, R> 
                 info!("├── Requester Fee = {} PGUs × {} $PROVE/PGU = {} $PROVE", pgus, price, cost);
 
                 // Mark request as consumed before processing payment.
-                self.transactions.entry(request_id)?.or_insert(true);
+                self.transactions.insert(request_id, true)?;
 
                 // Deduct the cost from the requester.
                 info!("├── Account({}): - {} $PROVE (Requester Fee)", request_signer, cost);

@@ -69,16 +69,6 @@ impl<K: StorageKey, V: StorageValue> Storage<K, V> for SparseStorage<K, V> {
         Ok(())
     }
 
-    fn remove(&mut self, key: K) -> Result<(), StorageError> {
-        let index = key.index();
-        if !self.witnessed_keys.contains(&index) {
-            return Err(StorageError::KeyNotAllowed);
-        }
-
-        self.inner.remove(&index);
-        Ok(())
-    }
-
     fn entry(&mut self, key: K) -> Result<Entry<U256, V>, StorageError> {
         let index = key.index();
         if !self.witnessed_keys.contains(&index) {

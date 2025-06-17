@@ -550,18 +550,6 @@ impl<K: StorageKey, V: StorageValue, H: MerkleTreeHasher> Storage<K, V> for Merk
         Ok(())
     }
 
-    /// Remove a value at the given key.
-    fn remove(&mut self, key: K) -> Result<(), StorageError> {
-        let index = key.index();
-        self.leaves.remove(&index);
-        // Track that this key has been touched (written).
-        self.touched_keys.insert(key);
-        // Clear cache as tree structure has changed.
-        self.cache.clear();
-
-        Ok(())
-    }
-
     /// Gets an entry at the given key.
     fn entry(&mut self, key: K) -> Result<Entry<U256, V>, StorageError> {
         let index = key.index();
@@ -707,19 +695,6 @@ mod tests {
 
         tree.insert(key, value).unwrap();
         assert_eq!(tree.get(&key).unwrap(), Some(&value));
-    }
-
-    #[test]
-    fn remove_deletes_value() {
-        let mut tree = U256Tree::new();
-        let key = uint!(42_U256);
-        let value = uint!(1337_U256);
-
-        tree.insert(key, value).unwrap();
-        assert_eq!(tree.get(&key).unwrap(), Some(&value));
-
-        tree.remove(key).unwrap();
-        assert_eq!(tree.get(&key).unwrap(), None);
     }
 
     #[test]

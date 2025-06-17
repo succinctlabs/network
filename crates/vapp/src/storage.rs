@@ -16,9 +16,6 @@ pub trait Storage<K: StorageKey, V: StorageValue> {
     /// Insert a value at the given key.
     fn insert(&mut self, key: K, value: V) -> Result<(), StorageError>;
 
-    /// Remove a value at the given key.
-    fn remove(&mut self, key: K) -> Result<(), StorageError>;
-
     /// Gets an entry at the given key.
     fn entry(&mut self, key: K) -> Result<Entry<U256, V>, StorageError>;
 
