@@ -512,8 +512,6 @@ impl<K: StorageKey, V: StorageValue, H: MerkleTreeHasher> MerkleStorage<K, V, H>
         // Delegate to the original implementation.
         Self::calculate_new_root(old_root, proofs, &new_values)
     }
-
-
 }
 
 impl<K: StorageKey, V: StorageValue, H: MerkleTreeHasher> Default for MerkleStorage<K, V, H> {
@@ -1241,7 +1239,7 @@ mod tests {
         // Update addr2 only.
         let new_val2 = uint!(20_U256);
         updates.recover::<Keccak256>(old_root, &proofs).unwrap();
-        updates.insert(addr2, new_val2).unwrap();  
+        updates.insert(addr2, new_val2).unwrap();
 
         // Calculate new root via sparse method.
         let calculated_root =
@@ -1281,7 +1279,7 @@ mod tests {
 
         // Apply the updates to the sparse store.
         for i in 0..num_entries {
-            if i % 6 == 0 { 
+            if i % 6 == 0 {
                 let key = U256::from(i * 31 + 9);
                 let new_value = U256::from(i * 29 + 7);
                 updates.insert(key, new_value).unwrap();

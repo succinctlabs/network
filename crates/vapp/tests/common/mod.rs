@@ -377,8 +377,13 @@ pub fn assert_create_prover_receipt(
 
 /// Asserts that an account has the expected balance.
 #[allow(clippy::ref_option)]
-pub fn assert_account_balance(test: &mut VAppTestContext, account: Address, expected_balance: U256) {
-    let actual_balance = test.state.accounts.get(&account).unwrap().map_or(U256::ZERO, Account::get_balance);
+pub fn assert_account_balance(
+    test: &mut VAppTestContext,
+    account: Address,
+    expected_balance: U256,
+) {
+    let actual_balance =
+        test.state.accounts.get(&account).unwrap().map_or(U256::ZERO, Account::get_balance);
     assert_eq!(
         actual_balance, expected_balance,
         "Account balance mismatch for {account}: expected {expected_balance}, got {actual_balance}"
