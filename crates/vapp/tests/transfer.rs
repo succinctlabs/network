@@ -13,25 +13,25 @@ use crate::common::*;
 #[test]
 fn test_transfer_basic() {
     let mut test = setup();
-    let from_signer = &test.signers[0];
+    let from_signer = test.signers[0].clone();
     let to_address = test.signers[1].address();
     let amount = U256::from(100);
 
     // Set up initial balance for sender.
     let deposit_tx = deposit_tx(from_signer.address(), U256::from(500), 0, 1, 1);
     test.state.execute::<MockVerifier>(&deposit_tx).unwrap();
-    assert_account_balance(&test, from_signer.address(), U256::from(500));
+    assert_account_balance(&mut test, from_signer.address(), U256::from(500));
 
     // Execute transfer.
-    let transfer_tx = transfer_tx(from_signer, to_address, amount, 1);
+    let transfer_tx = transfer_tx(&from_signer, to_address, amount, 1);
     let result = test.state.execute::<MockVerifier>(&transfer_tx).unwrap();
 
     // Verify transfer does not return a receipt.
     assert!(result.is_none());
 
     // Verify balances were updated correctly.
-    assert_account_balance(&test, from_signer.address(), U256::from(400));
-    assert_account_balance(&test, to_address, amount);
+    assert_account_balance(&mut test, from_signer.address(), U256::from(400));
+    assert_account_balance(&mut test, to_address, amount);
 
     // Verify state counters (only tx_id increments for off-chain transactions).
     assert_state_counters(&test, 3, 2, 0, 1);
@@ -40,7 +40,7 @@ fn test_transfer_basic() {
 #[test]
 fn test_transfer_self_transfer() {
     let mut test = setup();
-    let signer = &test.signers[0];
+    let signer = test.signers[0].clone();
     let amount = U256::from(100);
 
     // Set up initial balance.
@@ -48,18 +48,18 @@ fn test_transfer_self_transfer() {
     test.state.execute::<MockVerifier>(&deposit_tx).unwrap();
 
     // Execute self-transfer.
-    let transfer_tx = transfer_tx(signer, signer.address(), amount, 1);
+    let transfer_tx = transfer_tx(&signer, signer.address(), amount, 1);
     let result = test.state.execute::<MockVerifier>(&transfer_tx).unwrap();
 
     // Verify transfer succeeds and balance remains unchanged.
     assert!(result.is_none());
-    assert_account_balance(&test, signer.address(), U256::from(500));
+    assert_account_balance(&mut test, signer.address(), U256::from(500));
 }
 
 #[test]
 fn test_transfer_multiple_transfers() {
     let mut test = setup();
-    let from_signer = &test.signers[0];
+    let from_signer = test.signers[0].clone();
     let to1 = test.signers[1].address();
     let to2 = test.signers[2].address();
     let to3 = test.signers[3].address();
@@ -69,22 +69,22 @@ fn test_transfer_multiple_transfers() {
     test.state.execute::<MockVerifier>(&deposit_tx).unwrap();
 
     // Execute first transfer.
-    let transfer1 = transfer_tx(from_signer, to1, U256::from(200), 1);
+    let transfer1 = transfer_tx(&from_signer, to1, U256::from(200), 1);
     test.state.execute::<MockVerifier>(&transfer1).unwrap();
-    assert_account_balance(&test, from_signer.address(), U256::from(800));
-    assert_account_balance(&test, to1, U256::from(200));
+    assert_account_balance(&mut test, from_signer.address(), U256::from(800));
+    assert_account_balance(&mut test, to1, U256::from(200));
 
     // Execute second transfer.
-    let transfer2 = transfer_tx(from_signer, to2, U256::from(300), 2);
+    let transfer2 = transfer_tx(&from_signer, to2, U256::from(300), 2);
     test.state.execute::<MockVerifier>(&transfer2).unwrap();
-    assert_account_balance(&test, from_signer.address(), U256::from(500));
-    assert_account_balance(&test, to2, U256::from(300));
+    assert_account_balance(&mut test, from_signer.address(), U256::from(500));
+    assert_account_balance(&mut test, to2, U256::from(300));
 
     // Execute third transfer.
-    let transfer3 = transfer_tx(from_signer, to3, U256::from(150), 3);
+    let transfer3 = transfer_tx(&from_signer, to3, U256::from(150), 3);
     test.state.execute::<MockVerifier>(&transfer3).unwrap();
-    assert_account_balance(&test, from_signer.address(), U256::from(350));
-    assert_account_balance(&test, to3, U256::from(150));
+    assert_account_balance(&mut test, from_signer.address(), U256::from(350));
+    assert_account_balance(&mut test, to3, U256::from(150));
 
     // Verify state progression.
     assert_state_counters(&test, 5, 2, 0, 1);
@@ -93,7 +93,7 @@ fn test_transfer_multiple_transfers() {
 #[test]
 fn test_transfer_to_new_account() {
     let mut test = setup();
-    let from_signer = &test.signers[0];
+    let from_signer = test.signers[0].clone();
     let new_account = test.signers[1].address();
     let amount = U256::from(250);
 
@@ -102,21 +102,21 @@ fn test_transfer_to_new_account() {
     test.state.execute::<MockVerifier>(&deposit_tx).unwrap();
 
     // Verify new account has zero balance initially.
-    assert_account_balance(&test, new_account, U256::ZERO);
+    assert_account_balance(&mut test, new_account, U256::ZERO);
 
     // Execute transfer to new account.
-    let transfer_tx = transfer_tx(from_signer, new_account, amount, 1);
+    let transfer_tx = transfer_tx(&from_signer, new_account, amount, 1);
     test.state.execute::<MockVerifier>(&transfer_tx).unwrap();
 
     // Verify new account was created with correct balance.
-    assert_account_balance(&test, from_signer.address(), U256::from(250));
-    assert_account_balance(&test, new_account, amount);
+    assert_account_balance(&mut test, from_signer.address(), U256::from(250));
+    assert_account_balance(&mut test, new_account, amount);
 }
 
 #[test]
 fn test_transfer_entire_balance() {
     let mut test = setup();
-    let from_signer = &test.signers[0];
+    let from_signer = test.signers[0].clone();
     let to_address = test.signers[1].address();
     let initial_balance = U256::from(789);
 
@@ -125,18 +125,18 @@ fn test_transfer_entire_balance() {
     test.state.execute::<MockVerifier>(&deposit_tx).unwrap();
 
     // Execute transfer of entire balance.
-    let transfer_tx = transfer_tx(from_signer, to_address, initial_balance, 1);
+    let transfer_tx = transfer_tx(&from_signer, to_address, initial_balance, 1);
     test.state.execute::<MockVerifier>(&transfer_tx).unwrap();
 
     // Verify entire balance was transferred.
-    assert_account_balance(&test, from_signer.address(), U256::ZERO);
-    assert_account_balance(&test, to_address, initial_balance);
+    assert_account_balance(&mut test, from_signer.address(), U256::ZERO);
+    assert_account_balance(&mut test, to_address, initial_balance);
 }
 
 #[test]
 fn test_transfer_zero_amount() {
     let mut test = setup();
-    let from_signer = &test.signers[0];
+    let from_signer = test.signers[0].clone();
     let to_address = test.signers[1].address();
 
     // Set up initial balance.
@@ -144,18 +144,18 @@ fn test_transfer_zero_amount() {
     test.state.execute::<MockVerifier>(&deposit_tx).unwrap();
 
     // Execute zero amount transfer.
-    let transfer_tx = transfer_tx(from_signer, to_address, U256::ZERO, 1);
+    let transfer_tx = transfer_tx(&from_signer, to_address, U256::ZERO, 1);
     test.state.execute::<MockVerifier>(&transfer_tx).unwrap();
 
     // Verify balances remain unchanged.
-    assert_account_balance(&test, from_signer.address(), U256::from(500));
-    assert_account_balance(&test, to_address, U256::ZERO);
+    assert_account_balance(&mut test, from_signer.address(), U256::from(500));
+    assert_account_balance(&mut test, to_address, U256::ZERO);
 }
 
 #[test]
 fn test_transfer_insufficient_balance() {
     let mut test = setup();
-    let from_signer = &test.signers[0];
+    let from_signer = test.signers[0].clone();
     let to_address = test.signers[1].address();
 
     // Set up initial balance.
@@ -163,7 +163,7 @@ fn test_transfer_insufficient_balance() {
     test.state.execute::<MockVerifier>(&deposit_tx).unwrap();
 
     // Try to transfer more than balance.
-    let transfer_tx = transfer_tx(from_signer, to_address, U256::from(150), 1);
+    let transfer_tx = transfer_tx(&from_signer, to_address, U256::from(150), 1);
     let result = test.state.execute::<MockVerifier>(&transfer_tx);
 
     // Verify the correct panic error is returned.
@@ -177,19 +177,19 @@ fn test_transfer_insufficient_balance() {
     ));
 
     // Verify balances remain unchanged.
-    assert_account_balance(&test, from_signer.address(), U256::from(100));
-    assert_account_balance(&test, to_address, U256::ZERO);
+    assert_account_balance(&mut test, from_signer.address(), U256::from(100));
+    assert_account_balance(&mut test, to_address, U256::ZERO);
     assert_state_counters(&test, 2, 2, 0, 1);
 }
 
 #[test]
 fn test_transfer_from_zero_balance_account() {
     let mut test = setup();
-    let from_signer = &test.signers[0];
+    let from_signer = test.signers[0].clone();
     let to_address = test.signers[1].address();
 
     // Try to transfer from account with zero balance.
-    let transfer_tx = transfer_tx(from_signer, to_address, U256::from(1), 1);
+    let transfer_tx = transfer_tx(&from_signer, to_address, U256::from(1), 1);
     let result = test.state.execute::<MockVerifier>(&transfer_tx);
 
     // Verify the correct panic error is returned.
@@ -209,8 +209,8 @@ fn test_transfer_from_zero_balance_account() {
 #[test]
 fn test_transfer_from_signer_without_balance() {
     let mut test = setup();
-    let from_signer_with_balance = &test.signers[0];
-    let from_signer_without_balance = &test.signers[1];
+    let from_signer_with_balance = test.signers[0].clone();
+    let from_signer_without_balance = test.signers[1].clone();
     let to_address = test.signers[2].address();
 
     // Set up initial balance for one signer.
@@ -218,7 +218,7 @@ fn test_transfer_from_signer_without_balance() {
     test.state.execute::<MockVerifier>(&deposit_tx).unwrap();
 
     // Create transfer signed by signer without balance (this tests the logic properly).
-    let transfer_tx = transfer_tx(from_signer_without_balance, to_address, U256::from(100), 1);
+    let transfer_tx = transfer_tx(&from_signer_without_balance, to_address, U256::from(100), 1);
     let result = test.state.execute::<MockVerifier>(&transfer_tx);
 
     // Verify the correct panic error is returned (signer has insufficient balance).
@@ -232,15 +232,15 @@ fn test_transfer_from_signer_without_balance() {
     ));
 
     // Verify balances remain unchanged.
-    assert_account_balance(&test, from_signer_with_balance.address(), U256::from(500));
-    assert_account_balance(&test, from_signer_without_balance.address(), U256::ZERO);
-    assert_account_balance(&test, to_address, U256::ZERO);
+    assert_account_balance(&mut test, from_signer_with_balance.address(), U256::from(500));
+    assert_account_balance(&mut test, from_signer_without_balance.address(), U256::ZERO);
+    assert_account_balance(&mut test, to_address, U256::ZERO);
 }
 
 #[test]
 fn test_transfer_domain_mismatch() {
     let mut test = setup();
-    let from_signer = &test.signers[0];
+    let from_signer = test.signers[0].clone();
     let to_address = test.signers[1].address();
 
     // Set up initial balance.
@@ -250,15 +250,15 @@ fn test_transfer_domain_mismatch() {
     // Try to transfer with wrong domain.
     let wrong_domain = [1u8; 32];
     let transfer_tx =
-        transfer_tx_with_domain(from_signer, to_address, U256::from(100), 1, wrong_domain);
+        transfer_tx_with_domain(&from_signer, to_address, U256::from(100), 1, wrong_domain);
     let result = test.state.execute::<MockVerifier>(&transfer_tx);
 
     // Verify the correct panic error is returned.
     assert!(matches!(result, Err(VAppPanic::DomainMismatch { .. })));
 
     // Verify balances remain unchanged.
-    assert_account_balance(&test, from_signer.address(), U256::from(500));
-    assert_account_balance(&test, to_address, U256::ZERO);
+    assert_account_balance(&mut test, from_signer.address(), U256::from(500));
+    assert_account_balance(&mut test, to_address, U256::ZERO);
 }
 
 #[test]
@@ -279,7 +279,7 @@ fn test_transfer_missing_body() {
 #[test]
 fn test_transfer_invalid_amount_parsing() {
     let mut test = setup();
-    let from_signer = &test.signers[0];
+    let from_signer = test.signers[0].clone();
     let to_address = test.signers[1].address();
 
     // Set up initial balance.
@@ -287,21 +287,21 @@ fn test_transfer_invalid_amount_parsing() {
     test.state.execute::<MockVerifier>(&deposit_tx).unwrap();
 
     // Try to transfer with invalid amount string.
-    let transfer_tx = transfer_tx_invalid_amount(from_signer, to_address, "invalid_amount", 1);
+    let transfer_tx = transfer_tx_invalid_amount(&from_signer, to_address, "invalid_amount", 1);
     let result = test.state.execute::<MockVerifier>(&transfer_tx);
 
     // Verify the correct panic error is returned.
     assert!(matches!(result, Err(VAppPanic::InvalidTransferAmount { .. })));
 
     // Verify balances remain unchanged.
-    assert_account_balance(&test, from_signer.address(), U256::from(500));
-    assert_account_balance(&test, to_address, U256::ZERO);
+    assert_account_balance(&mut test, from_signer.address(), U256::from(500));
+    assert_account_balance(&mut test, to_address, U256::ZERO);
 }
 
 #[test]
 fn test_transfer_invalid_to_address() {
     let mut test = setup();
-    let from_signer = &test.signers[0];
+    let from_signer = test.signers[0].clone();
 
     // Set up initial balance.
     let deposit_tx = deposit_tx(from_signer.address(), U256::from(500), 0, 1, 1);
@@ -315,7 +315,7 @@ fn test_transfer_invalid_to_address() {
         domain: spn_utils::SPN_SEPOLIA_V1_DOMAIN.to_vec(),
         variant: TransactionVariant::TransferVariant as i32,
     };
-    let signature = proto_sign(from_signer, &body);
+    let signature = proto_sign(&from_signer, &body);
 
     let transfer_tx = VAppTransaction::Transfer(TransferTransaction {
         transfer: TransferRequest {
@@ -331,29 +331,29 @@ fn test_transfer_invalid_to_address() {
     assert!(matches!(result, Err(VAppPanic::AddressDeserializationFailed)));
 
     // Verify balance remains unchanged.
-    assert_account_balance(&test, from_signer.address(), U256::from(500));
+    assert_account_balance(&mut test, from_signer.address(), U256::from(500));
 }
 
 #[test]
 fn test_transfer_replay_protection() {
     let mut test = setup();
-    let from_signer = &test.signers[0];
+    let from_signer = test.signers[0].clone();
     let to_address = test.signers[1].address();
     let amount = U256::from(100);
 
     // Set up initial balance for sender.
     let deposit_tx = deposit_tx(from_signer.address(), U256::from(500), 0, 1, 1);
     test.state.execute::<MockVerifier>(&deposit_tx).unwrap();
-    assert_account_balance(&test, from_signer.address(), U256::from(500));
+    assert_account_balance(&mut test, from_signer.address(), U256::from(500));
 
     // Execute first transfer.
-    let transfer_tx = transfer_tx(from_signer, to_address, amount, 1);
+    let transfer_tx = transfer_tx(&from_signer, to_address, amount, 1);
     let result = test.state.execute::<MockVerifier>(&transfer_tx);
 
     // Verify first transfer succeeds.
     assert!(result.is_ok());
-    assert_account_balance(&test, from_signer.address(), U256::from(400));
-    assert_account_balance(&test, to_address, amount);
+    assert_account_balance(&mut test, from_signer.address(), U256::from(400));
+    assert_account_balance(&mut test, to_address, amount);
 
     // Attempt to execute the exact same transfer transaction again.
     let result = test.state.execute::<MockVerifier>(&transfer_tx);
@@ -362,7 +362,7 @@ fn test_transfer_replay_protection() {
     assert!(matches!(result, Err(VAppPanic::TransactionAlreadyProcessed { .. })));
 
     // Verify balances remain unchanged after replay attempt.
-    assert_account_balance(&test, from_signer.address(), U256::from(400));
-    assert_account_balance(&test, to_address, amount);
+    assert_account_balance(&mut test, from_signer.address(), U256::from(400));
+    assert_account_balance(&mut test, to_address, amount);
     assert_state_counters(&test, 3, 2, 0, 1);
 }

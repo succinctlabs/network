@@ -28,8 +28,8 @@ fn test_clear_basic_compressed() {
     test.state.execute::<MockVerifier>(&create_prover_tx).unwrap();
 
     // Verify initial balances.
-    assert_account_balance(&test, requester_address, amount);
-    assert_account_balance(&test, prover_address, U256::ZERO);
+    assert_account_balance(&mut test, requester_address, amount);
+    assert_account_balance(&mut test, prover_address, U256::ZERO);
 
     // Create clear transaction with compressed proof mode.
     let clear_tx = create_clear_tx(
@@ -58,8 +58,8 @@ fn test_clear_basic_compressed() {
     let expected_cost = U256::from(50_000_000);
     let expected_requester_balance = amount - expected_cost;
 
-    assert_account_balance(&test, requester_address, expected_requester_balance);
-    assert_account_balance(&test, prover_address, expected_cost);
+    assert_account_balance(&mut test, requester_address, expected_requester_balance);
+    assert_account_balance(&mut test, prover_address, expected_cost);
 
     // Clear transactions don't return receipts, so we verify the transaction succeeded
     // by checking the balance changes above.
@@ -104,8 +104,8 @@ fn test_clear_groth16_mode() {
 
     // Verify the transaction succeeded.
     let expected_cost = U256::from(50_000_000);
-    assert_account_balance(&test, requester_address, amount - expected_cost);
-    assert_account_balance(&test, prover_address, expected_cost);
+    assert_account_balance(&mut test, requester_address, amount - expected_cost);
+    assert_account_balance(&mut test, prover_address, expected_cost);
     assert!(receipt.is_none());
 }
 
@@ -147,8 +147,8 @@ fn test_clear_plonk_mode() {
 
     // Verify the transaction succeeded.
     let expected_cost = U256::from(50_000_000);
-    assert_account_balance(&test, requester_address, amount - expected_cost);
-    assert_account_balance(&test, prover_address, expected_cost);
+    assert_account_balance(&mut test, requester_address, amount - expected_cost);
+    assert_account_balance(&mut test, prover_address, expected_cost);
     assert!(receipt.is_none());
 }
 
@@ -192,8 +192,8 @@ fn test_clear_with_whitelist() {
 
     // Verify the transaction succeeded.
     let expected_cost = U256::from(50_000_000);
-    assert_account_balance(&test, requester_address, amount - expected_cost);
-    assert_account_balance(&test, prover_address, expected_cost);
+    assert_account_balance(&mut test, requester_address, amount - expected_cost);
+    assert_account_balance(&mut test, prover_address, expected_cost);
     assert!(receipt.is_none());
 }
 
@@ -237,8 +237,8 @@ fn test_clear_empty_whitelist() {
 
     // Verify the transaction succeeded.
     let expected_cost = U256::from(50_000_000);
-    assert_account_balance(&test, requester_address, amount - expected_cost);
-    assert_account_balance(&test, prover_address, expected_cost);
+    assert_account_balance(&mut test, requester_address, amount - expected_cost);
+    assert_account_balance(&mut test, prover_address, expected_cost);
     assert!(receipt.is_none());
 }
 
@@ -1144,13 +1144,14 @@ fn test_clear_various_fee_combinations() {
     // Prover gets: bid_amount * pgus = Cost * 0.9 = 45,000,000
     // Staker fee from prover's earnings: 50,000,000 * 10% = 5,000,000
     let expected_cost = U256::from(50_010_000);
-    assert_account_balance(&test, requester_address, amount - expected_cost);
+    assert_account_balance(&mut test, requester_address, amount - expected_cost);
 
     // Prover gets bid amount minus staker fee.
-    assert_account_balance(&test, prover_address, U256::from(50_010_000));
+    assert_account_balance(&mut test, prover_address, U256::from(50_010_000));
 
     // Treasury gets base fee plus staker fee.
-    assert_account_balance(&test, test.state.treasury, U256::from(0));
+    let treasury_address = test.state.treasury;
+    assert_account_balance(&mut test, treasury_address, U256::from(0));
 }
 
 #[test]
@@ -1202,8 +1203,8 @@ fn test_clear_gas_limit_boundary() {
     // Verify cost with boundary PGUs.
     // Cost = bid_amount * pgus = 50,000 * 10,000 = 500,000,000
     let expected_cost = U256::from(500_000_000);
-    assert_account_balance(&test, requester_address, amount - expected_cost);
-    assert_account_balance(&test, prover_address, expected_cost);
+    assert_account_balance(&mut test, requester_address, amount - expected_cost);
+    assert_account_balance(&mut test, prover_address, expected_cost);
 }
 
 #[test]
@@ -1247,8 +1248,8 @@ fn test_clear_with_public_values_hash() {
     assert!(receipt.is_none());
 
     let expected_cost = U256::from(50_000_000);
-    assert_account_balance(&test, requester_address, amount - expected_cost);
-    assert_account_balance(&test, prover_address, expected_cost);
+    assert_account_balance(&mut test, requester_address, amount - expected_cost);
+    assert_account_balance(&mut test, prover_address, expected_cost);
 }
 
 #[test]
@@ -1291,8 +1292,8 @@ fn test_clear_without_public_values_hash() {
     assert!(receipt.is_none());
 
     let expected_cost = U256::from(50_000_000);
-    assert_account_balance(&test, requester_address, amount - expected_cost);
-    assert_account_balance(&test, prover_address, expected_cost);
+    assert_account_balance(&mut test, requester_address, amount - expected_cost);
+    assert_account_balance(&mut test, prover_address, expected_cost);
 }
 
 #[test]
@@ -1912,8 +1913,8 @@ fn test_clear_unexecutable_with_punishment() {
 
     // Verify balances after punishment.
     // Prover loses punishment amount, treasury gains it.
-    assert_account_balance(&test, prover_address, U256::ZERO); // Prover had no initial balance
-    assert_account_balance(&test, requester_address, amount - U256::from(25_000_000));
+    assert_account_balance(&mut test, prover_address, U256::ZERO); // Prover had no initial balance
+    assert_account_balance(&mut test, requester_address, amount - U256::from(25_000_000));
     // Requester keeps funds
 }
 

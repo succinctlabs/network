@@ -216,7 +216,7 @@ impl<A: Storage<Address, Account>, R: Storage<RequestId, bool>> VAppState<A, R> 
                     deposit.action.account, deposit.action.amount
                 );
                 self.accounts
-                    .entry(deposit.action.account)
+                    .entry(deposit.action.account)?
                     .or_default()
                     .add_balance(deposit.action.amount);
 
@@ -243,7 +243,7 @@ impl<A: Storage<Address, Account>, R: Storage<RequestId, bool>> VAppState<A, R> 
 
                 // If the maximum value of an U256 is used, drain the entire balance.
                 debug!("deduct balance");
-                let account = self.accounts.entry(withdraw.action.account).or_default();
+                let account = self.accounts.entry(withdraw.action.account)?.or_default();
                 let balance = account.get_balance();
                 let withdrawal_amount = if withdraw.action.amount == U256::MAX {
                     balance
@@ -295,7 +295,7 @@ impl<A: Storage<Address, Account>, R: Storage<RequestId, bool>> VAppState<A, R> 
                 // prover with the owner key without having to delegate.
                 debug!("set owner, signer, and staker fee");
                 self.accounts
-                    .entry(prover.action.prover)
+                    .entry(prover.action.prover)?
                     .or_default()
                     .set_owner(prover.action.owner)
                     .set_signer(prover.action.owner)
@@ -344,14 +344,14 @@ impl<A: Storage<Address, Account>, R: Storage<RequestId, bool>> VAppState<A, R> 
                 let delegate_id = body
                     .hash_with_signer(signer.as_slice())
                     .map_err(|_| VAppPanic::HashingBodyFailed)?;
-                if self.transactions.get(&delegate_id).copied().unwrap_or_default() {
+                if *self.transactions.entry(delegate_id)?.or_default() {
                     return Err(VAppPanic::TransactionAlreadyProcessed {
                         id: hex::encode(delegate_id),
                     });
                 }
 
                 // Mark the transaction as processed.
-                self.transactions.entry(delegate_id).or_insert(true);
+                self.transactions.insert(delegate_id, true)?;
 
                 // Extract the prover address.
                 debug!("extract prover address");
@@ -360,7 +360,7 @@ impl<A: Storage<Address, Account>, R: Storage<RequestId, bool>> VAppState<A, R> 
 
                 // Verify that the prover exists.
                 debug!("verify prover exists");
-                let Some(prover) = self.accounts.get_mut(&prover) else {
+                let Some(prover) = self.accounts.get_mut(&prover)? else {
                     return Err(VAppPanic::ProverDoesNotExist { prover });
                 };
 
@@ -417,14 +417,14 @@ impl<A: Storage<Address, Account>, R: Storage<RequestId, bool>> VAppState<A, R> 
                 let transfer_id = body
                     .hash_with_signer(from.as_slice())
                     .map_err(|_| VAppPanic::HashingBodyFailed)?;
-                if self.transactions.get(&transfer_id).copied().unwrap_or_default() {
+                if *self.transactions.entry(transfer_id)?.or_default() {
                     return Err(VAppPanic::TransactionAlreadyProcessed {
                         id: hex::encode(transfer_id),
                     });
                 }
 
                 // Mark the transaction as processed.
-                self.transactions.entry(transfer_id).or_insert(true);
+                self.transactions.insert(transfer_id, true)?;
 
                 // Transfer the amount from the requester to the recipient.
                 debug!("extract to address");
@@ -436,16 +436,16 @@ impl<A: Storage<Address, Account>, R: Storage<RequestId, bool>> VAppState<A, R> 
 
                 // Validate that the from account has sufficient balance.
                 debug!("validate from account has sufficient balance");
-                let balance = self.accounts.entry(from).or_default().get_balance();
+                let balance = self.accounts.entry(from)?.or_default().get_balance();
                 if balance < amount {
                     return Err(VAppPanic::InsufficientBalance { account: from, amount, balance });
                 }
 
                 // Transfer the amount from the transferer to the recipient.
                 info!("├── Account({}): - {} $PROVE", from, amount);
-                self.accounts.entry(from).or_default().deduct_balance(amount);
+                self.accounts.entry(from)?.or_default().deduct_balance(amount);
                 info!("├── Account({}): + {} $PROVE", to, amount);
-                self.accounts.entry(to).or_default().add_balance(amount);
+                self.accounts.entry(to)?.or_default().add_balance(amount);
 
                 return Ok(None);
             }
@@ -512,7 +512,7 @@ impl<A: Storage<Address, Account>, R: Storage<RequestId, bool>> VAppState<A, R> 
                 // Check that the request ID has not been fulfilled yet.
                 //
                 // This check ensures that a request can't be used multiple times to pay a prover.
-                if self.transactions.get(&request_id).copied().unwrap_or_default() {
+                if *self.transactions.entry(request_id)?.or_default() {
                     return Err(VAppPanic::TransactionAlreadyProcessed {
                         id: hex::encode(request_id),
                     });
@@ -523,7 +523,7 @@ impl<A: Storage<Address, Account>, R: Storage<RequestId, bool>> VAppState<A, R> 
                 // Provers are liable for their bids, so it's imported to verify that they are the
                 // ones that are bidding.
                 let prover_address = address(bid.prover.as_slice())?;
-                let prover_account = self.accounts.entry(prover_address).or_default();
+                let prover_account = self.accounts.entry(prover_address)?.or_default();
                 let prover_owner = prover_account.get_owner();
                 if prover_account.get_signer() != bid_signer {
                     return Err(VAppPanic::ProverDelegatedSignerMismatch {
@@ -591,11 +591,24 @@ impl<A: Storage<Address, Account>, R: Storage<RequestId, bool>> VAppState<A, R> 
                         return Err(VAppPanic::PunishmentExceedsMaxCost { punishment, max_price });
                     }
 
+                    // Validate that the requester has sufficient balance to pay the punishment.
+                    let balance = self.accounts.entry(request_signer)?.or_default().get_balance();
+                    if balance < punishment {
+                        return Err(VAppPanic::InsufficientBalance {
+                            account: request_signer,
+                            amount: punishment,
+                            balance,
+                        });
+                    }
+
                     // Deduct the punishment from the requester.
-                    self.accounts.entry(request_signer).or_default().deduct_balance(punishment);
+                    self.accounts.entry(request_signer)?.or_default().deduct_balance(punishment);
 
                     // Send the punishment to the treasury
-                    self.accounts.entry(self.treasury).or_default().add_balance(punishment);
+                    self.accounts.entry(self.treasury)?.or_default().add_balance(punishment);
+
+                    // Set the transaction as processed.
+                    self.transactions.insert(request_id, true)?;
 
                     return Ok(None);
                 }
@@ -711,7 +724,7 @@ impl<A: Storage<Address, Account>, R: Storage<RequestId, bool>> VAppState<A, R> 
                 // Ensure the user can afford the cost of the proof.
                 let account = self
                     .accounts
-                    .get(&request_signer)
+                    .get(&request_signer)?
                     .ok_or(VAppPanic::AccountDoesNotExist { account: request_signer })?;
                 if account.get_balance() < cost {
                     return Err(VAppPanic::InsufficientBalance {
@@ -746,11 +759,11 @@ impl<A: Storage<Address, Account>, R: Storage<RequestId, bool>> VAppState<A, R> 
                 info!("├── Requester Fee = {} PGUs × {} $PROVE/PGU = {} $PROVE", pgus, price, cost);
 
                 // Mark request as consumed before processing payment.
-                self.transactions.entry(request_id).or_insert(true);
+                self.transactions.insert(request_id, true)?;
 
                 // Deduct the cost from the requester.
                 info!("├── Account({}): - {} $PROVE (Requester Fee)", request_signer, cost);
-                self.accounts.entry(request_signer).or_default().deduct_balance(cost);
+                self.accounts.entry(request_signer)?.or_default().deduct_balance(cost);
 
                 // Get the protocol fee.
                 let protocol_address = self.treasury;
@@ -759,7 +772,7 @@ impl<A: Storage<Address, Account>, R: Storage<RequestId, bool>> VAppState<A, R> 
                 // Get the staker fee from the prover account.
                 let prover_account = self
                     .accounts
-                    .get(&prover_address)
+                    .get(&prover_address)?
                     .ok_or(VAppPanic::AccountDoesNotExist { account: prover_address })?;
                 let staker_fee_bips = prover_account.get_staker_fee_bips();
 
@@ -771,19 +784,19 @@ impl<A: Storage<Address, Account>, R: Storage<RequestId, bool>> VAppState<A, R> 
                     "├── Account({}): + {} $PROVE (Protocol Fee)",
                     protocol_address, protocol_fee
                 );
-                self.accounts.entry(protocol_address).or_default().add_balance(protocol_fee);
+                self.accounts.entry(protocol_address)?.or_default().add_balance(protocol_fee);
 
                 info!(
                     "├── Account({}): + {} $PROVE (Staker Reward)",
                     prover_address, prover_staker_fee
                 );
-                self.accounts.entry(prover_address).or_default().add_balance(prover_staker_fee);
+                self.accounts.entry(prover_address)?.or_default().add_balance(prover_staker_fee);
 
                 info!(
                     "├── Account({}): + {} $PROVE (Owner Reward)",
                     prover_owner, prover_owner_fee
                 );
-                self.accounts.entry(prover_owner).or_default().add_balance(prover_owner_fee);
+                self.accounts.entry(prover_owner)?.or_default().add_balance(prover_owner_fee);
 
                 return Ok(None);
             }

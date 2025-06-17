@@ -377,8 +377,8 @@ pub fn assert_create_prover_receipt(
 
 /// Asserts that an account has the expected balance.
 #[allow(clippy::ref_option)]
-pub fn assert_account_balance(test: &VAppTestContext, account: Address, expected_balance: U256) {
-    let actual_balance = test.state.accounts.get(&account).map_or(U256::ZERO, Account::get_balance);
+pub fn assert_account_balance(test: &mut VAppTestContext, account: Address, expected_balance: U256) {
+    let actual_balance = test.state.accounts.get(&account).unwrap().map_or(U256::ZERO, Account::get_balance);
     assert_eq!(
         actual_balance, expected_balance,
         "Account balance mismatch for {account}: expected {expected_balance}, got {actual_balance}"
@@ -387,21 +387,21 @@ pub fn assert_account_balance(test: &VAppTestContext, account: Address, expected
 
 /// Asserts that a prover account has the expected configuration.
 pub fn assert_prover_account(
-    test: &VAppTestContext,
+    test: &mut VAppTestContext,
     prover: Address,
     expected_owner: Address,
     expected_signer: Address,
     expected_staker_fee_bips: U256,
 ) {
-    let account = test.state.accounts.get(&prover).unwrap();
+    let account = test.state.accounts.get(&prover).unwrap().unwrap();
     assert_eq!(account.get_owner(), expected_owner, "Prover owner mismatch");
     assert_eq!(account.get_signer(), expected_signer, "Prover signer mismatch");
     assert_eq!(account.get_staker_fee_bips(), expected_staker_fee_bips, "Staker fee bips mismatch");
 }
 
 /// Asserts that a prover has the expected signer.
-pub fn assert_prover_signer(test: &VAppTestContext, prover: Address, expected_signer: Address) {
-    let account = test.state.accounts.get(&prover).unwrap();
+pub fn assert_prover_signer(test: &mut VAppTestContext, prover: Address, expected_signer: Address) {
+    let account = test.state.accounts.get(&prover).unwrap().unwrap();
     assert_eq!(account.get_signer(), expected_signer, "Prover signer mismatch");
     assert!(account.is_signer(expected_signer), "Expected address should be a valid signer");
 }

@@ -5,6 +5,8 @@
 use alloy_primitives::{ruint::ParseError, Address, B256, U256};
 use thiserror::Error;
 
+use crate::storage::StorageError;
+
 /// An unrecoverable error that will prevent a transaction from being included in the ledger.
 #[derive(Debug, Error, PartialEq)]
 #[allow(missing_docs)]
@@ -148,4 +150,7 @@ pub enum VAppPanic {
 
     #[error("Invalid transaction variant")]
     InvalidTransactionVariant,
+
+    #[error("Storage error: {0}")]
+    StorageError(#[from] StorageError),
 }

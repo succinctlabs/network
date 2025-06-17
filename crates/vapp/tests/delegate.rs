@@ -15,7 +15,7 @@ use crate::common::*;
 #[test]
 fn test_delegate_basic() {
     let mut test = setup();
-    let prover_owner = &test.signers[0];
+    let prover_owner = test.signers[0].clone();
     let prover_address = test.signers[1].address();
     let delegate_address = test.signers[2].address();
 
@@ -25,17 +25,17 @@ fn test_delegate_basic() {
     test.state.execute::<MockVerifier>(&create_prover_tx).unwrap();
 
     // Verify initial signer is the owner.
-    assert_prover_signer(&test, prover_address, prover_owner.address());
+    assert_prover_signer(&mut test, prover_address, prover_owner.address());
 
     // Execute delegation.
-    let delegate_tx = delegate_tx(prover_owner, prover_address, delegate_address, 1);
+    let delegate_tx = delegate_tx(&prover_owner, prover_address, delegate_address, 1);
     let result = test.state.execute::<MockVerifier>(&delegate_tx).unwrap();
 
     // Verify delegation does not return a receipt.
     assert!(result.is_none());
 
     // Verify the signer was updated.
-    assert_prover_signer(&test, prover_address, delegate_address);
+    assert_prover_signer(&mut test, prover_address, delegate_address);
 
     // Verify state counters (only tx_id increments for off-chain transactions).
     assert_state_counters(&test, 3, 2, 0, 1);
@@ -44,7 +44,7 @@ fn test_delegate_basic() {
 #[test]
 fn test_delegate_self_delegation() {
     let mut test = setup();
-    let prover_owner = &test.signers[0];
+    let prover_owner = test.signers[0].clone();
     let prover_address = test.signers[1].address();
 
     // Create prover first.
@@ -53,18 +53,18 @@ fn test_delegate_self_delegation() {
     test.state.execute::<MockVerifier>(&create_prover_tx).unwrap();
 
     // Execute self-delegation (owner delegates to themselves).
-    let delegate_tx = delegate_tx(prover_owner, prover_address, prover_owner.address(), 1);
+    let delegate_tx = delegate_tx(&prover_owner, prover_address, prover_owner.address(), 1);
     let result = test.state.execute::<MockVerifier>(&delegate_tx).unwrap();
 
     // Verify delegation succeeds and signer remains the owner.
     assert!(result.is_none());
-    assert_prover_signer(&test, prover_address, prover_owner.address());
+    assert_prover_signer(&mut test, prover_address, prover_owner.address());
 }
 
 #[test]
 fn test_delegate_multiple_delegations() {
     let mut test = setup();
-    let prover_owner = &test.signers[0];
+    let prover_owner = test.signers[0].clone();
     let prover_address = test.signers[1].address();
     let delegate1 = test.signers[2].address();
     let delegate2 = test.signers[3].address();
@@ -76,19 +76,19 @@ fn test_delegate_multiple_delegations() {
     test.state.execute::<MockVerifier>(&create_prover_tx).unwrap();
 
     // Execute first delegation.
-    let delegate_tx1 = delegate_tx(prover_owner, prover_address, delegate1, 1);
+    let delegate_tx1 = delegate_tx(&prover_owner, prover_address, delegate1, 1);
     test.state.execute::<MockVerifier>(&delegate_tx1).unwrap();
-    assert_prover_signer(&test, prover_address, delegate1);
+    assert_prover_signer(&mut test, prover_address, delegate1);
 
     // Execute second delegation (replaces first).
-    let delegate_tx2 = delegate_tx(prover_owner, prover_address, delegate2, 2);
+    let delegate_tx2 = delegate_tx(&prover_owner, prover_address, delegate2, 2);
     test.state.execute::<MockVerifier>(&delegate_tx2).unwrap();
-    assert_prover_signer(&test, prover_address, delegate2);
+    assert_prover_signer(&mut test, prover_address, delegate2);
 
     // Execute third delegation (replaces second).
-    let delegate_tx3 = delegate_tx(prover_owner, prover_address, delegate3, 3);
+    let delegate_tx3 = delegate_tx(&prover_owner, prover_address, delegate3, 3);
     test.state.execute::<MockVerifier>(&delegate_tx3).unwrap();
-    assert_prover_signer(&test, prover_address, delegate3);
+    assert_prover_signer(&mut test, prover_address, delegate3);
 
     // Verify state progression.
     assert_state_counters(&test, 5, 2, 0, 1);
@@ -121,8 +121,8 @@ fn test_delegate_multiple_provers() {
     test.state.execute::<MockVerifier>(&delegate_tx2).unwrap();
 
     // Verify both delegations.
-    assert_prover_signer(&test, prover1, delegate1);
-    assert_prover_signer(&test, prover2, delegate2);
+    assert_prover_signer(&mut test, prover1, delegate1);
+    assert_prover_signer(&mut test, prover2, delegate2);
 }
 
 #[test]
@@ -149,7 +149,7 @@ fn test_delegate_non_existent_prover() {
 #[test]
 fn test_delegate_only_owner_can_delegate() {
     let mut test = setup();
-    let prover_owner = &test.signers[0];
+    let prover_owner = test.signers[0].clone();
     let non_owner = &test.signers[1];
     let prover_address = test.signers[2].address();
     let delegate_address = test.signers[3].address();
@@ -167,14 +167,14 @@ fn test_delegate_only_owner_can_delegate() {
     assert!(matches!(result, Err(VAppPanic::OnlyOwnerCanDelegate)));
 
     // Verify signer remains unchanged.
-    assert_prover_signer(&test, prover_address, prover_owner.address());
+    assert_prover_signer(&mut test, prover_address, prover_owner.address());
     assert_state_counters(&test, 2, 2, 0, 1);
 }
 
 #[test]
 fn test_delegate_domain_mismatch() {
     let mut test = setup();
-    let prover_owner = &test.signers[0];
+    let prover_owner = test.signers[0].clone();
     let prover_address = test.signers[1].address();
     let delegate_address = test.signers[2].address();
 
@@ -186,14 +186,14 @@ fn test_delegate_domain_mismatch() {
     // Try to delegate with wrong domain.
     let wrong_domain = [1u8; 32];
     let delegate_tx =
-        delegate_tx_with_domain(prover_owner, prover_address, delegate_address, 1, wrong_domain);
+        delegate_tx_with_domain(&prover_owner, prover_address, delegate_address, 1, wrong_domain);
     let result = test.state.execute::<MockVerifier>(&delegate_tx);
 
     // Verify the correct panic error is returned.
     assert!(matches!(result, Err(VAppPanic::DomainMismatch { .. })));
 
     // Verify signer remains unchanged.
-    assert_prover_signer(&test, prover_address, prover_owner.address());
+    assert_prover_signer(&mut test, prover_address, prover_owner.address());
 }
 
 #[test]
@@ -214,7 +214,7 @@ fn test_delegate_missing_body() {
 #[test]
 fn test_delegate_invalid_prover_address() {
     let mut test = setup();
-    let prover_owner = &test.signers[0];
+    let prover_owner = test.signers[0].clone();
     let delegate_address = test.signers[1].address();
 
     // Create delegate tx with invalid prover address (too short).
@@ -225,7 +225,7 @@ fn test_delegate_invalid_prover_address() {
         domain: spn_utils::SPN_SEPOLIA_V1_DOMAIN.to_vec(),
         variant: TransactionVariant::DelegateVariant as i32,
     };
-    let signature = proto_sign(prover_owner, &body);
+    let signature = proto_sign(&prover_owner, &body);
 
     let delegate_tx = VAppTransaction::Delegate(DelegateTransaction {
         delegation: SetDelegationRequest {
@@ -244,7 +244,7 @@ fn test_delegate_invalid_prover_address() {
 #[test]
 fn test_delegate_invalid_delegate_address() {
     let mut test = setup();
-    let prover_owner = &test.signers[0];
+    let prover_owner = test.signers[0].clone();
     let prover_address = test.signers[1].address();
 
     // Create prover first.
@@ -260,7 +260,7 @@ fn test_delegate_invalid_delegate_address() {
         domain: spn_utils::SPN_SEPOLIA_V1_DOMAIN.to_vec(),
         variant: TransactionVariant::DelegateVariant as i32,
     };
-    let signature = proto_sign(prover_owner, &body);
+    let signature = proto_sign(&prover_owner, &body);
 
     let delegate_tx = VAppTransaction::Delegate(DelegateTransaction {
         delegation: SetDelegationRequest {
@@ -276,7 +276,7 @@ fn test_delegate_invalid_delegate_address() {
     assert!(matches!(result, Err(VAppPanic::AddressDeserializationFailed)));
 
     // Verify signer remains unchanged.
-    assert_prover_signer(&test, prover_address, prover_owner.address());
+    assert_prover_signer(&mut test, prover_address, prover_owner.address());
 }
 
 #[test]
@@ -297,7 +297,7 @@ fn test_delegate_replay_protection() {
 
     // Verify first delegation succeeds.
     assert!(result.is_ok());
-    assert_prover_signer(&test, prover_address, delegate_address);
+    assert_prover_signer(&mut test, prover_address, delegate_address);
 
     // Attempt to execute the exact same delegation transaction again.
     let result = test.state.execute::<MockVerifier>(&delegate_tx);
@@ -306,14 +306,14 @@ fn test_delegate_replay_protection() {
     assert!(matches!(result, Err(VAppPanic::TransactionAlreadyProcessed { .. })));
 
     // Verify the delegation state remains unchanged after replay attempt.
-    assert_prover_signer(&test, prover_address, delegate_address);
+    assert_prover_signer(&mut test, prover_address, delegate_address);
     assert_state_counters(&test, 3, 2, 0, 1);
 }
 
 #[test]
 fn test_delegate_invalid_transaction_variant() {
     let mut test = setup();
-    let prover_owner = &test.signers[0];
+    let prover_owner = test.signers[0].clone();
     let prover_address = test.signers[1].address();
     let delegate_address = test.signers[2].address();
 
@@ -330,7 +330,7 @@ fn test_delegate_invalid_transaction_variant() {
         domain: spn_utils::SPN_SEPOLIA_V1_DOMAIN.to_vec(),
         variant: TransactionVariant::TransferVariant as i32, // Invalid variant - should be DelegateVariant
     };
-    let signature = proto_sign(prover_owner, &body);
+    let signature = proto_sign(&prover_owner, &body);
 
     let delegate_tx = VAppTransaction::Delegate(DelegateTransaction {
         delegation: SetDelegationRequest {
@@ -346,5 +346,5 @@ fn test_delegate_invalid_transaction_variant() {
     assert!(matches!(result, Err(VAppPanic::InvalidTransactionVariant)));
 
     // Verify signer remains unchanged.
-    assert_prover_signer(&test, prover_address, prover_owner.address());
+    assert_prover_signer(&mut test, prover_address, prover_owner.address());
 }

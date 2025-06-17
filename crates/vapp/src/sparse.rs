@@ -3,7 +3,10 @@
 //! This module contains implementations of the [`SparseStorage`] data structure, which is used to
 //! store and retrieve data inside the vApp while keeping only the used leaves  
 
-use std::collections::{btree_map::Entry, BTreeMap};
+use std::{
+    collections::{btree_map::Entry, BTreeMap, BTreeSet},
+    marker::PhantomData,
+};
 
 use alloy_primitives::{B256, U256};
 use serde::{Deserialize, Serialize};
@@ -11,7 +14,7 @@ use thiserror::Error;
 
 use crate::{
     merkle::{MerkleProof, MerkleStorage, MerkleTreeHasher},
-    storage::{Storage, StorageKey, StorageValue},
+    storage::{Storage, StorageError, StorageKey, StorageValue},
 };
 
 /// A sparse storage implementation backed by a `BTreeMap`.
@@ -21,7 +24,8 @@ use crate::{
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SparseStorage<K: StorageKey, V: StorageValue> {
     inner: BTreeMap<U256, V>,
-    _key: std::marker::PhantomData<K>,
+    witnessed_keys: BTreeSet<U256>,
+    _key: PhantomData<K>,
 }
 
 /// Errors that can occur during sparse storage operations.
@@ -52,32 +56,44 @@ pub enum SparseStorageError {
 
 impl<K: StorageKey, V: StorageValue> Storage<K, V> for SparseStorage<K, V> {
     fn new() -> Self {
-        Self { inner: BTreeMap::new(), _key: std::marker::PhantomData }
+        Self { inner: BTreeMap::new(), witnessed_keys: BTreeSet::new(), _key: PhantomData }
     }
 
-    fn insert(&mut self, key: K, value: V) {
+    fn insert(&mut self, key: K, value: V) -> Result<(), StorageError> {
         let index = key.index();
+        if !self.witnessed_keys.contains(&index) {
+            return Err(StorageError::KeyNotAllowed);
+        }
+
         self.inner.insert(index, value);
+        Ok(())
     }
 
-    fn remove(&mut self, key: K) {
+    fn entry(&mut self, key: K) -> Result<Entry<U256, V>, StorageError> {
         let index = key.index();
-        self.inner.remove(&index);
+        if !self.witnessed_keys.contains(&index) {
+            return Err(StorageError::KeyNotAllowed);
+        }
+
+        Ok(self.inner.entry(index))
     }
 
-    fn entry(&mut self, key: K) -> Entry<U256, V> {
+    fn get(&mut self, key: &K) -> Result<Option<&V>, StorageError> {
         let index = key.index();
-        self.inner.entry(index)
+        if !self.witnessed_keys.contains(&index) {
+            return Err(StorageError::KeyNotAllowed);
+        }
+
+        Ok(self.inner.get(&index))
     }
 
-    fn get(&self, key: &K) -> Option<&V> {
+    fn get_mut(&mut self, key: &K) -> Result<Option<&mut V>, StorageError> {
         let index = key.index();
-        self.inner.get(&index)
-    }
+        if !self.witnessed_keys.contains(&index) {
+            return Err(StorageError::KeyNotAllowed);
+        }
 
-    fn get_mut(&mut self, key: &K) -> Option<&mut V> {
-        let index = key.index();
-        self.inner.get_mut(&index)
+        Ok(self.inner.get_mut(&index))
     }
 }
 
@@ -90,12 +106,12 @@ impl<K: StorageKey, V: StorageValue> SparseStorage<K, V> {
 
     /// Iterate over the raw key-value pairs (returns U256 indices).
     pub fn iter_raw(&self) -> impl Iterator<Item = (&U256, &V)> {
-        self.inner.iter()
+        self.inner.iter().filter(|(key, _)| self.witnessed_keys.contains(key))
     }
 }
 
 impl<K: StorageKey, V: StorageValue + PartialEq> SparseStorage<K, V> {
-    /// Verify the state of the sparse store using merkle proofs against a given root.
+    /// Recovers the state of the sparse store using merkle proofs against a given root.
     ///
     /// This function checks that all values currently stored in the sparse store
     /// are consistent with the provided merkle proofs and verify against the given root.
@@ -107,52 +123,31 @@ impl<K: StorageKey, V: StorageValue + PartialEq> SparseStorage<K, V> {
     /// # Returns
     /// `Ok(())` if all stored values have valid proofs that verify against the root,
     /// `Err(SparseStorageError)` if verification fails
-    pub fn verify<H: MerkleTreeHasher>(
-        &self,
+    pub fn recover<H: MerkleTreeHasher>(
+        &mut self,
         root: B256,
         proofs: &[MerkleProof<K, V, H>],
     ) -> Result<(), SparseStorageError> {
-        // Build a map for quick proof lookup and detect duplicate proofs.
-        let mut proof_map: BTreeMap<U256, &MerkleProof<K, V, H>> = BTreeMap::new();
+        self.inner.clear();
+        self.witnessed_keys.clear();
+
         for proof in proofs {
-            let index = proof.key.index();
-            if proof_map.insert(index, proof).is_some() {
-                return Err(SparseStorageError::DuplicateProof { index });
+            // Add the key to the set of witnessed keys.
+            //
+            // We enforce that only witnessed keys can be used with the [`Storage`] trait.
+            if self.witnessed_keys.contains(&proof.key.index()) {
+                return Err(SparseStorageError::DuplicateProof { index: proof.key.index() });
             }
-        }
+            self.witnessed_keys.insert(proof.key.index());
 
-        // Verify that every stored value has a matching, correct proof.
-        for (index, value) in &self.inner {
-            let Some(proof) = proof_map.get(index) else {
-                return Err(SparseStorageError::MissingProofForStoredValue { index: *index });
-            };
-
-            // Check that the proof's value matches what we have stored.
-            if proof.value.as_ref() != Some(value) {
-                return Err(SparseStorageError::ProofValueMismatch { index: *index });
-            }
-
-            // Verify the proof for this key-value pair.
-            if MerkleStorage::<K, V, H>::verify_proof(root, proof).is_err() {
-                return Err(SparseStorageError::InvalidProofForStoredValue { index: *index });
-            }
-        }
-
-        // Verify that every proof for a key that is not stored is a non-inclusion proof.
-        for (index, proof) in &proof_map {
-            // Skip keys we have already verified above.
-            if self.inner.contains_key(index) {
-                continue;
-            }
-
-            // Non-inclusion proofs **must** have an empty value.
-            if proof.value.is_some() {
-                return Err(SparseStorageError::ProofForNonStoredKeyWithValue { index: *index });
-            }
-
-            // Verify the non-inclusion proof against the expected root.
+            // Verify the proof against the root.
             if MerkleStorage::<K, V, H>::verify_proof(root, proof).is_err() {
                 return Err(SparseStorageError::VerificationFailed);
+            }
+
+            // Write the value to the sparse store.
+            if let Some(value) = &proof.value {
+                self.inner.insert(proof.key.index(), value.clone());
             }
         }
 
@@ -177,25 +172,24 @@ mod tests {
 
     #[test]
     fn verify_empty_store_succeeds() {
-        let sparse_store = U256SparseStore::new();
+        let mut sparse_store = U256SparseStore::new();
         let empty_proofs: Vec<MerkleProof<U256, U256, Keccak256>> = vec![];
 
         // Any root should work for empty store with no proofs.
         let arbitrary_root = B256::from([1u8; 32]);
-        assert!(sparse_store.verify::<Keccak256>(arbitrary_root, &empty_proofs).is_ok());
+        assert!(sparse_store.recover::<Keccak256>(arbitrary_root, &empty_proofs).is_ok());
     }
 
     #[test]
     fn verify_single_value_succeeds() {
-        let mut merkle_tree = U256Tree::new();
         let mut sparse_store = U256SparseStore::new();
+        let mut merkle_tree = U256Tree::new();
 
         let key = uint!(42_U256);
         let value = uint!(1337_U256);
 
-        // Insert into both stores.
-        merkle_tree.insert(key, value);
-        sparse_store.insert(key, value);
+        // Insert into the merkle tree.
+        merkle_tree.insert(key, value).unwrap();
 
         // Get root and proof from merkle tree.
         let root = merkle_tree.root();
@@ -204,13 +198,13 @@ mod tests {
         let proofs = vec![MerkleProof::new(key, Some(value), proof.unwrap().proof)];
 
         // Verification should succeed.
-        assert!(sparse_store.verify::<Keccak256>(root, &proofs).is_ok());
+        assert!(sparse_store.recover::<Keccak256>(root, &proofs).is_ok());
     }
 
     #[test]
     fn verify_multiple_values_succeeds() {
-        let mut merkle_tree = U256Tree::new();
         let mut sparse_store = U256SparseStore::new();
+        let mut merkle_tree = U256Tree::new();
 
         let key1 = uint!(1_U256);
         let key2 = uint!(2_U256);
@@ -220,12 +214,9 @@ mod tests {
         let value3 = uint!(300_U256);
 
         // Insert into both stores.
-        merkle_tree.insert(key1, value1);
-        merkle_tree.insert(key2, value2);
-        merkle_tree.insert(key3, value3);
-        sparse_store.insert(key1, value1);
-        sparse_store.insert(key2, value2);
-        sparse_store.insert(key3, value3);
+        merkle_tree.insert(key1, value1).unwrap();
+        merkle_tree.insert(key2, value2).unwrap();
+        merkle_tree.insert(key3, value3).unwrap();
 
         // Get root and proofs from merkle tree.
         let root = merkle_tree.root();
@@ -240,20 +231,19 @@ mod tests {
         ];
 
         // Verification should succeed.
-        assert!(sparse_store.verify::<Keccak256>(root, &proofs).is_ok());
+        assert!(sparse_store.recover::<Keccak256>(root, &proofs).is_ok());
     }
 
     #[test]
     fn verify_fails_with_wrong_root() {
-        let mut merkle_tree = U256Tree::new();
         let mut sparse_store = U256SparseStore::new();
+        let mut merkle_tree = U256Tree::new();
 
         let key = uint!(42_U256);
         let value = uint!(1337_U256);
 
         // Insert into both stores.
-        merkle_tree.insert(key, value);
-        sparse_store.insert(key, value);
+        merkle_tree.insert(key, value).unwrap();
 
         // Get proof from merkle tree but use wrong root.
         let proof = merkle_tree.proof(&key);
@@ -266,93 +256,13 @@ mod tests {
         let proofs = vec![MerkleProof::new(key, Some(value), proof.unwrap().proof)];
 
         // Verification should fail.
-        assert!(sparse_store.verify::<Keccak256>(wrong_root, &proofs).is_err());
-    }
-
-    #[test]
-    fn verify_fails_with_wrong_value() {
-        let mut merkle_tree = U256Tree::new();
-        let mut sparse_store = U256SparseStore::new();
-
-        let key = uint!(42_U256);
-        let correct_value = uint!(1337_U256);
-        let wrong_value = uint!(999_U256);
-
-        // Insert correct value into merkle tree, wrong value into sparse store.
-        merkle_tree.insert(key, correct_value);
-        sparse_store.insert(key, wrong_value);
-
-        // Get root and proof from merkle tree.
-        let root = merkle_tree.root();
-        let proof = merkle_tree.proof(&key);
-
-        let proofs = vec![MerkleProof::new(key, Some(correct_value), proof.unwrap().proof)];
-
-        // Verification should fail because sparse store has wrong value.
-        assert!(sparse_store.verify::<Keccak256>(root, &proofs).is_err());
-    }
-
-    #[test]
-    fn verify_fails_with_missing_proof() {
-        let mut sparse_store = U256SparseStore::new();
-
-        let key1 = uint!(1_U256);
-        let key2 = uint!(2_U256);
-        let value1 = uint!(10_U256);
-        let value2 = uint!(20_U256);
-
-        // Insert both values into sparse store.
-        sparse_store.insert(key1, value1);
-        sparse_store.insert(key2, value2);
-
-        // Only provide proof for one key.
-        let mut merkle_tree = U256Tree::new();
-        merkle_tree.insert(key1, value1);
-        merkle_tree.insert(key2, value2);
-        let root = merkle_tree.root();
-        let proof1 = merkle_tree.proof(&key1);
-
-        let proofs = vec![MerkleProof::new(key1, Some(value1), proof1.unwrap().proof)]; // Missing proof for key2.
-
-        // Verification should fail.
-        assert!(sparse_store.verify::<Keccak256>(root, &proofs).is_err());
-    }
-
-    #[test]
-    fn verify_fails_with_extra_proof() {
-        let mut merkle_tree = U256Tree::new();
-        let mut sparse_store = U256SparseStore::new();
-
-        let key1 = uint!(1_U256);
-        let key2 = uint!(2_U256);
-        let value1 = uint!(10_U256);
-        let value2 = uint!(20_U256);
-
-        // Insert both values into merkle tree.
-        merkle_tree.insert(key1, value1);
-        merkle_tree.insert(key2, value2);
-
-        // Only insert one value into sparse store.
-        sparse_store.insert(key1, value1);
-
-        // Provide proofs for both keys.
-        let root = merkle_tree.root();
-        let proof1 = merkle_tree.proof(&key1);
-        let proof2 = merkle_tree.proof(&key2);
-
-        let proofs = vec![
-            MerkleProof::new(key1, Some(value1), proof1.unwrap().proof),
-            MerkleProof::new(key2, Some(value2), proof2.unwrap().proof), // Extra proof for key2.
-        ];
-
-        // Verification should fail.
-        assert!(sparse_store.verify::<Keccak256>(root, &proofs).is_err());
+        assert!(sparse_store.recover::<Keccak256>(wrong_root, &proofs).is_err());
     }
 
     #[test]
     fn verify_fails_with_wrong_proof() {
-        let mut merkle_tree = U256Tree::new();
         let mut sparse_store = U256SparseStore::new();
+        let mut merkle_tree = U256Tree::new();
 
         let key1 = uint!(1_U256);
         let key2 = uint!(2_U256);
@@ -360,10 +270,8 @@ mod tests {
         let value2 = uint!(20_U256);
 
         // Insert values into both stores.
-        merkle_tree.insert(key1, value1);
-        merkle_tree.insert(key2, value2);
-        sparse_store.insert(key1, value1);
-        sparse_store.insert(key2, value2);
+        merkle_tree.insert(key1, value1).unwrap();
+        merkle_tree.insert(key2, value2).unwrap();
 
         // Get root and proofs.
         let root = merkle_tree.root();
@@ -377,13 +285,13 @@ mod tests {
         ];
 
         // Verification should fail.
-        assert!(sparse_store.verify::<Keccak256>(root, &proofs).is_err());
+        assert!(sparse_store.recover::<Keccak256>(root, &proofs).is_err());
     }
 
     #[test]
     fn verify_works_with_address_keys() {
+        let mut sparse_store = SparseStorage::<Address, U256>::new();
         let mut merkle_tree: MerkleStorage<Address, U256> = MerkleStorage::new();
-        let mut sparse_store: SparseStorage<Address, U256> = SparseStorage::new();
 
         let addr1 = Address::from([1u8; 20]);
         let addr2 = Address::from([2u8; 20]);
@@ -391,10 +299,8 @@ mod tests {
         let value2 = uint!(200_U256);
 
         // Insert into both stores.
-        merkle_tree.insert(addr1, value1);
-        merkle_tree.insert(addr2, value2);
-        sparse_store.insert(addr1, value1);
-        sparse_store.insert(addr2, value2);
+        merkle_tree.insert(addr1, value1).unwrap();
+        merkle_tree.insert(addr2, value2).unwrap();
 
         // Get root and proofs.
         let root = merkle_tree.root();
@@ -407,13 +313,13 @@ mod tests {
         ];
 
         // Verification should succeed.
-        assert!(sparse_store.verify::<Keccak256>(root, &proofs).is_ok());
+        assert!(sparse_store.recover::<Keccak256>(root, &proofs).is_ok());
     }
 
     #[test]
     fn verify_large_store_succeeds() {
-        let mut merkle_tree = U256Tree::new();
         let mut sparse_store = U256SparseStore::new();
+        let mut merkle_tree = U256Tree::new();
 
         let num_entries = 50;
         let mut keys_values = Vec::new();
@@ -424,8 +330,7 @@ mod tests {
             let value = U256::from(i * 17 + 3);
             keys_values.push((key, value));
 
-            merkle_tree.insert(key, value);
-            sparse_store.insert(key, value);
+            merkle_tree.insert(key, value).unwrap();
         }
 
         // Get root and all proofs.
@@ -434,21 +339,20 @@ mod tests {
             keys_values.iter().map(|(key, _)| merkle_tree.proof(key).unwrap()).collect();
 
         // Verification should succeed.
-        assert!(sparse_store.verify::<Keccak256>(root, &proofs).is_ok());
+        assert!(sparse_store.recover::<Keccak256>(root, &proofs).is_ok());
     }
 
     // Tests for stricter proof validation.
 
     #[test]
     fn verify_fails_with_duplicate_proofs() {
-        let mut merkle_tree = U256Tree::new();
         let mut sparse_store = U256SparseStore::new();
+        let mut merkle_tree = U256Tree::new();
 
         let key = uint!(42_U256);
         let value = uint!(7_U256);
 
-        merkle_tree.insert(key, value);
-        sparse_store.insert(key, value);
+        merkle_tree.insert(key, value).unwrap();
 
         let root = merkle_tree.root();
         let proof_data = merkle_tree.proof(&key).unwrap();
@@ -456,7 +360,7 @@ mod tests {
         // Create duplicate proofs for the same key.
         let proofs = vec![proof_data.clone(), proof_data];
 
-        let result = sparse_store.verify::<Keccak256>(root, &proofs);
+        let result = sparse_store.recover::<Keccak256>(root, &proofs);
         assert!(
             matches!(result, Err(SparseStorageError::DuplicateProof { index }) if index == key)
         );
@@ -464,13 +368,12 @@ mod tests {
 
     #[test]
     fn verify_non_inclusion_proof_succeeds() {
-        let mut merkle_tree = U256Tree::new();
         let mut sparse_store = U256SparseStore::new();
+        let mut merkle_tree = U256Tree::new();
 
         let key_stored = uint!(1_U256);
         let value_stored = uint!(100_U256);
-        merkle_tree.insert(key_stored, value_stored);
-        sparse_store.insert(key_stored, value_stored);
+        merkle_tree.insert(key_stored, value_stored).unwrap();
 
         // Create a key that is not stored in the sparse store.
         let key_unused = uint!(999_U256);
@@ -485,32 +388,6 @@ mod tests {
         let proofs = vec![proof_stored, proof_unused];
 
         // Verification should now succeed because non-inclusion proofs are accepted.
-        assert!(sparse_store.verify::<Keccak256>(root, &proofs).is_ok());
-    }
-
-    #[test]
-    fn verify_fails_when_non_inclusion_proof_has_value() {
-        let mut merkle_tree = U256Tree::new();
-        let mut sparse_store = U256SparseStore::new();
-
-        // Key/value that will be stored in both data structures.
-        let key_stored = uint!(55_U256);
-        let value_stored = uint!(1234_U256);
-        merkle_tree.insert(key_stored, value_stored);
-        sparse_store.insert(key_stored, value_stored);
-
-        // Compute the root.
-        let root = merkle_tree.root();
-
-        // Generate proofs for included and non-included keys.
-        let key_not_stored = uint!(777_U256);
-        let proof_stored = merkle_tree.proof(&key_stored).unwrap();
-        let mut proof_not_stored = merkle_tree.proof(&key_not_stored).unwrap();
-        proof_not_stored.value = Some(uint!(1_U256));
-
-        let result = sparse_store.verify::<Keccak256>(root, &[proof_stored, proof_not_stored]);
-        assert!(
-            matches!(result, Err(SparseStorageError::ProofForNonStoredKeyWithValue { index }) if index == key_not_stored)
-        );
+        assert!(sparse_store.recover::<Keccak256>(root, &proofs).is_ok());
     }
 }
