@@ -118,34 +118,6 @@ contract DeployProveAndVAppScript is BaseScript, FixtureLoader {
         console.log("VApp PROVE balance: %s", prove.balanceOf(address(vApp)) / 1e18);
         console.log("Your remaining PROVE balance: %s", prove.balanceOf(msg.sender) / 1e18);
 
-        // ===== PROCESS 10 WITHDRAWAL REQUESTS =====
-        console.log("\n=== Processing 10 withdrawal requests ===");
-
-        uint256 totalWithdrawRequested = 0;
-        uint64[] memory withdrawalReceipts = new uint64[](10);
-
-        for (uint256 i = 0; i < 10; i++) {
-            // Vary withdrawal amounts: smaller amounts to ensure we don't exceed deposits
-            uint256 withdrawAmount = (50 + (i * 5)) * 1e18; // 50, 55, 60, ... 545 PROVE
-
-            uint64 withdrawReceipt =
-                SuccinctVApp(address(vApp)).requestWithdraw(msg.sender, withdrawAmount);
-            withdrawalReceipts[i] = withdrawReceipt;
-            totalWithdrawRequested += withdrawAmount;
-
-            // Log every 5th withdrawal to avoid spam
-            if ((i + 1) % 5 == 0) {
-                console.log(
-                    "Completed %s withdrawals. Latest: %s PROVE (Receipt #%s)",
-                    i + 1,
-                    withdrawAmount / 1e18,
-                    withdrawReceipt
-                );
-            }
-        }
-
-        console.log("Total withdrawal requested: %s PROVE", totalWithdrawRequested / 1e18);
-
         // ===== SUMMARY =====
         console.log("\n=== Summary ===");
         console.log("PROVE Token Address: %s", address(prove));
@@ -156,6 +128,5 @@ contract DeployProveAndVAppScript is BaseScript, FixtureLoader {
         console.log("Your PROVE Balance: %s", prove.balanceOf(msg.sender) / 1e18);
         console.log("Total Deposits Made: 10");
         console.log("Total Withdrawals Requested: 10");
-        console.log("Net Deposited: %s PROVE", (totalDeposited - totalWithdrawRequested) / 1e18);
     }
 }

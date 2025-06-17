@@ -6,10 +6,10 @@ use alloy_primitives::B256;
 use serde::{Deserialize, Serialize};
 use spn_network_types::{
     BidRequest, ExecuteProofRequest, FulfillProofRequest, RequestProofRequest,
-    SetDelegationRequest, SettleRequest, TransferRequest,
+    SetDelegationRequest, SettleRequest, TransferRequest, WithdrawRequest,
 };
 
-use crate::sol::{CreateProver, Deposit, Withdraw};
+use crate::sol::{CreateProver, Deposit};
 
 /// A transaction that can be executed and update the [`crate::state::VAppState`].
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -20,11 +20,6 @@ pub enum VAppTransaction {
     ///
     /// The currency of the deposit is the $PROVE token.
     Deposit(OnchainTransaction<Deposit>),
-
-    /// A withdraw from the vApp contract.
-    ///
-    /// The currency of the withdraw is the $PROVE token.
-    Withdraw(OnchainTransaction<Withdraw>),
 
     /// A set delegated signer from the vApp contract.
     ///
@@ -47,6 +42,9 @@ pub enum VAppTransaction {
     /// Verifies the request, bid, assign, execute, and the proof itself. Deducts the request fee
     /// from the requester and transfers proving fees to the prover.
     Clear(ClearTransaction),
+
+    /// Withdraw event.
+    Withdraw(WithdrawTransaction),
 }
 
 /// A transaction that was included in the ledger onchain.
@@ -98,4 +96,12 @@ pub struct ClearTransaction {
     /// Note: This is only used as a hint outside the zkVM so that we can get the verifying key.
     #[serde(skip)]
     pub vk: Option<Vec<u8>>,
+}
+
+
+/// A transaction to withdraw $PROVE from the vApp contract.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WithdrawTransaction {
+    /// The withdraw request.
+    pub withdraw: WithdrawRequest,
 }

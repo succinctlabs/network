@@ -24,7 +24,43 @@ enum TransactionVariant {
   FULFILL_VARIANT = 4;
   DELEGATE_VARIANT = 5;
   TRANSFER_VARIANT = 6;
+  WITHDRAW_VARIANT = 7;
 }
+
+message WithdrawRequest {
+  // The message format of the body.
+  MessageFormat format = 1;
+  // The signature of the sender.
+  bytes signature = 2;
+  // The body of the request.
+  WithdrawRequestBody body = 3;
+}
+
+message WithdrawRequestBody {
+  // The nonce of the request.
+  uint64 nonce = 1;
+  // The account address to withdraw from.
+  //
+  // This should either be the sender or a prover the account owns.
+  bytes account = 2;
+  // The amount to withdraw.
+  string amount = 3;
+  // The domain of the request.
+  bytes domain = 4;
+  // The variant of the transaction.
+  TransactionVariant variant = 5;
+}
+
+message WithdrawResponseBody {}
+
+message WithdrawResponse {
+    // The transaction hash.
+    bytes tx_hash = 1;
+    // The body of the response.
+    WithdrawResponseBody body = 2;
+}
+
+
 
 /**************
  *** Proofs ***

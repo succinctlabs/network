@@ -31,26 +31,6 @@ contract SuccinctVAppPauseTest is SuccinctVAppTest {
         SuccinctVApp(VAPP).deposit(amount);
     }
 
-    function test_RevertRequestWithdrawal_WhenPaused() public {
-        uint256 amount = SuccinctVApp(VAPP).minDepositAmount();
-
-        vm.prank(OWNER);
-        SuccinctVApp(VAPP).pause();
-
-        vm.expectRevert(abi.encodeWithSelector(PausableUpgradeable.EnforcedPause.selector));
-        vm.prank(REQUESTER_1);
-        SuccinctVApp(VAPP).requestWithdraw(REQUESTER_1, amount);
-    }
-
-    function test_RevertFinishWithdrawal_WhenPaused() public {
-        vm.prank(OWNER);
-        SuccinctVApp(VAPP).pause();
-
-        vm.expectRevert(abi.encodeWithSelector(PausableUpgradeable.EnforcedPause.selector));
-        vm.prank(REQUESTER_1);
-        SuccinctVApp(VAPP).finishWithdraw(REQUESTER_1);
-    }
-
     function test_RevertCreateProver_WhenPaused() public {
         vm.prank(OWNER);
         SuccinctVApp(VAPP).pause();

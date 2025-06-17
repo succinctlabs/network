@@ -196,19 +196,6 @@ interface ISuccinctVApp {
         bytes32 s
     ) external returns (uint64 receipt);
 
-    /// @notice Request to withdraw funds from the contract.
-    /// @dev This request can also be done offchain.
-    /// @param to The address to withdraw funds to.
-    /// @param amount The amount to withdraw. MUST be less than or equal to the balance, except
-    ///        in the case of type(uint256).max, in which case the entire balance is withdrawn.
-    /// @return receipt The receipt for the withdrawal.
-    function requestWithdraw(address to, uint256 amount) external returns (uint64 receipt);
-
-    /// @notice Claim a pending withdrawal from the contract.
-    /// @param to The address to claim the withdrawal to.
-    /// @return amount The amount claimed.
-    function finishWithdraw(address to) external returns (uint256 amount);
-
     /// @notice Register a newly created prover. Only callable by the staking contract.
     /// @param prover The address of the prover.
     /// @param owner The address of the prover owner.
