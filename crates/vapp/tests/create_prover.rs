@@ -17,7 +17,7 @@ fn test_create_prover_basic() {
     let receipt = test.state.execute::<MockVerifier>(&tx).unwrap();
 
     // Verify the prover account was created correctly.
-    assert_prover_account(&test, prover_address, owner_address, owner_address, staker_fee_bips);
+    assert_prover_account(&mut test, prover_address, owner_address, owner_address, staker_fee_bips);
     assert_create_prover_receipt(&receipt, prover_address, owner_address, staker_fee_bips, 1);
     assert_state_counters(&test, 2, 2, 0, 1);
 }
@@ -33,7 +33,7 @@ fn test_create_prover_self_delegated() {
     let receipt = test.state.execute::<MockVerifier>(&tx).unwrap();
 
     // Verify the prover is self-delegated (owner = signer = prover).
-    assert_prover_account(&test, prover_owner, prover_owner, prover_owner, staker_fee_bips);
+    assert_prover_account(&mut test, prover_owner, prover_owner, prover_owner, staker_fee_bips);
     assert_create_prover_receipt(&receipt, prover_owner, prover_owner, staker_fee_bips, 1);
 }
 
@@ -49,7 +49,7 @@ fn test_create_prover_different_owner() {
     let receipt = test.state.execute::<MockVerifier>(&tx).unwrap();
 
     // Verify the prover account configuration.
-    assert_prover_account(&test, prover_address, owner_address, owner_address, staker_fee_bips);
+    assert_prover_account(&mut test, prover_address, owner_address, owner_address, staker_fee_bips);
     assert_create_prover_receipt(&receipt, prover_address, owner_address, staker_fee_bips, 1);
 }
 
@@ -62,7 +62,7 @@ fn test_create_prover_various_staker_fees() {
     let owner1 = test.signers[1].address();
     let tx1 = create_prover_tx(prover1, owner1, U256::ZERO, 0, 1, 1);
     let receipt1 = test.state.execute::<MockVerifier>(&tx1).unwrap();
-    assert_prover_account(&test, prover1, owner1, owner1, U256::ZERO);
+    assert_prover_account(&mut test, prover1, owner1, owner1, U256::ZERO);
     assert_create_prover_receipt(&receipt1, prover1, owner1, U256::ZERO, 1);
 
     // Test with 5% staker fee (500 basis points).
@@ -71,7 +71,7 @@ fn test_create_prover_various_staker_fees() {
     let staker_fee_500 = U256::from(500);
     let tx2 = create_prover_tx(prover2, owner2, staker_fee_500, 0, 2, 2);
     let receipt2 = test.state.execute::<MockVerifier>(&tx2).unwrap();
-    assert_prover_account(&test, prover2, owner2, owner2, staker_fee_500);
+    assert_prover_account(&mut test, prover2, owner2, owner2, staker_fee_500);
     assert_create_prover_receipt(&receipt2, prover2, owner2, staker_fee_500, 2);
 
     // Test with 10% staker fee (1000 basis points).
@@ -80,7 +80,7 @@ fn test_create_prover_various_staker_fees() {
     let staker_fee_1000 = U256::from(1000);
     let tx3 = create_prover_tx(prover3, owner3, staker_fee_1000, 1, 1, 3);
     let receipt3 = test.state.execute::<MockVerifier>(&tx3).unwrap();
-    assert_prover_account(&test, prover3, owner3, owner3, staker_fee_1000);
+    assert_prover_account(&mut test, prover3, owner3, owner3, staker_fee_1000);
     assert_create_prover_receipt(&receipt3, prover3, owner3, staker_fee_1000, 3);
 
     // Test with 50% staker fee (5000 basis points).
@@ -89,7 +89,7 @@ fn test_create_prover_various_staker_fees() {
     let staker_fee_5000 = U256::from(5000);
     let tx4 = create_prover_tx(prover4, owner4, staker_fee_5000, 1, 2, 4);
     let receipt4 = test.state.execute::<MockVerifier>(&tx4).unwrap();
-    assert_prover_account(&test, prover4, owner4, owner4, staker_fee_5000);
+    assert_prover_account(&mut test, prover4, owner4, owner4, staker_fee_5000);
     assert_create_prover_receipt(&receipt4, prover4, owner4, staker_fee_5000, 4);
 
     // Verify state progression.
@@ -108,7 +108,7 @@ fn test_create_prover_max_staker_fee() {
     let receipt = test.state.execute::<MockVerifier>(&tx).unwrap();
 
     // Verify maximum staker fee is accepted.
-    assert_prover_account(&test, prover_address, owner_address, owner_address, max_staker_fee);
+    assert_prover_account(&mut test, prover_address, owner_address, owner_address, max_staker_fee);
     assert_create_prover_receipt(&receipt, prover_address, owner_address, max_staker_fee, 1);
 }
 
@@ -133,9 +133,9 @@ fn test_create_prover_multiple_provers() {
     test.state.execute::<MockVerifier>(&tx3).unwrap();
 
     // Verify all provers were created correctly.
-    assert_prover_account(&test, prover1, owner1, owner1, U256::from(100));
-    assert_prover_account(&test, prover2, owner2, owner2, U256::from(200));
-    assert_prover_account(&test, prover3, owner3, owner3, U256::from(300));
+    assert_prover_account(&mut test, prover1, owner1, owner1, U256::from(100));
+    assert_prover_account(&mut test, prover2, owner2, owner2, U256::from(200));
+    assert_prover_account(&mut test, prover3, owner3, owner3, U256::from(300));
     assert_state_counters(&test, 4, 4, 1, 1);
 }
 
@@ -159,7 +159,7 @@ fn test_create_prover_onchain_tx_out_of_order() {
     assert!(matches!(result, Err(VAppPanic::OnchainTxOutOfOrder { expected: 2, actual: 4 })));
 
     // Verify state remains unchanged after error.
-    assert_prover_account(&test, prover_address, owner_address, owner_address, U256::from(500));
+    assert_prover_account(&mut test, prover_address, owner_address, owner_address, U256::from(500));
     assert_state_counters(&test, 2, 2, 0, 1);
 }
 
@@ -183,7 +183,7 @@ fn test_create_prover_block_number_regression() {
     assert!(matches!(result, Err(VAppPanic::BlockNumberOutOfOrder { expected: 15, actual: 10 })));
 
     // Verify state remains unchanged after error.
-    assert_prover_account(&test, prover_address, owner_address, owner_address, U256::from(500));
+    assert_prover_account(&mut test, prover_address, owner_address, owner_address, U256::from(500));
     assert_state_counters(&test, 2, 2, 15, 1);
 }
 
@@ -214,7 +214,7 @@ fn test_create_prover_log_index_out_of_order() {
     assert!(matches!(result, Err(VAppPanic::LogIndexOutOfOrder { current: 20, next: 15 })));
 
     // Verify state remains unchanged after error.
-    assert_prover_account(&test, prover_address, owner_address, owner_address, U256::from(500));
+    assert_prover_account(&mut test, prover_address, owner_address, owner_address, U256::from(500));
     assert_state_counters(&test, 2, 2, 0, 20);
 }
 
@@ -235,8 +235,8 @@ fn test_create_prover_log_index_valid_progression() {
     let receipt2 = test.state.execute::<MockVerifier>(&tx2).unwrap();
 
     // Verify both provers and state updates.
-    assert_prover_account(&test, prover1, owner1, owner1, U256::from(500));
-    assert_prover_account(&test, prover2, owner2, owner2, U256::from(750));
+    assert_prover_account(&mut test, prover1, owner1, owner1, U256::from(500));
+    assert_prover_account(&mut test, prover2, owner2, owner2, U256::from(750));
     assert_create_prover_receipt(&receipt2, prover2, owner2, U256::from(750), 2);
     assert_state_counters(&test, 3, 3, 0, 11);
 
@@ -247,7 +247,7 @@ fn test_create_prover_log_index_valid_progression() {
     let receipt3 = test.state.execute::<MockVerifier>(&tx3).unwrap();
 
     // Verify final state after block progression.
-    assert_prover_account(&test, prover3, owner3, owner3, U256::from(1000));
+    assert_prover_account(&mut test, prover3, owner3, owner3, U256::from(1000));
     assert_create_prover_receipt(&receipt3, prover3, owner3, U256::from(1000), 3);
     assert_state_counters(&test, 4, 4, 1, 1);
 }

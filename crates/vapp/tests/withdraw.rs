@@ -15,14 +15,14 @@ fn test_withdraw_basic() {
     // Set up initial balance with deposit.
     let deposit_tx = deposit_tx(account, U256::from(100), 0, 1, 1);
     test.state.execute::<MockVerifier>(&deposit_tx).unwrap();
-    assert_account_balance(&test, account, U256::from(100));
+    assert_account_balance(&mut test, account, U256::from(100));
 
     // Execute basic withdraw.
     let withdraw_tx = withdraw_tx(account, U256::from(60), 0, 2, 2);
     let receipt = test.state.execute::<MockVerifier>(&withdraw_tx).unwrap();
 
     // Verify the balance was deducted correctly.
-    assert_account_balance(&test, account, U256::from(40));
+    assert_account_balance(&mut test, account, U256::from(40));
     assert_withdraw_receipt(&receipt, account, U256::from(60), 2);
     assert_state_counters(&test, 3, 3, 0, 2);
 }
@@ -39,19 +39,19 @@ fn test_withdraw_partial() {
     // Execute first partial withdraw.
     let withdraw1 = withdraw_tx(account, U256::from(100), 0, 2, 2);
     let receipt1 = test.state.execute::<MockVerifier>(&withdraw1).unwrap();
-    assert_account_balance(&test, account, U256::from(400));
+    assert_account_balance(&mut test, account, U256::from(400));
     assert_withdraw_receipt(&receipt1, account, U256::from(100), 2);
 
     // Execute second partial withdraw.
     let withdraw2 = withdraw_tx(account, U256::from(200), 0, 3, 3);
     let receipt2 = test.state.execute::<MockVerifier>(&withdraw2).unwrap();
-    assert_account_balance(&test, account, U256::from(200));
+    assert_account_balance(&mut test, account, U256::from(200));
     assert_withdraw_receipt(&receipt2, account, U256::from(200), 3);
 
     // Execute third partial withdraw.
     let withdraw3 = withdraw_tx(account, U256::from(50), 1, 1, 4);
     let receipt3 = test.state.execute::<MockVerifier>(&withdraw3).unwrap();
-    assert_account_balance(&test, account, U256::from(150));
+    assert_account_balance(&mut test, account, U256::from(150));
     assert_withdraw_receipt(&receipt3, account, U256::from(50), 4);
 }
 
@@ -64,14 +64,14 @@ fn test_withdraw_full_balance_with_max() {
     let initial_amount = U256::from(12345);
     let deposit_tx = deposit_tx(account, initial_amount, 0, 1, 1);
     test.state.execute::<MockVerifier>(&deposit_tx).unwrap();
-    assert_account_balance(&test, account, initial_amount);
+    assert_account_balance(&mut test, account, initial_amount);
 
     // Execute withdraw with U256::MAX to drain entire balance.
     let withdraw_tx = withdraw_tx(account, U256::MAX, 0, 2, 2);
     let receipt = test.state.execute::<MockVerifier>(&withdraw_tx).unwrap();
 
     // Verify entire balance was withdrawn.
-    assert_account_balance(&test, account, U256::ZERO);
+    assert_account_balance(&mut test, account, U256::ZERO);
     // Receipt should show the actual withdrawn amount, not U256::MAX.
     assert_withdraw_receipt(&receipt, account, initial_amount, 2);
     assert_state_counters(&test, 3, 3, 0, 2);
@@ -92,7 +92,7 @@ fn test_withdraw_exact_balance() {
     let receipt = test.state.execute::<MockVerifier>(&withdraw_tx).unwrap();
 
     // Verify exact amount was withdrawn, leaving zero balance.
-    assert_account_balance(&test, account, U256::ZERO);
+    assert_account_balance(&mut test, account, U256::ZERO);
     assert_withdraw_receipt(&receipt, account, amount, 2);
 }
 
@@ -122,7 +122,7 @@ fn test_withdraw_insufficient_balance() {
     }
 
     // Verify state remains unchanged after error (onchain counters increment, but tx_id does not).
-    assert_account_balance(&test, account, U256::from(100));
+    assert_account_balance(&mut test, account, U256::from(100));
     assert_state_counters(&test, 3, 3, 0, 2);
 }
 
@@ -171,7 +171,7 @@ fn test_withdraw_onchain_tx_out_of_order() {
     assert!(matches!(result, Err(VAppPanic::OnchainTxOutOfOrder { expected: 3, actual: 5 })));
 
     // Verify state remains unchanged after error.
-    assert_account_balance(&test, account, U256::from(150));
+    assert_account_balance(&mut test, account, U256::from(150));
     assert_state_counters(&test, 3, 3, 0, 2);
 }
 
@@ -192,7 +192,7 @@ fn test_withdraw_block_number_regression() {
     assert!(matches!(result, Err(VAppPanic::BlockNumberOutOfOrder { expected: 10, actual: 8 })));
 
     // Verify state remains unchanged after error.
-    assert_account_balance(&test, account, U256::from(200));
+    assert_account_balance(&mut test, account, U256::from(200));
     assert_state_counters(&test, 2, 2, 10, 1);
 }
 
@@ -220,7 +220,7 @@ fn test_withdraw_log_index_out_of_order() {
     assert!(matches!(result, Err(VAppPanic::LogIndexOutOfOrder { current: 10, next: 5 })));
 
     // Verify state remains unchanged after error.
-    assert_account_balance(&test, account, U256::from(200));
+    assert_account_balance(&mut test, account, U256::from(200));
     assert_state_counters(&test, 2, 2, 0, 10);
 }
 
@@ -238,7 +238,7 @@ fn test_withdraw_log_index_valid_progression() {
     let receipt1 = test.state.execute::<MockVerifier>(&withdraw1).unwrap();
 
     // Verify balance deduction and state updates.
-    assert_account_balance(&test, account, U256::from(200));
+    assert_account_balance(&mut test, account, U256::from(200));
     assert_withdraw_receipt(&receipt1, account, U256::from(100), 2);
     assert_state_counters(&test, 3, 3, 0, 6);
 
@@ -247,7 +247,7 @@ fn test_withdraw_log_index_valid_progression() {
     let receipt2 = test.state.execute::<MockVerifier>(&withdraw2).unwrap();
 
     // Verify final state after block progression.
-    assert_account_balance(&test, account, U256::from(150));
+    assert_account_balance(&mut test, account, U256::from(150));
     assert_withdraw_receipt(&receipt2, account, U256::from(50), 3);
     assert_state_counters(&test, 4, 4, 1, 1);
 }

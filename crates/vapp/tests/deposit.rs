@@ -16,7 +16,7 @@ fn test_deposit_basic() {
     let receipt = test.state.execute::<MockVerifier>(&tx).unwrap();
 
     // Verify the account balance was updated correctly.
-    assert_account_balance(&test, account, amount);
+    assert_account_balance(&mut test, account, amount);
     assert_deposit_receipt(&receipt, account, amount, 1);
 
     // Verify state counters were incremented.
@@ -32,19 +32,19 @@ fn test_deposit_multiple_same_account() {
     let tx1 = deposit_tx(account, U256::from(100), 0, 1, 1);
     let receipt1 = test.state.execute::<MockVerifier>(&tx1).unwrap();
     assert_deposit_receipt(&receipt1, account, U256::from(100), 1);
-    assert_account_balance(&test, account, U256::from(100));
+    assert_account_balance(&mut test, account, U256::from(100));
 
     // Execute second deposit to same account.
     let tx2 = deposit_tx(account, U256::from(200), 0, 2, 2);
     let receipt2 = test.state.execute::<MockVerifier>(&tx2).unwrap();
     assert_deposit_receipt(&receipt2, account, U256::from(200), 2);
-    assert_account_balance(&test, account, U256::from(300));
+    assert_account_balance(&mut test, account, U256::from(300));
 
     // Execute third deposit to same account.
     let tx3 = deposit_tx(account, U256::from(50), 1, 1, 3);
     let receipt3 = test.state.execute::<MockVerifier>(&tx3).unwrap();
     assert_deposit_receipt(&receipt3, account, U256::from(50), 3);
-    assert_account_balance(&test, account, U256::from(350));
+    assert_account_balance(&mut test, account, U256::from(350));
 }
 
 #[test]
@@ -57,22 +57,22 @@ fn test_deposit_multiple_different_accounts() {
     // Execute deposit to account1.
     let tx1 = deposit_tx(account1, U256::from(100), 0, 1, 1);
     test.state.execute::<MockVerifier>(&tx1).unwrap();
-    assert_account_balance(&test, account1, U256::from(100));
+    assert_account_balance(&mut test, account1, U256::from(100));
 
     // Execute deposit to account2.
     let tx2 = deposit_tx(account2, U256::from(200), 0, 2, 2);
     test.state.execute::<MockVerifier>(&tx2).unwrap();
-    assert_account_balance(&test, account2, U256::from(200));
+    assert_account_balance(&mut test, account2, U256::from(200));
 
     // Execute deposit to account3.
     let tx3 = deposit_tx(account3, U256::from(300), 1, 1, 3);
     test.state.execute::<MockVerifier>(&tx3).unwrap();
-    assert_account_balance(&test, account3, U256::from(300));
+    assert_account_balance(&mut test, account3, U256::from(300));
 
     // Verify all accounts maintain correct balances.
-    assert_account_balance(&test, account1, U256::from(100));
-    assert_account_balance(&test, account2, U256::from(200));
-    assert_account_balance(&test, account3, U256::from(300));
+    assert_account_balance(&mut test, account1, U256::from(100));
+    assert_account_balance(&mut test, account2, U256::from(200));
+    assert_account_balance(&mut test, account3, U256::from(300));
 }
 
 #[test]
@@ -86,7 +86,7 @@ fn test_deposit_large_amounts() {
     let receipt = test.state.execute::<MockVerifier>(&tx).unwrap();
 
     // Verify maximum amount deposit succeeded.
-    assert_account_balance(&test, account, max_amount);
+    assert_account_balance(&mut test, account, max_amount);
     assert_deposit_receipt(&receipt, account, max_amount, 1);
 }
 
@@ -100,7 +100,7 @@ fn test_deposit_zero_amount() {
     let receipt = test.state.execute::<MockVerifier>(&tx).unwrap();
 
     // Verify zero amount deposit succeeded.
-    assert_account_balance(&test, account, U256::ZERO);
+    assert_account_balance(&mut test, account, U256::ZERO);
     assert_deposit_receipt(&receipt, account, U256::ZERO, 1);
 }
 
@@ -121,7 +121,7 @@ fn test_deposit_onchain_tx_out_of_order() {
     assert!(matches!(result, Err(VAppPanic::OnchainTxOutOfOrder { expected: 2, actual: 3 })));
 
     // Verify state remains unchanged after error.
-    assert_account_balance(&test, account, U256::from(100));
+    assert_account_balance(&mut test, account, U256::from(100));
     assert_state_counters(&test, 2, 2, 0, 1);
 }
 
@@ -142,7 +142,7 @@ fn test_deposit_block_number_regression() {
     assert!(matches!(result, Err(VAppPanic::BlockNumberOutOfOrder { expected: 5, actual: 3 })));
 
     // Verify state remains unchanged after error.
-    assert_account_balance(&test, account, U256::from(100));
+    assert_account_balance(&mut test, account, U256::from(100));
     assert_state_counters(&test, 2, 2, 5, 1);
 }
 
@@ -170,7 +170,7 @@ fn test_deposit_log_index_out_of_order() {
     assert!(matches!(result, Err(VAppPanic::LogIndexOutOfOrder { current: 5, next: 3 })));
 
     // Verify state remains unchanged after error.
-    assert_account_balance(&test, account, U256::from(100));
+    assert_account_balance(&mut test, account, U256::from(100));
     assert_state_counters(&test, 2, 2, 0, 5);
 }
 
@@ -188,7 +188,7 @@ fn test_deposit_log_index_valid_progression() {
     let receipt2 = test.state.execute::<MockVerifier>(&tx2).unwrap();
 
     // Verify balance accumulation and state updates.
-    assert_account_balance(&test, account, U256::from(200));
+    assert_account_balance(&mut test, account, U256::from(200));
     assert_deposit_receipt(&receipt2, account, U256::from(100), 2);
     assert_eq!(test.state.onchain_log_index, 6);
 
@@ -197,7 +197,7 @@ fn test_deposit_log_index_valid_progression() {
     let receipt3 = test.state.execute::<MockVerifier>(&tx3).unwrap();
 
     // Verify final state after block progression.
-    assert_account_balance(&test, account, U256::from(300));
+    assert_account_balance(&mut test, account, U256::from(300));
     assert_deposit_receipt(&receipt3, account, U256::from(100), 3);
     assert_state_counters(&test, 4, 4, 1, 1);
 }

@@ -5,6 +5,8 @@
 use alloy_primitives::{ruint::ParseError, Address, B256, U256};
 use thiserror::Error;
 
+use crate::storage::StorageError;
+
 /// An unrecoverable error that will prevent a transaction from being included in the ledger.
 #[derive(Debug, Error, PartialEq)]
 #[allow(missing_docs)]
@@ -145,4 +147,7 @@ pub enum VAppPanic {
 
     #[error("Sum of protocol and staker fee bips exceeds 100%: {protocol_bips} + {staker_bips}")]
     TotalFeeTooHigh { protocol_bips: U256, staker_bips: U256 },
+
+    #[error("Storage error: {0}")]
+    StorageError(#[from] StorageError),
 }

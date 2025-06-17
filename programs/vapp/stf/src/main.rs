@@ -40,12 +40,12 @@ pub fn main() {
     // Verify the roots against the proofs.
     state
         .accounts
-        .verify::<Keccak256>(input.accounts_root, &input.account_proofs)
+        .recover::<Keccak256>(input.accounts_root, &input.account_proofs)
         .expect("accounts root mismatch");
 
     state
         .transactions
-        .verify::<Keccak256>(input.requests_root, &input.request_proofs)
+        .recover::<Keccak256>(input.requests_root, &input.request_proofs)
         .expect("requests root mismatch");
 
     // Apply the state transition function.
