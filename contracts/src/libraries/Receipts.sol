@@ -16,6 +16,9 @@ library Receipts {
     /// @dev Thrown when an unsupported transaction is encountered.
     error UnsupportedTransactionVariant();
 
+    /// @dev Thrown when the transaction variant does not match the receipt variant.
+    error TransactionVariantMismatch(TransactionVariant variant, TransactionVariant receipt);
+
     /// @dev Thrown when the transaction does not match the receipt.
     error TransactionReceiptMismatch(TransactionVariant variant, uint64 receipt);
 
@@ -37,6 +40,12 @@ library Receipts {
         internal
         pure
     {
+        if (_receipt.variant != TransactionVariant.Deposit) {
+            revert TransactionVariantMismatch(_transaction.variant, _receipt.variant);
+        } else if (_transaction.variant != TransactionVariant.Deposit) {
+            revert TransactionVariantMismatch(_transaction.variant, _receipt.variant);
+        }
+
         Deposit memory deposit = abi.decode(_transaction.action, (Deposit));
         Deposit memory depositReceipt = abi.decode(_receipt.action, (Deposit));
 
@@ -53,6 +62,12 @@ library Receipts {
         internal
         pure
     {
+        if (_receipt.variant != TransactionVariant.Withdraw) {
+            revert TransactionVariantMismatch(_transaction.variant, _receipt.variant);
+        } else if (_transaction.variant != TransactionVariant.Withdraw) {
+            revert TransactionVariantMismatch(_transaction.variant, _receipt.variant);
+        }
+
         Withdraw memory withdraw = abi.decode(_transaction.action, (Withdraw));
         Withdraw memory withdrawReceipt = abi.decode(_receipt.action, (Withdraw));
 
@@ -70,6 +85,12 @@ library Receipts {
         internal
         pure
     {
+        if (_receipt.variant != TransactionVariant.CreateProver) {
+            revert TransactionVariantMismatch(_transaction.variant, _receipt.variant);
+        } else if (_transaction.variant != TransactionVariant.CreateProver) {
+            revert TransactionVariantMismatch(_transaction.variant, _receipt.variant);
+        }
+
         CreateProver memory prover = abi.decode(_transaction.action, (CreateProver));
         CreateProver memory proverReceipt = abi.decode(_receipt.action, (CreateProver));
 
