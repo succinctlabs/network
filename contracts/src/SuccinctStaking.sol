@@ -180,7 +180,7 @@ contract SuccinctStaking is
         bytes32 _r,
         bytes32 _s
     ) external override onlyForProver(_prover) returns (uint256) {
-        // Approve this contract to spend the $PROVE from the staker.
+        // Approve the prover to spend the $PROVE from the staker.
         IERC20Permit(prove).permit(_from, _prover, _amount, _deadline, _v, _r, _s);
 
         // Transfer $PROVE from the staker to this contract, by utilizing the prover as the
