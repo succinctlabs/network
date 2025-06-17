@@ -17,7 +17,7 @@ use spn_network_types::{
     prover_network_client::ProverNetworkClient, BidRequest, BidRequestBody, ExecutionStatus,
     FailFulfillmentRequest, FailFulfillmentRequestBody, FulfillProofRequest,
     FulfillProofRequestBody, FulfillmentStatus, GetFilteredProofRequestsRequest, GetNonceRequest,
-    GetProofRequestDetailsRequest, MessageFormat, ProofMode, Signable, TransactionVariant
+    GetProofRequestDetailsRequest, MessageFormat, ProofMode, Signable, TransactionVariant,
 };
 use spn_rpc::{fetch_owner, RetryableRpc};
 use spn_utils::{time_now, SPN_SEPOLIA_V1_DOMAIN};

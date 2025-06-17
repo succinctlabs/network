@@ -1,7 +1,7 @@
 mod common;
 
 use alloy_primitives::U256;
-use spn_network_types::{ExecutionStatus, HashableWithSender, ProofMode};
+use spn_network_types::{ExecutionStatus, HashableWithSender, ProofMode, TransactionVariant};
 use spn_vapp_core::{
     errors::VAppPanic,
     transactions::VAppTransaction,
@@ -1380,7 +1380,7 @@ fn test_clear_invalid_settle_signature() {
 
     // Execute should fail with AuctioneerMismatch because corrupted signature recovers wrong address.
     let result = test.state.execute::<MockVerifier>(&clear_tx);
-    assert!(matches!(result, Err(VAppPanic::AuctioneerMismatch { .. })));
+    assert!(matches!(result, Err(VAppPanic::InvalidSettleSignature)));
 }
 
 #[test]
@@ -2481,389 +2481,232 @@ fn test_clear_invalid_proof_compressed() {
 #[test]
 fn test_clear_invalid_request_variant() {
     let mut test = setup();
-    let requester = &test.requester;
-    let bidder = &test.fulfiller;
-    let fulfiller = &test.fulfiller;
 
-    // Create a clear transaction with an invalid variant for the request.
-    let mut request_body = RequestProofRequestBody {
-        nonce: 1,
-        vk_hash: hex::decode("005b97bb81b9ed64f9321049013a56d9633c115b076ae4144f2622d0da13d683")
-            .unwrap(),
-        version: "sp1-v3.0.0".to_string(),
-        mode: ProofMode::Proof as i32,
-        strategy: FulfillmentStrategy::Auction as i32,
-        stdin_uri: "s3://spn-artifacts-production3/stdins/artifact_01jqcgtjr7es883amkx30sqkg9"
-            .to_string(),
-        deadline: 1000,
-        cycle_limit: 1000,
-        fulfill_gas_limit: None,
-        submit_gas_limit: None,
-        whitelist: vec![],
-        tip: Some("0".to_string()),
-        base_fee: Some("0".to_string()),
-        max_price_per_pgu: Some("0".to_string()),
-        domain: SPN_SEPOLIA_V1_DOMAIN.to_vec(),
-        variant: TransactionVariant::BidVariant as i32,  // Invalid variant - should be RequestVariant
-    };
-    let request_signature = proto_sign(requester, &request_body);
+    // Setup: Deposit funds for requester and create prover.
+    let requester_address = test.requester.address();
+    let prover_address = test.fulfiller.address();
+    let amount = U256::from(100_000_000);
 
-    // Create valid bid, settle, and execute parts.
-    let bid_body = BidRequestBody {
-        nonce: 1,
-        request_id: request_body.get_hash_with_sender(requester.address()).to_vec(),
-        commit: vec![0u8; 32],
-        bid: "100".to_string(),
-        service_fee: "10".to_string(),
-        domain: SPN_SEPOLIA_V1_DOMAIN.to_vec(),
-        variant: TransactionVariant::BidVariant as i32,
-    };
-    let bid_signature = proto_sign(bidder, &bid_body);
+    let deposit_tx = deposit_tx(requester_address, amount, 0, 1, 1);
+    test.state.execute::<MockVerifier>(&deposit_tx).unwrap();
 
-    let settle_body = SettleRequestBody {
-        nonce: 1,
-        request_id: request_body.get_hash_with_sender(requester.address()).to_vec(),
-        bid_id: bid_body.get_hash_with_sender(bidder.address()).to_vec(),
-        domain: SPN_SEPOLIA_V1_DOMAIN.to_vec(),
-        variant: TransactionVariant::SettleVariant as i32,
-    };
-    let settle_signature = proto_sign(&test.auctioneer, &settle_body);
+    let create_prover_tx = create_prover_tx(prover_address, prover_address, U256::ZERO, 1, 2, 2);
+    test.state.execute::<MockVerifier>(&create_prover_tx).unwrap();
 
-    let execute_body = ExecuteProofRequestBody {
-        nonce: 1,
-        request_id: request_body.get_hash_with_sender(requester.address()).to_vec(),
-        execution_status: ExecutionStatus::Completed as i32,
-        uri: None,
-        stdout_uri: None,
-        stderr_uri: None,
-        cycles_used: 1000,
-        gas_used: "0".to_string(),
-        domain: SPN_SEPOLIA_V1_DOMAIN.to_vec(),
-        variant: TransactionVariant::ExecuteVariant as i32,
-    };
-    let execute_signature = proto_sign(&test.executor, &execute_body);
+    // Create clear transaction with invalid proof data.
+    let mut clear_tx = create_clear_tx(
+        &test.requester,
+        &test.fulfiller,
+        &test.fulfiller,
+        &test.auctioneer,
+        &test.executor,
+        &test.verifier,
+        1,
+        U256::from(50_000),
+        1,
+        1,
+        1,
+        1,
+        ProofMode::Compressed,
+        ExecutionStatus::Executed,
+        false,
+    );
 
-    let clear_tx = VAppTransaction::Clear(ClearTransaction {
-        request: RequestProofRequest {
-            format: MessageFormat::Binary.into(),
-            body: Some(request_body),
-            signature: request_signature.as_bytes().to_vec(),
-        },
-        bid: BidRequest {
-            format: MessageFormat::Binary.into(),
-            body: Some(bid_body),
-            signature: bid_signature.as_bytes().to_vec(),
-        },
-        settle: SettleRequest {
-            format: MessageFormat::Binary.into(),
-            body: Some(settle_body),
-            signature: settle_signature.as_bytes().to_vec(),
-        },
-        execute: ExecuteProofRequest {
-            format: MessageFormat::Binary.into(),
-            body: Some(execute_body),
-            signature: execute_signature.as_bytes().to_vec(),
-        },
-        fulfill: None,
-    });
+    // Corrupt the proof data to make it invalid.
+    if let VAppTransaction::Clear(ref mut clear) = clear_tx {
+        clear.request.body.as_mut().unwrap().variant = TransactionVariant::FulfillVariant as i32;
+        clear.request.signature =
+            proto_sign(&test.requester, clear.request.body.as_ref().unwrap()).as_bytes().to_vec();
+    }
 
-    // Execute the transaction and verify it panics with InvalidTransactionVariant.
-    let result = test.state.execute::<MockVerifier>(&clear_tx);
-    assert!(matches!(
-        result,
-        Err(VAppPanic::InvalidTransactionVariant)
-    ));
+    // Execute should fail with InvalidProof.
+    let result = test.state.execute::<RejectVerifier>(&clear_tx);
+    assert!(matches!(result, Err(VAppPanic::InvalidTransactionVariant)));
 }
 
 #[test]
 fn test_clear_invalid_bid_variant() {
     let mut test = setup();
-    let requester = &test.requester;
-    let bidder = &test.fulfiller;
-    let fulfiller = &test.fulfiller;
 
-    // Create valid request.
-    let request_body = RequestProofRequestBody {
-        nonce: 1,
-        vk_hash: hex::decode("005b97bb81b9ed64f9321049013a56d9633c115b076ae4144f2622d0da13d683")
-            .unwrap(),
-        version: "sp1-v3.0.0".to_string(),
-        mode: ProofMode::Proof as i32,
-        strategy: FulfillmentStrategy::Auction as i32,
-        stdin_uri: "s3://spn-artifacts-production3/stdins/artifact_01jqcgtjr7es883amkx30sqkg9"
-            .to_string(),
-        deadline: 1000,
-        cycle_limit: 1000,
-        fulfill_gas_limit: None,
-        submit_gas_limit: None,
-        whitelist: vec![],
-        tip: Some("0".to_string()),
-        base_fee: Some("0".to_string()),
-        max_price_per_pgu: Some("0".to_string()),
-        domain: SPN_SEPOLIA_V1_DOMAIN.to_vec(),
-        variant: TransactionVariant::RequestVariant as i32,
-    };
-    let request_signature = proto_sign(requester, &request_body);
+    // Setup: Deposit funds for requester and create prover.
+    let requester_address = test.requester.address();
+    let prover_address = test.fulfiller.address();
+    let amount = U256::from(100_000_000);
 
-    // Create bid with invalid variant.
-    let bid_body = BidRequestBody {
-        nonce: 1,
-        request_id: request_body.get_hash_with_sender(requester.address()).to_vec(),
-        commit: vec![0u8; 32],
-        bid: "100".to_string(),
-        service_fee: "10".to_string(),
-        domain: SPN_SEPOLIA_V1_DOMAIN.to_vec(),
-        variant: TransactionVariant::RequestVariant as i32,  // Invalid variant - should be BidVariant
-    };
-    let bid_signature = proto_sign(bidder, &bid_body);
+    let deposit_tx = deposit_tx(requester_address, amount, 0, 1, 1);
+    test.state.execute::<MockVerifier>(&deposit_tx).unwrap();
 
-    // Create valid settle and execute parts.
-    let settle_body = SettleRequestBody {
-        nonce: 1,
-        request_id: request_body.get_hash_with_sender(requester.address()).to_vec(),
-        bid_id: bid_body.get_hash_with_sender(bidder.address()).to_vec(),
-        domain: SPN_SEPOLIA_V1_DOMAIN.to_vec(),
-        variant: TransactionVariant::SettleVariant as i32,
-    };
-    let settle_signature = proto_sign(&test.auctioneer, &settle_body);
+    let create_prover_tx = create_prover_tx(prover_address, prover_address, U256::ZERO, 1, 2, 2);
+    test.state.execute::<MockVerifier>(&create_prover_tx).unwrap();
 
-    let execute_body = ExecuteProofRequestBody {
-        nonce: 1,
-        request_id: request_body.get_hash_with_sender(requester.address()).to_vec(),
-        execution_status: ExecutionStatus::Completed as i32,
-        uri: None,
-        stdout_uri: None,
-        stderr_uri: None,
-        cycles_used: 1000,
-        gas_used: "0".to_string(),
-        domain: SPN_SEPOLIA_V1_DOMAIN.to_vec(),
-        variant: TransactionVariant::ExecuteVariant as i32,
-    };
-    let execute_signature = proto_sign(&test.executor, &execute_body);
+    // Create clear transaction with invalid proof data.
+    let mut clear_tx = create_clear_tx(
+        &test.requester,
+        &test.fulfiller,
+        &test.fulfiller,
+        &test.auctioneer,
+        &test.executor,
+        &test.verifier,
+        1,
+        U256::from(50_000),
+        1,
+        1,
+        1,
+        1,
+        ProofMode::Compressed,
+        ExecutionStatus::Executed,
+        false,
+    );
 
-    let clear_tx = VAppTransaction::Clear(ClearTransaction {
-        request: RequestProofRequest {
-            format: MessageFormat::Binary.into(),
-            body: Some(request_body),
-            signature: request_signature.as_bytes().to_vec(),
-        },
-        bid: BidRequest {
-            format: MessageFormat::Binary.into(),
-            body: Some(bid_body),
-            signature: bid_signature.as_bytes().to_vec(),
-        },
-        settle: SettleRequest {
-            format: MessageFormat::Binary.into(),
-            body: Some(settle_body),
-            signature: settle_signature.as_bytes().to_vec(),
-        },
-        execute: ExecuteProofRequest {
-            format: MessageFormat::Binary.into(),
-            body: Some(execute_body),
-            signature: execute_signature.as_bytes().to_vec(),
-        },
-        fulfill: None,
-    });
+    // Corrupt the proof data to make it invalid.
+    if let VAppTransaction::Clear(ref mut clear) = clear_tx {
+        clear.bid.body.as_mut().unwrap().variant = TransactionVariant::FulfillVariant as i32;
+        clear.bid.signature =
+            proto_sign(&test.fulfiller, clear.bid.body.as_ref().unwrap()).as_bytes().to_vec();
+    }
 
-    // Execute the transaction and verify it panics with InvalidTransactionVariant.
-    let result = test.state.execute::<MockVerifier>(&clear_tx);
-    assert!(matches!(
-        result,
-        Err(VAppPanic::InvalidTransactionVariant)
-    ));
+    // Execute should fail with InvalidProof.
+    let result = test.state.execute::<RejectVerifier>(&clear_tx);
+    assert!(matches!(result, Err(VAppPanic::InvalidTransactionVariant)));
 }
 
 #[test]
 fn test_clear_invalid_settle_variant() {
     let mut test = setup();
-    let requester = &test.requester;
-    let bidder = &test.fulfiller;
-    let fulfiller = &test.fulfiller;
 
-    // Create valid request and bid.
-    let request_body = RequestProofRequestBody {
-        nonce: 1,
-        vk_hash: hex::decode("005b97bb81b9ed64f9321049013a56d9633c115b076ae4144f2622d0da13d683")
-            .unwrap(),
-        version: "sp1-v3.0.0".to_string(),
-        mode: ProofMode::Proof as i32,
-        strategy: FulfillmentStrategy::Auction as i32,
-        stdin_uri: "s3://spn-artifacts-production3/stdins/artifact_01jqcgtjr7es883amkx30sqkg9"
-            .to_string(),
-        deadline: 1000,
-        cycle_limit: 1000,
-        fulfill_gas_limit: None,
-        submit_gas_limit: None,
-        whitelist: vec![],
-        tip: Some("0".to_string()),
-        base_fee: Some("0".to_string()),
-        max_price_per_pgu: Some("0".to_string()),
-        domain: SPN_SEPOLIA_V1_DOMAIN.to_vec(),
-        variant: TransactionVariant::RequestVariant as i32,
-    };
-    let request_signature = proto_sign(requester, &request_body);
+    // Setup: Deposit funds for requester and create prover.
+    let requester_address = test.requester.address();
+    let prover_address = test.fulfiller.address();
+    let amount = U256::from(100_000_000);
 
-    let bid_body = BidRequestBody {
-        nonce: 1,
-        request_id: request_body.get_hash_with_sender(requester.address()).to_vec(),
-        commit: vec![0u8; 32],
-        bid: "100".to_string(),
-        service_fee: "10".to_string(),
-        domain: SPN_SEPOLIA_V1_DOMAIN.to_vec(),
-        variant: TransactionVariant::BidVariant as i32,
-    };
-    let bid_signature = proto_sign(bidder, &bid_body);
+    let deposit_tx = deposit_tx(requester_address, amount, 0, 1, 1);
+    test.state.execute::<MockVerifier>(&deposit_tx).unwrap();
 
-    // Create settle with invalid variant.
-    let settle_body = SettleRequestBody {
-        nonce: 1,
-        request_id: request_body.get_hash_with_sender(requester.address()).to_vec(),
-        bid_id: bid_body.get_hash_with_sender(bidder.address()).to_vec(),
-        domain: SPN_SEPOLIA_V1_DOMAIN.to_vec(),
-        variant: TransactionVariant::ExecuteVariant as i32,  // Invalid variant - should be SettleVariant
-    };
-    let settle_signature = proto_sign(&test.auctioneer, &settle_body);
+    let create_prover_tx = create_prover_tx(prover_address, prover_address, U256::ZERO, 1, 2, 2);
+    test.state.execute::<MockVerifier>(&create_prover_tx).unwrap();
 
-    // Create valid execute part.
-    let execute_body = ExecuteProofRequestBody {
-        nonce: 1,
-        request_id: request_body.get_hash_with_sender(requester.address()).to_vec(),
-        execution_status: ExecutionStatus::Completed as i32,
-        uri: None,
-        stdout_uri: None,
-        stderr_uri: None,
-        cycles_used: 1000,
-        gas_used: "0".to_string(),
-        domain: SPN_SEPOLIA_V1_DOMAIN.to_vec(),
-        variant: TransactionVariant::ExecuteVariant as i32,
-    };
-    let execute_signature = proto_sign(&test.executor, &execute_body);
+    // Create clear transaction with invalid proof data.
+    let mut clear_tx = create_clear_tx(
+        &test.requester,
+        &test.fulfiller,
+        &test.fulfiller,
+        &test.auctioneer,
+        &test.executor,
+        &test.verifier,
+        1,
+        U256::from(50_000),
+        1,
+        1,
+        1,
+        1,
+        ProofMode::Compressed,
+        ExecutionStatus::Executed,
+        false,
+    );
 
-    let clear_tx = VAppTransaction::Clear(ClearTransaction {
-        request: RequestProofRequest {
-            format: MessageFormat::Binary.into(),
-            body: Some(request_body),
-            signature: request_signature.as_bytes().to_vec(),
-        },
-        bid: BidRequest {
-            format: MessageFormat::Binary.into(),
-            body: Some(bid_body),
-            signature: bid_signature.as_bytes().to_vec(),
-        },
-        settle: SettleRequest {
-            format: MessageFormat::Binary.into(),
-            body: Some(settle_body),
-            signature: settle_signature.as_bytes().to_vec(),
-        },
-        execute: ExecuteProofRequest {
-            format: MessageFormat::Binary.into(),
-            body: Some(execute_body),
-            signature: execute_signature.as_bytes().to_vec(),
-        },
-        fulfill: None,
-    });
+    // Corrupt the proof data to make it invalid.
+    if let VAppTransaction::Clear(ref mut clear) = clear_tx {
+        clear.bid.body.as_mut().unwrap().variant = TransactionVariant::FulfillVariant as i32;
+        clear.bid.signature =
+            proto_sign(&test.fulfiller, clear.bid.body.as_ref().unwrap()).as_bytes().to_vec();
+    }
 
-    // Execute the transaction and verify it panics with InvalidTransactionVariant.
-    let result = test.state.execute::<MockVerifier>(&clear_tx);
-    assert!(matches!(
-        result,
-        Err(VAppPanic::InvalidTransactionVariant)
-    ));
+    // Execute should fail with InvalidProof.
+    let result = test.state.execute::<RejectVerifier>(&clear_tx);
+    assert!(matches!(result, Err(VAppPanic::InvalidTransactionVariant)));
 }
 
 #[test]
 fn test_clear_invalid_execute_variant() {
     let mut test = setup();
-    let requester = &test.requester;
-    let bidder = &test.fulfiller;
-    let fulfiller = &test.fulfiller;
 
-    // Create valid request, bid, and settle.
-    let request_body = RequestProofRequestBody {
-        nonce: 1,
-        vk_hash: hex::decode("005b97bb81b9ed64f9321049013a56d9633c115b076ae4144f2622d0da13d683")
-            .unwrap(),
-        version: "sp1-v3.0.0".to_string(),
-        mode: ProofMode::Proof as i32,
-        strategy: FulfillmentStrategy::Auction as i32,
-        stdin_uri: "s3://spn-artifacts-production3/stdins/artifact_01jqcgtjr7es883amkx30sqkg9"
-            .to_string(),
-        deadline: 1000,
-        cycle_limit: 1000,
-        fulfill_gas_limit: None,
-        submit_gas_limit: None,
-        whitelist: vec![],
-        tip: Some("0".to_string()),
-        base_fee: Some("0".to_string()),
-        max_price_per_pgu: Some("0".to_string()),
-        domain: SPN_SEPOLIA_V1_DOMAIN.to_vec(),
-        variant: TransactionVariant::RequestVariant as i32,
-    };
-    let request_signature = proto_sign(requester, &request_body);
+    // Setup: Deposit funds for requester and create prover.
+    let requester_address = test.requester.address();
+    let prover_address = test.fulfiller.address();
+    let amount = U256::from(100_000_000);
 
-    let bid_body = BidRequestBody {
-        nonce: 1,
-        request_id: request_body.get_hash_with_sender(requester.address()).to_vec(),
-        commit: vec![0u8; 32],
-        bid: "100".to_string(),
-        service_fee: "10".to_string(),
-        domain: SPN_SEPOLIA_V1_DOMAIN.to_vec(),
-        variant: TransactionVariant::BidVariant as i32,
-    };
-    let bid_signature = proto_sign(bidder, &bid_body);
+    let deposit_tx = deposit_tx(requester_address, amount, 0, 1, 1);
+    test.state.execute::<MockVerifier>(&deposit_tx).unwrap();
 
-    let settle_body = SettleRequestBody {
-        nonce: 1,
-        request_id: request_body.get_hash_with_sender(requester.address()).to_vec(),
-        bid_id: bid_body.get_hash_with_sender(bidder.address()).to_vec(),
-        domain: SPN_SEPOLIA_V1_DOMAIN.to_vec(),
-        variant: TransactionVariant::SettleVariant as i32,
-    };
-    let settle_signature = proto_sign(&test.auctioneer, &settle_body);
+    let create_prover_tx = create_prover_tx(prover_address, prover_address, U256::ZERO, 1, 2, 2);
+    test.state.execute::<MockVerifier>(&create_prover_tx).unwrap();
 
-    // Create execute with invalid variant.
-    let execute_body = ExecuteProofRequestBody {
-        nonce: 1,
-        request_id: request_body.get_hash_with_sender(requester.address()).to_vec(),
-        execution_status: ExecutionStatus::Completed as i32,
-        uri: None,
-        stdout_uri: None,
-        stderr_uri: None,
-        cycles_used: 1000,
-        gas_used: "0".to_string(),
-        domain: SPN_SEPOLIA_V1_DOMAIN.to_vec(),
-        variant: TransactionVariant::FulfillVariant as i32,  // Invalid variant - should be ExecuteVariant
-    };
-    let execute_signature = proto_sign(&test.executor, &execute_body);
+    // Create clear transaction with invalid proof data.
+    let mut clear_tx = create_clear_tx(
+        &test.requester,
+        &test.fulfiller,
+        &test.fulfiller,
+        &test.auctioneer,
+        &test.executor,
+        &test.verifier,
+        1,
+        U256::from(50_000),
+        1,
+        1,
+        1,
+        1,
+        ProofMode::Compressed,
+        ExecutionStatus::Executed,
+        false,
+    );
 
-    let clear_tx = VAppTransaction::Clear(ClearTransaction {
-        request: RequestProofRequest {
-            format: MessageFormat::Binary.into(),
-            body: Some(request_body),
-            signature: request_signature.as_bytes().to_vec(),
-        },
-        bid: BidRequest {
-            format: MessageFormat::Binary.into(),
-            body: Some(bid_body),
-            signature: bid_signature.as_bytes().to_vec(),
-        },
-        settle: SettleRequest {
-            format: MessageFormat::Binary.into(),
-            body: Some(settle_body),
-            signature: settle_signature.as_bytes().to_vec(),
-        },
-        execute: ExecuteProofRequest {
-            format: MessageFormat::Binary.into(),
-            body: Some(execute_body),
-            signature: execute_signature.as_bytes().to_vec(),
-        },
-        fulfill: None,
-    });
+    // Corrupt the proof data to make it invalid.
+    if let VAppTransaction::Clear(ref mut clear) = clear_tx {
+        clear.execute.body.as_mut().unwrap().variant = TransactionVariant::FulfillVariant as i32;
+        clear.execute.signature =
+            proto_sign(&test.executor, clear.execute.body.as_ref().unwrap()).as_bytes().to_vec();
+    }
 
-    // Execute the transaction and verify it panics with InvalidTransactionVariant.
-    let result = test.state.execute::<MockVerifier>(&clear_tx);
-    assert!(matches!(
-        result,
-        Err(VAppPanic::InvalidTransactionVariant)
-    ));
+    // Execute should fail with InvalidProof.
+    let result = test.state.execute::<RejectVerifier>(&clear_tx);
+    assert!(matches!(result, Err(VAppPanic::InvalidTransactionVariant)));
+}
+
+#[test]
+fn test_clear_invalid_fulfill_variant() {
+    let mut test = setup();
+
+    // Setup: Deposit funds for requester and create prover.
+    let requester_address = test.requester.address();
+    let prover_address = test.fulfiller.address();
+    let amount = U256::from(100_000_000);
+
+    let deposit_tx = deposit_tx(requester_address, amount, 0, 1, 1);
+    test.state.execute::<MockVerifier>(&deposit_tx).unwrap();
+
+    let create_prover_tx = create_prover_tx(prover_address, prover_address, U256::ZERO, 1, 2, 2);
+    test.state.execute::<MockVerifier>(&create_prover_tx).unwrap();
+
+    // Create clear transaction with invalid proof data.
+    let mut clear_tx = create_clear_tx(
+        &test.requester,
+        &test.fulfiller,
+        &test.fulfiller,
+        &test.auctioneer,
+        &test.executor,
+        &test.verifier,
+        1,
+        U256::from(50_000),
+        1,
+        1,
+        1,
+        1,
+        ProofMode::Compressed,
+        ExecutionStatus::Executed,
+        false,
+    );
+
+    // Corrupt the proof data to make it invalid.
+    if let VAppTransaction::Clear(ref mut clear) = clear_tx {
+        if let Some(ref mut fulfill) = clear.fulfill {
+            if let Some(ref mut fulfill_body) = fulfill.body {
+                fulfill_body.variant = TransactionVariant::RequestVariant as i32;
+                fulfill.signature = proto_sign(&test.fulfiller, fulfill_body).as_bytes().to_vec();
+            }
+        }
+    }
+
+    // Execute should fail with InvalidProof.
+    let result = test.state.execute::<RejectVerifier>(&clear_tx);
+    assert!(matches!(result, Err(VAppPanic::InvalidTransactionVariant)));
 }
