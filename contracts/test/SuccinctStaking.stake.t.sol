@@ -5,10 +5,10 @@ import {SuccinctStakingTest} from "./SuccinctStaking.t.sol";
 import {SuccinctStaking} from "../src/SuccinctStaking.sol";
 import {IProverRegistry} from "../src/interfaces/IProverRegistry.sol";
 import {ISuccinctStaking} from "../src/interfaces/ISuccinctStaking.sol";
+import {MockVApp} from "../src/mocks/MockVApp.sol";
 import {IERC20} from "../lib/openzeppelin-contracts/contracts/interfaces/IERC20.sol";
 import {ERC20Permit} from
     "../lib/openzeppelin-contracts/contracts/token/ERC20/extensions/ERC20Permit.sol";
-import {MockVApp} from "../src/mocks/MockVApp.sol";
 
 contract SuccinctStakingStakeTests is SuccinctStakingTest {
     function test_Stake_WhenValid() public {
@@ -100,7 +100,7 @@ contract SuccinctStakingStakeTests is SuccinctStakingTest {
         // Stake 1 stakes to Alice prover.
         _stake(STAKER_1, ALICE_PROVER, stakeAmount);
 
-        // Give a dispense amount.
+        // Give an extremely large dispense amount.
         uint256 rewardAmount = 1_000_000_000_000_000_000_000_000_000e18;
         deal(PROVE, I_PROVE, rewardAmount);
 
@@ -119,7 +119,7 @@ contract SuccinctStakingStakeTests is SuccinctStakingTest {
         // Stake 1 stakes to Alice prover.
         _stake(STAKER_1, ALICE_PROVER, stakeAmount);
 
-        // Give a reward amount to the prover.
+        // Give an extremely large reward amount to the prover.
         uint256 rewardAmount = 1_000_000_000_000_000_000_000_000_000e18;
         deal(I_PROVE, ALICE_PROVER, rewardAmount);
 
