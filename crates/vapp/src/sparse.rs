@@ -106,7 +106,7 @@ impl<K: StorageKey, V: StorageValue> SparseStorage<K, V> {
 
     /// Iterate over the raw key-value pairs (returns U256 indices).
     pub fn iter_raw(&self) -> impl Iterator<Item = (&U256, &V)> {
-        self.inner.iter()
+        self.inner.iter().filter(|(key, _)| self.witnessed_keys.contains(key))
     }
 }
 
