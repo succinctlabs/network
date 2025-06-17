@@ -71,6 +71,9 @@ pub struct RequestProofRequestBody {
     /// The max price per prover gas unit for the request.
     #[prost(string, tag = "18")]
     pub max_price_per_pgu: ::prost::alloc::string::String,
+    /// The variant of the transaction.
+    #[prost(enumeration = "TransactionVariant", tag = "19")]
+    pub variant: i32,
 }
 #[derive(serde::Serialize, serde::Deserialize)]
 #[derive(Clone, PartialEq, ::prost::Message)]
@@ -127,6 +130,9 @@ pub struct FulfillProofRequestBody {
     /// The domain separator for the request.
     #[prost(bytes = "vec", tag = "5")]
     pub domain: ::prost::alloc::vec::Vec<u8>,
+    /// The variant of the transaction.
+    #[prost(enumeration = "TransactionVariant", tag = "6")]
+    pub variant: i32,
 }
 #[derive(serde::Serialize, serde::Deserialize)]
 #[derive(Clone, PartialEq, ::prost::Message)]
@@ -187,6 +193,9 @@ pub struct ExecuteProofRequestBody {
     /// The cause of execution failure, if it failed.
     #[prost(enumeration = "ExecuteFailureCause", optional, tag = "9")]
     pub failure_cause: ::core::option::Option<i32>,
+    /// The variant of the transaction.
+    #[prost(enumeration = "TransactionVariant", tag = "10")]
+    pub variant: i32,
 }
 #[derive(serde::Serialize, serde::Deserialize)]
 #[derive(Clone, PartialEq, ::prost::Message)]
@@ -237,45 +246,6 @@ pub struct FailFulfillmentResponse {
 #[derive(serde::Serialize, serde::Deserialize)]
 #[derive(Clone, Copy, PartialEq, ::prost::Message)]
 pub struct FailFulfillmentResponseBody {}
-#[derive(serde::Serialize, serde::Deserialize)]
-#[derive(Clone, PartialEq, ::prost::Message)]
-pub struct FailExecutionRequest {
-    /// The message format of the body.
-    #[prost(enumeration = "MessageFormat", tag = "1")]
-    pub format: i32,
-    /// The signature of the sender.
-    #[prost(bytes = "vec", tag = "2")]
-    pub signature: ::prost::alloc::vec::Vec<u8>,
-    /// The body of the request.
-    #[prost(message, optional, tag = "3")]
-    pub body: ::core::option::Option<FailExecutionRequestBody>,
-}
-#[derive(serde::Serialize, serde::Deserialize)]
-#[derive(Clone, PartialEq, ::prost::Message)]
-pub struct FailExecutionRequestBody {
-    /// The account nonce of the sender.
-    #[prost(uint64, tag = "1")]
-    pub nonce: u64,
-    /// The identifier for the request.
-    #[prost(bytes = "vec", tag = "2")]
-    pub request_id: ::prost::alloc::vec::Vec<u8>,
-    /// The cause of execution failure.
-    #[prost(enumeration = "ExecuteFailureCause", tag = "3")]
-    pub execute_fail_cause: i32,
-}
-#[derive(serde::Serialize, serde::Deserialize)]
-#[derive(Clone, PartialEq, ::prost::Message)]
-pub struct FailExecutionResponse {
-    /// The transaction hash.
-    #[prost(bytes = "vec", tag = "1")]
-    pub tx_hash: ::prost::alloc::vec::Vec<u8>,
-    /// The body of the response.
-    #[prost(message, optional, tag = "2")]
-    pub body: ::core::option::Option<FailExecutionResponseBody>,
-}
-#[derive(serde::Serialize, serde::Deserialize)]
-#[derive(Clone, Copy, PartialEq, ::prost::Message)]
-pub struct FailExecutionResponseBody {}
 #[derive(serde::Serialize, serde::Deserialize)]
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct ProofRequest {
@@ -385,6 +355,12 @@ pub struct ProofRequest {
     /// any prover can participate. Only applicable if the strategy is auction.
     #[prost(bytes = "vec", repeated, tag = "33")]
     pub whitelist: ::prost::alloc::vec::Vec<::prost::alloc::vec::Vec<u8>>,
+    /// The base fee for the request.
+    #[prost(string, optional, tag = "34")]
+    pub base_fee: ::core::option::Option<::prost::alloc::string::String>,
+    /// The max price per prover gas unit for the request.
+    #[prost(string, optional, tag = "35")]
+    pub max_price_per_pgu: ::core::option::Option<::prost::alloc::string::String>,
 }
 #[derive(serde::Serialize, serde::Deserialize)]
 #[derive(Clone, PartialEq, ::prost::Message)]
@@ -1138,6 +1114,9 @@ pub struct TransferRequestBody {
     /// The domain of the request.
     #[prost(bytes = "vec", tag = "4")]
     pub domain: ::prost::alloc::vec::Vec<u8>,
+    /// The variant of the transaction.
+    #[prost(enumeration = "TransactionVariant", tag = "5")]
+    pub variant: i32,
 }
 #[derive(serde::Serialize, serde::Deserialize)]
 #[derive(Clone, PartialEq, ::prost::Message)]
@@ -1692,6 +1671,9 @@ pub struct BidRequestBody {
     /// The address of the prover.
     #[prost(bytes = "vec", tag = "5")]
     pub prover: ::prost::alloc::vec::Vec<u8>,
+    /// The variant of the transaction.
+    #[prost(enumeration = "TransactionVariant", tag = "6")]
+    pub variant: i32,
 }
 #[derive(serde::Serialize, serde::Deserialize)]
 #[derive(Clone, PartialEq, ::prost::Message)]
@@ -1734,6 +1716,9 @@ pub struct SettleRequestBody {
     /// The domain separator for the request.
     #[prost(bytes = "vec", tag = "4")]
     pub domain: ::prost::alloc::vec::Vec<u8>,
+    /// The variant of the transaction.
+    #[prost(enumeration = "TransactionVariant", tag = "5")]
+    pub variant: i32,
 }
 #[derive(serde::Serialize, serde::Deserialize)]
 #[derive(Clone, PartialEq, ::prost::Message)]
@@ -3973,6 +3958,8 @@ pub struct ProverStats {
     pub tx_hash: ::prost::alloc::vec::Vec<u8>,
     #[prost(uint64, tag = "14")]
     pub lifetime_rewards: u64,
+    #[prost(string, optional, tag = "15")]
+    pub image_url: ::core::option::Option<::prost::alloc::string::String>,
 }
 #[derive(serde::Serialize, serde::Deserialize)]
 #[derive(Clone, Copy, PartialEq, ::prost::Message)]
@@ -4038,6 +4025,20 @@ pub struct GetFilteredBidHistoryRequest {
 pub struct GetFilteredBidHistoryResponse {
     #[prost(message, repeated, tag = "1")]
     pub bids: ::prost::alloc::vec::Vec<BidHistory>,
+}
+#[derive(serde::Serialize, serde::Deserialize)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct GetProverStatsDetailRequest {
+    /// The prover address to get stats for.
+    #[prost(bytes = "vec", tag = "1")]
+    pub address: ::prost::alloc::vec::Vec<u8>,
+}
+#[derive(serde::Serialize, serde::Deserialize)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct GetProverStatsDetailResponse {
+    /// The prover stats.
+    #[prost(message, optional, tag = "1")]
+    pub stats: ::core::option::Option<ProverStats>,
 }
 #[derive(serde::Serialize, serde::Deserialize)]
 #[derive(Clone, PartialEq, ::prost::Message)]
@@ -4272,6 +4273,9 @@ pub struct SetDelegationRequestBody {
     /// The domain of the request.
     #[prost(bytes = "vec", tag = "4")]
     pub domain: ::prost::alloc::vec::Vec<u8>,
+    /// The variant of the transaction.
+    #[prost(enumeration = "TransactionVariant", tag = "5")]
+    pub variant: i32,
 }
 #[derive(serde::Serialize, serde::Deserialize)]
 #[derive(Clone, Copy, PartialEq, ::prost::Message)]
@@ -4366,6 +4370,48 @@ impl MessageFormat {
             "UNSPECIFIED_MESSAGE_FORMAT" => Some(Self::UnspecifiedMessageFormat),
             "BINARY" => Some(Self::Binary),
             "JSON" => Some(Self::Json),
+            _ => None,
+        }
+    }
+}
+#[derive(serde::Serialize, serde::Deserialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
+#[repr(i32)]
+pub enum TransactionVariant {
+    RequestVariant = 0,
+    BidVariant = 1,
+    SettleVariant = 2,
+    ExecuteVariant = 3,
+    FulfillVariant = 4,
+    DelegateVariant = 5,
+    TransferVariant = 6,
+}
+impl TransactionVariant {
+    /// String value of the enum field names used in the ProtoBuf definition.
+    ///
+    /// The values are not transformed in any way and thus are considered stable
+    /// (if the ProtoBuf definition does not change) and safe for programmatic use.
+    pub fn as_str_name(&self) -> &'static str {
+        match self {
+            Self::RequestVariant => "REQUEST_VARIANT",
+            Self::BidVariant => "BID_VARIANT",
+            Self::SettleVariant => "SETTLE_VARIANT",
+            Self::ExecuteVariant => "EXECUTE_VARIANT",
+            Self::FulfillVariant => "FULFILL_VARIANT",
+            Self::DelegateVariant => "DELEGATE_VARIANT",
+            Self::TransferVariant => "TRANSFER_VARIANT",
+        }
+    }
+    /// Creates an enum from field names used in the ProtoBuf definition.
+    pub fn from_str_name(value: &str) -> ::core::option::Option<Self> {
+        match value {
+            "REQUEST_VARIANT" => Some(Self::RequestVariant),
+            "BID_VARIANT" => Some(Self::BidVariant),
+            "SETTLE_VARIANT" => Some(Self::SettleVariant),
+            "EXECUTE_VARIANT" => Some(Self::ExecuteVariant),
+            "FULFILL_VARIANT" => Some(Self::FulfillVariant),
+            "DELEGATE_VARIANT" => Some(Self::DelegateVariant),
+            "TRANSFER_VARIANT" => Some(Self::TransferVariant),
             _ => None,
         }
     }
@@ -4537,6 +4583,8 @@ pub enum ExecutionStatus {
     Executed = 2,
     /// The request cannot be executed.
     Unexecutable = 3,
+    /// The request was executed, but validation failed.
+    ValidationFailed = 4,
 }
 impl ExecutionStatus {
     /// String value of the enum field names used in the ProtoBuf definition.
@@ -4549,6 +4597,7 @@ impl ExecutionStatus {
             Self::Unexecuted => "UNEXECUTED",
             Self::Executed => "EXECUTED",
             Self::Unexecutable => "UNEXECUTABLE",
+            Self::ValidationFailed => "VALIDATION_FAILED",
         }
     }
     /// Creates an enum from field names used in the ProtoBuf definition.
@@ -4558,6 +4607,7 @@ impl ExecutionStatus {
             "UNEXECUTED" => Some(Self::Unexecuted),
             "EXECUTED" => Some(Self::Executed),
             "UNEXECUTABLE" => Some(Self::Unexecutable),
+            "VALIDATION_FAILED" => Some(Self::ValidationFailed),
             _ => None,
         }
     }

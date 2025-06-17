@@ -1,7 +1,7 @@
 mod common;
 
 use alloy_primitives::U256;
-use spn_network_types::{MessageFormat, SetDelegationRequest, SetDelegationRequestBody};
+use spn_network_types::{MessageFormat, SetDelegationRequest, SetDelegationRequestBody, TransactionVariant};
 use spn_vapp_core::{
     errors::VAppPanic,
     transactions::{DelegateTransaction, VAppTransaction},
@@ -221,6 +221,7 @@ fn test_delegate_invalid_prover_address() {
         delegate: delegate_address.to_vec(),
         prover: vec![0x12, 0x34], // Invalid - too short
         domain: spn_utils::SPN_SEPOLIA_V1_DOMAIN.to_vec(),
+        variant: TransactionVariant::DelegateVariant as i32,
     };
     let signature = proto_sign(prover_owner, &body);
 
@@ -255,6 +256,7 @@ fn test_delegate_invalid_delegate_address() {
         delegate: vec![0x56, 0x78], // Invalid - too short
         prover: prover_address.to_vec(),
         domain: spn_utils::SPN_SEPOLIA_V1_DOMAIN.to_vec(),
+        variant: TransactionVariant::DelegateVariant as i32,
     };
     let signature = proto_sign(prover_owner, &body);
 

@@ -12,6 +12,20 @@ enum MessageFormat {
   JSON = 2;
 }
 
+/********************
+ *** Transactions ***
+ ********************/
+
+enum TransactionVariant {
+  REQUEST_VARIANT = 0;
+  BID_VARIANT = 1;
+  SETTLE_VARIANT = 2;
+  EXECUTE_VARIANT = 3;
+  FULFILL_VARIANT = 4;
+  DELEGATE_VARIANT = 5;
+  TRANSFER_VARIANT = 6;
+}
+
 /**************
  *** Proofs ***
  **************/
@@ -64,8 +78,9 @@ message RequestProofRequestBody {
   string base_fee = 17;
   // The max price per prover gas unit for the request.
   string max_price_per_pgu = 18;
+  // The variant of the transaction.
+  TransactionVariant variant = 19;
 }
-
 
 message RequestProofResponse {
   // The transaction hash.
@@ -104,6 +119,8 @@ message FulfillProofRequestBody {
   optional ReservedMetadata reserved_metadata = 4;
   // The domain separator for the request.
   bytes domain = 5;
+  // The variant of the transaction.
+  TransactionVariant variant = 6;
 }
 
 message FulfillProofResponse {
@@ -146,6 +163,8 @@ message ExecuteProofRequestBody {
   optional string punishment = 8;
   // The cause of execution failure, if it failed.
   optional ExecuteFailureCause failure_cause = 9;
+  // The variant of the transaction.
+  TransactionVariant variant = 10;
 }
 
 message ExecuteProofResponse {
@@ -181,33 +200,6 @@ message FailFulfillmentResponse {
 }
 
 message FailFulfillmentResponseBody {}
-
-message FailExecutionRequest {
-  // The message format of the body.
-  MessageFormat format = 1;
-  // The signature of the sender.
-  bytes signature = 2;
-  // The body of the request.
-  FailExecutionRequestBody body = 3;
-}
-
-message FailExecutionRequestBody {
-  // The account nonce of the sender.
-  uint64 nonce = 1;
-  // The identifier for the request.
-  bytes request_id = 2;
-  // The cause of execution failure.
-  ExecuteFailureCause execute_fail_cause = 3;
-}
-
-message FailExecutionResponse {
-  // The transaction hash.
-  bytes tx_hash = 1;
-  // The body of the response.
-  FailExecutionResponseBody body = 2;
-}
-
-message FailExecutionResponseBody {}
 
 message ProofRequest {
   // The request identifier.
@@ -283,6 +275,10 @@ message ProofRequest {
   // The whitelist of provers that can bid and prove this request. An empty list indicates that
   // any prover can participate. Only applicable if the strategy is auction.
   repeated bytes whitelist = 33;
+  // The base fee for the request.
+  optional string base_fee = 34;
+  // The max price per prover gas unit for the request.
+  optional string max_price_per_pgu = 35;
 }
 
 message GetProofRequestStatusRequest {
@@ -830,6 +826,8 @@ message TransferRequestBody {
   string amount = 3;
   // The domain of the request.
   bytes domain = 4;
+  // The variant of the transaction.
+  TransactionVariant variant = 5;
 }
 
 message TransferResponse {
@@ -1219,6 +1217,8 @@ message BidRequestBody {
   bytes domain = 4;
   // The address of the prover.
   bytes prover = 5;
+  // The variant of the transaction.
+  TransactionVariant variant = 6;
 }
 
 message BidResponse {
@@ -1248,6 +1248,8 @@ message SettleRequestBody {
   bytes winner = 3;
   // The domain separator for the request.
   bytes domain = 4;
+  // The variant of the transaction.
+  TransactionVariant variant = 5;
 }
 
 message SettleResponse {
@@ -2820,6 +2822,7 @@ message ProverStats {
   uint64 block_number = 12;
   bytes tx_hash = 13;
   uint64 lifetime_rewards = 14;
+  optional string image_url = 15;
 }
 
 message GetFilteredProverStatsRequest {
@@ -2865,6 +2868,16 @@ message GetFilteredBidHistoryRequest {
 
 message GetFilteredBidHistoryResponse {
   repeated BidHistory bids = 1;
+}
+
+message GetProverStatsDetailRequest {
+  // The prover address to get stats for.
+  bytes address = 1;
+}
+
+message GetProverStatsDetailResponse {
+  // The prover stats.
+  ProverStats stats = 1;
 }
  
 /******************
@@ -3037,6 +3050,8 @@ message SetDelegationRequestBody {
   bytes prover = 3;
   // The domain of the request.
   bytes domain = 4;
+  // The variant of the transaction.
+  TransactionVariant variant = 5;
 }
 
 message SetDelegationResponse {}
@@ -3139,6 +3154,8 @@ enum ExecutionStatus {
   EXECUTED = 2;
   // The request cannot be executed.
   UNEXECUTABLE = 3;
+  // The request was executed, but validation failed.
+  VALIDATION_FAILED = 4;
 }
 
 // The different settlement statuses that a request can be in.

@@ -7,7 +7,7 @@ use eyre::Result;
 use serde::{Deserialize, Serialize};
 use tracing::{debug, info};
 
-use spn_network_types::{ExecutionStatus, HashableWithSender, ProofMode};
+use spn_network_types::{ExecutionStatus, HashableWithSender, ProofMode, TransactionVariant};
 
 use crate::{
     errors::VAppPanic,
@@ -19,7 +19,7 @@ use crate::{
     sparse::SparseStorage,
     storage::{RequestId, Storage},
     transactions::{OnchainTransaction, VAppTransaction},
-    utils::{address, bytes_to_words_be},
+    utils::{address, bytes_to_words_be, tx_variant},
     verifier::VAppVerifier,
 };
 
@@ -317,6 +317,13 @@ impl<A: Storage<Address, Account>, R: Storage<RequestId, bool>> VAppState<A, R> 
                 let body =
                     delegation.delegation.body.as_ref().ok_or(VAppPanic::MissingProtoBody)?;
 
+                // Verify the variant.
+                debug!("verify variant");
+                let variant = tx_variant(body.variant)?;
+                if variant != TransactionVariant::DelegateVariant {
+                    return Err(VAppPanic::InvalidTransactionVariant);
+                }
+
                 // Verify the domain.
                 debug!("verify domain");
                 let domain = B256::try_from(body.domain.as_slice())
@@ -382,6 +389,13 @@ impl<A: Storage<Address, Account>, R: Storage<RequestId, bool>> VAppState<A, R> 
                 // Make sure the transfer body is present.
                 debug!("validate proto body");
                 let body = transfer.transfer.body.as_ref().ok_or(VAppPanic::MissingProtoBody)?;
+
+                // Verify the variant.
+                debug!("verify variant");
+                let variant = tx_variant(body.variant)?;
+                if variant != TransactionVariant::TransferVariant {
+                    return Err(VAppPanic::InvalidTransactionVariant);
+                }
 
                 // Verify the proto signature.
                 debug!("verify proto signature");
@@ -451,6 +465,24 @@ impl<A: Storage<Address, Account>, R: Storage<RequestId, bool>> VAppState<A, R> 
                     .map_err(|_| VAppPanic::InvalidSettleSignature)?;
                 let execute_signer = proto_verify(execute, &clear.execute.signature)
                     .map_err(|_| VAppPanic::InvalidExecuteSignature)?;
+
+                // Verify the variants for (request, bid, settle, execute).
+                let request_variant = tx_variant(request.variant)?;
+                let bid_variant = tx_variant(bid.variant)?;
+                let settle_variant = tx_variant(settle.variant)?;
+                let execute_variant = tx_variant(execute.variant)?;
+                if request_variant != TransactionVariant::RequestVariant {
+                    return Err(VAppPanic::InvalidTransactionVariant);
+                }
+                if bid_variant != TransactionVariant::BidVariant {
+                    return Err(VAppPanic::InvalidTransactionVariant);
+                }
+                if settle_variant != TransactionVariant::SettleVariant {
+                    return Err(VAppPanic::InvalidTransactionVariant);
+                }
+                if execute_variant != TransactionVariant::ExecuteVariant {
+                    return Err(VAppPanic::InvalidTransactionVariant);
+                }
 
                 // Verify the domains for (request, bid, settle, execute).
                 for domain in [&request.domain, &bid.domain, &settle.domain, &execute.domain] {

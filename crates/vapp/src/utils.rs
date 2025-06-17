@@ -3,6 +3,7 @@
 //! This module contains the utilities for the vApp.
 
 use alloy_primitives::Address;
+use spn_network_types::TransactionVariant;
 
 use crate::errors::VAppPanic;
 
@@ -20,4 +21,9 @@ pub fn bytes_to_words_be(bytes: &[u8; 32]) -> Result<[u32; 8], VAppPanic> {
 /// Converts a byte array to an address.
 pub fn address(bytes: &[u8]) -> Result<Address, VAppPanic> {
     Address::try_from(bytes).map_err(|_| VAppPanic::AddressDeserializationFailed)
+}
+
+/// Converts a variant to a transaction variant.
+pub fn tx_variant(variant: i32) -> Result<TransactionVariant, VAppPanic> {
+    TransactionVariant::try_from(variant).map_err(|_| VAppPanic::InvalidTransactionVariant)
 }
