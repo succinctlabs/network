@@ -307,3 +307,42 @@ fn test_delegate_replay_protection() {
     assert_prover_signer(&test, prover_address, delegate_address);
     assert_state_counters(&test, 3, 2, 0, 1);
 }
+
+#[test]
+fn test_delegate_invalid_transaction_variant() {
+    let mut test = setup();
+    let prover_owner = &test.signers[0];
+    let prover_address = test.signers[1].address();
+    let delegate_address = test.signers[2].address();
+
+    // Create prover first.
+    let create_prover_tx =
+        create_prover_tx(prover_address, prover_owner.address(), U256::from(500), 0, 1, 1);
+    test.state.execute::<MockVerifier>(&create_prover_tx).unwrap();
+
+    // Create delegate tx with invalid variant.
+    let body = SetDelegationRequestBody {
+        nonce: 1,
+        delegate: delegate_address.to_vec(),
+        prover: prover_address.to_vec(),
+        domain: spn_utils::SPN_SEPOLIA_V1_DOMAIN.to_vec(),
+        variant: TransactionVariant::TransferVariant as i32,  // Invalid variant - should be DelegateVariant
+    };
+    let signature = proto_sign(prover_owner, &body);
+
+    let delegate_tx = VAppTransaction::Delegate(DelegateTransaction {
+        delegation: SetDelegationRequest {
+            format: MessageFormat::Binary.into(),
+            body: Some(body),
+            signature: signature.as_bytes().to_vec(),
+        },
+    });
+
+    let result = test.state.execute::<MockVerifier>(&delegate_tx);
+
+    // Verify the correct panic error is returned.
+    assert!(matches!(result, Err(VAppPanic::InvalidTransactionVariant)));
+
+    // Verify signer remains unchanged.
+    assert_prover_signer(&test, prover_address, prover_owner.address());
+}
