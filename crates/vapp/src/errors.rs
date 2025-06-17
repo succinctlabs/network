@@ -148,6 +148,9 @@ pub enum VAppPanic {
     #[error("Sum of protocol and staker fee bips exceeds 100%: {protocol_bips} + {staker_bips}")]
     TotalFeeTooHigh { protocol_bips: U256, staker_bips: U256 },
 
+    #[error("Invalid transaction variant")]
+    InvalidTransactionVariant,
+
     #[error("Storage error: {0}")]
     StorageError(#[from] StorageError),
 }

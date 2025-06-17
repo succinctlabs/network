@@ -1,7 +1,7 @@
 mod common;
 
 use alloy_primitives::U256;
-use spn_network_types::{MessageFormat, TransferRequest, TransferRequestBody};
+use spn_network_types::{MessageFormat, TransactionVariant, TransferRequest, TransferRequestBody};
 use spn_vapp_core::{
     errors::VAppPanic,
     transactions::{TransferTransaction, VAppTransaction},
@@ -313,6 +313,7 @@ fn test_transfer_invalid_to_address() {
         to: vec![0x12, 0x34], // Invalid - too short
         amount: U256::from(100).to_string(),
         domain: spn_utils::SPN_SEPOLIA_V1_DOMAIN.to_vec(),
+        variant: TransactionVariant::TransferVariant as i32,
     };
     let signature = proto_sign(&from_signer, &body);
 

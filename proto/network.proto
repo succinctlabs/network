@@ -20,8 +20,6 @@ service ProverNetwork {
 
   // Fails fulfillment. Only callable by the assigned fulfiller.
   rpc FailFulfillment(types.FailFulfillmentRequest) returns (types.FailFulfillmentResponse) {}
-  // Fails execution. Only callable by the execution oracle.
-  rpc FailExecution(types.FailExecutionRequest) returns (types.FailExecutionResponse) {}
 
   // Get the status of a proof request.
   rpc GetProofRequestStatus(types.GetProofRequestStatusRequest)

@@ -1,7 +1,7 @@
 mod common;
 
 use alloy_primitives::U256;
-use spn_network_types::{ExecutionStatus, HashableWithSender, ProofMode};
+use spn_network_types::{ExecutionStatus, HashableWithSender, ProofMode, TransactionVariant};
 use spn_vapp_core::{
     errors::VAppPanic,
     transactions::VAppTransaction,
@@ -1381,7 +1381,7 @@ fn test_clear_invalid_settle_signature() {
 
     // Execute should fail with AuctioneerMismatch because corrupted signature recovers wrong address.
     let result = test.state.execute::<MockVerifier>(&clear_tx);
-    assert!(matches!(result, Err(VAppPanic::AuctioneerMismatch { .. })));
+    assert!(matches!(result, Err(VAppPanic::InvalidSettleSignature)));
 }
 
 #[test]
@@ -2477,4 +2477,237 @@ fn test_clear_invalid_proof_compressed() {
     // Execute should fail with InvalidProof.
     let result = test.state.execute::<RejectVerifier>(&clear_tx);
     assert!(matches!(result, Err(VAppPanic::InvalidProof)));
+}
+
+#[test]
+fn test_clear_invalid_request_variant() {
+    let mut test = setup();
+
+    // Setup: Deposit funds for requester and create prover.
+    let requester_address = test.requester.address();
+    let prover_address = test.fulfiller.address();
+    let amount = U256::from(100_000_000);
+
+    let deposit_tx = deposit_tx(requester_address, amount, 0, 1, 1);
+    test.state.execute::<MockVerifier>(&deposit_tx).unwrap();
+
+    let create_prover_tx = create_prover_tx(prover_address, prover_address, U256::ZERO, 1, 2, 2);
+    test.state.execute::<MockVerifier>(&create_prover_tx).unwrap();
+
+    // Create clear transaction with invalid proof data.
+    let mut clear_tx = create_clear_tx(
+        &test.requester,
+        &test.fulfiller,
+        &test.fulfiller,
+        &test.auctioneer,
+        &test.executor,
+        &test.verifier,
+        1,
+        U256::from(50_000),
+        1,
+        1,
+        1,
+        1,
+        ProofMode::Compressed,
+        ExecutionStatus::Executed,
+        false,
+    );
+
+    // Corrupt the proof data to make it invalid.
+    if let VAppTransaction::Clear(ref mut clear) = clear_tx {
+        clear.request.body.as_mut().unwrap().variant = TransactionVariant::FulfillVariant as i32;
+        clear.request.signature =
+            proto_sign(&test.requester, clear.request.body.as_ref().unwrap()).as_bytes().to_vec();
+    }
+
+    // Execute should fail with InvalidProof.
+    let result = test.state.execute::<RejectVerifier>(&clear_tx);
+    assert!(matches!(result, Err(VAppPanic::InvalidTransactionVariant)));
+}
+
+#[test]
+fn test_clear_invalid_bid_variant() {
+    let mut test = setup();
+
+    // Setup: Deposit funds for requester and create prover.
+    let requester_address = test.requester.address();
+    let prover_address = test.fulfiller.address();
+    let amount = U256::from(100_000_000);
+
+    let deposit_tx = deposit_tx(requester_address, amount, 0, 1, 1);
+    test.state.execute::<MockVerifier>(&deposit_tx).unwrap();
+
+    let create_prover_tx = create_prover_tx(prover_address, prover_address, U256::ZERO, 1, 2, 2);
+    test.state.execute::<MockVerifier>(&create_prover_tx).unwrap();
+
+    // Create clear transaction with invalid proof data.
+    let mut clear_tx = create_clear_tx(
+        &test.requester,
+        &test.fulfiller,
+        &test.fulfiller,
+        &test.auctioneer,
+        &test.executor,
+        &test.verifier,
+        1,
+        U256::from(50_000),
+        1,
+        1,
+        1,
+        1,
+        ProofMode::Compressed,
+        ExecutionStatus::Executed,
+        false,
+    );
+
+    // Corrupt the proof data to make it invalid.
+    if let VAppTransaction::Clear(ref mut clear) = clear_tx {
+        clear.bid.body.as_mut().unwrap().variant = TransactionVariant::FulfillVariant as i32;
+        clear.bid.signature =
+            proto_sign(&test.fulfiller, clear.bid.body.as_ref().unwrap()).as_bytes().to_vec();
+    }
+
+    // Execute should fail with InvalidProof.
+    let result = test.state.execute::<RejectVerifier>(&clear_tx);
+    assert!(matches!(result, Err(VAppPanic::InvalidTransactionVariant)));
+}
+
+#[test]
+fn test_clear_invalid_settle_variant() {
+    let mut test = setup();
+
+    // Setup: Deposit funds for requester and create prover.
+    let requester_address = test.requester.address();
+    let prover_address = test.fulfiller.address();
+    let amount = U256::from(100_000_000);
+
+    let deposit_tx = deposit_tx(requester_address, amount, 0, 1, 1);
+    test.state.execute::<MockVerifier>(&deposit_tx).unwrap();
+
+    let create_prover_tx = create_prover_tx(prover_address, prover_address, U256::ZERO, 1, 2, 2);
+    test.state.execute::<MockVerifier>(&create_prover_tx).unwrap();
+
+    // Create clear transaction with invalid proof data.
+    let mut clear_tx = create_clear_tx(
+        &test.requester,
+        &test.fulfiller,
+        &test.fulfiller,
+        &test.auctioneer,
+        &test.executor,
+        &test.verifier,
+        1,
+        U256::from(50_000),
+        1,
+        1,
+        1,
+        1,
+        ProofMode::Compressed,
+        ExecutionStatus::Executed,
+        false,
+    );
+
+    // Corrupt the proof data to make it invalid.
+    if let VAppTransaction::Clear(ref mut clear) = clear_tx {
+        clear.bid.body.as_mut().unwrap().variant = TransactionVariant::FulfillVariant as i32;
+        clear.bid.signature =
+            proto_sign(&test.fulfiller, clear.bid.body.as_ref().unwrap()).as_bytes().to_vec();
+    }
+
+    // Execute should fail with InvalidProof.
+    let result = test.state.execute::<RejectVerifier>(&clear_tx);
+    assert!(matches!(result, Err(VAppPanic::InvalidTransactionVariant)));
+}
+
+#[test]
+fn test_clear_invalid_execute_variant() {
+    let mut test = setup();
+
+    // Setup: Deposit funds for requester and create prover.
+    let requester_address = test.requester.address();
+    let prover_address = test.fulfiller.address();
+    let amount = U256::from(100_000_000);
+
+    let deposit_tx = deposit_tx(requester_address, amount, 0, 1, 1);
+    test.state.execute::<MockVerifier>(&deposit_tx).unwrap();
+
+    let create_prover_tx = create_prover_tx(prover_address, prover_address, U256::ZERO, 1, 2, 2);
+    test.state.execute::<MockVerifier>(&create_prover_tx).unwrap();
+
+    // Create clear transaction with invalid proof data.
+    let mut clear_tx = create_clear_tx(
+        &test.requester,
+        &test.fulfiller,
+        &test.fulfiller,
+        &test.auctioneer,
+        &test.executor,
+        &test.verifier,
+        1,
+        U256::from(50_000),
+        1,
+        1,
+        1,
+        1,
+        ProofMode::Compressed,
+        ExecutionStatus::Executed,
+        false,
+    );
+
+    // Corrupt the proof data to make it invalid.
+    if let VAppTransaction::Clear(ref mut clear) = clear_tx {
+        clear.execute.body.as_mut().unwrap().variant = TransactionVariant::FulfillVariant as i32;
+        clear.execute.signature =
+            proto_sign(&test.executor, clear.execute.body.as_ref().unwrap()).as_bytes().to_vec();
+    }
+
+    // Execute should fail with InvalidProof.
+    let result = test.state.execute::<RejectVerifier>(&clear_tx);
+    assert!(matches!(result, Err(VAppPanic::InvalidTransactionVariant)));
+}
+
+#[test]
+fn test_clear_invalid_fulfill_variant() {
+    let mut test = setup();
+
+    // Setup: Deposit funds for requester and create prover.
+    let requester_address = test.requester.address();
+    let prover_address = test.fulfiller.address();
+    let amount = U256::from(100_000_000);
+
+    let deposit_tx = deposit_tx(requester_address, amount, 0, 1, 1);
+    test.state.execute::<MockVerifier>(&deposit_tx).unwrap();
+
+    let create_prover_tx = create_prover_tx(prover_address, prover_address, U256::ZERO, 1, 2, 2);
+    test.state.execute::<MockVerifier>(&create_prover_tx).unwrap();
+
+    // Create clear transaction with invalid proof data.
+    let mut clear_tx = create_clear_tx(
+        &test.requester,
+        &test.fulfiller,
+        &test.fulfiller,
+        &test.auctioneer,
+        &test.executor,
+        &test.verifier,
+        1,
+        U256::from(50_000),
+        1,
+        1,
+        1,
+        1,
+        ProofMode::Compressed,
+        ExecutionStatus::Executed,
+        false,
+    );
+
+    // Corrupt the proof data to make it invalid.
+    if let VAppTransaction::Clear(ref mut clear) = clear_tx {
+        if let Some(ref mut fulfill) = clear.fulfill {
+            if let Some(ref mut fulfill_body) = fulfill.body {
+                fulfill_body.variant = TransactionVariant::RequestVariant as i32;
+                fulfill.signature = proto_sign(&test.fulfiller, fulfill_body).as_bytes().to_vec();
+            }
+        }
+    }
+
+    // Execute should fail with InvalidProof.
+    let result = test.state.execute::<RejectVerifier>(&clear_tx);
+    assert!(matches!(result, Err(VAppPanic::InvalidTransactionVariant)));
 }

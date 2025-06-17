@@ -10,7 +10,7 @@ use spn_network_types::{
     BidRequest, BidRequestBody, ExecuteProofRequest, ExecuteProofRequestBody, ExecutionStatus,
     FulfillProofRequest, FulfillProofRequestBody, FulfillmentStrategy, MessageFormat, ProofMode,
     RequestProofRequest, RequestProofRequestBody, SetDelegationRequest, SetDelegationRequestBody,
-    SettleRequest, SettleRequestBody,
+    SettleRequest, SettleRequestBody, TransactionVariant,
 };
 use spn_utils::SPN_SEPOLIA_V1_DOMAIN;
 use spn_vapp_core::{merkle::MerkleStorage, state::VAppState, storage::RequestId};
@@ -168,6 +168,7 @@ pub fn delegate_tx(
         delegate: delegate_address.to_vec(),
         prover: prover_address.to_vec(),
         domain: spn_utils::SPN_SEPOLIA_V1_DOMAIN.to_vec(),
+        variant: TransactionVariant::DelegateVariant as i32,
     };
     let signature = proto_sign(prover_owner, &body);
     VAppTransaction::Delegate(DelegateTransaction {
@@ -193,6 +194,7 @@ pub fn transfer_tx(
         to: to.to_vec(),
         amount: amount.to_string(),
         domain: spn_utils::SPN_SEPOLIA_V1_DOMAIN.to_vec(),
+        variant: TransactionVariant::TransferVariant as i32,
     };
     let signature = proto_sign(from_signer, &body);
 
@@ -220,6 +222,7 @@ pub fn transfer_tx_with_domain(
         to: to.to_vec(),
         amount: amount.to_string(),
         domain: domain.to_vec(),
+        variant: TransactionVariant::TransferVariant as i32,
     };
     let signature = proto_sign(from_signer, &body);
 
@@ -259,6 +262,7 @@ pub fn transfer_tx_invalid_amount(
         to: to.to_vec(),
         amount: invalid_amount.to_string(),
         domain: spn_utils::SPN_SEPOLIA_V1_DOMAIN.to_vec(),
+        variant: TransactionVariant::TransferVariant as i32,
     };
     let signature = proto_sign(from_signer, &body);
 
@@ -286,6 +290,7 @@ pub fn delegate_tx_with_domain(
         delegate: delegate_address.to_vec(),
         prover: prover_address.to_vec(),
         domain: domain.to_vec(),
+        variant: TransactionVariant::DelegateVariant as i32,
     };
     let signature = proto_sign(prover_owner, &body);
 
@@ -372,8 +377,13 @@ pub fn assert_create_prover_receipt(
 
 /// Asserts that an account has the expected balance.
 #[allow(clippy::ref_option)]
-pub fn assert_account_balance(test: &mut VAppTestContext, account: Address, expected_balance: U256) {
-    let actual_balance = test.state.accounts.get(&account).unwrap().map_or(U256::ZERO, Account::get_balance);
+pub fn assert_account_balance(
+    test: &mut VAppTestContext,
+    account: Address,
+    expected_balance: U256,
+) {
+    let actual_balance =
+        test.state.accounts.get(&account).unwrap().map_or(U256::ZERO, Account::get_balance);
     assert_eq!(
         actual_balance, expected_balance,
         "Account balance mismatch for {account}: expected {expected_balance}, got {actual_balance}"
@@ -502,6 +512,7 @@ pub fn create_clear_tx_with_options(
         public_values_hash: None,
         base_fee: base_fee.unwrap_or("0").to_string(),
         max_price_per_pgu: max_price_per_pgu.unwrap_or("100000").to_string(),
+        variant: TransactionVariant::RequestVariant as i32,
     };
 
     // Compute the request ID from the request body and signer.
@@ -523,6 +534,7 @@ pub fn create_clear_tx_with_options(
         amount: bid_amount.to_string(),
         domain: SPN_SEPOLIA_V1_DOMAIN.to_vec(),
         prover: bidder_signer.address().to_vec(),
+        variant: TransactionVariant::BidVariant as i32,
     };
 
     // Create and sign bid.
@@ -538,6 +550,7 @@ pub fn create_clear_tx_with_options(
         request_id: request_id.to_vec(),
         winner: bidder_signer.address().to_vec(),
         domain: SPN_SEPOLIA_V1_DOMAIN.to_vec(),
+        variant: TransactionVariant::SettleVariant as i32,
     };
 
     // Create and sign settle.
@@ -558,6 +571,7 @@ pub fn create_clear_tx_with_options(
         domain: SPN_SEPOLIA_V1_DOMAIN.to_vec(),
         punishment: None,
         failure_cause: None,
+        variant: TransactionVariant::ExecuteVariant as i32,
     };
 
     // Create and sign execute.
@@ -591,6 +605,7 @@ pub fn create_clear_tx_with_options(
             ],
             reserved_metadata: None,
             domain: SPN_SEPOLIA_V1_DOMAIN.to_vec(),
+            variant: TransactionVariant::FulfillVariant as i32,
         };
 
         Some(FulfillProofRequest {
@@ -807,6 +822,7 @@ pub fn create_clear_tx_with_public_values_hash(
         public_values_hash: Some(public_values_hash.clone()),
         base_fee: "0".to_string(),
         max_price_per_pgu: "100000".to_string(),
+        variant: TransactionVariant::RequestVariant as i32,
     };
 
     // Compute the request ID from the request body and signer.
@@ -828,6 +844,7 @@ pub fn create_clear_tx_with_public_values_hash(
         amount: bid_amount.to_string(),
         domain: SPN_SEPOLIA_V1_DOMAIN.to_vec(),
         prover: bidder_signer.address().to_vec(),
+        variant: TransactionVariant::BidVariant as i32,
     };
 
     // Create and sign bid.
@@ -843,6 +860,7 @@ pub fn create_clear_tx_with_public_values_hash(
         request_id: request_id.to_vec(),
         winner: bidder_signer.address().to_vec(),
         domain: SPN_SEPOLIA_V1_DOMAIN.to_vec(),
+        variant: TransactionVariant::SettleVariant as i32,
     };
 
     // Create and sign settle.
@@ -863,6 +881,7 @@ pub fn create_clear_tx_with_public_values_hash(
         domain: SPN_SEPOLIA_V1_DOMAIN.to_vec(),
         punishment: None,
         failure_cause: None,
+        variant: TransactionVariant::ExecuteVariant as i32,
     };
 
     // Create and sign execute.
@@ -879,6 +898,7 @@ pub fn create_clear_tx_with_public_values_hash(
         domain: SPN_SEPOLIA_V1_DOMAIN.to_vec(),
         proof: vec![0u8; 100],
         reserved_metadata: None,
+        variant: TransactionVariant::FulfillVariant as i32,
     };
 
     // Create and sign fulfill.

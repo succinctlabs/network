@@ -4,9 +4,9 @@
 
 use std::collections::btree_map::Entry;
 
-use thiserror::Error;
 use alloy_primitives::{Address, U256};
 use alloy_sol_types::SolValue;
+use thiserror::Error;
 
 /// Storage trait providing basic operations matching those available on `MerkleStore`.
 pub trait Storage<K: StorageKey, V: StorageValue> {

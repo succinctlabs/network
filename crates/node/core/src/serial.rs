@@ -17,7 +17,7 @@ use spn_network_types::{
     prover_network_client::ProverNetworkClient, BidRequest, BidRequestBody, ExecutionStatus,
     FailFulfillmentRequest, FailFulfillmentRequestBody, FulfillProofRequest,
     FulfillProofRequestBody, FulfillmentStatus, GetFilteredProofRequestsRequest, GetNonceRequest,
-    GetProofRequestDetailsRequest, MessageFormat, ProofMode, Signable,
+    GetProofRequestDetailsRequest, MessageFormat, ProofMode, Signable, TransactionVariant,
 };
 use spn_rpc::{fetch_owner, RetryableRpc};
 use spn_utils::{time_now, SPN_SEPOLIA_V1_DOMAIN};
@@ -234,6 +234,7 @@ impl<C: NodeContext> NodeBidder<C> for SerialBidder {
                         amount: self.bid.to_string(),
                         prover: self.prover.to_vec(),
                         domain: SPN_SEPOLIA_V1_DOMAIN.to_vec(),
+                        variant: TransactionVariant::BidVariant as i32,
                     };
                     let bid_request = BidRequest {
                         format: MessageFormat::Binary.into(),
@@ -723,6 +724,7 @@ impl<C: NodeContext> NodeProver<C> for SerialProver {
                                                 proof: proof_bytes.clone(),
                                                 reserved_metadata: None,
                                                 domain: SPN_SEPOLIA_V1_DOMAIN.to_vec(),
+                                                variant: TransactionVariant::FulfillVariant as i32,
                                             };
                                             let fulfill_request = FulfillProofRequest {
                                                 format: MessageFormat::Binary.into(),

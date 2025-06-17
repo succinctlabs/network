@@ -190,31 +190,6 @@ pub mod prover_network_client {
                 .insert(GrpcMethod::new("network.ProverNetwork", "FailFulfillment"));
             self.inner.unary(req, path, codec).await
         }
-        /// Fails execution. Only callable by the execution oracle.
-        pub async fn fail_execution(
-            &mut self,
-            request: impl tonic::IntoRequest<super::super::types::FailExecutionRequest>,
-        ) -> std::result::Result<
-            tonic::Response<super::super::types::FailExecutionResponse>,
-            tonic::Status,
-        > {
-            self.inner
-                .ready()
-                .await
-                .map_err(|e| {
-                    tonic::Status::unknown(
-                        format!("Service was not ready: {}", e.into()),
-                    )
-                })?;
-            let codec = tonic::codec::ProstCodec::default();
-            let path = http::uri::PathAndQuery::from_static(
-                "/network.ProverNetwork/FailExecution",
-            );
-            let mut req = request.into_request();
-            req.extensions_mut()
-                .insert(GrpcMethod::new("network.ProverNetwork", "FailExecution"));
-            self.inner.unary(req, path, codec).await
-        }
         /// Get the status of a proof request.
         pub async fn get_proof_request_status(
             &mut self,
@@ -3121,14 +3096,6 @@ pub mod prover_network_server {
             tonic::Response<super::super::types::FailFulfillmentResponse>,
             tonic::Status,
         >;
-        /// Fails execution. Only callable by the execution oracle.
-        async fn fail_execution(
-            &self,
-            request: tonic::Request<super::super::types::FailExecutionRequest>,
-        ) -> std::result::Result<
-            tonic::Response<super::super::types::FailExecutionResponse>,
-            tonic::Status,
-        >;
         /// Get the status of a proof request.
         async fn get_proof_request_status(
             &self,
@@ -4262,54 +4229,6 @@ pub mod prover_network_server {
                     let inner = self.inner.clone();
                     let fut = async move {
                         let method = FailFulfillmentSvc(inner);
-                        let codec = tonic::codec::ProstCodec::default();
-                        let mut grpc = tonic::server::Grpc::new(codec)
-                            .apply_compression_config(
-                                accept_compression_encodings,
-                                send_compression_encodings,
-                            )
-                            .apply_max_message_size_config(
-                                max_decoding_message_size,
-                                max_encoding_message_size,
-                            );
-                        let res = grpc.unary(method, req).await;
-                        Ok(res)
-                    };
-                    Box::pin(fut)
-                }
-                "/network.ProverNetwork/FailExecution" => {
-                    #[allow(non_camel_case_types)]
-                    struct FailExecutionSvc<T: ProverNetwork>(pub Arc<T>);
-                    impl<
-                        T: ProverNetwork,
-                    > tonic::server::UnaryService<
-                        super::super::types::FailExecutionRequest,
-                    > for FailExecutionSvc<T> {
-                        type Response = super::super::types::FailExecutionResponse;
-                        type Future = BoxFuture<
-                            tonic::Response<Self::Response>,
-                            tonic::Status,
-                        >;
-                        fn call(
-                            &mut self,
-                            request: tonic::Request<
-                                super::super::types::FailExecutionRequest,
-                            >,
-                        ) -> Self::Future {
-                            let inner = Arc::clone(&self.0);
-                            let fut = async move {
-                                <T as ProverNetwork>::fail_execution(&inner, request).await
-                            };
-                            Box::pin(fut)
-                        }
-                    }
-                    let accept_compression_encodings = self.accept_compression_encodings;
-                    let send_compression_encodings = self.send_compression_encodings;
-                    let max_decoding_message_size = self.max_decoding_message_size;
-                    let max_encoding_message_size = self.max_encoding_message_size;
-                    let inner = self.inner.clone();
-                    let fut = async move {
-                        let method = FailExecutionSvc(inner);
                         let codec = tonic::codec::ProstCodec::default();
                         let mut grpc = tonic::server::Grpc::new(codec)
                             .apply_compression_config(
