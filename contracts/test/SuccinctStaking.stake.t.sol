@@ -8,6 +8,7 @@ import {ISuccinctStaking} from "../src/interfaces/ISuccinctStaking.sol";
 import {IERC20} from "../lib/openzeppelin-contracts/contracts/interfaces/IERC20.sol";
 import {ERC20Permit} from
     "../lib/openzeppelin-contracts/contracts/token/ERC20/extensions/ERC20Permit.sol";
+import {MockVApp} from "../src/mocks/MockVApp.sol";
 
 contract SuccinctStakingStakeTests is SuccinctStakingTest {
     function test_Stake_WhenValid() public {
@@ -90,6 +91,44 @@ contract SuccinctStakingStakeTests is SuccinctStakingTest {
         );
         vm.prank(STAKER_1);
         SuccinctStaking(STAKING).stake(BOB_PROVER, stakeAmount);
+    }
+
+    // Staking would give 0 $iPROVE, which should revert.
+    function test_RevertStake_WheniPROVEReceiptAmountIsZero() public {
+        uint256 stakeAmount = STAKER_PROVE_AMOUNT;
+
+        // Stake 1 stakes to Alice prover.
+        _stake(STAKER_1, ALICE_PROVER, stakeAmount);
+
+        // Give a dispense amount.
+        uint256 rewardAmount = 1_000_000_000_000_000_000_000_000_000e18;
+        deal(PROVE, I_PROVE, rewardAmount);
+
+        // Stake 2 stakes to Alice prover.
+        vm.prank(STAKER_2);
+        IERC20(PROVE).approve(STAKING, stakeAmount);
+        vm.expectRevert(abi.encodeWithSelector(ISuccinctStaking.ZeroReceiptAmount.selector));
+        vm.prank(STAKER_2);
+        SuccinctStaking(STAKING).stake(ALICE_PROVER, stakeAmount);
+    }
+
+    // Staking would give 0 $PROVER-N, which should revert.
+    function test_RevertStake_WhenProverNReceiptAmountIsZero() public {
+        uint256 stakeAmount = STAKER_PROVE_AMOUNT;
+
+        // Stake 1 stakes to Alice prover.
+        _stake(STAKER_1, ALICE_PROVER, stakeAmount);
+
+        // Give a reward amount to the prover.
+        uint256 rewardAmount = 1_000_000_000_000_000_000_000_000_000e18;
+        deal(I_PROVE, ALICE_PROVER, rewardAmount);
+
+        // Stake 2 stakes to Alice prover.
+        vm.prank(STAKER_2);
+        IERC20(PROVE).approve(STAKING, stakeAmount);
+        vm.expectRevert(abi.encodeWithSelector(ISuccinctStaking.ZeroReceiptAmount.selector));
+        vm.prank(STAKER_2);
+        SuccinctStaking(STAKING).stake(ALICE_PROVER, stakeAmount);
     }
 
     function test_PermitAndStake_WhenValid() public {
