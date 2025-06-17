@@ -565,6 +565,9 @@ impl<A: Storage<Address, Account>, R: Storage<RequestId, bool>> VAppState<A, R> 
                     // Send the punishment to the treasury
                     self.accounts.entry(self.treasury).or_default().add_balance(punishment);
 
+                    // Set the transaction as processed.
+                    self.transactions.insert(request_id, true);
+
                     return Ok(None);
                 }
 
