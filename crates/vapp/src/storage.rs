@@ -4,6 +4,7 @@
 
 use std::collections::btree_map::Entry;
 
+use thiserror::Error;
 use alloy_primitives::{Address, U256};
 use alloy_sol_types::SolValue;
 
@@ -13,19 +14,24 @@ pub trait Storage<K: StorageKey, V: StorageValue> {
     fn new() -> Self;
 
     /// Insert a value at the given key.
-    fn insert(&mut self, key: K, value: V);
-
-    /// Remove a value at the given key.
-    fn remove(&mut self, key: K);
+    fn insert(&mut self, key: K, value: V) -> Result<(), StorageError>;
 
     /// Gets an entry at the given key.
-    fn entry(&mut self, key: K) -> Entry<U256, V>;
+    fn entry(&mut self, key: K) -> Result<Entry<U256, V>, StorageError>;
 
     /// Get a value at the given key.
-    fn get(&self, key: &K) -> Option<&V>;
+    fn get(&mut self, key: &K) -> Result<Option<&V>, StorageError>;
 
     /// Get a mutable reference to a value at the given key.
-    fn get_mut(&mut self, key: &K) -> Option<&mut V>;
+    fn get_mut(&mut self, key: &K) -> Result<Option<&mut V>, StorageError>;
+}
+
+/// Errors that can occur when interacting with storage.
+#[derive(Debug, Error, PartialEq)]
+pub enum StorageError {
+    /// The key is not allowed in the current context.
+    #[error("key not allowed")]
+    KeyNotAllowed,
 }
 
 /// Trait for types that can be used as keys in a [`MerkleTree`].
@@ -71,6 +77,6 @@ impl StorageKey for RequestId {
 }
 
 /// Trait for types that can be used as values in a [`crate::merkle::MerkleTree`].
-pub trait StorageValue: SolValue + Clone {}
+pub trait StorageValue: SolValue + Clone + Default {}
 
-impl<V: SolValue + Clone> StorageValue for V {}
+impl<V: SolValue + Clone + Default> StorageValue for V {}

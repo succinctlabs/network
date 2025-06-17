@@ -9,13 +9,12 @@ use std::{
 };
 
 use alloy_primitives::{keccak256, Keccak256, B256, U256};
-use alloy_sol_types::SolValue;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
 use crate::{
     sparse::SparseStorage,
-    storage::{Storage, StorageKey, StorageValue},
+    storage::{Storage, StorageError, StorageKey, StorageValue},
 };
 
 /// Merkle tree with key type K and value type V.
@@ -88,7 +87,7 @@ pub trait MerkleTreeHasher {
     fn hash_pair<V: StorageValue>(left: &V, right: &V) -> B256;
 }
 
-impl<K: StorageKey, V: SolValue + Clone, H: MerkleTreeHasher> MerkleStorage<K, V, H> {
+impl<K: StorageKey, V: StorageValue, H: MerkleTreeHasher> MerkleStorage<K, V, H> {
     /// Compute the merkle root from scratch.
     pub fn root(&mut self) -> B256 {
         let num_bits = K::bits();
@@ -513,17 +512,17 @@ impl<K: StorageKey, V: SolValue + Clone, H: MerkleTreeHasher> MerkleStorage<K, V
         // Delegate to the original implementation.
         Self::calculate_new_root(old_root, proofs, &new_values)
     }
+
+
 }
 
-impl<K: StorageKey, V: SolValue + Clone, H: MerkleTreeHasher> Default for MerkleStorage<K, V, H> {
+impl<K: StorageKey, V: StorageValue, H: MerkleTreeHasher> Default for MerkleStorage<K, V, H> {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl<K: StorageKey, V: SolValue + Clone, H: MerkleTreeHasher> Storage<K, V>
-    for MerkleStorage<K, V, H>
-{
+impl<K: StorageKey, V: StorageValue, H: MerkleTreeHasher> Storage<K, V> for MerkleStorage<K, V, H> {
     /// Creates a new [`MerkleTree`].
     fn new() -> Self {
         let zero_hashes = Self::compute_zero_hashes();
@@ -540,43 +539,37 @@ impl<K: StorageKey, V: SolValue + Clone, H: MerkleTreeHasher> Storage<K, V>
     /// Insert a value at the given key.
     ///
     /// The value is automatically ABI-encoded and hashed.
-    fn insert(&mut self, key: K, value: V) {
+    fn insert(&mut self, key: K, value: V) -> Result<(), StorageError> {
         let index = key.index();
         self.leaves.insert(index, value);
         // Track that this key has been touched (written).
         self.touched_keys.insert(key);
         // Clear cache as tree structure has changed.
         self.cache.clear();
-    }
 
-    /// Remove a value at the given key.
-    fn remove(&mut self, key: K) {
-        let index = key.index();
-        self.leaves.remove(&index);
-        // Track that this key has been touched (written).
-        self.touched_keys.insert(key);
-        // Clear cache as tree structure has changed.
-        self.cache.clear();
+        Ok(())
     }
 
     /// Gets an entry at the given key.
-    fn entry(&mut self, key: K) -> Entry<U256, V> {
+    fn entry(&mut self, key: K) -> Result<Entry<U256, V>, StorageError> {
         let index = key.index();
         // Track that this key has been touched (entry can be used for read or write).
         self.touched_keys.insert(key);
-        self.leaves.entry(index)
+        let entry = self.leaves.entry(index);
+
+        Ok(entry)
     }
 
     /// Get a value at the given key.
-    fn get(&self, key: &K) -> Option<&V> {
+    fn get(&mut self, key: &K) -> Result<Option<&V>, StorageError> {
         let index = key.index();
-        self.leaves.get(&index)
+        Ok(self.leaves.get(&index))
     }
 
     /// Get a mutable reference to a value at the given key.
-    fn get_mut(&mut self, key: &K) -> Option<&mut V> {
+    fn get_mut(&mut self, key: &K) -> Result<Option<&mut V>, StorageError> {
         let index = key.index();
-        self.leaves.get_mut(&index)
+        Ok(self.leaves.get_mut(&index))
     }
 }
 
@@ -615,7 +608,7 @@ mod tests {
         let key = uint!(5_U256);
         let value = uint!(42_U256);
 
-        tree.insert(key, value);
+        tree.insert(key, value).unwrap();
         let root = tree.root();
         let proof = tree.proof(&key).unwrap();
 
@@ -627,8 +620,8 @@ mod tests {
         let mut tree1 = U256Tree::new();
         let mut tree2 = U256Tree::new();
 
-        tree1.insert(uint!(1_U256), uint!(100_U256));
-        tree2.insert(uint!(2_U256), uint!(200_U256));
+        tree1.insert(uint!(1_U256), uint!(100_U256)).unwrap();
+        tree2.insert(uint!(2_U256), uint!(200_U256)).unwrap();
 
         assert_ne!(tree1.root(), tree2.root());
     }
@@ -639,7 +632,7 @@ mod tests {
         let key = uint!(7_U256);
         let value = uint!(300_U256);
 
-        tree.insert(key, value);
+        tree.insert(key, value).unwrap();
         let root = tree.root();
         let proof = tree.proof(&key).unwrap();
 
@@ -661,12 +654,12 @@ mod tests {
 
         // Insert in original order.
         for (key, value) in &values {
-            tree1.insert(*key, *value);
+            tree1.insert(*key, *value).unwrap();
         }
 
         // Insert in reverse order.
         for (key, value) in values.iter().rev() {
-            tree2.insert(*key, *value);
+            tree2.insert(*key, *value).unwrap();
         }
 
         assert_eq!(tree1.root(), tree2.root());
@@ -680,8 +673,8 @@ mod tests {
         let value1 = uint!(1000_U256);
         let value2 = uint!(2000_U256);
 
-        tree.insert(addr1, value1);
-        tree.insert(addr2, value2);
+        tree.insert(addr1, value1).unwrap();
+        tree.insert(addr2, value2).unwrap();
 
         let root = tree.root();
         let proof1 = tree.proof(&addr1).unwrap();
@@ -698,23 +691,10 @@ mod tests {
         let key = uint!(42_U256);
         let value = uint!(1337_U256);
 
-        assert_eq!(tree.get(&key), None);
+        assert_eq!(tree.get(&key).unwrap(), None);
 
-        tree.insert(key, value);
-        assert_eq!(tree.get(&key), Some(&value));
-    }
-
-    #[test]
-    fn remove_deletes_value() {
-        let mut tree = U256Tree::new();
-        let key = uint!(42_U256);
-        let value = uint!(1337_U256);
-
-        tree.insert(key, value);
-        assert_eq!(tree.get(&key), Some(&value));
-
-        tree.remove(key);
-        assert_eq!(tree.get(&key), None);
+        tree.insert(key, value).unwrap();
+        assert_eq!(tree.get(&key).unwrap(), Some(&value));
     }
 
     #[test]
@@ -725,12 +705,12 @@ mod tests {
         let updated_value = uint!(200_U256);
 
         // Insert via entry.
-        tree.entry(key).or_insert(initial_value);
-        assert_eq!(tree.get(&key), Some(&initial_value));
+        tree.entry(key).unwrap().or_insert(initial_value);
+        assert_eq!(tree.get(&key).unwrap(), Some(&initial_value));
 
         // Update via entry.
-        *tree.entry(key).or_insert(uint!(0_U256)) = updated_value;
-        assert_eq!(tree.get(&key), Some(&updated_value));
+        *tree.entry(key).unwrap().or_insert(uint!(0_U256)) = updated_value;
+        assert_eq!(tree.get(&key).unwrap(), Some(&updated_value));
     }
 
     #[test]
@@ -739,7 +719,7 @@ mod tests {
         let key = uint!(123_U256);
         let value = uint!(456_U256);
 
-        tree.insert(key, value);
+        tree.insert(key, value).unwrap();
         let root = tree.root();
         let proof = tree.proof(&key).unwrap();
         let leaf_hash = Keccak256::hash(&value);
@@ -760,7 +740,7 @@ mod tests {
         for i in 0..num_entries {
             let key = U256::from((i * 17) % 1000); // Use some spread.
             let value = U256::from(i * 3);
-            tree.insert(key, value);
+            tree.insert(key, value).unwrap();
         }
 
         let root = tree.root();
@@ -780,12 +760,12 @@ mod tests {
         let zero_key = uint!(0_U256);
         let zero_value = uint!(0_U256);
 
-        tree.insert(zero_key, zero_value);
+        tree.insert(zero_key, zero_value).unwrap();
         let root = tree.root();
         let proof = tree.proof(&zero_key).unwrap();
 
         assert!(U256Tree::verify_proof(root, &proof).is_ok());
-        assert_eq!(tree.get(&zero_key), Some(&zero_value));
+        assert_eq!(tree.get(&zero_key).unwrap(), Some(&zero_value));
     }
 
     #[test]
@@ -794,7 +774,7 @@ mod tests {
         let max_key = U256::MAX;
         let value = uint!(42_U256);
 
-        tree.insert(max_key, value);
+        tree.insert(max_key, value).unwrap();
         let root = tree.root();
         let proof = tree.proof(&max_key).unwrap();
 
@@ -816,7 +796,7 @@ mod tests {
         let value1 = uint!(100_U256);
 
         // Build initial tree with one value.
-        tree.insert(key1, value1);
+        tree.insert(key1, value1).unwrap();
         let old_root = tree.root();
 
         // Generate proof for the existing key.
@@ -834,7 +814,7 @@ mod tests {
 
         // Verify by manually building the expected tree.
         let mut expected_tree = U256Tree::new();
-        expected_tree.insert(key1, new_value1);
+        expected_tree.insert(key1, new_value1).unwrap();
         let expected_root = expected_tree.root();
 
         assert_eq!(calculated_root, expected_root);
@@ -849,8 +829,8 @@ mod tests {
         let value2 = uint!(200_U256);
 
         // Build initial tree with two values.
-        tree.insert(key1, value1);
-        tree.insert(key2, value2);
+        tree.insert(key1, value1).unwrap();
+        tree.insert(key2, value2).unwrap();
         let old_root = tree.root();
 
         // Generate proofs for both keys.
@@ -872,8 +852,8 @@ mod tests {
 
         // Verify by manually building the expected tree.
         let mut expected_tree = U256Tree::new();
-        expected_tree.insert(key1, new_value1);
-        expected_tree.insert(key2, value2);
+        expected_tree.insert(key1, new_value1).unwrap();
+        expected_tree.insert(key2, value2).unwrap();
         let expected_root = expected_tree.root();
 
         assert_eq!(calculated_root, expected_root);
@@ -890,9 +870,9 @@ mod tests {
         let value3 = uint!(300_U256);
 
         // Build initial tree with three values.
-        tree.insert(key1, value1);
-        tree.insert(key2, value2);
-        tree.insert(key3, value3);
+        tree.insert(key1, value1).unwrap();
+        tree.insert(key2, value2).unwrap();
+        tree.insert(key3, value3).unwrap();
         let old_root = tree.root();
 
         // Generate proofs for all keys.
@@ -917,9 +897,9 @@ mod tests {
 
         // Verify by manually building the expected tree.
         let mut expected_tree = U256Tree::new();
-        expected_tree.insert(key1, new_value1);
-        expected_tree.insert(key2, value2);
-        expected_tree.insert(key3, new_value3);
+        expected_tree.insert(key1, new_value1).unwrap();
+        expected_tree.insert(key2, value2).unwrap();
+        expected_tree.insert(key3, new_value3).unwrap();
         let expected_root = expected_tree.root();
 
         assert_eq!(calculated_root, expected_root);
@@ -932,7 +912,7 @@ mod tests {
         let value = uint!(100_U256);
         let wrong_value = uint!(999_U256);
 
-        tree.insert(key, value);
+        tree.insert(key, value).unwrap();
         let old_root = tree.root();
         let proof = tree.proof(&key).unwrap();
 
@@ -953,7 +933,7 @@ mod tests {
         let value_existing = uint!(100_U256);
 
         // Populate tree.
-        tree.insert(key_existing, value_existing);
+        tree.insert(key_existing, value_existing).unwrap();
         let old_root = tree.root();
 
         // Prepare a *different* key that we will try to update without providing a proof.
@@ -976,7 +956,7 @@ mod tests {
     #[test]
     fn calculate_new_root_no_changes_returns_same_root() {
         let mut tree = U256Tree::new();
-        tree.insert(uint!(5_U256), uint!(55_U256));
+        tree.insert(uint!(5_U256), uint!(55_U256)).unwrap();
         let old_root = tree.root();
 
         // No proofs, no updates.
@@ -989,7 +969,7 @@ mod tests {
         let mut tree = U256Tree::new();
         let key = uint!(10_U256);
         let value = uint!(123_U256);
-        tree.insert(key, value);
+        tree.insert(key, value).unwrap();
         let old_root = tree.root();
 
         let proof = tree.proof(&key).unwrap();
@@ -1007,7 +987,7 @@ mod tests {
         let mut tree = U256Tree::new();
         let key = uint!(42_U256);
         let original_value = uint!(1_U256);
-        tree.insert(key, original_value);
+        tree.insert(key, original_value).unwrap();
         let old_root = tree.root();
 
         let proof = tree.proof(&key).unwrap();
@@ -1021,7 +1001,7 @@ mod tests {
 
         // Build expected tree with the *last* value.
         let mut expected_tree = U256Tree::new();
-        expected_tree.insert(key, uint!(30_U256));
+        expected_tree.insert(key, uint!(30_U256)).unwrap();
         let expected_root = expected_tree.root();
 
         assert_eq!(calculated_root, expected_root);
@@ -1039,7 +1019,7 @@ mod tests {
         assert!(tree.get_touched_keys().is_empty());
 
         // Insert operations should track keys as touched.
-        tree.insert(key1, value1);
+        tree.insert(key1, value1).unwrap();
         assert!(tree.get_touched_keys().contains(&key1));
 
         // Tracked get should mark key as touched.
@@ -1075,7 +1055,7 @@ mod tests {
         for i in 0..num_entries {
             let key = U256::from(i * 13 + 7);
             let value = U256::from(i * 17 + 3);
-            tree.insert(key, value);
+            tree.insert(key, value).unwrap();
         }
 
         let old_root = tree.root();
@@ -1086,7 +1066,7 @@ mod tests {
 
         for i in 0..num_entries {
             let key = U256::from(i * 13 + 7);
-            let value = *tree.get(&key).unwrap();
+            let value = *tree.get(&key).unwrap().unwrap();
             let proof = tree.proof(&key).unwrap();
             proofs.push(MerkleProof::new(key, Some(value), proof.proof));
 
@@ -1102,7 +1082,7 @@ mod tests {
 
         // Apply the same updates to the original tree and compare roots.
         for (key, new_value) in new_values {
-            tree.insert(key, new_value);
+            tree.insert(key, new_value).unwrap();
         }
         let expected_root = tree.root();
 
@@ -1123,7 +1103,7 @@ mod tests {
         let mut tree = U256Tree::new();
         let key = uint!(1_U256);
         let original_value = uint!(100_U256);
-        tree.insert(key, original_value);
+        tree.insert(key, original_value).unwrap();
         let old_root = tree.root();
 
         // Generate proof for the existing key.
@@ -1133,14 +1113,15 @@ mod tests {
         // Prepare sparse updates that change the value for the key.
         let new_value = uint!(150_U256);
         let mut updates = U256Sparse::new();
-        updates.insert(key, new_value);
+        updates.recover::<Keccak256>(old_root, &proofs).unwrap();
+        updates.insert(key, new_value).unwrap();
 
         // Calculate the new root via the sparse method.
         let calculated_root = U256Tree::calculate_new_root_sparse(old_root, &proofs, &updates)
             .expect("calculate_new_root_sparse should succeed.");
 
         // Manually apply the same update to the tree and compare roots.
-        tree.insert(key, new_value);
+        tree.insert(key, new_value).unwrap();
         let expected_root = tree.root();
 
         assert_eq!(calculated_root, expected_root);
@@ -1162,14 +1143,15 @@ mod tests {
 
         // Prepare updates that insert the new value.
         let mut updates = U256Sparse::new();
-        updates.insert(key, new_value);
+        updates.recover::<Keccak256>(old_root, &proofs).unwrap();
+        updates.insert(key, new_value).unwrap();
 
         // Calculate the new root.
         let calculated_root = U256Tree::calculate_new_root_sparse(old_root, &proofs, &updates)
             .expect("calculate_new_root_sparse should succeed.");
 
         // Verify by applying the same insertion to the original tree.
-        tree.insert(key, new_value);
+        tree.insert(key, new_value).unwrap();
         let expected_root = tree.root();
 
         assert_eq!(calculated_root, expected_root);
@@ -1185,9 +1167,9 @@ mod tests {
         let value1 = uint!(10_U256);
         let value2 = uint!(20_U256);
         let value3 = uint!(30_U256);
-        tree.insert(key1, value1);
-        tree.insert(key2, value2);
-        tree.insert(key3, value3);
+        tree.insert(key1, value1).unwrap();
+        tree.insert(key2, value2).unwrap();
+        tree.insert(key3, value3).unwrap();
         let old_root = tree.root();
 
         // Generate proofs for all keys.
@@ -1204,16 +1186,17 @@ mod tests {
         let new_value1 = uint!(100_U256);
         let new_value3 = uint!(300_U256);
         let mut updates = U256Sparse::new();
-        updates.insert(key1, new_value1);
-        updates.insert(key3, new_value3);
+        updates.recover::<Keccak256>(old_root, &proofs).unwrap();
+        updates.insert(key1, new_value1).unwrap();
+        updates.insert(key3, new_value3).unwrap();
 
         // Calculate the new root.
         let calculated_root = U256Tree::calculate_new_root_sparse(old_root, &proofs, &updates)
             .expect("calculate_new_root_sparse should succeed.");
 
         // Apply same updates directly and compare.
-        tree.insert(key1, new_value1);
-        tree.insert(key3, new_value3);
+        tree.insert(key1, new_value1).unwrap();
+        tree.insert(key3, new_value3).unwrap();
         let expected_root = tree.root();
 
         assert_eq!(calculated_root, expected_root);
@@ -1222,7 +1205,7 @@ mod tests {
     #[test]
     fn calculate_new_root_sparse_no_changes_returns_same_root() {
         let mut tree = U256Tree::new();
-        tree.insert(uint!(7_U256), uint!(70_U256));
+        tree.insert(uint!(7_U256), uint!(70_U256)).unwrap();
         let old_root = tree.root();
 
         // Empty proofs and updates should yield identical root.
@@ -1231,27 +1214,6 @@ mod tests {
         let new_root = U256Tree::calculate_new_root_sparse(old_root, &proofs, &empty_updates)
             .expect("Should succeed.");
         assert_eq!(new_root, old_root);
-    }
-
-    #[test]
-    fn calculate_new_root_sparse_fails_when_proof_missing_for_update() {
-        // Build a tree with one key.
-        let mut tree = U256Tree::new();
-        let key = uint!(55_U256);
-        let value = uint!(555_U256);
-        tree.insert(key, value);
-        let old_root = tree.root();
-
-        // Do NOT provide any proofs.
-        let proofs: Vec<MerkleProof<U256, U256, Keccak256>> = Vec::new();
-
-        // Prepare an update that changes the key.
-        let mut updates = U256Sparse::new();
-        updates.insert(key, uint!(999_U256));
-
-        // Expect an error because the proof is missing.
-        let result = U256Tree::calculate_new_root_sparse(old_root, &proofs, &updates);
-        assert!(matches!(result, Err(MerkleStorageError::MissingMerkleProofForUpdatedKey)));
     }
 
     #[test]
@@ -1264,8 +1226,8 @@ mod tests {
         let addr2 = address!("2222222222222222222222222222222222222222");
         let val1 = uint!(1_U256);
         let val2 = uint!(2_U256);
-        tree.insert(addr1, val1);
-        tree.insert(addr2, val2);
+        tree.insert(addr1, val1).unwrap();
+        tree.insert(addr2, val2).unwrap();
         let old_root = tree.root();
 
         // Proofs for both addresses.
@@ -1278,7 +1240,8 @@ mod tests {
 
         // Update addr2 only.
         let new_val2 = uint!(20_U256);
-        updates.insert(addr2, new_val2);
+        updates.recover::<Keccak256>(old_root, &proofs).unwrap();
+        updates.insert(addr2, new_val2).unwrap();  
 
         // Calculate new root via sparse method.
         let calculated_root =
@@ -1286,7 +1249,7 @@ mod tests {
                 .expect("Should succeed.");
 
         // Apply update directly and compare.
-        tree.insert(addr2, new_val2);
+        tree.insert(addr2, new_val2).unwrap();
         let expected_root = tree.root();
         assert_eq!(calculated_root, expected_root);
     }
@@ -1299,7 +1262,7 @@ mod tests {
         for i in 0..num_entries {
             let key = U256::from(i * 31 + 9);
             let value = U256::from(i * 17 + 5);
-            tree.insert(key, value);
+            tree.insert(key, value).unwrap();
         }
         let old_root = tree.root();
 
@@ -1308,13 +1271,20 @@ mod tests {
         let mut updates = U256Sparse::new();
         for i in 0..num_entries {
             let key = U256::from(i * 31 + 9);
-            let value = *tree.get(&key).unwrap();
+            let value = *tree.get(&key).unwrap().unwrap();
             let proof = tree.proof(&key).unwrap();
             proofs.push(MerkleProof::new(key, Some(value), proof.proof));
+        }
 
-            if i % 6 == 0 {
+        // Recover the updates from the proofs.
+        updates.recover::<Keccak256>(old_root, &proofs).unwrap();
+
+        // Apply the updates to the sparse store.
+        for i in 0..num_entries {
+            if i % 6 == 0 { 
+                let key = U256::from(i * 31 + 9);
                 let new_value = U256::from(i * 29 + 7);
-                updates.insert(key, new_value);
+                updates.insert(key, new_value).unwrap();
             }
         }
 
@@ -1324,7 +1294,7 @@ mod tests {
 
         // Apply identical updates directly and compare.
         for (index, new_val) in updates.iter_raw() {
-            tree.insert(*index, *new_val);
+            tree.insert(*index, *new_val).unwrap();
         }
         let expected_root = tree.root();
         assert_eq!(calculated_root, expected_root);

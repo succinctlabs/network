@@ -89,6 +89,7 @@ sol! {
     }
 
     /// @notice The state of the VApp.
+    #[derive(Debug, Default, PartialEq, Serialize, Deserialize)]
     struct VAppStateContainer {
         bytes32 domain;
         uint64 txId;
