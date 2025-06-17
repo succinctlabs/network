@@ -625,6 +625,12 @@ impl<A: Storage<Address, Account>, R: Storage<RequestId, bool>> VAppState<A, R> 
                     });
                 }
 
+                // Verify the variant of the fulfill.
+                let fulfill_variant = tx_variant(fulfill_body.variant)?;
+                if fulfill_variant != TransactionVariant::FulfillVariant {
+                    return Err(VAppPanic::InvalidTransactionVariant);
+                }
+
                 // Validate that the fulfill request ID matches the request ID.
                 let fulfill_request_id = fulfill_body.request_id.clone();
                 if fulfill_request_id != request_id {
