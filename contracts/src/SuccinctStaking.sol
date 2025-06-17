@@ -305,8 +305,8 @@ contract SuccinctStaking is
         if (block.timestamp < claim.timestamp + slashPeriod) revert SlashNotReady();
 
         // Determine how much can actually be slashed (cannot exceed the prover's current balance).
-        uint256 available = IERC4626(_prover).totalAssets();
-        iPROVE = claim.iPROVE > available ? available : claim.iPROVE;
+        uint256 iPROVEBalance = IERC4626(_prover).totalAssets();
+        iPROVE = claim.iPROVE > iPROVEBalance ? iPROVEBalance : claim.iPROVE;
 
         // Delete the claim.
         if (_index != slashClaims[_prover].length - 1) {
