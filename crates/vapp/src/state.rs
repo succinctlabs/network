@@ -559,6 +559,16 @@ impl<A: Storage<Address, Account>, R: Storage<RequestId, bool>> VAppState<A, R> 
                         return Err(VAppPanic::PunishmentExceedsMaxCost { punishment, max_price });
                     }
 
+                    // Validate that the requester has sufficient balance to pay the punishment.
+                    let balance = self.accounts.entry(request_signer).or_default().get_balance();
+                    if balance < punishment {
+                        return Err(VAppPanic::InsufficientBalance {
+                            account: request_signer,
+                            amount: punishment,
+                            balance,
+                        });
+                    }
+
                     // Deduct the punishment from the requester.
                     self.accounts.entry(request_signer).or_default().deduct_balance(punishment);
 
