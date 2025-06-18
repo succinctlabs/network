@@ -275,6 +275,11 @@ contract SuccinctVApp is
             revert TimestampInPast();
         }
 
+        // Ensure the timestamp is not too far in the past (older than 1 hour).
+        if (block.timestamp - publicValues.timestamp > 1 hours) {
+            revert TimestampTooOld();
+        }
+
         // Update the state root.
         uint64 newBlock = ++blockNumber;
         roots[newBlock] = publicValues.newRoot;
