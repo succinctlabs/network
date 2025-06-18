@@ -84,11 +84,11 @@ contract MockStaking is ProverRegistry, ISuccinctStaking {
 
     function requestUnstake(uint256 _stPROVE) external override {
         unstakeClaims[msg.sender].push(
-            UnstakeClaim({stPROVE: _stPROVE, timestamp: block.timestamp})
+            UnstakeClaim({stPROVE: _stPROVE, snapshotiPROVE: _stPROVE, timestamp: block.timestamp})
         );
     }
 
-    function finishUnstake() external pure override returns (uint256) {
+    function finishUnstake(address) external pure override returns (uint256) {
         return 0;
     }
 

@@ -156,7 +156,7 @@ contract SuccinctStakingTest is Test {
 
     function _finishUnstake(address _staker) internal returns (uint256) {
         vm.prank(_staker);
-        return SuccinctStaking(STAKING).finishUnstake();
+        return SuccinctStaking(STAKING).finishUnstake(_staker);
     }
 
     function _completeSlash(address _prover, uint256 _amount) internal {

@@ -23,7 +23,6 @@ contract SuccinctStakingUnstakeTests is SuccinctStakingTest {
         // Check balances after stake
         assertEq(IERC20(STAKING).balanceOf(STAKER_1), stakeAmount);
         assertEq(SuccinctStaking(STAKING).staked(STAKER_1), stakeAmount);
-        // assertEq(SuccinctStaking(STAKING).claimable(STAKER_1), 0);
         assertEq(SuccinctStaking(STAKING).unstakePending(STAKER_1), 0);
         assertEq(SuccinctStaking(STAKING).previewRedeem(ALICE_PROVER, stakeAmount), stakeAmount);
         assertEq(SuccinctStaking(STAKING).proverStaked(ALICE_PROVER), stakeAmount);
@@ -34,7 +33,6 @@ contract SuccinctStakingUnstakeTests is SuccinctStakingTest {
         // Nothing should have changed
         assertEq(IERC20(STAKING).balanceOf(STAKER_1), stakeAmount);
         assertEq(SuccinctStaking(STAKING).staked(STAKER_1), stakeAmount);
-        // assertEq(SuccinctStaking(STAKING).claimable(STAKER_1), 0);
         assertEq(IERC20(PROVE).balanceOf(STAKER_1), 0);
         assertEq(IERC20(I_PROVE).balanceOf(ALICE_PROVER), stakeAmount);
         assertEq(SuccinctStaking(STAKING).unstakePending(STAKER_1), stakeAmount);
@@ -48,7 +46,34 @@ contract SuccinctStakingUnstakeTests is SuccinctStakingTest {
         // Verify final state
         assertEq(SuccinctStaking(STAKING).balanceOf(STAKER_1), 0);
         assertEq(SuccinctStaking(STAKING).staked(STAKER_1), 0);
-        // assertEq(SuccinctStaking(STAKING).claimable(STAKER_1), 0);
+        assertEq(IERC20(PROVE).balanceOf(I_PROVE), 0);
+        assertEq(SuccinctStaking(STAKING).unstakePending(STAKER_1), 0);
+        assertEq(SuccinctStaking(STAKING).previewRedeem(ALICE_PROVER, stakeAmount), stakeAmount);
+        assertEq(SuccinctStaking(STAKING).previewRedeem(ALICE_PROVER, 0), 0);
+        assertEq(SuccinctStaking(STAKING).proverStaked(ALICE_PROVER), 0);
+    }
+
+    // Someone else finishes the unstake for a staker
+    function test_Unstake_WhenSomeoneElseFinishesUnstake() public {
+        uint256 stakeAmount = STAKER_PROVE_AMOUNT;
+        uint256 unstakeAmount = STAKER_PROVE_AMOUNT;
+
+        // Stake some tokens to Alice prover
+        _permitAndStake(STAKER_1, STAKER_1_PK, ALICE_PROVER, stakeAmount);
+
+        // Unstake some tokens from Alice prover
+        _requestUnstake(STAKER_1, unstakeAmount);
+
+        // Wait for the unstake period to pass
+        skip(UNSTAKE_PERIOD);
+
+        // Someone else should be able to finish the unstake
+        vm.prank(STAKER_2);
+        SuccinctStaking(STAKING).finishUnstake(STAKER_1);
+
+        // Verify final state
+        assertEq(SuccinctStaking(STAKING).balanceOf(STAKER_1), 0);
+        assertEq(SuccinctStaking(STAKING).staked(STAKER_1), 0);
         assertEq(IERC20(PROVE).balanceOf(I_PROVE), 0);
         assertEq(SuccinctStaking(STAKING).unstakePending(STAKER_1), 0);
         assertEq(SuccinctStaking(STAKING).previewRedeem(ALICE_PROVER, stakeAmount), stakeAmount);
@@ -320,7 +345,7 @@ contract SuccinctStakingUnstakeTests is SuccinctStakingTest {
 
         // Calculate expected staker reward portion
         uint256 expectedStakerRewardPerReward = (rewardAmount * STAKER_FEE_BIPS) / FEE_UNIT;
-        uint256 totalExpectedStakerRewards = expectedStakerRewardPerReward * 2;
+        uint256 expectedStakerRewardFromFirstReward = expectedStakerRewardPerReward;
 
         // Withdraw the staker reward to the prover vault to increase staked amount
         _withdrawFromVApp(ALICE_PROVER, expectedStakerRewardPerReward);
@@ -334,7 +359,7 @@ contract SuccinctStakingUnstakeTests is SuccinctStakingTest {
             "Staked amount should increase by staker reward portion"
         );
 
-        // Unstake from Alice prover
+        // Unstake from Alice prover - this snapshots the iPROVE value
         _requestUnstake(STAKER_1, stakeAmount);
 
         // Add more rewards while tokens are in the unstake queue
@@ -349,18 +374,19 @@ contract SuccinctStakingUnstakeTests is SuccinctStakingTest {
         // Claim unstaked tokens
         uint256 claimedAmount = _finishUnstake(STAKER_1);
 
-        // Verify the staker got their original stake + staker portion of BOTH rewards
+        // With the new implementation, the staker only gets rewards earned BEFORE requesting unstake
+        // The second reward goes back to the prover, not the unstaker
         assertApproxEqAbs(
             claimedAmount,
-            stakeAmount + totalExpectedStakerRewards,
+            stakeAmount + expectedStakerRewardFromFirstReward,
             1,
-            "Claimed amount should include staker rewards"
+            "Claimed amount should only include rewards earned before unstake request"
         );
         assertApproxEqAbs(
             IERC20(PROVE).balanceOf(STAKER_1),
-            stakeAmount + totalExpectedStakerRewards,
+            stakeAmount + expectedStakerRewardFromFirstReward,
             1,
-            "Final balance should include staker rewards"
+            "Final balance should only include rewards earned before unstake request"
         );
         assertEq(IERC20(ALICE_PROVER).balanceOf(STAKING), 0);
     }
@@ -445,27 +471,6 @@ contract SuccinctStakingUnstakeTests is SuccinctStakingTest {
         assertEq(IERC20(ALICE_PROVER).balanceOf(STAKING), 0);
     }
 
-    function test_RevertUnstake_WhenSomeoneElseCallsClaimUnstake() public {
-        uint256 stakeAmount = STAKER_PROVE_AMOUNT;
-        uint256 unstakeAmount = STAKER_PROVE_AMOUNT;
-
-        // Stake some tokens to Alice prover
-        _permitAndStake(STAKER_1, STAKER_1_PK, ALICE_PROVER, stakeAmount);
-
-        // Someone else should not be able to claim the unstake
-        vm.expectRevert(ISuccinctStaking.NotStaked.selector);
-        vm.prank(STAKER_2);
-        SuccinctStaking(STAKING).finishUnstake();
-
-        // Unstake some tokens from Alice prover
-        _requestUnstake(STAKER_1, unstakeAmount);
-
-        // Someone else should not be able to claim the unstake, even after unstake has been called
-        vm.expectRevert(ISuccinctStaking.NotStaked.selector);
-        vm.prank(STAKER_2);
-        SuccinctStaking(STAKING).finishUnstake();
-    }
-
     function test_RevertUnstake_WhenAmountExceedsBalance() public {
         uint256 stakeAmount = STAKER_PROVE_AMOUNT / 2; // Only stake half of the tokens
         uint256 unstakeAmount = STAKER_PROVE_AMOUNT; // Try to unstake more than staked
@@ -515,6 +520,6 @@ contract SuccinctStakingUnstakeTests is SuccinctStakingTest {
         // Attempt to finish unstake while there's a pending slash request - should revert
         vm.expectRevert(abi.encodeWithSelector(ISuccinctStaking.ProverHasSlashRequest.selector));
         vm.prank(STAKER_1);
-        SuccinctStaking(STAKING).finishUnstake();
+        SuccinctStaking(STAKING).finishUnstake(STAKER_1);
     }
 }

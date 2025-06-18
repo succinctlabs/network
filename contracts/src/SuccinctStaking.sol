@@ -104,6 +104,8 @@ contract SuccinctStaking is
         address prover = stakerToProver[_staker];
         if (prover == address(0)) return 0;
 
+        // Get the amount of $PROVE the staker would get if the staker's full $stPROVE balance was
+        // unstaked.
         return previewRedeem(prover, balanceOf(_staker));
     }
 
@@ -219,35 +221,42 @@ contract SuccinctStaking is
         // Check that this staker has enough $stPROVE to unstake this amount.
         if (stPROVEBalance < stPROVEClaim + _stPROVE) revert InsufficientStakeBalance();
 
+        // Get the amount of $iPROVE that would be received if the specified $stPROVE was redeemed.
+        uint256 snapshotiPROVE = IERC4626(prover).previewRedeem(_stPROVE);
+
         // Create a claim to unstake $stPROVE from the prover for the specified amount.
         unstakeClaims[msg.sender].push(
-            UnstakeClaim({stPROVE: _stPROVE, timestamp: block.timestamp})
+            UnstakeClaim({
+                stPROVE: _stPROVE,
+                snapshotiPROVE: snapshotiPROVE,
+                timestamp: block.timestamp
+            })
         );
 
-        emit UnstakeRequest(msg.sender, prover, _stPROVE);
+        emit UnstakeRequest(msg.sender, prover, _stPROVE, snapshotiPROVE);
     }
 
     /// @inheritdoc ISuccinctStaking
-    function finishUnstake() external override returns (uint256 PROVE) {
+    function finishUnstake(address _staker) external override returns (uint256 PROVE) {
         // Get the prover that the staker is staked with.
-        address prover = stakerToProver[msg.sender];
+        address prover = stakerToProver[_staker];
         if (prover == address(0)) revert NotStaked();
 
         // Get the unstake claims for this staker.
-        UnstakeClaim[] storage claims = unstakeClaims[msg.sender];
-        if (claims.length == 0) revert NoUnstakeToClaim();
+        UnstakeClaim[] storage claims = unstakeClaims[_staker];
+        if (claims.length == 0) revert NoUnstakeRequests();
 
         // Check that this prover is not in the process of being slashed.
         if (slashClaims[prover].length > 0) revert ProverHasSlashRequest();
 
         // Process the available unstake claims.
-        PROVE += _finishUnstake(prover, claims);
+        PROVE += _finishUnstake(_staker, prover, claims);
 
         // If the staker has no remaining balance with this prover, remove the staker's delegate.
         // This allows them to choose a different prover if they stake again.
-        if (balanceOf(msg.sender) == 0) {
+        if (balanceOf(_staker) == 0) {
             // Remove the staker's prover delegation.
-            stakerToProver[msg.sender] = address(0);
+            stakerToProver[_staker] = address(0);
         }
     }
 
@@ -393,13 +402,13 @@ contract SuccinctStaking is
         // Deposit $PROVE to mint $iPROVE, sending it to this contract.
         uint256 iPROVE = IERC4626(iProve).deposit(_PROVE, address(this));
 
-        // Ensure non-zero $iPROVE.
+        // Ensure this contract received non-zero $iPROVE.
         if (iPROVE == 0) revert ZeroReceiptAmount();
 
         // Deposit $iPROVE to mint $PROVER-N, sending it to this contract.
         uint256 proverN = IERC4626(_prover).deposit(iPROVE, address(this));
 
-        // Ensure non-zero $PROVER-N.
+        // Ensure this contract received non-zero $PROVER-N.
         if (proverN == 0) revert ZeroReceiptAmount();
 
         // Mint $stPROVE to the staker as a receipt token representing their ownership of $PROVER-N.
@@ -409,12 +418,15 @@ contract SuccinctStaking is
     }
 
     /// @dev Burn a staker's $stPROVE and withdraw $PROVER-N to receive $iPROVE, then withdraw
-    ///      $iPROVE to receive $PROVE, which gets sent to the staker.
-    function _unstake(address _staker, address _prover, uint256 _stPROVE)
+    ///      $iPROVE to receive $PROVE, which gets sent to the staker. The snapshot $iPROVE is
+    ///      used instead of the current $iPROVE to avoid the staker earning rewards during the
+    ///      unstaking period.
+    function _unstake(address _staker, address _prover, uint256 _stPROVE, uint256 _snapshotiPROVE)
         internal
         stakingOperation
         returns (uint256 PROVE)
     {
+        // Ensure unstaking a non-zero amount.
         if (_stPROVE == 0) revert ZeroAmount();
 
         // Burn the $stPROVE from the staker
@@ -424,29 +436,36 @@ contract SuccinctStaking is
         uint256 iPROVE = IERC4626(_prover).redeem(_stPROVE, address(this), address(this));
 
         // Withdraw $iPROVE from this contract to have the staker receive $PROVE.
-        PROVE = IERC4626(iProve).redeem(iPROVE, _staker, address(this));
+        PROVE = IERC4626(iProve).redeem(_snapshotiPROVE, _staker, address(this));
 
-        emit Unstake(_staker, _prover, PROVE, iPROVE, _stPROVE);
+        // If the $iPROVE received is greater than the snapshot $iPROVE, it indicates that the prover
+        // earned some rewards during the unstaking period. This difference is given back to the prover.
+        uint256 difference = iPROVE - _snapshotiPROVE;
+        if (difference > 0) {
+            IERC20(iProve).safeTransfer(_prover, difference);
+        }
+
+        emit Unstake(_staker, _prover, PROVE, _snapshotiPROVE, _stPROVE);
     }
 
     /// @dev Iterate over the unstake claims, processing each one that has passed the unstake
     ///      period.
-    function _finishUnstake(address _prover, UnstakeClaim[] storage _claims)
+    function _finishUnstake(address _staker, address _prover, UnstakeClaim[] storage _claims)
         internal
         returns (uint256 PROVE)
     {
         uint256 i = 0;
         while (i < _claims.length) {
             if (block.timestamp >= _claims[i].timestamp + unstakePeriod) {
-                // Store claim value before modifying the array.
-                uint256 claimedAmount = _claims[i].stPROVE;
+                // Store claim before modifying the array.
+                UnstakeClaim memory claim = _claims[i];
 
-                // Swap with the last element and pop (if not already the last element).
+                // Swap with the last element and pop.
                 _claims[i] = _claims[_claims.length - 1];
                 _claims.pop();
 
                 // Process the unstake.
-                PROVE += _unstake(msg.sender, _prover, claimedAmount);
+                PROVE += _unstake(_staker, _prover, claim.stPROVE, claim.snapshotiPROVE);
             } else {
                 i++;
             }

@@ -5,12 +5,18 @@ import {IProverRegistry} from "./IProverRegistry.sol";
 
 interface ISuccinctStaking is IProverRegistry {
     /// @dev Represents a claim for unstaking some amount of $stPROVE.
+    /// @param stPROVE The requested amount of $stPROVE to unstake.
+    /// @param snapshotiPROVE The expected $iPROVE to be received at time of unstake request.
+    /// @param timestamp The timestamp when the unstake was requested.
     struct UnstakeClaim {
         uint256 stPROVE;
+        uint256 snapshotiPROVE;
         uint256 timestamp;
     }
 
     /// @dev Represents a claim to slash a prover for some amount of $iPROVE.
+    /// @param iPROVE The requested amount of $iPROVE to slash.
+    /// @param timestamp The timestamp when the slash was requested.
     struct SlashClaim {
         uint256 iPROVE;
         uint256 timestamp;
@@ -26,7 +32,9 @@ interface ISuccinctStaking is IProverRegistry {
     );
 
     /// @dev Emitted when a staker requests to unstake $stPROVE from a prover.
-    event UnstakeRequest(address indexed staker, address indexed prover, uint256 stPROVE);
+    event UnstakeRequest(
+        address indexed staker, address indexed prover, uint256 stPROVE, uint256 snapshotPROVE
+    );
 
     /// @dev Emitted when a staker unstakes from a prover.
     event Unstake(
@@ -62,8 +70,8 @@ interface ISuccinctStaking is IProverRegistry {
     /// @dev Thrown if the staker tries to unstake while not staked with the prover.
     error NotStaked();
 
-    /// @dev Thrown if the staker tries to claim an unstake while there is no unstake claims.
-    error NoUnstakeToClaim();
+    /// @dev Thrown if the staker tries to unstake while there is no unstake requests.
+    error NoUnstakeRequests();
 
     /// @dev Thrown if the staker tries to stake or unstake a zero amount.
     error ZeroAmount();
@@ -108,7 +116,9 @@ interface ISuccinctStaking is IProverRegistry {
     /// @return The address of the prover.
     function stakedTo(address staker) external view returns (address);
 
-    /// @notice The amount of $PROVE that a staker has staked to their prover.
+    /// @notice The amount $PROVE that a staker would receive if their full $stPROVE balance was
+    ///         unstaked.
+    /// @dev This does not account for any slashing that could occur during the unstaking period.
     /// @param staker The address of the staker.
     /// @return The amount of $PROVE.
     function staked(address staker) external view returns (uint256);
@@ -128,7 +138,9 @@ interface ISuccinctStaking is IProverRegistry {
     /// @return The slash requests.
     function slashRequests(address prover) external view returns (SlashClaim[] memory);
 
-    /// @notice The amount of $PROVE that a staker would recieve with their pending unstake request.
+    /// @notice The amount of $PROVE that a staker would receive with their pending unstake requests.
+    /// @dev Returns the sum of snapshotted $PROVE values for all pending unstake claims, adjusted
+    ///      for any slashing that occurred after the requests were made.
     /// @param staker The address of the staker.
     /// @return The amount of $PROVE.
     function unstakePending(address staker) external view returns (uint256);
@@ -177,19 +189,19 @@ interface ISuccinctStaking is IProverRegistry {
     ) external returns (uint256);
 
     /// @notice Creates a request to unstake $stPROVE from the prover for the specified amount.
-    /// @dev The staker must have enough $stPROVE that is not already in the unclaim queue. This
-    ///      will also request a withdrawal of the balance a prover has in the VApp, so as to
-    ///      complete the withdrawal of any rewards before the unstake is finished.
+    /// @dev The staker must have enough $stPROVE that is not already in the unstake request queue.
+    ///      The $iPROVE value is snapshotted at request time to prevent earning rewards during
+    ///      the unstaking period.
     /// @param stPROVE The amount of $stPROVE to unstake.
     function requestUnstake(uint256 stPROVE) external;
 
-    /// @notice Finishes the unstaking process. Must have first called requestUnstake() and waited
-    ///         for the unstake period to pass.
-    /// @dev For each claim, the staker withdraws $stPROVE/$PROVER to receive $iPROVE, then
-    ///      withdraws $iPROVE to receive $PROVE. If the prover has any claimable rewards, it will
-    ///      be withdrawn to the prover's vaults before the unstake occurs.
+    /// @notice Finishes the unstaking process for the specified address. Can be called by anyone.
+    ///         Must have first called requestUnstake() and waited for the unstake period to pass.
+    /// @dev For each claim, if any snapshotted $iPROVE is lower than the actual $iPROVE that was
+    ///      received, then the difference is given back to the prover.
+    /// @param _staker The address whose unstake claims to finish.
     /// @return The amount of $PROVE received.
-    function finishUnstake() external returns (uint256);
+    function finishUnstake(address _staker) external returns (uint256);
 
     /// @notice Creates a request to slash a prover for the specified amount. Only callable by the
     ///         VApp.
