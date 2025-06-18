@@ -38,11 +38,11 @@ spn-network-types = { path = "crates/types/network" }
 spn-vapp-core = { path = "crates/vapp" }
 
 # sp1
-sp1-sdk = { git = "https://github.com/succinctlabs/sp1.git", branch = "ernesto/sdk-v5-network-v3" }
-sp1-prover = { git = "https://github.com/succinctlabs/sp1.git", branch = "ernesto/sdk-v5-network-v3" }
-sp1-verifier = { git = "https://github.com/succinctlabs/sp1.git", branch = "ernesto/sdk-v5-network-v3" }
-sp1-zkvm = { git = "https://github.com/succinctlabs/sp1.git", branch = "ernesto/sdk-v5-network-v3" }
-sp1-build = { git = "https://github.com/succinctlabs/sp1.git", branch = "ernesto/sdk-v5-network-v3" }
+sp1-sdk = { git = "https://github.com/succinctlabs/sp1.git", branch = "dev" }
+sp1-prover = { git = "https://github.com/succinctlabs/sp1.git", branch = "dev" }
+sp1-verifier = { git = "https://github.com/succinctlabs/sp1.git", branch = "dev" }
+sp1-zkvm = { git = "https://github.com/succinctlabs/sp1.git", branch = "dev" }
+sp1-build = { git = "https://github.com/succinctlabs/sp1.git", branch = "dev" }
 
 # aws
 aws-config = "1.5.3"
