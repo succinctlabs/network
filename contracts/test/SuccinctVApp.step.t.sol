@@ -147,6 +147,48 @@ contract SuccinctVAppStateTest is SuccinctVAppTest {
         SuccinctVApp(VAPP).step(abi.encode(publicValues), jsonFixture.proof);
     }
 
+    function test_RevertStep_WhenTimestampTooOld() public {
+        mockCall(true);
+
+        // Warp to a time where we can safely subtract 1 hour.
+        vm.warp(2 hours);
+
+        // Create public values with a timestamp more than 1 hour in the past.
+        StepPublicValues memory publicValues = StepPublicValues({
+            receipts: new TxReceipt[](0),
+            oldRoot: fixture.oldRoot,
+            newRoot: bytes32(uint256(1)),
+            timestamp: uint64(block.timestamp - 1 hours - 1) // More than 1 hour in the past
+        });
+
+        vm.expectRevert(ISuccinctVApp.TimestampTooOld.selector);
+        SuccinctVApp(VAPP).step(abi.encode(publicValues), jsonFixture.proof);
+    }
+
+    function test_Step_WhenTimestampExactlyOneHourOld() public {
+        mockCall(true);
+
+        // Warp to a time where we can safely subtract 1 hour.
+        vm.warp(2 hours);
+
+        // Create public values with a timestamp exactly 1 hour in the past.
+        StepPublicValues memory publicValues = StepPublicValues({
+            receipts: new TxReceipt[](0),
+            oldRoot: fixture.oldRoot,
+            newRoot: bytes32(uint256(1)),
+            timestamp: uint64(block.timestamp - 1 hours) // Exactly 1 hour in the past
+        });
+
+        // This should succeed as it's exactly at the boundary.
+        vm.expectEmit(true, true, true, true);
+        emit ISuccinctVApp.Block(1, fixture.oldRoot, publicValues.newRoot);
+        SuccinctVApp(VAPP).step(abi.encode(publicValues), jsonFixture.proof);
+
+        assertEq(SuccinctVApp(VAPP).blockNumber(), 1);
+        assertEq(SuccinctVApp(VAPP).roots(1), publicValues.newRoot);
+        assertEq(SuccinctVApp(VAPP).root(), publicValues.newRoot);
+    }
+
     function test_RevertStep_WhenNotAuctioneer() public {
         vm.expectRevert(abi.encodeWithSelector(ISuccinctVApp.NotAuctioneer.selector));
         vm.prank(REQUESTER_1);

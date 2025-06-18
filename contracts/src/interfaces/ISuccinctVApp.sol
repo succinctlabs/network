@@ -86,6 +86,9 @@ interface ISuccinctVApp {
     /// @dev Thrown when a timestamp is in the past.
     error TimestampInPast();
 
+    /// @dev Thrown when a timestamp is too far in the past (more than 1 hour before the current block time).
+    error TimestampTooOld();
+
     /// @dev Thrown when a proof fails.
     error ProofFailed();
 
