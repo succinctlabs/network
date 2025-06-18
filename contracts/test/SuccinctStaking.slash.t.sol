@@ -311,12 +311,22 @@ contract SuccinctStakingSlashTests is SuccinctStakingTest {
         MockVApp(VAPP).processSlash(unknownProver, slashAmount);
     }
 
-    function test_RevertSlash_WhenRequestingWhenProverHasNoStake() public {
+    function test_Slash_WhenRequestingWhenProverHasNoStake() public {
         uint256 slashAmount = STAKER_PROVE_AMOUNT;
 
-        // Try to slash a prover with no stake
-        vm.expectRevert(abi.encodeWithSelector(ISuccinctStaking.InsufficientStakeBalance.selector));
-        MockVApp(VAPP).processSlash(ALICE_PROVER, slashAmount);
+        // Try to slash a prover with no stake. Should NOT revert and instead create a zero-amount claim.
+        uint256 index = MockVApp(VAPP).processSlash(ALICE_PROVER, slashAmount);
+
+        // Verify the claim has been recorded with 0 iPROVE.
+        SuccinctStaking.SlashClaim[] memory claims =
+            SuccinctStaking(STAKING).slashRequests(ALICE_PROVER);
+        assertEq(index, 0);
+        assertEq(claims.length, 1);
+        assertEq(claims[0].iPROVE, slashAmount);
+
+        // Advance time and complete the (no-op) slash without reverting.
+        skip(SLASH_PERIOD);
+        _finishSlash(ALICE_PROVER, index);
     }
 
     function test_RevertSlash_WhenFinishTooEarly() public {
@@ -394,5 +404,95 @@ contract SuccinctStakingSlashTests is SuccinctStakingTest {
             aliceBalanceBefore + expectedOwnerReward,
             "Owner reward should be added to Alice balance"
         );
+    }
+
+    // Slash request that exceeds a prover's stake should clamp to the full balance instead of reverting.
+    function test_Slash_WhenSingleSlashAmountExceedsBalance() public {
+        uint256 stakeAmount = STAKER_PROVE_AMOUNT;
+
+        // Stake to Alice prover
+        _permitAndStake(STAKER_1, STAKER_1_PK, ALICE_PROVER, stakeAmount);
+
+        // Get the iPROVE balance of the prover.
+        uint256 totalAssets = IERC4626(ALICE_PROVER).totalAssets();
+
+        // First slash for 2x the balance.
+        uint256 excessiveSlash = totalAssets * 2;
+        uint256 index0 = _requestSlash(ALICE_PROVER, excessiveSlash);
+
+        // The slash amount is 2x greater than the actual iPROVE balance of the prover. Exceeding
+        // the iPROVE balance should just set the prover's balance to 0 without reverting.
+
+        // The slash should have been recorded for the full requested amount.
+        SuccinctStaking.SlashClaim[] memory claims =
+            SuccinctStaking(STAKING).slashRequests(ALICE_PROVER);
+        assertEq(claims.length, 1);
+        assertEq(claims[index0].iPROVE, excessiveSlash);
+
+        // Finish the slash claims after the slash period
+        skip(SLASH_PERIOD);
+        _finishSlash(ALICE_PROVER, index0);
+
+        // Prover and staker should now be fully slashed
+        assertEq(SuccinctStaking(STAKING).balanceOf(STAKER_1), stakeAmount);
+        assertEq(SuccinctStaking(STAKING).staked(STAKER_1), 0);
+        assertEq(IERC20(I_PROVE).balanceOf(ALICE_PROVER), 0);
+        assertEq(IERC20(PROVE).balanceOf(I_PROVE), 0);
+
+        // Unstake the stPROVE receipts
+        _completeUnstake(STAKER_1, stakeAmount);
+
+        // Verify final state – staker has no remaining stake or PROVE
+        assertEq(SuccinctStaking(STAKING).balanceOf(STAKER_1), 0);
+        assertEq(SuccinctStaking(STAKING).staked(STAKER_1), 0);
+        assertEq(IERC20(PROVE).balanceOf(STAKER_1), 0);
+    }
+
+    // Slash requests that cumulatively exceed a prover's stake should clamp to the full balance instead of reverting.
+    function test_Slash_WhenCumulativeSlashAmountExceedsBalance() public {
+        uint256 stakeAmount = STAKER_PROVE_AMOUNT;
+
+        // Stake to Alice prover
+        _permitAndStake(STAKER_1, STAKER_1_PK, ALICE_PROVER, stakeAmount);
+
+        // Get the iPROVE balance of the prover.
+        uint256 totalAssets = IERC4626(ALICE_PROVER).totalAssets();
+
+        // First slash for half the balance.
+        uint256 firstSlash = totalAssets / 2;
+        uint256 index0 = _requestSlash(ALICE_PROVER, firstSlash);
+
+        // Second slash attempts to slash the full balance.
+        uint256 excessiveSlash = totalAssets;
+        uint256 index1 = _requestSlash(ALICE_PROVER, excessiveSlash);
+
+        // The cumulative slash amount is now 1.5x greater than the actual iPROVE balance of the prover.
+        // Exceeding the iPROVE balance should just set the prover's balance to 0 without reverting.
+
+        // The second slash should have been recorded for the full requested amount.
+        SuccinctStaking.SlashClaim[] memory claims =
+            SuccinctStaking(STAKING).slashRequests(ALICE_PROVER);
+        assertEq(claims.length, 2);
+        assertEq(claims[index0].iPROVE, firstSlash);
+        assertEq(claims[index1].iPROVE, excessiveSlash);
+
+        // Finish the slash claims after the slash period
+        skip(SLASH_PERIOD);
+        _finishSlash(ALICE_PROVER, index1);
+        _finishSlash(ALICE_PROVER, index0);
+
+        // Prover and staker should now be fully slashed
+        assertEq(SuccinctStaking(STAKING).balanceOf(STAKER_1), stakeAmount);
+        assertEq(SuccinctStaking(STAKING).staked(STAKER_1), 0);
+        assertEq(IERC20(I_PROVE).balanceOf(ALICE_PROVER), 0);
+        assertEq(IERC20(PROVE).balanceOf(I_PROVE), 0);
+
+        // Unstake the stPROVE receipts
+        _completeUnstake(STAKER_1, stakeAmount);
+
+        // Verify final state – staker has no remaining stake or PROVE
+        assertEq(SuccinctStaking(STAKING).balanceOf(STAKER_1), 0);
+        assertEq(SuccinctStaking(STAKING).staked(STAKER_1), 0);
+        assertEq(IERC20(PROVE).balanceOf(STAKER_1), 0);
     }
 }

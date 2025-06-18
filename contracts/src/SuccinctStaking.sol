@@ -247,16 +247,10 @@ contract SuccinctStaking is
         onlyForProver(_prover)
         returns (uint256 index)
     {
-        // Get the amount of $iPROVE this prover currently has staked to it.
-        uint256 currentiPROVE = IERC4626(_prover).totalAssets();
+        // Ensure slashing a non-zero amount.
+        if (_iPROVE == 0) revert ZeroAmount();
 
-        // Get the amount $iPROVE this prover has pending a slash claim already.
-        uint256 claimiPROVE = _getSlashClaimBalance(_prover);
-
-        // Check that this prover has enough $iPROVE to be slashed for the specified amount.
-        if (currentiPROVE < claimiPROVE + _iPROVE) revert InsufficientStakeBalance();
-
-        // Create a claim to slash a prover for the specified amount.
+        // Create the slash claim.
         index = slashClaims[_prover].length;
         slashClaims[_prover].push(SlashClaim({iPROVE: _iPROVE, timestamp: block.timestamp}));
 
@@ -300,8 +294,9 @@ contract SuccinctStaking is
         // Ensure that the time has passed since the claim was created.
         if (block.timestamp < claim.timestamp + slashPeriod) revert SlashNotReady();
 
-        // Get the amount of $iPROVE.
-        iPROVE = claim.iPROVE;
+        // Determine how much can actually be slashed (cannot exceed the prover's current balance).
+        uint256 iPROVEBalance = IERC4626(_prover).totalAssets();
+        iPROVE = claim.iPROVE > iPROVEBalance ? iPROVEBalance : claim.iPROVE;
 
         // Delete the claim.
         if (_index != slashClaims[_prover].length - 1) {
@@ -309,9 +304,12 @@ contract SuccinctStaking is
         }
         slashClaims[_prover].pop();
 
-        // Burn the $iPROVE and $PROVE from the prover, decreasing the staked $PROVE balance of the
-        // prover and all of it's stakers.
-        uint256 PROVE = IIntermediateSuccinct(iProve).burn(_prover, iPROVE);
+        // Burn the $iPROVE and underlying $PROVE. This reduces the stake of the prover and all
+        // of its stakers proportionally.
+        uint256 PROVE = 0;
+        if (iPROVE > 0) {
+            PROVE = IIntermediateSuccinct(iProve).burn(_prover, iPROVE);
+        }
 
         emit Slash(_prover, PROVE, iPROVE, _index);
     }
@@ -327,7 +325,7 @@ contract SuccinctStaking is
         // Ensure dispensing a non‐zero amount.
         if (amount == 0) revert ZeroAmount();
 
-        // If caller passed a specific number, make sure it doesn’t exceed available
+        // If caller passed a specific number, make sure it doesn't exceed available
         if (amount > available) revert AmountExceedsAvailableDispense();
 
         // Update the timestamp based on the (possibly‐adjusted) amount
