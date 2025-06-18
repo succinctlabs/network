@@ -262,6 +262,102 @@ contract SuccinctStakingTest is Test {
         (protocolFee, stakerReward, ownerReward) =
             FeeCalculator.calculateFeeSplit(_totalReward, PROTOCOL_FEE_BIPS, STAKER_FEE_BIPS);
     }
+<<<<<<< HEAD
+=======
+
+    function _stake(address _staker, address _prover, uint256 _amount) internal {
+        vm.prank(_staker);
+        IERC20(PROVE).approve(STAKING, _amount);
+        vm.prank(_staker);
+        SuccinctStaking(STAKING).stake(_prover, _amount);
+    }
+
+    function _permitAndStake(address _staker, uint256 _stakerPK, address _prover, uint256 _amount)
+        internal
+    {
+        _permitAndStake(_staker, _stakerPK, _prover, _amount, block.timestamp + 1 days);
+    }
+
+    function _permitAndStake(
+        address _staker,
+        uint256 _stakerPK,
+        address _prover,
+        uint256 _amount,
+        uint256 _deadline
+    ) internal {
+        (uint8 v, bytes32 r, bytes32 s) = _signPermit(_stakerPK, _staker, _amount, _deadline);
+        SuccinctStaking(STAKING).permitAndStake(_prover, _staker, _amount, _deadline, v, r, s);
+    }
+
+    function _completeUnstake(address _staker, uint256 _amount) internal returns (uint256) {
+        _requestUnstake(_staker, _amount);
+        skip(UNSTAKE_PERIOD);
+        return _finishUnstake(_staker);
+    }
+
+    function _requestUnstake(address _staker, uint256 _amount) internal {
+        vm.prank(_staker);
+        SuccinctStaking(STAKING).requestUnstake(_amount);
+    }
+
+    function _finishUnstake(address _staker) internal returns (uint256) {
+        vm.prank(_staker);
+        return SuccinctStaking(STAKING).finishUnstake(0);
+    }
+
+    function _completeSlash(address _prover, uint256 _amount) internal {
+        uint256 index = _requestSlash(_prover, _amount);
+        skip(SLASH_PERIOD);
+        _finishSlash(_prover, index);
+    }
+
+    function _requestSlash(address _prover, uint256 _amount) internal returns (uint256) {
+        return MockVApp(VAPP).processSlash(_prover, _amount);
+    }
+
+    function _finishSlash(address _prover, uint256 _index) internal {
+        vm.prank(OWNER);
+        SuccinctStaking(STAKING).finishSlash(_prover, _index);
+    }
+
+    function _dispense(uint256 _amount) internal {
+        _waitRequiredDispenseTime(_amount);
+        vm.prank(OWNER);
+        SuccinctStaking(STAKING).dispense(_amount);
+    }
+
+    function _waitRequiredDispenseTime(uint256 _amount) internal {
+        skip(_amount * DISPENSE_RATE);
+    }
+
+    function _signPermit(uint256 _pk, address _owner, uint256 _amount, uint256 _deadline)
+        internal
+        view
+        returns (uint8 v, bytes32 r, bytes32 s)
+    {
+        bytes32 PERMIT_TYPEHASH = keccak256(
+            "Permit(address owner,address spender,uint256 value,uint256 nonce,uint256 deadline)"
+        );
+
+        // Get the current nonce for the owner
+        uint256 nonce = IERC20Permit(PROVE).nonces(_owner);
+
+        // Construct the permit digest
+        bytes32 structHash =
+            keccak256(abi.encode(PERMIT_TYPEHASH, _owner, STAKING, _amount, nonce, _deadline));
+        bytes32 digest = keccak256(
+            abi.encodePacked("\x19\x01", IERC20Permit(PROVE).DOMAIN_SEPARATOR(), structHash)
+        );
+
+        // Sign the digest
+        return vm.sign(_pk, digest);
+    }
+
+    function _withdrawFromVApp(address _account, uint256 _amount) internal {
+        MockVApp(VAPP).requestWithdraw(_account, _amount);
+        MockVApp(VAPP).finishWithdraw(_account);
+    }
+>>>>>>> a2f67a7 (fix(contracts): set max claims for finish unstake)
 }
 
 contract SuccinctStakingSetupTests is SuccinctStakingTest {

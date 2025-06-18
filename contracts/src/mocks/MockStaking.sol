@@ -88,7 +88,7 @@ contract MockStaking is ProverRegistry, ISuccinctStaking {
         );
     }
 
-    function finishUnstake(address) external pure override returns (uint256) {
+    function finishUnstake(uint256) external pure override returns (uint256) {
         return 0;
     }
 

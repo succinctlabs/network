@@ -54,6 +54,7 @@ contract SuccinctStakingUnstakeTests is SuccinctStakingTest {
         assertEq(SuccinctStaking(STAKING).proverStaked(ALICE_PROVER), 0);
     }
 
+<<<<<<< HEAD
     // Someone else finishes the unstake for a staker
     function test_Unstake_WhenSomeoneElseFinishesUnstake() public {
         uint256 stakeAmount = STAKER_PROVE_AMOUNT;
@@ -71,6 +72,116 @@ contract SuccinctStakingUnstakeTests is SuccinctStakingTest {
         // Someone else should be able to finish the unstake
         vm.prank(STAKER_2);
         SuccinctStaking(STAKING).finishUnstake(STAKER_1);
+=======
+    function test_Unstake_WhenMaxClaimsEqualsClaims() public {
+        uint256 stakeAmount = STAKER_PROVE_AMOUNT;
+
+        // Stake to Alice prover
+        _permitAndStake(STAKER_1, STAKER_1_PK, ALICE_PROVER, stakeAmount);
+
+        // Check balances after stake
+        assertEq(IERC20(STAKING).balanceOf(STAKER_1), stakeAmount);
+        assertEq(SuccinctStaking(STAKING).staked(STAKER_1), stakeAmount);
+        assertEq(SuccinctStaking(STAKING).unstakePending(STAKER_1), 0);
+        assertEq(SuccinctStaking(STAKING).previewRedeem(ALICE_PROVER, stakeAmount), stakeAmount);
+        assertEq(SuccinctStaking(STAKING).proverStaked(ALICE_PROVER), stakeAmount);
+
+        // Submit unstake request
+        _requestUnstake(STAKER_1, stakeAmount / 2);
+        _requestUnstake(STAKER_1, stakeAmount / 2);
+
+        // Wait for unstake period to pass and claim
+        skip(UNSTAKE_PERIOD);
+
+        // Claim 2/2
+        vm.prank(STAKER_1);
+        SuccinctStaking(STAKING).finishUnstake(2);
+
+        // Verify final state
+        assertEq(SuccinctStaking(STAKING).balanceOf(STAKER_1), 0);
+        assertEq(SuccinctStaking(STAKING).staked(STAKER_1), 0);
+        assertEq(IERC20(PROVE).balanceOf(I_PROVE), 0);
+        assertEq(SuccinctStaking(STAKING).unstakePending(STAKER_1), 0);
+        assertEq(SuccinctStaking(STAKING).previewRedeem(ALICE_PROVER, stakeAmount), stakeAmount);
+        assertEq(SuccinctStaking(STAKING).previewRedeem(ALICE_PROVER, 0), 0);
+        assertEq(SuccinctStaking(STAKING).proverStaked(ALICE_PROVER), 0);
+    }
+
+    function test_Unstake_WhenMaxClaimsLessGreaterThanClaims() public {
+        uint256 stakeAmount = STAKER_PROVE_AMOUNT;
+
+        // Stake to Alice prover
+        _permitAndStake(STAKER_1, STAKER_1_PK, ALICE_PROVER, stakeAmount);
+
+        // Check balances after stake
+        assertEq(IERC20(STAKING).balanceOf(STAKER_1), stakeAmount);
+        assertEq(SuccinctStaking(STAKING).staked(STAKER_1), stakeAmount);
+        assertEq(SuccinctStaking(STAKING).unstakePending(STAKER_1), 0);
+        assertEq(SuccinctStaking(STAKING).previewRedeem(ALICE_PROVER, stakeAmount), stakeAmount);
+        assertEq(SuccinctStaking(STAKING).proverStaked(ALICE_PROVER), stakeAmount);
+
+        // Submit unstake request
+        _requestUnstake(STAKER_1, stakeAmount / 2);
+        _requestUnstake(STAKER_1, stakeAmount / 2);
+
+        // Wait for unstake period to pass and claim
+        skip(UNSTAKE_PERIOD);
+
+        // Claim 3/2
+        vm.prank(STAKER_1);
+        SuccinctStaking(STAKING).finishUnstake(3);
+
+        // Verify final state
+        assertEq(SuccinctStaking(STAKING).balanceOf(STAKER_1), 0);
+        assertEq(SuccinctStaking(STAKING).staked(STAKER_1), 0);
+        assertEq(IERC20(PROVE).balanceOf(I_PROVE), 0);
+        assertEq(SuccinctStaking(STAKING).unstakePending(STAKER_1), 0);
+        assertEq(SuccinctStaking(STAKING).previewRedeem(ALICE_PROVER, stakeAmount), stakeAmount);
+        assertEq(SuccinctStaking(STAKING).previewRedeem(ALICE_PROVER, 0), 0);
+        assertEq(SuccinctStaking(STAKING).proverStaked(ALICE_PROVER), 0);
+    }
+
+    function test_Unstake_WhenMaxClaimsLessThanClaims() public {
+        uint256 stakeAmount = STAKER_PROVE_AMOUNT;
+
+        // Stake to Alice prover
+        _permitAndStake(STAKER_1, STAKER_1_PK, ALICE_PROVER, stakeAmount);
+
+        // Check balances after stake
+        assertEq(IERC20(STAKING).balanceOf(STAKER_1), stakeAmount);
+        assertEq(SuccinctStaking(STAKING).staked(STAKER_1), stakeAmount);
+        assertEq(SuccinctStaking(STAKING).unstakePending(STAKER_1), 0);
+        assertEq(SuccinctStaking(STAKING).previewRedeem(ALICE_PROVER, stakeAmount), stakeAmount);
+        assertEq(SuccinctStaking(STAKING).proverStaked(ALICE_PROVER), stakeAmount);
+
+        // Submit unstake request
+        _requestUnstake(STAKER_1, stakeAmount / 2);
+        _requestUnstake(STAKER_1, stakeAmount / 2);
+
+        // Wait for unstake period to pass and claim
+        skip(UNSTAKE_PERIOD);
+
+        // Claim 1/2
+        vm.prank(STAKER_1);
+        SuccinctStaking(STAKING).finishUnstake(1);
+
+        // Verify final state
+        assertEq(SuccinctStaking(STAKING).balanceOf(STAKER_1), stakeAmount / 2);
+        assertEq(SuccinctStaking(STAKING).staked(STAKER_1), stakeAmount / 2);
+        assertEq(IERC20(PROVE).balanceOf(I_PROVE), stakeAmount / 2);
+        assertEq(SuccinctStaking(STAKING).unstakePending(STAKER_1), stakeAmount / 2);
+        assertEq(
+            SuccinctStaking(STAKING).previewRedeem(ALICE_PROVER, stakeAmount / 2), stakeAmount / 2
+        );
+        assertEq(
+            SuccinctStaking(STAKING).previewRedeem(ALICE_PROVER, stakeAmount / 2), stakeAmount / 2
+        );
+        assertEq(SuccinctStaking(STAKING).proverStaked(ALICE_PROVER), stakeAmount / 2);
+
+        // Claim 1/1
+        vm.prank(STAKER_1);
+        SuccinctStaking(STAKING).finishUnstake(1);
+>>>>>>> a2f67a7 (fix(contracts): set max claims for finish unstake)
 
         // Verify final state
         assertEq(SuccinctStaking(STAKING).balanceOf(STAKER_1), 0);
@@ -472,6 +583,30 @@ contract SuccinctStakingUnstakeTests is SuccinctStakingTest {
         assertEq(IERC20(ALICE_PROVER).balanceOf(STAKING), 0);
     }
 
+<<<<<<< HEAD
+=======
+    function test_RevertUnstake_WhenSomeoneElseCallsClaimUnstake() public {
+        uint256 stakeAmount = STAKER_PROVE_AMOUNT;
+        uint256 unstakeAmount = STAKER_PROVE_AMOUNT;
+
+        // Stake some tokens to Alice prover
+        _permitAndStake(STAKER_1, STAKER_1_PK, ALICE_PROVER, stakeAmount);
+
+        // Someone else should not be able to claim the unstake
+        vm.expectRevert(ISuccinctStaking.NotStaked.selector);
+        vm.prank(STAKER_2);
+        SuccinctStaking(STAKING).finishUnstake(0);
+
+        // Unstake some tokens from Alice prover
+        _requestUnstake(STAKER_1, unstakeAmount);
+
+        // Someone else should not be able to claim the unstake, even after unstake has been called
+        vm.expectRevert(ISuccinctStaking.NotStaked.selector);
+        vm.prank(STAKER_2);
+        SuccinctStaking(STAKING).finishUnstake(0);
+    }
+
+>>>>>>> a2f67a7 (fix(contracts): set max claims for finish unstake)
     function test_RevertUnstake_WhenAmountExceedsBalance() public {
         uint256 stakeAmount = STAKER_PROVE_AMOUNT / 2; // Only stake half of the tokens
         uint256 unstakeAmount = STAKER_PROVE_AMOUNT; // Try to unstake more than staked
@@ -521,6 +656,7 @@ contract SuccinctStakingUnstakeTests is SuccinctStakingTest {
         // Attempt to finish unstake while there's a pending slash request - should revert
         vm.expectRevert(abi.encodeWithSelector(ISuccinctStaking.ProverHasSlashRequest.selector));
         vm.prank(STAKER_1);
+<<<<<<< HEAD
         SuccinctStaking(STAKING).finishUnstake(STAKER_1);
     }
 
@@ -788,5 +924,8 @@ contract SuccinctStakingUnstakeTests is SuccinctStakingTest {
             assertEq(receivedAmount, stakeAmount);
             assertEq(IERC20(PROVE).balanceOf(STAKER_1), stakeAmount);
         }
+=======
+        SuccinctStaking(STAKING).finishUnstake(0);
+>>>>>>> a2f67a7 (fix(contracts): set max claims for finish unstake)
     }
 }

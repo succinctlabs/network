@@ -241,26 +241,26 @@ contract SuccinctStaking is
     }
 
     /// @inheritdoc ISuccinctStaking
-    function finishUnstake(address _staker) external override returns (uint256 PROVE) {
+    function finishUnstake(uint256 _maxClaims) external override returns (uint256 PROVE) {
         // Get the prover that the staker is staked with.
-        address prover = stakerToProver[_staker];
+        address prover = stakerToProver[msg.sender];
         if (prover == address(0)) revert NotStaked();
 
         // Get the unstake claims for this staker.
-        UnstakeClaim[] storage claims = unstakeClaims[_staker];
+        UnstakeClaim[] storage claims = unstakeClaims[msg.sender];
         if (claims.length == 0) revert NoUnstakeRequests();
 
         // Check that this prover is not in the process of being slashed.
         if (slashClaims[prover].length > 0) revert ProverHasSlashRequest();
 
         // Process the available unstake claims.
-        PROVE += _finishUnstake(_staker, prover, claims);
+        PROVE += _finishUnstake(msg.sender, prover, claims, _maxClaims);
 
         // If the staker has no remaining balance with this prover, remove the staker's delegate.
         // This allows them to choose a different prover if they stake again.
-        if (balanceOf(_staker) == 0) {
+        if (balanceOf(msg.sender) == 0) {
             // Remove the staker's prover delegation.
-            stakerToProver[_staker] = address(0);
+            stakerToProver[msg.sender] = address(0);
         }
     }
 
@@ -465,13 +465,20 @@ contract SuccinctStaking is
 
     /// @dev Iterate over the unstake claims, processing each one that has passed the unstake
     ///      period.
-    function _finishUnstake(address _staker, address _prover, UnstakeClaim[] storage _claims)
-        internal
-        stakingOperation
-        returns (uint256 PROVE)
-    {
+    function _finishUnstake(
+        address _staker,
+        address _prover,
+        UnstakeClaim[] storage _claims,
+        uint256 _maxClaims
+    ) internal stakingOperation returns (uint256 PROVE) {
+        // If maxClaims is 0, process all claims.
+        uint256 limit = _maxClaims == 0 ? type(uint256).max : _maxClaims;
+
+        // Iterate over the claims until they have all been processed or the limit is reached.
         uint256 i = 0;
-        while (i < _claims.length) {
+        uint256 processed = 0;
+        while (i < _claims.length && processed < limit) {
+            // If the claim has passed the unstake period, process it.
             if (block.timestamp >= _claims[i].timestamp + unstakePeriod) {
                 // Store claim before modifying the array.
                 UnstakeClaim memory claim = _claims[i];
@@ -482,6 +489,7 @@ contract SuccinctStaking is
 
                 // Process the unstake.
                 PROVE += _unstake(_staker, _prover, claim.stPROVE, claim.iPROVESnapshot);
+                processed++;
             } else {
                 i++;
             }
