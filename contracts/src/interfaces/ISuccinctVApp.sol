@@ -65,12 +65,6 @@ interface ISuccinctVApp {
     /// @dev Thrown when a sweep transfer fails.
     error SweepTransferFailed();
 
-    /// @dev Thrown when there is no withdrawal to claim.
-    error NoWithdrawalToClaim();
-
-    /// @dev Thrown when a claim transfer fails.
-    error ClaimTransferFailed();
-
     /// @dev Thrown when an invalid vkey is encountered.
     error InvalidVkey();
 
@@ -89,17 +83,12 @@ interface ISuccinctVApp {
     /// @dev Thrown when a proof fails.
     error ProofFailed();
 
-    /// @dev Thrown when a deposit or withdrawal is below the minimum.
+    /// @dev Thrown when a deposit is below the minimum.
     error TransferBelowMinimum();
 
     /// @dev Thrown when trying to register a prover and the owner mismatches the staking contract's
     ///      owner of the prover.
     error ProverNotOwned();
-
-    /// @dev Thrown when trying to withdraw to a different address than the one that requested the
-    ///      withdrawal. Not relevant if the withdrawal is to a prover vault, in which case anyone
-    ///      can do it.
-    error CannotWithdrawToDifferentAddress();
 
     /// @dev Thrown when public values receipts are sent in an order that does not match the
     ///      onchain transaction order.
@@ -156,10 +145,6 @@ interface ISuccinctVApp {
 
     /// @notice Timestamp for each block.
     function timestamps(uint64 block) external view returns (uint64);
-
-    /// @notice The claimable withdrawal amount for each account. Must first request
-    ///         a withdrawal and wait for it to be processed before this increases.
-    function claimableWithdrawal(address account) external view returns (uint256);
 
     /// @notice Transactions for pending actions.
     function transactions(uint64 onchainTx)
@@ -242,16 +227,16 @@ interface ISuccinctVApp {
     /// @param verifier The new verifier address.
     function updateVerifier(address verifier) external;
 
-    /// @notice Updates the minimum amount for deposit/withdraw operations.
+    /// @notice Updates the minimum amount for deposit operations.
     /// @dev Only callable by the owner.
     /// @param amount The new minimum amount.
     function updateMinDepositAmount(uint256 amount) external;
 
-    /// @notice Pauses deposit, withdrawal, prover creation, and step.
+    /// @notice Pauses deposit, prover creation, and step.
     /// @dev Only callable by the owner.
     function pause() external;
 
-    /// @notice Unpauses deposit, withdrawal, prover creation, and step.
+    /// @notice Unpauses deposit, prover creation, and step.
     /// @dev Only callable by the owner.
     function unpause() external;
 }

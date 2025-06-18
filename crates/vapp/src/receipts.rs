@@ -14,17 +14,26 @@ use crate::sol::{CreateProver, Deposit, Receipt, TransactionStatus, TransactionV
 pub enum VAppReceipt {
     /// A receipt for a [`crate::transactions::VAppTransaction::Deposit`] transaction.
     Deposit(OnchainReceipt<Deposit>),
-    /// A receipt for a [`crate::transactions::VAppTransaction::Withdraw`] transaction.
-    Withdraw(OnchainReceipt<Withdraw>),
     /// A receipt for a [`crate::transactions::VAppTransaction::CreateProver`] transaction.
     CreateProver(OnchainReceipt<CreateProver>),
+    /// A receipt for a [`crate::transactions::VAppTransaction::Withdraw`] transaction.
+    Withdraw(OffchainReceipt<Withdraw>),
 }
 
-/// Generic receipt structure for transactions included in the ledger from the settlement contract.
+/// Onchain receipts are produced by transactions included in the ledger from the settlement contract.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct OnchainReceipt<T> {
     /// The onchain transaction ID.
     pub onchain_tx_id: u64,
+    /// The status of the transaction.
+    pub status: TransactionStatus,
+    /// The action data for the transaction.
+    pub action: T,
+}
+
+/// Offchain receipts are produced by transactions that are included by the auctioneer.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct OffchainReceipt<T> {
     /// The status of the transaction.
     pub status: TransactionStatus,
     /// The action data for the transaction.
@@ -42,16 +51,16 @@ impl VAppReceipt {
                 onchainTxId: receipt.onchain_tx_id,
                 action: receipt.action.abi_encode().into(),
             },
-            VAppReceipt::Withdraw(receipt) => Receipt {
-                variant: TransactionVariant::Withdraw,
-                status: receipt.status,
-                onchainTxId: receipt.onchain_tx_id,
-                action: receipt.action.abi_encode().into(),
-            },
             VAppReceipt::CreateProver(receipt) => Receipt {
                 variant: TransactionVariant::CreateProver,
                 status: receipt.status,
                 onchainTxId: receipt.onchain_tx_id,
+                action: receipt.action.abi_encode().into(),
+            },
+            VAppReceipt::Withdraw(receipt) => Receipt {
+                variant: TransactionVariant::Withdraw,
+                status: receipt.status,
+                onchainTxId: u64::MAX,
                 action: receipt.action.abi_encode().into(),
             },
         }

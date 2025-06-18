@@ -26,8 +26,6 @@ library Receipts {
     function assertEq(Transaction memory _transaction, Receipt memory _receipt) internal pure {
         if (_receipt.variant == TransactionVariant.Deposit) {
             _assertDepositEq(_receipt, _transaction);
-        } else if (_receipt.variant == TransactionVariant.Withdraw) {
-            _assertWithdrawEq(_receipt, _transaction);
         } else if (_receipt.variant == TransactionVariant.CreateProver) {
             _assertProverEq(_receipt, _transaction);
         } else {
@@ -56,30 +54,7 @@ library Receipts {
             revert TransactionReceiptMismatch(TransactionVariant.Deposit, _receipt.onchainTxId);
         }
     }
-
-    /// @dev Asserts that the withdraw transaction matches the receipt.
-    function _assertWithdrawEq(Receipt memory _receipt, Transaction memory _transaction)
-        internal
-        pure
-    {
-        if (_receipt.variant != TransactionVariant.Withdraw) {
-            revert TransactionVariantMismatch(_transaction.variant, _receipt.variant);
-        } else if (_transaction.variant != TransactionVariant.Withdraw) {
-            revert TransactionVariantMismatch(_transaction.variant, _receipt.variant);
-        }
-
-        Withdraw memory withdraw = abi.decode(_transaction.action, (Withdraw));
-        Withdraw memory withdrawReceipt = abi.decode(_receipt.action, (Withdraw));
-
-        if (withdraw.account != withdrawReceipt.account) {
-            revert TransactionReceiptMismatch(TransactionVariant.Withdraw, _receipt.onchainTxId);
-        }
-        // If the requested amount to withdraw is max uint256, no validation is needed.
-        if (withdraw.amount != type(uint256).max && withdraw.amount != withdrawReceipt.amount) {
-            revert TransactionReceiptMismatch(TransactionVariant.Withdraw, _receipt.onchainTxId);
-        }
-    }
-
+ 
     /// @dev Asserts that the prover transaction matches the receipt.
     function _assertProverEq(Receipt memory _receipt, Transaction memory _transaction)
         internal

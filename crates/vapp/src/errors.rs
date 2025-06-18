@@ -157,6 +157,6 @@ pub enum VAppPanic {
     #[error("Storage error: {0}")]
     StorageError(#[from] StorageError),
 
-    #[error("Only the account itself or the owner can withdraw")]
-    OnlyAccountOrOwnerCanWithdraw,
+    #[error("Only the account itself can withdraw since the account is not a prover")]
+    OnlyAccountCanWithdraw,
 }

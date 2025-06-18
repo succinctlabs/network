@@ -13,7 +13,7 @@ use crate::{
     errors::VAppPanic,
     fee::fee,
     merkle::{MerkleStorage, MerkleTreeHasher},
-    receipts::{OnchainReceipt, VAppReceipt},
+    receipts::{OnchainReceipt, OffchainReceipt, VAppReceipt},
     signing::{eth_sign_verify, proto_verify},
     sol::{Account, TransactionStatus, VAppStateContainer, Withdraw},
     sparse::SparseStorage,
@@ -450,7 +450,7 @@ impl<A: Storage<Address, Account>, R: Storage<RequestId, bool>> VAppState<A, R> 
                 let account = address(body.account.as_slice())?;
                 let owner = self.accounts.entry(account)?.or_default().get_owner();
                 if !(account == from || owner == from) {
-                    return Err(VAppPanic::OnlyAccountOrOwnerCanWithdraw);
+                    return Err(VAppPanic::OnlyAccountCanWithdraw);
                 }
 
                 // Extract the amount to withdraw.
@@ -471,8 +471,7 @@ impl<A: Storage<Address, Account>, R: Storage<RequestId, bool>> VAppState<A, R> 
                 self.accounts.entry(account)?.or_default().deduct_balance(amount);
 
                 // Return the withdraw action.
-                return Ok(Some(VAppReceipt::Withdraw(OnchainReceipt {
-                    onchain_tx_id: u64::MAX,
+                return Ok(Some(VAppReceipt::Withdraw(OffchainReceipt {
                     action: Withdraw {
                         account,
                         amount,

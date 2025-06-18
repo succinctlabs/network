@@ -75,9 +75,6 @@ contract SuccinctVApp is
     uint64 public override finalizedOnchainTxId;
 
     /// @inheritdoc ISuccinctVApp
-    mapping(address => uint256) public override claimableWithdrawal;
-
-    /// @inheritdoc ISuccinctVApp
     mapping(uint64 => bytes32) public override roots;
 
     /// @inheritdoc ISuccinctVApp
@@ -349,6 +346,7 @@ contract SuccinctVApp is
         }
     }
 
+    /// @dev Handles a receipt sourced from an onchain transaction.
     function _handleOnchainReceipt(Receipt memory _receipt) internal {
         // Increment the finalized onchain transaction ID.
         uint64 onchainTxId = ++finalizedOnchainTxId;
@@ -391,6 +389,7 @@ contract SuccinctVApp is
         emit TransactionCompleted(onchainTxId, _receipt.variant, _receipt.action);
     }
 
+    /// @dev Handles a receipt sourced from an offchain transaction.
     function _handleOffchainReceipt(Receipt memory _receipt) internal {
         // Ensure that the receipt has of the expected statuses.
         if (
