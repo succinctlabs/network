@@ -65,12 +65,6 @@ interface ISuccinctVApp {
     /// @dev Thrown when a sweep transfer fails.
     error SweepTransferFailed();
 
-    /// @dev Thrown when there is no withdrawal to claim.
-    error NoWithdrawalToClaim();
-
-    /// @dev Thrown when a claim transfer fails.
-    error ClaimTransferFailed();
-
     /// @dev Thrown when an invalid vkey is encountered.
     error InvalidVkey();
 
@@ -92,17 +86,12 @@ interface ISuccinctVApp {
     /// @dev Thrown when a proof fails.
     error ProofFailed();
 
-    /// @dev Thrown when a deposit or withdrawal is below the minimum.
+    /// @dev Thrown when a deposit is below the minimum.
     error TransferBelowMinimum();
 
     /// @dev Thrown when trying to register a prover and the owner mismatches the staking contract's
     ///      owner of the prover.
     error ProverNotOwned();
-
-    /// @dev Thrown when trying to withdraw to a different address than the one that requested the
-    ///      withdrawal. Not relevant if the withdrawal is to a prover vault, in which case anyone
-    ///      can do it.
-    error CannotWithdrawToDifferentAddress();
 
     /// @dev Thrown when public values receipts are sent in an order that does not match the
     ///      onchain transaction order.
@@ -160,10 +149,6 @@ interface ISuccinctVApp {
     /// @notice Timestamp for each block.
     function timestamps(uint64 block) external view returns (uint64);
 
-    /// @notice The claimable withdrawal amount for each account. Must first request
-    ///         a withdrawal and wait for it to be processed before this increases.
-    function claimableWithdrawal(address account) external view returns (uint256);
-
     /// @notice Transactions for pending actions.
     function transactions(uint64 onchainTx)
         external
@@ -198,19 +183,6 @@ interface ISuccinctVApp {
         bytes32 r,
         bytes32 s
     ) external returns (uint64 receipt);
-
-    /// @notice Request to withdraw funds from the contract.
-    /// @dev This request can also be done offchain.
-    /// @param to The address to withdraw funds to.
-    /// @param amount The amount to withdraw. MUST be less than or equal to the balance, except
-    ///        in the case of type(uint256).max, in which case the entire balance is withdrawn.
-    /// @return receipt The receipt for the withdrawal.
-    function requestWithdraw(address to, uint256 amount) external returns (uint64 receipt);
-
-    /// @notice Claim a pending withdrawal from the contract.
-    /// @param to The address to claim the withdrawal to.
-    /// @return amount The amount claimed.
-    function finishWithdraw(address to) external returns (uint256 amount);
 
     /// @notice Register a newly created prover. Only callable by the staking contract.
     /// @param prover The address of the prover.
@@ -258,16 +230,16 @@ interface ISuccinctVApp {
     /// @param verifier The new verifier address.
     function updateVerifier(address verifier) external;
 
-    /// @notice Updates the minimum amount for deposit/withdraw operations.
+    /// @notice Updates the minimum amount for deposit operations.
     /// @dev Only callable by the owner.
     /// @param amount The new minimum amount.
     function updateMinDepositAmount(uint256 amount) external;
 
-    /// @notice Pauses deposit, withdrawal, prover creation, and step.
+    /// @notice Pauses deposit, prover creation, and step.
     /// @dev Only callable by the owner.
     function pause() external;
 
-    /// @notice Unpauses deposit, withdrawal, prover creation, and step.
+    /// @notice Unpauses deposit, prover creation, and step.
     /// @dev Only callable by the owner.
     function unpause() external;
 }

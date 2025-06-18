@@ -10,13 +10,14 @@ use spn_network_types::{
     BidRequest, BidRequestBody, ExecuteProofRequest, ExecuteProofRequestBody, ExecutionStatus,
     FulfillProofRequest, FulfillProofRequestBody, FulfillmentStrategy, MessageFormat, ProofMode,
     RequestProofRequest, RequestProofRequestBody, SetDelegationRequest, SetDelegationRequestBody,
-    SettleRequest, SettleRequestBody, TransactionVariant,
+    SettleRequest, SettleRequestBody, TransactionVariant, WithdrawRequest, WithdrawRequestBody,
 };
 use spn_utils::SPN_SEPOLIA_V1_DOMAIN;
+use spn_vapp_core::transactions::WithdrawTransaction;
 use spn_vapp_core::{merkle::MerkleStorage, state::VAppState, storage::RequestId};
 use spn_vapp_core::{
     receipts::VAppReceipt,
-    sol::{Account, CreateProver, Deposit, TransactionStatus, Withdraw},
+    sol::{Account, CreateProver, Deposit, TransactionStatus},
     storage::Storage,
     transactions::{
         ClearTransaction, DelegateTransaction, OnchainTransaction, TransferTransaction,
@@ -120,24 +121,6 @@ pub fn deposit_tx(
         action: Deposit { account, amount },
     })
 }
-
-/// Creates a withdraw tx with the specified parameters.
-pub fn withdraw_tx(
-    account: Address,
-    amount: U256,
-    block: u64,
-    log_index: u64,
-    onchain_tx: u64,
-) -> VAppTransaction {
-    VAppTransaction::Withdraw(OnchainTransaction {
-        tx_hash: None,
-        block,
-        log_index,
-        onchain_tx,
-        action: Withdraw { account, amount },
-    })
-}
-
 /// Creates a create prover tx with the specified parameters.
 pub fn create_prover_tx(
     prover: Address,
@@ -153,6 +136,30 @@ pub fn create_prover_tx(
         log_index,
         onchain_tx,
         action: CreateProver { prover, owner, stakerFeeBips: staker_fee_bips },
+    })
+}
+
+/// Creates a withdraw tx with the specified parameters.
+pub fn withdraw_tx(
+    signer: &PrivateKeySigner,
+    account: Address,
+    amount: U256,
+    nonce: u64,
+) -> VAppTransaction {
+    let body = WithdrawRequestBody {
+        nonce,
+        account: account.to_vec(),
+        amount: amount.to_string(),
+        domain: spn_utils::SPN_SEPOLIA_V1_DOMAIN.to_vec(),
+        variant: TransactionVariant::WithdrawVariant as i32,
+    };
+    let signature = proto_sign(signer, &body);
+    VAppTransaction::Withdraw(WithdrawTransaction {
+        withdraw: WithdrawRequest {
+            format: MessageFormat::Binary.into(),
+            body: Some(body),
+            signature: signature.as_bytes().to_vec(),
+        },
     })
 }
 
@@ -341,13 +348,11 @@ pub fn assert_withdraw_receipt(
     receipt: &Option<VAppReceipt>,
     expected_account: Address,
     expected_amount: U256,
-    expected_onchain_tx: u64,
 ) {
     match receipt.as_ref().unwrap() {
         VAppReceipt::Withdraw(withdraw) => {
             assert_eq!(withdraw.action.account, expected_account);
             assert_eq!(withdraw.action.amount, expected_amount);
-            assert_eq!(withdraw.onchain_tx_id, expected_onchain_tx);
             assert_eq!(withdraw.status, TransactionStatus::Completed);
         }
         _ => panic!("Expected a withdraw receipt"),

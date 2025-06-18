@@ -44,6 +44,9 @@ pub enum VAppPanic {
     #[error("Invalid proto signature for delegation")]
     InvalidDelegationSignature,
 
+    #[error("Invalid proto signature for withdraw")]
+    InvalidWithdrawSignature,
+
     #[error("Missing proto body")]
     MissingProtoBody,
 
@@ -153,4 +156,7 @@ pub enum VAppPanic {
 
     #[error("Storage error: {0}")]
     StorageError(#[from] StorageError),
+
+    #[error("Only the account itself can withdraw since the account is not a prover")]
+    OnlyAccountCanWithdraw,
 }

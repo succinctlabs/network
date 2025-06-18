@@ -59,6 +59,6 @@ contract SuccinctVAppDelegateTest is SuccinctVAppTest {
         // Verify receipt status updated
         (, status,,) = SuccinctVApp(VAPP).transactions(SuccinctVApp(VAPP).currentOnchainTxId());
         assertEq(uint8(status), uint8(TransactionStatus.Completed));
-        // assertEq(SuccinctVApp(VAPP).finalizedOnchainTxId(), 1);
+        assertEq(SuccinctVApp(VAPP).finalizedOnchainTxId(), 1);
     }
 }

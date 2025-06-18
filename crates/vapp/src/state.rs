@@ -13,7 +13,7 @@ use crate::{
     errors::VAppPanic,
     fee::fee,
     merkle::{MerkleStorage, MerkleTreeHasher},
-    receipts::{OnchainReceipt, VAppReceipt},
+    receipts::{OffchainReceipt, OnchainReceipt, VAppReceipt},
     signing::{eth_sign_verify, proto_verify},
     sol::{Account, TransactionStatus, VAppStateContainer, Withdraw},
     sparse::SparseStorage,
@@ -227,54 +227,6 @@ impl<A: Storage<Address, Account>, R: Storage<RequestId, bool>> VAppState<A, R> 
                     status: TransactionStatus::Completed,
                 })));
             }
-            VAppTransaction::Withdraw(withdraw) => {
-                // Log the withdraw event.
-                info!("TX {}: WITHDRAW({:?})", self.tx_id, withdraw);
-
-                // Validate the receipt.
-                debug!("validate receipt");
-                self.validate_onchain_tx(withdraw, withdraw.onchain_tx)?;
-
-                // Update the current receipt, block, and log index.
-                debug!("update l1 tx, block, and log index");
-                self.onchain_tx_id += 1;
-                self.onchain_block = withdraw.block;
-                self.onchain_log_index = withdraw.log_index;
-
-                // If the maximum value of an U256 is used, drain the entire balance.
-                debug!("deduct balance");
-                let account = self.accounts.entry(withdraw.action.account)?.or_default();
-                let balance = account.get_balance();
-                let withdrawal_amount = if withdraw.action.amount == U256::MAX {
-                    balance
-                } else {
-                    if balance < withdraw.action.amount {
-                        // Return the withdraw action with a reverted status.
-                        return Ok(Some(VAppReceipt::Withdraw(OnchainReceipt {
-                            onchain_tx_id: withdraw.onchain_tx,
-                            action: withdraw.action.clone(),
-                            status: TransactionStatus::Reverted,
-                        })));
-                    }
-                    withdraw.action.amount
-                };
-
-                // Process the withdraw by deducting from account balance.
-                info!("├── Account({}): - {} $PROVE", withdraw.action.account, withdrawal_amount);
-                account.deduct_balance(withdrawal_amount);
-
-                // Return the withdraw action, replacing the amount with the actual
-                // withdrawal amount (which in the case of U256::MAX, is not the same value as
-                // the requested amount).
-                return Ok(Some(VAppReceipt::Withdraw(OnchainReceipt {
-                    onchain_tx_id: withdraw.onchain_tx,
-                    action: Withdraw {
-                        account: withdraw.action.account,
-                        amount: withdrawal_amount,
-                    },
-                    status: TransactionStatus::Completed,
-                })));
-            }
             VAppTransaction::CreateProver(prover) => {
                 // Log the set delegated signer event.
                 info!("TX {}: CREATE_PROVER({:?})", self.tx_id, prover);
@@ -448,6 +400,85 @@ impl<A: Storage<Address, Account>, R: Storage<RequestId, bool>> VAppState<A, R> 
                 self.accounts.entry(to)?.or_default().add_balance(amount);
 
                 return Ok(None);
+            }
+            VAppTransaction::Withdraw(withdraw) => {
+                // Log the withdraw event.
+                info!("TX {}: WITHDRAW({:?})", self.tx_id, withdraw);
+
+                // Make sure the transfer body is present.
+                debug!("validate proto body");
+                let body = withdraw.withdraw.body.as_ref().ok_or(VAppPanic::MissingProtoBody)?;
+
+                // Verify the variant.
+                debug!("verify variant");
+                let variant = tx_variant(body.variant)?;
+                if variant != TransactionVariant::WithdrawVariant {
+                    return Err(VAppPanic::InvalidTransactionVariant);
+                }
+
+                // Verify the proto signature.
+                debug!("verify proto signature");
+                let from = proto_verify(body, &withdraw.withdraw.signature)
+                    .map_err(|_| VAppPanic::InvalidWithdrawSignature)?;
+
+                // Verify the domain.
+                debug!("verify domain");
+                let domain = B256::try_from(body.domain.as_slice())
+                    .map_err(|_| VAppPanic::DomainDeserializationFailed)?;
+                if domain != self.domain {
+                    return Err(VAppPanic::DomainMismatch {
+                        expected: self.domain,
+                        actual: domain,
+                    });
+                }
+
+                // Verify that the transaction is not already processed.
+                let withdraw_id = body
+                    .hash_with_signer(from.as_slice())
+                    .map_err(|_| VAppPanic::HashingBodyFailed)?;
+                if *self.transactions.entry(withdraw_id)?.or_default() {
+                    return Err(VAppPanic::TransactionAlreadyProcessed {
+                        id: hex::encode(withdraw_id),
+                    });
+                }
+
+                // Mark the transaction as processed.
+                self.transactions.insert(withdraw_id, true)?;
+
+                // Extract the account address.
+                debug!("extract account address");
+                let account = address(body.account.as_slice())?;
+                let owner = self.accounts.entry(account)?.or_default().get_owner();
+
+                // If the account is not a prover (provers always have a non-zero owner address),
+                // then only the account itself can withdraw.
+                if owner == Address::ZERO && account != from {
+                    return Err(VAppPanic::OnlyAccountCanWithdraw);
+                }
+
+                // Extract the amount to withdraw.
+                debug!("extract amount to withdraw");
+                let amount = body
+                    .amount
+                    .parse::<U256>()
+                    .map_err(|_| VAppPanic::InvalidU256Amount { amount: body.amount.clone() })?;
+
+                // Validate that the account has sufficient balance.
+                debug!("validate account has sufficient balance");
+                let balance = self.accounts.entry(account)?.or_default().get_balance();
+                if balance < amount {
+                    return Err(VAppPanic::InsufficientBalance { account, amount, balance });
+                }
+
+                // Deduct the amount from the account.
+                debug!("deduct amount from account");
+                self.accounts.entry(account)?.or_default().deduct_balance(amount);
+
+                // Return the withdraw action.
+                return Ok(Some(VAppReceipt::Withdraw(OffchainReceipt {
+                    action: Withdraw { account, amount },
+                    status: TransactionStatus::Completed,
+                })));
             }
             VAppTransaction::Clear(clear) => {
                 // Make sure the proto bodies are present for (request, bid, settle, execute).

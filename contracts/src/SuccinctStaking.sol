@@ -208,10 +208,6 @@ contract SuccinctStaking is
             UnstakeClaim({stPROVE: _stPROVE, timestamp: block.timestamp})
         );
 
-        // Trigger a withdrawal on the prover so that any pending rewards are sent to the prover
-        // vault by the time the unstake is finished.
-        ISuccinctVApp(vapp).requestWithdraw(prover, type(uint256).max);
-
         emit UnstakeRequest(msg.sender, prover, _stPROVE);
     }
 
@@ -227,12 +223,6 @@ contract SuccinctStaking is
 
         // Check that this prover is not in the process of being slashed.
         if (slashClaims[prover].length > 0) revert ProverHasSlashRequest();
-
-        // If the prover has any claimable withdrawal, withdraw it *before* unstaking
-        // from the prover vault.
-        if (ISuccinctVApp(vapp).claimableWithdrawal(prover) > 0) {
-            ISuccinctVApp(vapp).finishWithdraw(prover);
-        }
 
         // Process the available unstake claims.
         PROVE += _finishUnstake(prover, claims);

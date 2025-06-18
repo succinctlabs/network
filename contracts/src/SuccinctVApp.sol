@@ -75,9 +75,6 @@ contract SuccinctVApp is
     uint64 public override finalizedOnchainTxId;
 
     /// @inheritdoc ISuccinctVApp
-    mapping(address => uint256) public override claimableWithdrawal;
-
-    /// @inheritdoc ISuccinctVApp
     mapping(uint64 => bytes32) public override roots;
 
     /// @inheritdoc ISuccinctVApp
@@ -186,55 +183,6 @@ contract SuccinctVApp is
     }
 
     /// @inheritdoc ISuccinctVApp
-    function requestWithdraw(address _to, uint256 _amount)
-        external
-        override
-        whenNotPaused
-        returns (uint64 receipt)
-    {
-        // Validate.
-        if (_to == address(0)) revert ZeroAddress();
-        if (_amount < minDepositAmount) revert TransferBelowMinimum();
-
-        // If the `_to` is a prover vault, then anyone can do it. Otherwise, only `_to` can trigger
-        // the withdrawal.
-        if (msg.sender != _to) {
-            if (!ISuccinctStaking(staking).isProver(_to)) revert CannotWithdrawToDifferentAddress();
-        }
-
-        // Create the receipt.
-        bytes memory data = abi.encode(Withdraw({account: _to, amount: _amount}));
-        receipt = _createTransaction(TransactionVariant.Withdraw, data);
-    }
-
-    /// @inheritdoc ISuccinctVApp
-    function finishWithdraw(address _to) external override whenNotPaused returns (uint256 amount) {
-        // Validate.
-        amount = claimableWithdrawal[_to];
-        if (amount == 0) revert NoWithdrawalToClaim();
-
-        // Update the state.
-        claimableWithdrawal[_to] = 0;
-
-        // Transfer the withdrawal.
-        //
-        // If the `_to` is a prover vault, we need to first deposit it to get $iPROVE and then
-        // transfer the $iPROVE to the prover vault. This splits the $PROVE amount amongst all
-        // of the prover stakers.
-        //
-        // Otherwise if the `_to` is not a prover vault, we can just transfer the $PROVE directly.
-        if (ISuccinctStaking(staking).isProver(_to)) {
-            // Deposit $PROVE to mint $iPROVE, sending it to the prover vault.
-            IERC4626(iProve).deposit(amount, _to);
-        } else {
-            // Transfer the $PROVE from this contract to the `_to` address.
-            IERC20(prove).safeTransfer(_to, amount);
-        }
-
-        emit Withdrawal(_to, amount);
-    }
-
-    /// @inheritdoc ISuccinctVApp
     function createProver(address _prover, address _owner, uint256 _stakerFeeBips)
         external
         onlyStaking
@@ -243,7 +191,9 @@ contract SuccinctVApp is
     {
         // Validate.
         if (_owner == address(0)) revert ZeroAddress();
-        if (_owner != ISuccinctStaking(staking).ownerOf(_prover)) revert ProverNotOwned();
+        if (_owner != ISuccinctStaking(staking).ownerOf(_prover)) {
+            revert ProverNotOwned();
+        }
 
         // Create the receipt.
         bytes memory data = abi.encode(
@@ -395,54 +345,95 @@ contract SuccinctVApp is
     function _handleReceipts(StepPublicValues memory _publicValues) internal {
         // Execute the receipts.
         for (uint64 i = 0; i < _publicValues.receipts.length; i++) {
-            // Increment the finalized onchain transaction ID.
-            uint64 onchainTxId = ++finalizedOnchainTxId;
-
-            // Ensure that the receipt is the next one to be processed.
-            if (onchainTxId != _publicValues.receipts[i].onchainTxId) {
-                revert ReceiptOutOfOrder(onchainTxId, _publicValues.receipts[i].onchainTxId);
-            }
-
-            // Ensure that the receipt has of the expected statuses.
-            TransactionStatus status = _publicValues.receipts[i].status;
-            if (status == TransactionStatus.None || status == TransactionStatus.Pending) {
-                revert ReceiptStatusInvalid(status);
-            }
-
-            // Ensure that the receipt is consistent with the transaction.
-            Receipts.assertEq(transactions[onchainTxId], _publicValues.receipts[i]);
-
-            // Update the transaction status.
-            transactions[onchainTxId].status = status;
-
-            // If the transaction failed, emit the revert event and skip the rest of the loop.
-            TransactionVariant variant = _publicValues.receipts[i].variant;
-            if (status == TransactionStatus.Reverted) {
-                emit TransactionReverted(onchainTxId, variant, _publicValues.receipts[i].action);
-                continue;
-            }
-
-            // If the transaction completed, run a handler for the transaction.
-            if (variant == TransactionVariant.Deposit) {
-                // No-op.
-            } else if (variant == TransactionVariant.Withdraw) {
-                Withdraw memory withdraw = abi.decode(_publicValues.receipts[i].action, (Withdraw));
-                _processWithdraw(withdraw.account, withdraw.amount);
-            } else if (variant == TransactionVariant.CreateProver) {
-                // No-op.
+            if (_publicValues.receipts[i].onchainTxId != type(uint64).max) {
+                _handleOnchainReceipt(_publicValues.receipts[i]);
             } else {
-                revert TransactionVariantInvalid();
+                _handleOffchainReceipt(_publicValues.receipts[i]);
             }
-
-            // Emit the completed event.
-            emit TransactionCompleted(onchainTxId, variant, _publicValues.receipts[i].action);
         }
     }
 
-    /// @dev Processes a withdrawal by creating a claim for the amount.
-    function _processWithdraw(address _account, uint256 _amount) internal {
-        // Update the state.
-        claimableWithdrawal[_account] += _amount;
+    /// @dev Handles a receipt sourced from an onchain transaction.
+    function _handleOnchainReceipt(Receipt memory _receipt) internal {
+        // Increment the finalized onchain transaction ID.
+        uint64 onchainTxId = ++finalizedOnchainTxId;
+
+        // Ensure that the receipt is the next one to be processed.
+        if (onchainTxId != _receipt.onchainTxId) {
+            revert ReceiptOutOfOrder(onchainTxId, _receipt.onchainTxId);
+        }
+
+        // Ensure that the receipt has of the expected statuses.
+        if (
+            _receipt.status == TransactionStatus.None
+                || _receipt.status == TransactionStatus.Pending
+        ) {
+            revert ReceiptStatusInvalid(_receipt.status);
+        }
+
+        // Ensure that the receipt is consistent with the transaction.
+        Receipts.assertEq(transactions[onchainTxId], _receipt);
+
+        // Update the transaction status.
+        transactions[onchainTxId].status = _receipt.status;
+
+        // If the transaction failed, emit the revert event and skip the rest of the loop.
+        if (_receipt.status == TransactionStatus.Reverted) {
+            emit TransactionReverted(onchainTxId, _receipt.variant, _receipt.action);
+            return;
+        }
+
+        // If the transaction completed, run a handler for the transaction.
+        if (_receipt.variant == TransactionVariant.Deposit) {
+            // No-op.
+        } else if (_receipt.variant == TransactionVariant.CreateProver) {
+            // No-op.
+        } else {
+            revert TransactionVariantInvalid();
+        }
+
+        // Emit the completed event.
+        emit TransactionCompleted(onchainTxId, _receipt.variant, _receipt.action);
+    }
+
+    /// @dev Handles a receipt sourced from an offchain transaction.
+    function _handleOffchainReceipt(Receipt memory _receipt) internal {
+        // Ensure that the receipt has of the expected statuses.
+        if (
+            _receipt.status == TransactionStatus.None
+                || _receipt.status == TransactionStatus.Pending
+        ) {
+            revert ReceiptStatusInvalid(_receipt.status);
+        }
+
+        // If the transaction reverted, don't do anything.
+        if (_receipt.status == TransactionStatus.Reverted) {
+            emit TransactionReverted(_receipt.onchainTxId, _receipt.variant, _receipt.action);
+            return;
+        }
+
+        if (_receipt.variant == TransactionVariant.Withdraw) {
+            Withdraw memory withdraw = abi.decode(_receipt.action, (Withdraw));
+            _processWithdraw(withdraw.account, withdraw.amount);
+        } else {
+            revert TransactionVariantInvalid();
+        }
+    }
+
+    /// @dev Processes a withdrawal.
+    function _processWithdraw(address _to, uint256 _amount) internal {
+        // If the `_to` is a prover vault, we need to first deposit it to get $iPROVE and then
+        // transfer the $iPROVE to the prover vault. This splits the $PROVE amount amongst all
+        // of the prover stakers.
+        //
+        // Otherwise if the `_to` is not a prover vault, we can just transfer the $PROVE directly.
+        if (ISuccinctStaking(staking).isProver(_to)) {
+            // Deposit $PROVE to mint $iPROVE, sending it to the prover vault.
+            IERC4626(iProve).deposit(_amount, _to);
+        } else {
+            // Transfer the $PROVE from this contract to the `_to` address.
+            IERC20(prove).safeTransfer(_to, _amount);
+        }
     }
 
     /// @dev Updates the auctioneer.
