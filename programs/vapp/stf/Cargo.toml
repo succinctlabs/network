@@ -7,4 +7,4 @@ edition = "2021"
 spn-vapp-core = { workspace = true }
 alloy-primitives = { workspace = true, features = ["k256", "tiny-keccak"] }
 alloy-sol-types = { workspace = true }
-sp1-zkvm = { version = "5.0.0", features = ["verify"] }
+sp1-zkvm = { git = "https://github.com/succinctlabs/sp1.git", branch = "dev" }

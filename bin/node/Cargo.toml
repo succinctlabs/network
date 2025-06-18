@@ -5,11 +5,11 @@ edition = { workspace = true }
 publish = false
 
 [build-dependencies]
-sp1-build = { workspace = true }
+sp1-build = { git = "https://github.com/succinctlabs/sp1.git", branch = "dev" }
 
 [dependencies]
 # sp1
-sp1-sdk = { workspace = true }
+sp1-sdk = { git = "https://github.com/succinctlabs/sp1.git", branch = "dev" }
 
 # spn
 spn-calibrator = { workspace = true }

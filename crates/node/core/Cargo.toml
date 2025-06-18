@@ -16,8 +16,8 @@ spn-artifacts = { workspace = true }
 spn-rpc = { workspace = true }
 
 # sp1
-sp1-prover = { workspace = true }
-sp1-sdk = { workspace = true }
+sp1-prover = { git = "https://github.com/succinctlabs/sp1.git", branch = "dev" }
+sp1-sdk = { git = "https://github.com/succinctlabs/sp1.git", branch = "dev" }
 
 # alloy
 alloy = { workspace = true }
