@@ -56,7 +56,7 @@ contract SuccinctVAppDelegateTest is SuccinctVAppTest {
         emit ISuccinctVApp.Block(1, publicValues1.oldRoot, publicValues1.newRoot);
         SuccinctVApp(VAPP).step(abi.encode(publicValues1), jsonFixture.proof);
 
-        // // Verify receipt status updated
+        // Verify receipt status updated
         (, status,,) = SuccinctVApp(VAPP).transactions(SuccinctVApp(VAPP).currentOnchainTxId());
         assertEq(uint8(status), uint8(TransactionStatus.Completed));
         assertEq(SuccinctVApp(VAPP).finalizedOnchainTxId(), 1);
