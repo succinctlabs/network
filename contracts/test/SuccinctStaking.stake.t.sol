@@ -5,7 +5,6 @@ import {SuccinctStakingTest} from "./SuccinctStaking.t.sol";
 import {SuccinctStaking} from "../src/SuccinctStaking.sol";
 import {IProverRegistry} from "../src/interfaces/IProverRegistry.sol";
 import {ISuccinctStaking} from "../src/interfaces/ISuccinctStaking.sol";
-import {MockVApp} from "../src/mocks/MockVApp.sol";
 import {IERC20} from "../lib/openzeppelin-contracts/contracts/interfaces/IERC20.sol";
 import {ERC20Permit} from
     "../lib/openzeppelin-contracts/contracts/token/ERC20/extensions/ERC20Permit.sol";
@@ -91,6 +90,21 @@ contract SuccinctStakingStakeTests is SuccinctStakingTest {
         );
         vm.prank(STAKER_1);
         SuccinctStaking(STAKING).stake(BOB_PROVER, stakeAmount);
+    }
+
+    // Not allowed to stake to a prover that has a pending slash request
+    function test_RevertStake_WhenProverHasSlashRequest() public {
+        uint256 stakeAmount = STAKER_PROVE_AMOUNT;
+
+        // Create a slash request for Alice prover.
+        _requestSlash(ALICE_PROVER, 1);
+
+        // Stake 1 stakes to Alice prover.
+        vm.prank(STAKER_1);
+        IERC20(PROVE).approve(STAKING, stakeAmount);
+        vm.expectRevert(abi.encodeWithSelector(ISuccinctStaking.ProverHasSlashRequest.selector));
+        vm.prank(STAKER_1);
+        SuccinctStaking(STAKING).stake(ALICE_PROVER, stakeAmount);
     }
 
     // Staking would give 0 $iPROVE, which should revert.

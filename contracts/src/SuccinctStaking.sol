@@ -360,6 +360,9 @@ contract SuccinctStaking is
         // Ensure the staking amount is greater than the minimum stake amount.
         if (_PROVE < minStakeAmount) revert StakeBelowMinimum();
 
+        // Check that this prover is not in the process of being slashed.
+        if (slashClaims[_prover].length > 0) revert ProverHasSlashRequest();
+
         // Ensure the staker is not already staked with a different prover.
         address existingProver = stakerToProver[_staker];
         if (existingProver != address(0) && existingProver != _prover) {

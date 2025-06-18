@@ -77,7 +77,7 @@ interface ISuccinctStaking is IProverRegistry {
     /// @dev Thrown if the staker tries to deposit while already staked with a different prover.
     error AlreadyStakedWithDifferentProver(address existingProver);
 
-    /// @dev Thrown if the staker tries to unstake while there is a slash request for their prover.
+    /// @dev Thrown if staking or unstaking while the prover has one or more pending slash requests.
     error ProverHasSlashRequest();
 
     /// @dev Thrown if the slash request is not ready to be completed.
