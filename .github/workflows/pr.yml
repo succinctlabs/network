@@ -33,10 +33,10 @@ jobs:
           version: stable
 
       - name: Run Forge build
-        run: FOUNDRY_PROFILE=deploy forge build --via-ir --sizes --root contracts
+        run: FOUNDRY_PROFILE=deploy forge build --sizes --root contracts
 
       - name: Run tests
-        run: FOUNDRY_PROFILE=deploy forge test --via-ir -vvv --root contracts
+        run: FOUNDRY_PROFILE=deploy forge test -vvv --root contracts
 
       - name: Run Forge fmt
         run: forge fmt --check --root contracts
