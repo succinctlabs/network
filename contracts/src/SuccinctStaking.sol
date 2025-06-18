@@ -426,17 +426,19 @@ contract SuccinctStaking is
         returns (uint256 PROVE)
     {
         uint256 i = 0;
-        while (i < _claims.length) {
+        uint256 claimToCheck = _claims.length;
+        while (i < claimToCheck) {
             if (block.timestamp >= _claims[i].timestamp + unstakePeriod) {
                 // Store claim value before modifying the array.
                 uint256 claimedAmount = _claims[i].stPROVE;
 
                 // Swap with the last element and pop (if not already the last element).
-                _claims[i] = _claims[_claims.length - 1];
+                _claims[i] = _claims[claimToCheck - 1];
                 _claims.pop();
 
                 // Process the unstake.
                 PROVE += _unstake(msg.sender, _prover, claimedAmount);
+                claimToCheck--;
             } else {
                 i++;
             }
@@ -449,8 +451,11 @@ contract SuccinctStaking is
         view
         returns (uint256 unstakeClaimBalance)
     {
-        for (uint256 i = 0; i < unstakeClaims[_staker].length; i++) {
-            unstakeClaimBalance += unstakeClaims[_staker][i].stPROVE;
+        UnstakeClaim[] storage claims = unstakeClaims[_staker];
+        uint256 len = claims.length;
+
+        for (uint256 i = 0; i < len; i++) {
+            unstakeClaimBalance += claims[i].stPROVE;
         }
     }
 
@@ -460,8 +465,11 @@ contract SuccinctStaking is
         view
         returns (uint256 slashClaimBalance)
     {
-        for (uint256 i = 0; i < slashClaims[_prover].length; i++) {
-            slashClaimBalance += slashClaims[_prover][i].iPROVE;
+        SlashClaim[] storage claims = slashClaims[_prover];
+        uint256 len = claims.length;
+
+        for (uint256 i = 0; i < len; i++) {
+            slashClaimBalance += claims[i].iPROVE;
         }
     }
 
