@@ -68,6 +68,9 @@ interface ISuccinctStaking is IProverRegistry {
     /// @dev Thrown if the staker tries to stake or unstake a zero amount.
     error ZeroAmount();
 
+    /// @dev Thrown if staking would result in a receipt token with a zero amount.
+    error ZeroReceiptAmount();
+
     /// @dev Thrown if the staker tries to stake less than the minimum stake amount.
     error StakeBelowMinimum();
 

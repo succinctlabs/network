@@ -379,11 +379,17 @@ contract SuccinctStaking is
         // Deposit $PROVE to mint $iPROVE, sending it to this contract.
         uint256 iPROVE = IERC4626(iProve).deposit(_PROVE, address(this));
 
-        // Deposit $iPROVE to mint $stPROVE, sending it to this contract.
-        stPROVE = IERC4626(_prover).deposit(iPROVE, address(this));
+        // Ensure non-zero $iPROVE.
+        if (iPROVE == 0) revert ZeroReceiptAmount();
+
+        // Deposit $iPROVE to mint $PROVER-N, sending it to this contract.
+        uint256 proverN = IERC4626(_prover).deposit(iPROVE, address(this));
+
+        // Ensure non-zero $PROVER-N.
+        if (proverN == 0) revert ZeroReceiptAmount();
 
         // Mint $stPROVE to the staker as a receipt token representing their ownership of $PROVER-N.
-        _mint(_staker, stPROVE);
+        _mint(_staker, proverN);
 
         emit Stake(_staker, _prover, _PROVE, iPROVE, stPROVE);
     }
