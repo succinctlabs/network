@@ -98,7 +98,6 @@ pub struct ClearTransaction {
     pub vk: Option<Vec<u8>>,
 }
 
-
 /// A transaction to withdraw $PROVE from the vApp contract.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WithdrawTransaction {

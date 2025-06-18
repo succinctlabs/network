@@ -1,9 +1,7 @@
 mod common;
 
 use alloy_primitives::U256;
-use spn_vapp_core::{
-    errors::VAppPanic, verifier::MockVerifier,
-};
+use spn_vapp_core::{errors::VAppPanic, verifier::MockVerifier};
 
 use crate::common::*;
 

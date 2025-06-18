@@ -163,7 +163,6 @@ pub fn withdraw_tx(
     })
 }
 
-
 /// Creates a delegate tx with the specified parameters using the test utility.
 pub fn delegate_tx(
     prover_owner: &alloy::signers::local::PrivateKeySigner,

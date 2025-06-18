@@ -13,7 +13,7 @@ use crate::{
     errors::VAppPanic,
     fee::fee,
     merkle::{MerkleStorage, MerkleTreeHasher},
-    receipts::{OnchainReceipt, OffchainReceipt, VAppReceipt},
+    receipts::{OffchainReceipt, OnchainReceipt, VAppReceipt},
     signing::{eth_sign_verify, proto_verify},
     sol::{Account, TransactionStatus, VAppStateContainer, Withdraw},
     sparse::SparseStorage,
@@ -450,7 +450,7 @@ impl<A: Storage<Address, Account>, R: Storage<RequestId, bool>> VAppState<A, R> 
                 let account = address(body.account.as_slice())?;
                 let owner = self.accounts.entry(account)?.or_default().get_owner();
 
-                // If the account is not a prover (provers always have a non-zero owner address), 
+                // If the account is not a prover (provers always have a non-zero owner address),
                 // then only the account itself can withdraw.
                 if owner == Address::ZERO && account != from {
                     return Err(VAppPanic::OnlyAccountCanWithdraw);
@@ -458,9 +458,10 @@ impl<A: Storage<Address, Account>, R: Storage<RequestId, bool>> VAppState<A, R> 
 
                 // Extract the amount to withdraw.
                 debug!("extract amount to withdraw");
-                let amount = body.amount.parse::<U256>().map_err(|_| {
-                    VAppPanic::InvalidU256Amount { amount: body.amount.clone() }
-                })?;
+                let amount = body
+                    .amount
+                    .parse::<U256>()
+                    .map_err(|_| VAppPanic::InvalidU256Amount { amount: body.amount.clone() })?;
 
                 // Validate that the account has sufficient balance.
                 debug!("validate account has sufficient balance");
@@ -475,10 +476,7 @@ impl<A: Storage<Address, Account>, R: Storage<RequestId, bool>> VAppState<A, R> 
 
                 // Return the withdraw action.
                 return Ok(Some(VAppReceipt::Withdraw(OffchainReceipt {
-                    action: Withdraw {
-                        account,
-                        amount,
-                    },
+                    action: Withdraw { account, amount },
                     status: TransactionStatus::Completed,
                 })));
             }
