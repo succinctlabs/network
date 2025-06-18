@@ -54,7 +54,7 @@ library Receipts {
             revert TransactionReceiptMismatch(TransactionVariant.Deposit, _receipt.onchainTxId);
         }
     }
- 
+
     /// @dev Asserts that the prover transaction matches the receipt.
     function _assertProverEq(Receipt memory _receipt, Transaction memory _transaction)
         internal

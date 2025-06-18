@@ -449,7 +449,10 @@ impl<A: Storage<Address, Account>, R: Storage<RequestId, bool>> VAppState<A, R> 
                 debug!("extract account address");
                 let account = address(body.account.as_slice())?;
                 let owner = self.accounts.entry(account)?.or_default().get_owner();
-                if !(account == from || owner == from) {
+
+                // If the account is not a prover (provers always have a non-zero owner address), 
+                // then only the account itself can withdraw.
+                if owner == Address::ZERO && account != from {
                     return Err(VAppPanic::OnlyAccountCanWithdraw);
                 }
 

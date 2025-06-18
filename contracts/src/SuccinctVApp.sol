@@ -191,7 +191,9 @@ contract SuccinctVApp is
     {
         // Validate.
         if (_owner == address(0)) revert ZeroAddress();
-        if (_owner != ISuccinctStaking(staking).ownerOf(_prover)) revert ProverNotOwned();
+        if (_owner != ISuccinctStaking(staking).ownerOf(_prover)) {
+            revert ProverNotOwned();
+        }
 
         // Create the receipt.
         bytes memory data = abi.encode(
@@ -407,9 +409,25 @@ contract SuccinctVApp is
 
         if (_receipt.variant == TransactionVariant.Withdraw) {
             Withdraw memory withdraw = abi.decode(_receipt.action, (Withdraw));
-            IERC20(prove).safeTransfer(withdraw.account, withdraw.amount);
+            _processWithdraw(withdraw.account, withdraw.amount);
         } else {
             revert TransactionVariantInvalid();
+        }
+    }
+
+    /// @dev Processes a withdrawal.
+    function _processWithdraw(address _to, uint256 _amount) internal {
+        // If the `_to` is a prover vault, we need to first deposit it to get $iPROVE and then
+        // transfer the $iPROVE to the prover vault. This splits the $PROVE amount amongst all
+        // of the prover stakers.
+        //
+        // Otherwise if the `_to` is not a prover vault, we can just transfer the $PROVE directly.
+        if (ISuccinctStaking(staking).isProver(_to)) {
+            // Deposit $PROVE to mint $iPROVE, sending it to the prover vault.
+            IERC4626(iProve).deposit(_amount, _to);
+        } else {
+            // Transfer the $PROVE from this contract to the `_to` address.
+            IERC20(prove).safeTransfer(_to, _amount);
         }
     }
 
