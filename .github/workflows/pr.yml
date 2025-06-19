@@ -46,7 +46,7 @@ jobs:
       - name: Check gas snapshot
         working-directory: contracts
         run: |
-          forge snapshot
+          FOUNDRY_PROFILE=deploy forge snapshot
           if [[ -n "$(git status --porcelain)" ]]; then
             echo "::error ::Gas snapshot is out of date. Run 'forge snapshot' and commit the result.";
             git status
