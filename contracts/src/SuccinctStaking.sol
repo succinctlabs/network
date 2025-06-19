@@ -4,9 +4,8 @@ pragma solidity ^0.8.28;
 import {ProverRegistry} from "./libraries/ProverRegistry.sol";
 import {StakedSuccinct} from "./tokens/StakedSuccinct.sol";
 import {ISuccinctStaking} from "./interfaces/ISuccinctStaking.sol";
-import {ISuccinctVApp} from "./interfaces/ISuccinctVApp.sol";
-import {IProver} from "./interfaces/IProver.sol";
 import {IIntermediateSuccinct} from "./interfaces/IIntermediateSuccinct.sol";
+import {IProver} from "./interfaces/IProver.sol";
 import {Initializable} from "../lib/openzeppelin-contracts/contracts/proxy/utils/Initializable.sol";
 import {Ownable} from "../lib/openzeppelin-contracts/contracts/access/Ownable.sol";
 import {IERC20} from "../lib/openzeppelin-contracts/contracts/interfaces/IERC20.sol";
@@ -18,7 +17,7 @@ import {IERC20} from "../lib/openzeppelin-contracts/contracts/token/ERC20/IERC20
 
 /// @title SuccinctStaking
 /// @author Succinct Labs
-/// @notice Manages staking, unstaking, rewards, and slashing for the Succinct Prover Network.
+/// @notice Manages staking, unstaking, dispensing, and slashing for the Succinct Prover Network.
 contract SuccinctStaking is
     Initializable,
     Ownable,
@@ -418,9 +417,15 @@ contract SuccinctStaking is
     }
 
     /// @dev Burn a staker's $stPROVE and withdraw $PROVER-N to receive $iPROVE, then withdraw
-    ///      $iPROVE to receive $PROVE, which gets sent to the staker. The snapshot $iPROVE is
-    ///      used instead of the current $iPROVE to avoid the staker earning rewards during the
-    ///      unstaking period.
+    ///      $iPROVE to receive $PROVE, which gets sent to the staker.
+    ///
+    ///      The actual $iPROVE withdrawn is adjusted to ensure that prover rewards earned during the
+    ///      unstaking period do not go to the staker, while ensuring that slashing that occurs during
+    ///      the unstaking period does. This is implemented as follows:
+    ///      - If received $iPROVE > snapshot $iPROVE: Rewards were earned during unstaking, so the
+    ///        staker redeems only the snapshot amount, and the excess is returned to the prover.
+    ///      - If received $iPROVE < snapshot $iPROVE: Slashing occurred during unstaking, so the
+    ///        staker redeems the lower amount (received $iPROVE), bearing the loss from slashing.
     function _unstake(address _staker, address _prover, uint256 _stPROVE, uint256 _snapshotiPROVE)
         internal
         stakingOperation
@@ -433,19 +438,24 @@ contract SuccinctStaking is
         _burn(_staker, _stPROVE);
 
         // Withdraw $PROVER-N from this contract to have this contract receive $iPROVE.
-        uint256 iPROVE = IERC4626(_prover).redeem(_stPROVE, address(this), address(this));
+        uint256 receivediPROVE = IERC4626(_prover).redeem(_stPROVE, address(this), address(this));
 
-        // Withdraw $iPROVE from this contract to have the staker receive $PROVE.
-        PROVE = IERC4626(iProve).redeem(_snapshotiPROVE, _staker, address(this));
-
-        // If the $iPROVE received is greater than the snapshot $iPROVE, it indicates that the prover
-        // earned some rewards during the unstaking period. This difference is given back to the prover.
-        uint256 difference = iPROVE - _snapshotiPROVE;
-        if (difference > 0) {
-            IERC20(iProve).safeTransfer(_prover, difference);
+        // Determine how much $iPROVE to redeem for the staker based on rewards or slashing.
+        uint256 iPROVE;
+        if (receivediPROVE > _snapshotiPROVE) {
+            // Rewards were earned during unstaking. Return the excess to the prover.
+            uint256 excess = receivediPROVE - _snapshotiPROVE;
+            IERC20(iProve).safeTransfer(_prover, excess);
+            iPROVE = _snapshotiPROVE;
+        } else {
+            // Either no change or slashing occurred. Staker gets what's available.
+            iPROVE = receivediPROVE;
         }
 
-        emit Unstake(_staker, _prover, PROVE, _snapshotiPROVE, _stPROVE);
+        // Withdraw $iPROVE from this contract to have the staker receive $PROVE.
+        PROVE = IERC4626(iProve).redeem(iPROVE, _staker, address(this));
+
+        emit Unstake(_staker, _prover, PROVE, iPROVE, _stPROVE);
     }
 
     /// @dev Iterate over the unstake claims, processing each one that has passed the unstake
@@ -472,25 +482,14 @@ contract SuccinctStaking is
         }
     }
 
-    /// @dev Get the sum of all unstake claims for a staker for a given prover.
+    /// @dev Get the $stPROVE sum of all unstake claims for a staker.
     function _getUnstakeClaimBalance(address _staker)
         internal
         view
-        returns (uint256 unstakeClaimBalance)
+        returns (uint256 unstakeClaimstPROVE)
     {
         for (uint256 i = 0; i < unstakeClaims[_staker].length; i++) {
-            unstakeClaimBalance += unstakeClaims[_staker][i].stPROVE;
-        }
-    }
-
-    /// @dev Get the sum of all slash claims for a prover.
-    function _getSlashClaimBalance(address _prover)
-        internal
-        view
-        returns (uint256 slashClaimBalance)
-    {
-        for (uint256 i = 0; i < slashClaims[_prover].length; i++) {
-            slashClaimBalance += slashClaims[_prover][i].iPROVE;
+            unstakeClaimstPROVE += unstakeClaims[_staker][i].stPROVE;
         }
     }
 
