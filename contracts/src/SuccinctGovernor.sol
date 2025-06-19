@@ -10,12 +10,17 @@ import {GovernorVotesQuorumFraction} from
     "@openzeppelin/contracts/governance/extensions/GovernorVotesQuorumFraction.sol";
 import {IVotes} from "@openzeppelin/contracts/governance/utils/IVotes.sol";
 
-string constant NAME = "Governor";
+string constant NAME = "SuccinctGovernor";
 uint48 constant VOTING_DELAY = 7200; // 1 day
 uint32 constant VOTING_PERIOD = 50400; // 1 week
 uint256 constant PROPOSAL_THRESHOLD = 100_000e18; // 100,000 tokens minimum to propose
-uint256 constant QUORUM_FRACTION = 4;
+uint256 constant QUORUM_FRACTION = 4; // 4% of total supply required to pass a proposal
 
+/// @title SuccinctGovernor
+/// @author Succinct Labs
+/// @notice Governor contract for governance operations in the Succinct Prover Network.
+/// @dev This contract should only be made owner of the relevant contracts (e.g. SuccinctStaking)
+///      once sufficient staking (minting of $iPROVE) has occurred.
 contract SuccinctGovernor is
     Governor,
     GovernorSettings,
