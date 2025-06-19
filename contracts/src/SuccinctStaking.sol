@@ -52,7 +52,7 @@ contract SuccinctStaking is
     //////////////////////////////////////////////////////////////*/
 
     /// @dev This contract only has an owner so it can be initialized by the owner later. This is done because
-    ///      other contracts (e.g. VAPP) need a reference to this contract, and this contract needs a
+    ///      other contracts (e.g. SuccinctVApp) need a reference to this contract, and this contract needs a
     ///      reference to it. So we deploy this first, then initialize it later.
     constructor(address _owner) Ownable(_owner) {}
 
@@ -68,6 +68,13 @@ contract SuccinctStaking is
         uint256 _slashPeriod,
         uint256 _dispenseRate
     ) external onlyOwner initializer {
+        if (
+            _governor == address(0) || _vApp == address(0) || _prove == address(0)
+                || _intermediateProve == address(0)
+        ) {
+            revert ZeroAddress();
+        }
+
         // Setup the initial state.
         __ProverRegistry_init(_governor, _vApp, _prove, _intermediateProve);
         minStakeAmount = _minStakeAmount;

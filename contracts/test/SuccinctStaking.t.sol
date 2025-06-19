@@ -18,13 +18,13 @@ import {IERC4626} from "../lib/openzeppelin-contracts/contracts/interfaces/IERC4
 // Sets up the SuccinctStaking protocol for testing and exposes some useful helper functions.
 contract SuccinctStakingTest is Test {
     // Constants
-    uint256 public constant STAKING_PROVE_AMOUNT = 1000e18;
-    uint256 public constant REQUESTER_PROVE_AMOUNT = 10e18;
-    uint256 public constant STAKER_PROVE_AMOUNT = 1e18;
     uint256 public constant MIN_STAKE_AMOUNT = 1e12;
+    uint256 public constant STAKER_PROVE_AMOUNT = 100_000e18; // >= PROPOSAL_THRESHOLD for governance tests
+    uint256 public constant REQUESTER_PROVE_AMOUNT = 1_000_000e18;
+    uint256 public constant DISPENSE_AMOUNT = 10_000_000e18;
+    uint256 public constant DISPENSE_RATE = 1268391679; // ~4% yearly
     uint256 public constant UNSTAKE_PERIOD = 21 days;
     uint256 public constant SLASH_PERIOD = 7 days;
-    uint256 public constant DISPENSE_RATE = 1268391679; // ~4% yearly
     uint256 public constant STAKER_FEE_BIPS = 1000; // 10%
     uint256 public constant FEE_UNIT = 10000; // 100%
     uint256 public constant PROTOCOL_FEE_BIPS = 30; // 0.3%
@@ -96,7 +96,7 @@ contract SuccinctStakingTest is Test {
         );
 
         // Mint some $PROVE for the staking contract
-        deal(PROVE, STAKING, STAKING_PROVE_AMOUNT);
+        deal(PROVE, STAKING, DISPENSE_AMOUNT);
 
         // Mint some $PROVE for the requester
         deal(PROVE, REQUESTER, REQUESTER_PROVE_AMOUNT);
@@ -116,42 +116,6 @@ contract SuccinctStakingTest is Test {
         // Mint some $PROVE for the stakers
         deal(PROVE, STAKER_1, STAKER_PROVE_AMOUNT);
         deal(PROVE, STAKER_2, STAKER_PROVE_AMOUNT);
-    }
-
-    function _calculateStakerReward(uint256 _totalReward) internal pure returns (uint256) {
-        (, uint256 stakerReward,) =
-            FeeCalculator.calculateFeeSplit(_totalReward, PROTOCOL_FEE_BIPS, STAKER_FEE_BIPS);
-        return stakerReward;
-    }
-
-    function _calculateOwnerReward(uint256 _totalReward) internal pure returns (uint256) {
-        (,, uint256 ownerReward) =
-            FeeCalculator.calculateFeeSplit(_totalReward, PROTOCOL_FEE_BIPS, STAKER_FEE_BIPS);
-        return ownerReward;
-    }
-
-    function _calculateProtocolFee(uint256 _totalReward) internal pure returns (uint256) {
-        (uint256 protocolFee,,) =
-            FeeCalculator.calculateFeeSplit(_totalReward, PROTOCOL_FEE_BIPS, STAKER_FEE_BIPS);
-        return protocolFee;
-    }
-
-    function _calculateRewardSplit(uint256 _totalReward)
-        internal
-        pure
-        returns (uint256 stakerReward, uint256 ownerReward)
-    {
-        (, stakerReward, ownerReward) =
-            FeeCalculator.calculateFeeSplit(_totalReward, PROTOCOL_FEE_BIPS, STAKER_FEE_BIPS);
-    }
-
-    function _calculateFullRewardSplit(uint256 _totalReward)
-        internal
-        pure
-        returns (uint256 protocolFee, uint256 stakerReward, uint256 ownerReward)
-    {
-        (protocolFee, stakerReward, ownerReward) =
-            FeeCalculator.calculateFeeSplit(_totalReward, PROTOCOL_FEE_BIPS, STAKER_FEE_BIPS);
     }
 
     function _stake(address _staker, address _prover, uint256 _amount) internal {
@@ -248,6 +212,42 @@ contract SuccinctStakingTest is Test {
     function _withdrawFromVApp(address _account, uint256 _amount) internal {
         MockVApp(VAPP).requestWithdraw(_account, _amount);
         MockVApp(VAPP).finishWithdraw(_account);
+    }
+
+    function _calculateStakerReward(uint256 _totalReward) internal pure returns (uint256) {
+        (, uint256 stakerReward,) =
+            FeeCalculator.calculateFeeSplit(_totalReward, PROTOCOL_FEE_BIPS, STAKER_FEE_BIPS);
+        return stakerReward;
+    }
+
+    function _calculateOwnerReward(uint256 _totalReward) internal pure returns (uint256) {
+        (,, uint256 ownerReward) =
+            FeeCalculator.calculateFeeSplit(_totalReward, PROTOCOL_FEE_BIPS, STAKER_FEE_BIPS);
+        return ownerReward;
+    }
+
+    function _calculateProtocolFee(uint256 _totalReward) internal pure returns (uint256) {
+        (uint256 protocolFee,,) =
+            FeeCalculator.calculateFeeSplit(_totalReward, PROTOCOL_FEE_BIPS, STAKER_FEE_BIPS);
+        return protocolFee;
+    }
+
+    function _calculateRewardSplit(uint256 _totalReward)
+        internal
+        pure
+        returns (uint256 stakerReward, uint256 ownerReward)
+    {
+        (, stakerReward, ownerReward) =
+            FeeCalculator.calculateFeeSplit(_totalReward, PROTOCOL_FEE_BIPS, STAKER_FEE_BIPS);
+    }
+
+    function _calculateFullRewardSplit(uint256 _totalReward)
+        internal
+        pure
+        returns (uint256 protocolFee, uint256 stakerReward, uint256 ownerReward)
+    {
+        (protocolFee, stakerReward, ownerReward) =
+            FeeCalculator.calculateFeeSplit(_totalReward, PROTOCOL_FEE_BIPS, STAKER_FEE_BIPS);
     }
 }
 

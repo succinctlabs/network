@@ -58,7 +58,7 @@ contract SuccinctStakingDispenseTests is SuccinctStakingTest {
     }
 
     // Ensure dispense rate is properly enforced
-    function test_Dispense_RateLimit() public {
+    function test_Dispense_WhenRateLimit() public {
         uint256 stakeAmount = STAKER_PROVE_AMOUNT;
 
         // Stake to Alice prover
@@ -103,7 +103,7 @@ contract SuccinctStakingDispenseTests is SuccinctStakingTest {
     }
 
     // Consecutive dispenses with waiting periods
-    function test_Dispense_ConsecutiveWithWaiting() public {
+    function test_Dispense_WhenConsecutiveWithWaiting() public {
         uint256 stakeAmount = STAKER_PROVE_AMOUNT;
 
         // Stake to Alice prover
@@ -145,7 +145,7 @@ contract SuccinctStakingDispenseTests is SuccinctStakingTest {
     }
 
     // Dispensing exactly at the limit
-    function test_Dispense_ExactLimit() public {
+    function test_Dispense_WhenExactLimit() public {
         // Stake some amount so we have assets in the system
         _permitAndStake(STAKER_1, STAKER_1_PK, ALICE_PROVER, STAKER_PROVE_AMOUNT);
 
@@ -172,7 +172,7 @@ contract SuccinctStakingDispenseTests is SuccinctStakingTest {
     }
 
     // Changing dispense rate and its effect on available amount
-    function test_Dispense_RateChangeEffects() public {
+    function test_Dispense_WhenRateChangeEffects() public {
         // Stake some amount so we have assets in the system
         _permitAndStake(STAKER_1, STAKER_1_PK, ALICE_PROVER, STAKER_PROVE_AMOUNT);
 
@@ -211,7 +211,7 @@ contract SuccinctStakingDispenseTests is SuccinctStakingTest {
     }
 
     // Dispense calculation with very large time periods
-    function test_Dispense_VeryLargeTimePeriod() public {
+    function test_Dispense_WhenVeryLargeTimePeriod() public {
         // Stake some amount so we have assets in the system
         _permitAndStake(STAKER_1, STAKER_1_PK, ALICE_PROVER, STAKER_PROVE_AMOUNT);
 
@@ -241,6 +241,61 @@ contract SuccinctStakingDispenseTests is SuccinctStakingTest {
 
         // Available should now be 0
         assertEq(SuccinctStaking(STAKING).maxDispense(), 0);
+    }
+
+    // Dispense using type(uint256).max should dispense exactly maxDispense()
+    function test_Dispense_WhenMaxUint() public {
+        // Stake some amount so the contract has state for dispensing
+        _permitAndStake(STAKER_1, STAKER_1_PK, ALICE_PROVER, STAKER_PROVE_AMOUNT);
+
+        // Advance time so that some dispenseable amount accumulates
+        uint256 waitTime = 2 days;
+        skip(waitTime);
+
+        // Compute how much should be available
+        uint256 available = SuccinctStaking(STAKING).maxDispense();
+        assertEq(available, waitTime * DISPENSE_RATE);
+
+        // Remember I_PROVE’s existing PROVE balance (from staking)
+        uint256 oldVaultBalance = IERC20(PROVE).balanceOf(I_PROVE);
+
+        // Fund the staking contract with exactly 'available' PROVE tokens
+        deal(PROVE, STAKING, available);
+
+        // Owner calls dispense with max uint256 sentinel
+        vm.prank(OWNER);
+        SuccinctStaking(STAKING).dispense(type(uint256).max);
+
+        // After dispensing, maxDispense() should be zero (or ≤ 1 due to rounding)
+        assertLe(SuccinctStaking(STAKING).maxDispense(), 1);
+
+        // The I_PROVE vault’s new balance should equal old + available
+        uint256 newVaultBalance = IERC20(PROVE).balanceOf(I_PROVE);
+        assertEq(newVaultBalance, oldVaultBalance + available);
+    }
+
+    // Dispense using type(uint256).max when there is no stake should still work
+    function test_Dispense_WhenMaxUintNoStake() public {
+        // Advance time so that dispenseable amount accumulates
+        uint256 waitTime = 1 days;
+        skip(waitTime);
+
+        // Compute available (even with no stake, time passes)
+        uint256 available = SuccinctStaking(STAKING).maxDispense();
+        assertEq(available, waitTime * DISPENSE_RATE);
+
+        // Fund the staking contract
+        deal(PROVE, STAKING, available);
+
+        // Owner calls dispense with max uint256 sentinel
+        vm.prank(OWNER);
+        SuccinctStaking(STAKING).dispense(type(uint256).max);
+
+        // I_PROVE vault should have received exactly 'available' PROVE
+        assertEq(IERC20(PROVE).balanceOf(I_PROVE), available);
+
+        // After dispensing, there should be no more available
+        assertLe(SuccinctStaking(STAKING).maxDispense(), 1);
     }
 
     // Reverts when the staking contract doesn't have enough $PROVE. Operationally,
@@ -292,60 +347,5 @@ contract SuccinctStakingDispenseTests is SuccinctStakingTest {
         vm.prank(ALICE);
         vm.expectRevert(abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, ALICE));
         SuccinctStaking(STAKING).updateDispenseRate(newRate);
-    }
-
-    // Dispense using type(uint256).max should dispense exactly maxDispense()
-    function test_Dispense_MaxUint_DispatchesAllAvailable() public {
-        // Stake some amount so the contract has state for dispensing
-        _permitAndStake(STAKER_1, STAKER_1_PK, ALICE_PROVER, STAKER_PROVE_AMOUNT);
-
-        // Advance time so that some dispenseable amount accumulates
-        uint256 waitTime = 2 days;
-        skip(waitTime);
-
-        // Compute how much should be available
-        uint256 available = SuccinctStaking(STAKING).maxDispense();
-        assertEq(available, waitTime * DISPENSE_RATE);
-
-        // Remember I_PROVE’s existing PROVE balance (from staking)
-        uint256 oldVaultBalance = IERC20(PROVE).balanceOf(I_PROVE);
-
-        // Fund the staking contract with exactly 'available' PROVE tokens
-        deal(PROVE, STAKING, available);
-
-        // Owner calls dispense with max uint256 sentinel
-        vm.prank(OWNER);
-        SuccinctStaking(STAKING).dispense(type(uint256).max);
-
-        // After dispensing, maxDispense() should be zero (or ≤ 1 due to rounding)
-        assertLe(SuccinctStaking(STAKING).maxDispense(), 1);
-
-        // The I_PROVE vault’s new balance should equal old + available
-        uint256 newVaultBalance = IERC20(PROVE).balanceOf(I_PROVE);
-        assertEq(newVaultBalance, oldVaultBalance + available);
-    }
-
-    // Dispense using type(uint256).max when there is no stake should still work
-    function test_Dispense_MaxUint_NoStakeStillWorks() public {
-        // Advance time so that dispenseable amount accumulates
-        uint256 waitTime = 1 days;
-        skip(waitTime);
-
-        // Compute available (even with no stake, time passes)
-        uint256 available = SuccinctStaking(STAKING).maxDispense();
-        assertEq(available, waitTime * DISPENSE_RATE);
-
-        // Fund the staking contract
-        deal(PROVE, STAKING, available);
-
-        // Owner calls dispense with max uint256 sentinel
-        vm.prank(OWNER);
-        SuccinctStaking(STAKING).dispense(type(uint256).max);
-
-        // I_PROVE vault should have received exactly 'available' PROVE
-        assertEq(IERC20(PROVE).balanceOf(I_PROVE), available);
-
-        // After dispensing, there should be no more available
-        assertLe(SuccinctStaking(STAKING).maxDispense(), 1);
     }
 }

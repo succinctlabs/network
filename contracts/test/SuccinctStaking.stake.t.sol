@@ -31,7 +31,7 @@ contract SuccinctStakingStakeTests is SuccinctStakingTest {
         assertEq(SuccinctStaking(STAKING).unstakePending(STAKER_1), 0);
         assertEq(SuccinctStaking(STAKING).previewRedeem(ALICE_PROVER, stakeAmount), stakeAmount);
         assertEq(SuccinctStaking(STAKING).proverStaked(ALICE_PROVER), stakeAmount);
-        assertEq(IERC20(PROVE).balanceOf(STAKING), STAKING_PROVE_AMOUNT);
+        assertEq(IERC20(PROVE).balanceOf(STAKING), DISPENSE_AMOUNT);
         assertEq(IERC20(I_PROVE).balanceOf(ALICE_PROVER), stakeAmount);
         assertEq(IERC20(STAKING).balanceOf(STAKER_1), stakeAmount);
         assertEq(IERC20(ALICE_PROVER).balanceOf(STAKING), stakeAmount);
@@ -101,7 +101,7 @@ contract SuccinctStakingStakeTests is SuccinctStakingTest {
 
     // Staking would give 0 $iPROVE, which should revert.
     function test_RevertStake_WheniPROVEReceiptAmountIsZero() public {
-        uint256 stakeAmount = STAKER_PROVE_AMOUNT;
+        uint256 stakeAmount = MIN_STAKE_AMOUNT;
 
         // Stake 1 stakes to Alice prover.
         _stake(STAKER_1, ALICE_PROVER, stakeAmount);
@@ -120,7 +120,7 @@ contract SuccinctStakingStakeTests is SuccinctStakingTest {
 
     // Staking would give 0 $PROVER-N, which should revert.
     function test_RevertStake_WhenProverNReceiptAmountIsZero() public {
-        uint256 stakeAmount = STAKER_PROVE_AMOUNT;
+        uint256 stakeAmount = MIN_STAKE_AMOUNT;
 
         // Stake 1 stakes to Alice prover.
         _stake(STAKER_1, ALICE_PROVER, stakeAmount);
@@ -205,7 +205,7 @@ contract SuccinctStakingStakeTests is SuccinctStakingTest {
         );
 
         // Check balances unchanged
-        assertEq(IERC20(PROVE).balanceOf(STAKING), STAKING_PROVE_AMOUNT);
+        assertEq(IERC20(PROVE).balanceOf(STAKING), DISPENSE_AMOUNT);
         assertEq(IERC20(PROVE).balanceOf(STAKER_1), STAKER_PROVE_AMOUNT);
     }
 
