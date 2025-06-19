@@ -17,8 +17,8 @@ contract MockStaking is ProverRegistry, ISuccinctStaking {
     mapping(address => UnstakeClaim[]) internal unstakeClaims;
     mapping(address => SlashClaim[]) internal slashClaims;
 
-    constructor(address _prove, address _iProve) {
-        __ProverRegistry_init(address(this), _prove, _iProve);
+    constructor(address _governor, address _prove, address _iProve) {
+        __ProverRegistry_init(_governor, address(this), _prove, _iProve);
     }
 
     function setVApp(address _vapp) external {

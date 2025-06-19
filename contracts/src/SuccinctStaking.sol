@@ -59,6 +59,7 @@ contract SuccinctStaking is
     /// @dev We don't do this in the constructor because we must deploy this contract
     ///      first.
     function initialize(
+        address _governor,
         address _vApp,
         address _prove,
         address _intermediateProve,
@@ -68,7 +69,7 @@ contract SuccinctStaking is
         uint256 _dispenseRate
     ) external onlyOwner initializer {
         // Setup the initial state.
-        __ProverRegistry_init(_vApp, _prove, _intermediateProve);
+        __ProverRegistry_init(_governor, _vApp, _prove, _intermediateProve);
         minStakeAmount = _minStakeAmount;
         unstakePeriod = _unstakePeriod;
         slashPeriod = _slashPeriod;

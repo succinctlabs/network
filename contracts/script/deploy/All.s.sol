@@ -29,11 +29,18 @@ contract AllScript is BaseScript, FixtureLoader {
         address PROVE = address(new Succinct{salt: salt}(OWNER));
         address I_PROVE = address(new IntermediateSuccinct{salt: salt}(PROVE, STAKING));
         (address VERIFIER, address VAPP) = _deployVAppAsProxy(salt, OWNER, PROVE, I_PROVE, STAKING);
-        address GOVERNOR = address(new SuccinctGovernor{salt: salt}(STAKING));
+        address GOVERNOR = address(new SuccinctGovernor{salt: salt}(I_PROVE));
 
         // Initialize staking contract
         SuccinctStaking(STAKING).initialize(
-            VAPP, PROVE, I_PROVE, MIN_STAKE_AMOUNT, UNSTAKE_PERIOD, SLASH_PERIOD, DISPENSE_RATE
+            GOVERNOR,
+            VAPP,
+            PROVE,
+            I_PROVE,
+            MIN_STAKE_AMOUNT,
+            UNSTAKE_PERIOD,
+            SLASH_PERIOD,
+            DISPENSE_RATE
         );
 
         // Write addresses

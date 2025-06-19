@@ -4,19 +4,16 @@ pragma solidity ^0.8.28;
 import {console} from "forge-std/console.sol";
 import {SuccinctStakingTest} from "./SuccinctStaking.t.sol";
 import {SuccinctStaking} from "../src/SuccinctStaking.sol";
-import {SuccinctGovernor} from "../src/SuccinctGovernor.sol";
+import {SuccinctProver} from "../src/tokens/SuccinctProver.sol";
 import {ISuccinct} from "../src/interfaces/ISuccinct.sol";
 import {IERC20} from "../lib/openzeppelin-contracts/contracts/interfaces/IERC20.sol";
 import {IVotes} from "../lib/openzeppelin-contracts/contracts/governance/utils/IVotes.sol";
 
 contract SuccinctGovernorTest is SuccinctStakingTest {
-    address payable public GOVERNOR;
     uint256 public constant STAKE_AMOUNT = 100_000e18;
 
     function setUp() public virtual override {
         super.setUp();
-
-        GOVERNOR = payable(address(new SuccinctGovernor(STAKING)));
 
         // Set the governor as the owner of SuccinctStaking contract
         vm.prank(OWNER);
@@ -34,26 +31,25 @@ contract SuccinctGovernorTest is SuccinctStakingTest {
         vm.prank(STAKER_1);
         SuccinctStaking(STAKING).stake(ALICE_PROVER, STAKE_AMOUNT);
 
-        // Alice $PROVER makes a proposal.
+        // Alice (prover owner) makes a proposal through her prover contract.
         address[] memory targets = new address[](1);
         targets[0] = VAPP;
         uint256[] memory values = new uint256[](1);
         values[0] = 0;
         bytes[] memory calldatas = new bytes[](1);
         calldatas[0] =
-            abi.encodeWithSelector(SuccinctStaking.stake.selector, ALICE_PROVER, STAKE_AMOUNT);
-        string memory description = "Test proposal";
+            abi.encodeWithSelector(SuccinctStaking.updateDispenseRate.selector, DISPENSE_RATE * 2);
+        string memory description = "Test proposal to update dispense rate";
 
-        vm.prank(STAKER_1);
-        IVotes(STAKING).delegate(STAKER_1);
-
-        uint256 votingPower = IVotes(STAKING).getVotes(STAKER_1);
-        console.log("Voting power:", votingPower);
+        // Check voting power (iPROVE balance of Alice's prover)
+        uint256 votingPower = IVotes(I_PROVE).getVotes(ALICE_PROVER);
+        console.log("Alice prover voting power:", votingPower);
 
         vm.roll(block.number + 1); // Move forward one block
 
-        vm.prank(STAKER_1);
-        SuccinctGovernor(GOVERNOR).propose(targets, values, calldatas, description);
+        // Alice proposes through her prover contract
+        vm.prank(ALICE);
+        SuccinctProver(ALICE_PROVER).propose(targets, values, calldatas, description);
     }
 
     // TODO execute

@@ -8,6 +8,7 @@ import {IntermediateSuccinct} from "../src/tokens/IntermediateSuccinct.sol";
 import {IProver} from "../src/interfaces/IProver.sol";
 import {IIntermediateSuccinct} from "../src/interfaces/IIntermediateSuccinct.sol";
 import {MockVApp, FeeCalculator} from "../src/mocks/MockVApp.sol";
+import {SuccinctGovernor} from "../src/SuccinctGovernor.sol";
 import {ERC20} from "../lib/openzeppelin-contracts/contracts/token/ERC20/ERC20.sol";
 import {IERC20} from "../lib/openzeppelin-contracts/contracts/interfaces/IERC20.sol";
 import {IERC20Permit} from
@@ -44,6 +45,7 @@ contract SuccinctStakingTest is Test {
     address public VAPP;
     address public PROVE;
     address public I_PROVE;
+    address public GOVERNOR;
     address public ALICE_PROVER;
     address public BOB_PROVER;
 
@@ -77,10 +79,20 @@ contract SuccinctStakingTest is Test {
         // Deploy VAPP
         VAPP = address(new MockVApp(STAKING, PROVE, I_PROVE, FEE_VAULT, PROTOCOL_FEE_BIPS));
 
+        // Deploy SuccinctGovernor with iPROVE as the voting token
+        GOVERNOR = address(new SuccinctGovernor(I_PROVE));
+
         // Initialize Succinct Staking
         vm.prank(OWNER);
         SuccinctStaking(STAKING).initialize(
-            VAPP, PROVE, I_PROVE, MIN_STAKE_AMOUNT, UNSTAKE_PERIOD, SLASH_PERIOD, DISPENSE_RATE
+            GOVERNOR,
+            VAPP,
+            PROVE,
+            I_PROVE,
+            MIN_STAKE_AMOUNT,
+            UNSTAKE_PERIOD,
+            SLASH_PERIOD,
+            DISPENSE_RATE
         );
 
         // Mint some $PROVE for the staking contract

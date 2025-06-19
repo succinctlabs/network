@@ -16,6 +16,7 @@ import {
 } from "../src/libraries/PublicValues.sol";
 import {MockStaking} from "../src/mocks/MockStaking.sol";
 import {MockVerifier} from "../src/mocks/MockVerifier.sol";
+import {SuccinctGovernor} from "../src/SuccinctGovernor.sol";
 import {ISP1Verifier} from "../lib/sp1-contracts/contracts/src/ISP1Verifier.sol";
 import {FixtureLoader, Fixture, SP1ProofFixtureJson} from "./utils/FixtureLoader.sol";
 import {MockERC20} from "./utils/MockERC20.sol";
@@ -58,6 +59,7 @@ contract SuccinctVAppTest is Test, FixtureLoader {
     address public I_PROVE;
     address public VAPP;
     address public STAKING;
+    address public GOVERNOR;
 
     // Program and state root
     bytes32 public VKEY;
@@ -100,8 +102,11 @@ contract SuccinctVAppTest is Test, FixtureLoader {
         PROVE = address(new MockERC20("Succinct", "PROVE", 18));
         I_PROVE = address(new MockERC20("Succinct", "iPROVE", 18));
 
+        // Deploy governor
+        GOVERNOR = address(new SuccinctGovernor(I_PROVE));
+
         // Deploy staking
-        STAKING = address(new MockStaking(PROVE, I_PROVE));
+        STAKING = address(new MockStaking(GOVERNOR, PROVE, I_PROVE));
 
         // Deploy VApp
         address vappImpl = address(new SuccinctVApp());

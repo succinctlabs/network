@@ -18,6 +18,9 @@ interface IProver {
     /// @return The address of the staking contract.
     function staking() external view returns (address);
 
+    /// @notice Get the address of the governor contract
+    function governor() external view returns (address);
+
     /// @notice Get the owner of this prover.
     /// @dev This acts as a withdrawal address for the $PROVE rewards of fulfilling proofs. In particular,
     ///      once the protocolFeeBips and stakerFeeBips are subtracted from the reward, the remaining

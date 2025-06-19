@@ -13,13 +13,14 @@ contract SuccinctProverScript is BaseScript {
         address PROVE = readAddress("PROVE");
         address I_PROVE = readAddress("I_PROVE");
         address STAKING = readAddress("STAKING");
+        address GOVERNOR = readAddress("GOVERNOR");
         address OWNER = readAddress("OWNER");
         uint256 ID = 0;
         uint256 STAKER_FEE_BIPS = 1000; // 10%
 
         // Deploy contract
         SuccinctProver deployed =
-            new SuccinctProver{salt: salt}(PROVE, I_PROVE, STAKING, OWNER, ID, STAKER_FEE_BIPS);
+            new SuccinctProver{salt: salt}(PROVE, I_PROVE, STAKING, GOVERNOR, OWNER, ID, STAKER_FEE_BIPS);
 
         // Write address
         writeAddress(KEY, address(deployed));
