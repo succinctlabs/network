@@ -5,6 +5,7 @@ import {ProverRegistry} from "./libraries/ProverRegistry.sol";
 import {StakedSuccinct} from "./tokens/StakedSuccinct.sol";
 import {ISuccinctStaking} from "./interfaces/ISuccinctStaking.sol";
 import {ISuccinctVApp} from "./interfaces/ISuccinctVApp.sol";
+import {IProver} from "./interfaces/IProver.sol";
 import {IIntermediateSuccinct} from "./interfaces/IIntermediateSuccinct.sol";
 import {Initializable} from "../lib/openzeppelin-contracts/contracts/proxy/utils/Initializable.sol";
 import {Ownable} from "../lib/openzeppelin-contracts/contracts/access/Ownable.sol";
@@ -163,6 +164,9 @@ contract SuccinctStaking is
         onlyForProver(_prover)
         returns (uint256)
     {
+        // Transfer $PROVE from the staker to this contract.
+        IERC20(prove).safeTransferFrom(msg.sender, address(this), _amount);
+
         return _stake(msg.sender, _prover, _amount);
     }
 
@@ -176,8 +180,12 @@ contract SuccinctStaking is
         bytes32 _r,
         bytes32 _s
     ) external override onlyForProver(_prover) returns (uint256) {
-        // Approve this contract to spend the $PROVE from the staker.
-        IERC20Permit(prove).permit(_from, address(this), _amount, _deadline, _v, _r, _s);
+        // Approve the prover to spend the $PROVE from the staker.
+        IERC20Permit(prove).permit(_from, _prover, _amount, _deadline, _v, _r, _s);
+
+        // Transfer $PROVE from the staker to this contract, by utilizing the prover as the
+        // spender.
+        IProver(_prover).transferProveToStaking(_from, _amount);
 
         return _stake(_from, _prover, _amount);
     }
@@ -370,9 +378,6 @@ contract SuccinctStaking is
         if (existingProver == address(0)) {
             stakerToProver[_staker] = _prover;
         }
-
-        // Transfer $PROVE from the staker to this contract.
-        IERC20(prove).safeTransferFrom(_staker, address(this), _PROVE);
 
         // Deposit $PROVE to mint $iPROVE, sending it to this contract.
         uint256 iPROVE = IERC4626(iProve).deposit(_PROVE, address(this));

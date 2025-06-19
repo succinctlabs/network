@@ -2,10 +2,12 @@
 pragma solidity ^0.8.28;
 
 import {IProver} from "../interfaces/IProver.sol";
+import {ISuccinctStaking} from "../interfaces/ISuccinctStaking.sol";
 import {ERC20} from "../../lib/openzeppelin-contracts/contracts/token/ERC20/ERC20.sol";
 import {IERC20} from "../../lib/openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
 import {ERC4626} from
     "../../lib/openzeppelin-contracts/contracts/token/ERC20/extensions/ERC4626.sol";
+import {SafeERC20} from "../../lib/openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol";
 import {Strings} from "../../lib/openzeppelin-contracts/contracts/utils/Strings.sol";
 
 string constant NAME_PREFIX = "SuccinctProver-";
@@ -23,7 +25,11 @@ string constant SYMBOL_PREFIX = "PROVER-";
 ///      - It can lose underlying by SuccinctStaking.slash()
 ///      - It is non-transferable outside of stake/unstake
 contract SuccinctProver is ERC4626, IProver {
+    using SafeERC20 for IERC20;
     using Strings for uint256;
+
+    /// @inheritdoc IProver
+    address public immutable override prove;
 
     /// @inheritdoc IProver
     address public immutable override staking;
@@ -39,6 +45,7 @@ contract SuccinctProver is ERC4626, IProver {
 
     /// @dev Initializes this vault with $iPROVE as the underlying, with additional parameters.
     constructor(
+        address _prove,
         address _iProve,
         address _staking,
         address _owner,
@@ -48,10 +55,20 @@ contract SuccinctProver is ERC4626, IProver {
         ERC20(string.concat(NAME_PREFIX, _id.toString()), string.concat(SYMBOL_PREFIX, _id.toString()))
         ERC4626(IERC20(_iProve))
     {
+        prove = _prove;
         staking = _staking;
         owner = _owner;
         id = _id;
         stakerFeeBips = _stakerFeeBips;
+    }
+
+    /// @inheritdoc IProver
+    function transferProveToStaking(address _from, uint256 _amount) external {
+        if (msg.sender != staking) {
+            revert NotStaking();
+        }
+
+        IERC20(prove).safeTransferFrom(_from, staking, _amount);
     }
 
     /// @dev Override to prevent transfers of $PROVER-N tokens except for stake/unstake

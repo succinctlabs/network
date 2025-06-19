@@ -106,7 +106,7 @@ abstract contract ProverRegistry is IProverRegistry {
             bytes32(uint256(uint160(_owner))),
             abi.encodePacked(
                 type(SuccinctProver).creationCode,
-                abi.encode(iProve, address(this), _owner, proverCount, _stakerFeeBips)
+                abi.encode(prove, iProve, address(this), _owner, proverCount, _stakerFeeBips)
             )
         );
 

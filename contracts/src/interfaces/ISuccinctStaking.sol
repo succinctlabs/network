@@ -154,8 +154,10 @@ interface ISuccinctStaking is IProverRegistry {
 
     /// @notice Stake $PROVE to a prover. You may only stake to one prover at a time.
     /// @dev Deposits $PROVE to mint $iPROVE, then deposits $iPROVE into the chosen
-    ///      prover to mint $PROVER-N/$stPROVE.
-    /// @param prover The address of the prover to delegate $iPROVE to.
+    ///      prover to mint $PROVER-N/$stPROVE. The prover is the spender of the permit, rather
+    ///      than the staking contract, to avoid someone using the permit signature for an
+    ///      unintended prover.
+    /// @param prover The address of the prover to delegate $PROVE to.
     /// @param staker The address if the staker. Must correspond to the signer of the permit
     ///        signature.
     /// @param PROVE The amount of $PROVE to spend for the deposit.
@@ -163,7 +165,7 @@ interface ISuccinctStaking is IProverRegistry {
     /// @param v The v component of the permit signature.
     /// @param r The r component of the permit signature.
     /// @param s The s component of the permit signature.
-    /// @return The amount of $stPROVE received.
+    /// @return The amount of $stPROVE the staker received.
     function permitAndStake(
         address prover,
         address staker,
