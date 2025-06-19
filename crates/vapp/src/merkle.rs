@@ -55,6 +55,9 @@ pub enum MerkleStorageError {
 
     #[error("Failed to compute new root")]
     FailedToComputeNewRoot,
+
+    #[error("Invalid merkle proof length")]
+    InvalidMerkleProofLength,
 }
 
 /// A merkle proof for a key-value pair in the [`MerkleStorage`].
@@ -327,21 +330,24 @@ impl<K: StorageKey, V: StorageValue, H: MerkleTreeHasher> MerkleStorage<K, V, H>
             Some(v) => H::hash(v),
             None => B256::ZERO, // Empty leaf corresponds to zero hash.
         };
-        if Self::verify_proof_with_hash(root, index, leaf_hash, &proof.proof) {
-            Ok(())
-        } else {
-            Err(MerkleStorageError::InvalidMerkleProof)
+
+        match Self::verify_proof_with_hash(root, index, leaf_hash, &proof.proof) {
+            Ok(()) => Ok(()),
+            Err(e) => Err(e),
         }
     }
 
     /// Verify a merkle proof with a pre-computed leaf hash.
-    #[must_use]
     pub fn verify_proof_with_hash(
         root: B256,
         index: U256,
         leaf_hash: B256,
         proof: &[B256],
-    ) -> bool {
+    ) -> Result<(), MerkleStorageError> {
+        if proof.len() != K::bits() {
+            return Err(MerkleStorageError::InvalidMerkleProofLength);
+        }
+
         let mut current_hash = leaf_hash;
         let mut current_index = index;
 
@@ -354,7 +360,11 @@ impl<K: StorageKey, V: StorageValue, H: MerkleTreeHasher> MerkleStorage<K, V, H>
             current_index >>= 1;
         }
 
-        current_hash == root
+        if current_hash != root {
+            return Err(MerkleStorageError::InvalidMerkleProof);
+        }
+
+        Ok(())
     }
 
     /// Compute zero hashes for all layers.
@@ -722,11 +732,11 @@ mod tests {
         let proof = tree.proof(&key).unwrap();
         let leaf_hash = Keccak256::hash(&value);
 
-        assert!(U256Tree::verify_proof_with_hash(root, key, leaf_hash, &proof.proof));
+        assert!(U256Tree::verify_proof_with_hash(root, key, leaf_hash, &proof.proof).is_ok());
 
         // Verify with wrong hash fails.
         let wrong_hash = Keccak256::hash(&uint!(999_U256));
-        assert!(!U256Tree::verify_proof_with_hash(root, key, wrong_hash, &proof.proof));
+        assert!(U256Tree::verify_proof_with_hash(root, key, wrong_hash, &proof.proof).is_err());
     }
 
     #[test]
