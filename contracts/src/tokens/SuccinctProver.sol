@@ -34,13 +34,13 @@ contract SuccinctProver is ERC4626, IProver {
     error Unauthorized();
 
     /// @inheritdoc IProver
-    address public immutable override prove;
-
-    /// @inheritdoc IProver
     address public immutable override staking;
 
     /// @inheritdoc IProver
     address public immutable override governor;
+
+    /// @inheritdoc IProver
+    address public immutable override prove;
 
     /// @inheritdoc IProver
     address public immutable override owner;
@@ -53,16 +53,15 @@ contract SuccinctProver is ERC4626, IProver {
 
     /// @dev Modifier to ensure that the caller is the prover owner.
     modifier onlyOwner() {
-        if (msg.sender != owner) revert Unauthorized();
+        if (msg.sender != owner) revert NotProverOwner();
         _;
     }
 
     /// @dev Initializes this vault with $iPROVE as the underlying, with additional parameters.
     constructor(
+        address _governor,
         address _prove,
         address _iProve,
-        address _staking,
-        address _governor,
         address _owner,
         uint256 _id,
         uint256 _stakerFeeBips
@@ -70,9 +69,16 @@ contract SuccinctProver is ERC4626, IProver {
         ERC20(string.concat(NAME_PREFIX, _id.toString()), string.concat(SYMBOL_PREFIX, _id.toString()))
         ERC4626(IERC20(_iProve))
     {
-        prove = _prove;
-        staking = _staking;
+        if (
+            _governor == address(0) || _prove == address(0) || _iProve == address(0)
+                || _owner == address(0)
+        ) {
+            revert ZeroAddress();
+        }
+
+        staking = msg.sender;
         governor = _governor;
+        prove = _prove;
         owner = _owner;
         id = _id;
         stakerFeeBips = _stakerFeeBips;
@@ -82,36 +88,42 @@ contract SuccinctProver is ERC4626, IProver {
     }
 
     /// @inheritdoc IProver
+    function propose(
+        address[] memory _targets,
+        uint256[] memory _values,
+        bytes[] memory _calldatas,
+        string memory _description
+    ) external override onlyOwner returns (uint256) {
+        return IGovernor(governor).propose(_targets, _values, _calldatas, _description);
+    }
+
+    /// @inheritdoc IProver
+    function cancel(
+        address[] memory _targets,
+        uint256[] memory _values,
+        bytes[] memory _calldatas,
+        bytes32 _descriptionHash
+    ) external override onlyOwner returns (uint256) {
+        return IGovernor(governor).cancel(_targets, _values, _calldatas, _descriptionHash);
+    }
+
+    /// @inheritdoc IProver
+    function castVote(uint256 _proposalId, uint8 _support)
+        external
+        override
+        onlyOwner
+        returns (uint256)
+    {
+        return IGovernor(governor).castVote(_proposalId, _support);
+    }
+
+    /// @inheritdoc IProver
     function transferProveToStaking(address _from, uint256 _amount) external {
         if (msg.sender != staking) {
             revert NotStaking();
         }
 
         IERC20(prove).safeTransferFrom(_from, staking, _amount);
-    }
-
-    /// @dev Override to prevent transfers of $PROVER-N tokens except for stake/unstake
-    /// @notice Allows the prover owner to create governance proposals.
-    /// @param targets The addresses of the contracts to call
-    /// @param values The amounts of ETH to send
-    /// @param calldatas The calldata for each call
-    /// @param description The proposal description
-    /// @return The proposal ID
-    function propose(
-        address[] memory targets,
-        uint256[] memory values,
-        bytes[] memory calldatas,
-        string memory description
-    ) external onlyOwner returns (uint256) {
-        return IGovernor(governor).propose(targets, values, calldatas, description);
-    }
-
-    /// @notice Allows the prover owner to cast votes on governance proposals.
-    /// @param proposalId The ID of the proposal
-    /// @param support The vote type (0 = Against, 1 = For, 2 = Abstain)
-    /// @return The voting weight used
-    function castVote(uint256 proposalId, uint8 support) external onlyOwner returns (uint256) {
-        return IGovernor(governor).castVote(proposalId, support);
     }
 
     /// @dev Override to prevent transfers of $PROVER-N tokens except for stake/unstake.
