@@ -6,11 +6,11 @@ import {IProverRegistry} from "./IProverRegistry.sol";
 interface ISuccinctStaking is IProverRegistry {
     /// @dev Represents a claim for unstaking some amount of $stPROVE.
     /// @param stPROVE The requested amount of $stPROVE to unstake.
-    /// @param snapshotiPROVE The expected $iPROVE to be received at time of unstake request.
+    /// @param iPROVESnapshot The expected $iPROVE to be received at time of unstake request.
     /// @param timestamp The timestamp when the unstake was requested.
     struct UnstakeClaim {
         uint256 stPROVE;
-        uint256 snapshotiPROVE;
+        uint256 iPROVESnapshot;
         uint256 timestamp;
     }
 

@@ -138,7 +138,7 @@ contract SuccinctStaking is
         address prover = stakerToProver[_staker];
         if (prover == address(0)) return 0;
 
-        // Get the amount of $PROVE that would be received if the $iPROVE was redeemed.
+        // Get the amount of $PROVE that would be received if the pending $stPROVE was redeemed.
         return previewRedeem(prover, _getUnstakeClaimBalance(_staker));
     }
 
@@ -214,25 +214,25 @@ contract SuccinctStaking is
         // Get the amount of $stPROVE this staker currently has.
         uint256 stPROVEBalance = balanceOf(msg.sender);
 
-        // Get the amount $stPROVE this staker has pending a claim already.
+        // Get the amount $stPROVE this staker has in pending unstake claims.
         uint256 stPROVEClaim = _getUnstakeClaimBalance(msg.sender);
 
         // Check that this staker has enough $stPROVE to unstake this amount.
         if (stPROVEBalance < stPROVEClaim + _stPROVE) revert InsufficientStakeBalance();
 
         // Get the amount of $iPROVE that would be received if the specified $stPROVE was redeemed.
-        uint256 snapshotiPROVE = IERC4626(prover).previewRedeem(_stPROVE);
+        uint256 iPROVESnapshot = IERC4626(prover).previewRedeem(_stPROVE);
 
         // Create a claim to unstake $stPROVE from the prover for the specified amount.
         unstakeClaims[msg.sender].push(
             UnstakeClaim({
                 stPROVE: _stPROVE,
-                snapshotiPROVE: snapshotiPROVE,
+                iPROVESnapshot: iPROVESnapshot,
                 timestamp: block.timestamp
             })
         );
 
-        emit UnstakeRequest(msg.sender, prover, _stPROVE, snapshotiPROVE);
+        emit UnstakeRequest(msg.sender, prover, _stPROVE, iPROVESnapshot);
     }
 
     /// @inheritdoc ISuccinctStaking
@@ -426,7 +426,7 @@ contract SuccinctStaking is
     ///        staker redeems only the snapshot amount, and the excess is returned to the prover.
     ///      - If received $iPROVE < snapshot $iPROVE: Slashing occurred during unstaking, so the
     ///        staker redeems the lower amount (received $iPROVE), bearing the loss from slashing.
-    function _unstake(address _staker, address _prover, uint256 _stPROVE, uint256 _snapshotiPROVE)
+    function _unstake(address _staker, address _prover, uint256 _stPROVE, uint256 _iPROVESnapshot)
         internal
         stakingOperation
         returns (uint256 PROVE)
@@ -438,18 +438,18 @@ contract SuccinctStaking is
         _burn(_staker, _stPROVE);
 
         // Withdraw $PROVER-N from this contract to have this contract receive $iPROVE.
-        uint256 receivediPROVE = IERC4626(_prover).redeem(_stPROVE, address(this), address(this));
+        uint256 iPROVEReceived = IERC4626(_prover).redeem(_stPROVE, address(this), address(this));
 
         // Determine how much $iPROVE to redeem for the staker based on rewards or slashing.
         uint256 iPROVE;
-        if (receivediPROVE > _snapshotiPROVE) {
+        if (iPROVEReceived > _iPROVESnapshot) {
             // Rewards were earned during unstaking. Return the excess to the prover.
-            uint256 excess = receivediPROVE - _snapshotiPROVE;
+            uint256 excess = iPROVEReceived - _iPROVESnapshot;
             IERC20(iProve).safeTransfer(_prover, excess);
-            iPROVE = _snapshotiPROVE;
+            iPROVE = _iPROVESnapshot;
         } else {
             // Either no change or slashing occurred. Staker gets what's available.
-            iPROVE = receivediPROVE;
+            iPROVE = iPROVEReceived;
         }
 
         // Withdraw $iPROVE from this contract to have the staker receive $PROVE.
@@ -475,7 +475,7 @@ contract SuccinctStaking is
                 _claims.pop();
 
                 // Process the unstake.
-                PROVE += _unstake(_staker, _prover, claim.stPROVE, claim.snapshotiPROVE);
+                PROVE += _unstake(_staker, _prover, claim.stPROVE, claim.iPROVESnapshot);
             } else {
                 i++;
             }
@@ -483,13 +483,9 @@ contract SuccinctStaking is
     }
 
     /// @dev Get the $stPROVE sum of all unstake claims for a staker.
-    function _getUnstakeClaimBalance(address _staker)
-        internal
-        view
-        returns (uint256 unstakeClaimstPROVE)
-    {
+    function _getUnstakeClaimBalance(address _staker) internal view returns (uint256 stPROVE) {
         for (uint256 i = 0; i < unstakeClaims[_staker].length; i++) {
-            unstakeClaimstPROVE += unstakeClaims[_staker][i].stPROVE;
+            stPROVE += unstakeClaims[_staker][i].stPROVE;
         }
     }
 

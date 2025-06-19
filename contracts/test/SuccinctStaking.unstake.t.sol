@@ -589,8 +589,8 @@ contract SuccinctStakingUnstakeTests is SuccinctStakingTest {
         ISuccinctStaking(STAKING).requestUnstake(stPROVEBalance);
 
         // Get the snapshot iPROVE amount from the unstake request
-        uint256 snapshotiPROVE =
-            ISuccinctStaking(STAKING).unstakeRequests(STAKER_1)[0].snapshotiPROVE;
+        uint256 iPROVESnapshot =
+            ISuccinctStaking(STAKING).unstakeRequests(STAKER_1)[0].iPROVESnapshot;
 
         // 4. More rewards are earned during unstaking period
         MockVApp(VAPP).processFulfillment(ALICE_PROVER, STAKER_PROVE_AMOUNT / 4);
@@ -619,13 +619,13 @@ contract SuccinctStakingUnstakeTests is SuccinctStakingTest {
 
         // The expected difference that should have been returned to the prover
         uint256 expectedReturnedIPROVE =
-            iPROVEToBeRedeemed > snapshotiPROVE ? iPROVEToBeRedeemed - snapshotiPROVE : 0;
+            iPROVEToBeRedeemed > iPROVESnapshot ? iPROVEToBeRedeemed - iPROVESnapshot : 0;
 
         // 7. Verify results:
         // The staker should receive PROVE based on the snapshot (only rewards before unstake request)
         assertApproxEqAbs(
             proveReceived,
-            IERC4626(I_PROVE).previewRedeem(snapshotiPROVE),
+            IERC4626(I_PROVE).previewRedeem(iPROVESnapshot),
             1,
             "Staker should receive PROVE based on snapshot iPROVE"
         );
