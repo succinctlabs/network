@@ -63,7 +63,7 @@ pub enum VAppPanic {
     MissingPgusUsed,
 
     #[error("Gas limit exceeded in execute in clear")]
-    GasLimitExceeded { pgus: u64, gas_limit: u64 },
+    GasLimitExceeded { pgus: U256, gas_limit: U256 },
 
     #[error("Account does not exist: {account}")]
     AccountDoesNotExist { account: Address },
@@ -159,4 +159,7 @@ pub enum VAppPanic {
 
     #[error("Only the account itself can withdraw since the account is not a prover")]
     OnlyAccountCanWithdraw,
+
+    #[error("Arithmetic overflow")]
+    ArithmeticOverflow,
 }
