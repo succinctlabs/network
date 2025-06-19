@@ -12,7 +12,14 @@ contract SuccinctStakingInitalizationTests is SuccinctStakingTest {
         vm.expectRevert(abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, OWNER));
         vm.prank(OWNER);
         SuccinctStaking(staking2).initialize(
-            VAPP, PROVE, I_PROVE, MIN_STAKE_AMOUNT, UNSTAKE_PERIOD, SLASH_PERIOD, DISPENSE_RATE
+            GOVERNOR,
+            VAPP,
+            PROVE,
+            I_PROVE,
+            MIN_STAKE_AMOUNT,
+            UNSTAKE_PERIOD,
+            SLASH_PERIOD,
+            DISPENSE_RATE
         );
     }
 
@@ -20,7 +27,14 @@ contract SuccinctStakingInitalizationTests is SuccinctStakingTest {
         vm.expectRevert(abi.encodeWithSelector(Initializable.InvalidInitialization.selector));
         vm.prank(OWNER);
         SuccinctStaking(STAKING).initialize(
-            VAPP, PROVE, I_PROVE, MIN_STAKE_AMOUNT, UNSTAKE_PERIOD, SLASH_PERIOD, DISPENSE_RATE
+            GOVERNOR,
+            VAPP,
+            PROVE,
+            I_PROVE,
+            MIN_STAKE_AMOUNT,
+            UNSTAKE_PERIOD,
+            SLASH_PERIOD,
+            DISPENSE_RATE
         );
     }
 }

@@ -7,6 +7,7 @@ import {IERC20} from "../../lib/openzeppelin-contracts/contracts/interfaces/IERC
 import {IProver} from "../interfaces/IProver.sol";
 import {IProverRegistry} from "../interfaces/IProverRegistry.sol";
 import {ISuccinctVApp} from "../interfaces/ISuccinctVApp.sol";
+
 /// @title ProverRegistry
 /// @author Succinct Labs
 /// @notice This contract is used to manage provers.
@@ -14,6 +15,9 @@ import {ISuccinctVApp} from "../interfaces/ISuccinctVApp.sol";
 ///      provers are only contracts with `type(SuccinctProver).creationCode`.
 
 abstract contract ProverRegistry is IProverRegistry {
+    /// @inheritdoc IProverRegistry
+    address public override governor;
+
     /// @inheritdoc IProverRegistry
     address public override vapp;
 
@@ -46,7 +50,13 @@ abstract contract ProverRegistry is IProverRegistry {
         _;
     }
 
-    function __ProverRegistry_init(address _vapp, address _prove, address _iProve) internal {
+    function __ProverRegistry_init(
+        address _governor,
+        address _vapp,
+        address _prove,
+        address _iProve
+    ) internal {
+        governor = _governor;
         vapp = _vapp;
         prove = _prove;
         iProve = _iProve;
@@ -106,7 +116,7 @@ abstract contract ProverRegistry is IProverRegistry {
             bytes32(uint256(uint160(_owner))),
             abi.encodePacked(
                 type(SuccinctProver).creationCode,
-                abi.encode(prove, iProve, address(this), _owner, proverCount, _stakerFeeBips)
+                abi.encode(governor, prove, iProve, _owner, proverCount, _stakerFeeBips)
             )
         );
 

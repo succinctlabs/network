@@ -23,6 +23,9 @@ interface IProverRegistry {
     /// @dev Thrown if the staker fee is greater than 100%.
     error InvalidStakerFeeBips();
 
+    /// @notice The address of the governor contract.
+    function governor() external view returns (address);
+
     /// @notice The address of the VApp.
     function vapp() external view returns (address);
 

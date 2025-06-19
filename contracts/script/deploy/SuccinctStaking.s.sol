@@ -22,6 +22,7 @@ contract SuccinctStakingScript is BaseScript {
     /// @dev Only run this once all of the other contracts are deployed. Script must be ran with OWNER's private key.
     function initialize() external broadcaster {
         address STAKING = readAddress(KEY);
+        address GOVERNOR = readAddress("GOVERNOR");
         address VAPP = readAddress("VAPP");
         address PROVE = readAddress("PROVE");
         address I_PROVE = readAddress("I_PROVE");
@@ -31,7 +32,14 @@ contract SuccinctStakingScript is BaseScript {
         uint256 DISPENSE_RATE = readUint256("DISPENSE_RATE");
 
         SuccinctStaking(STAKING).initialize(
-            VAPP, PROVE, I_PROVE, MIN_STAKE_AMOUNT, UNSTAKE_PERIOD, SLASH_PERIOD, DISPENSE_RATE
+            GOVERNOR,
+            VAPP,
+            PROVE,
+            I_PROVE,
+            MIN_STAKE_AMOUNT,
+            UNSTAKE_PERIOD,
+            SLASH_PERIOD,
+            DISPENSE_RATE
         );
     }
 }
