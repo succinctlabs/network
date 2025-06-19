@@ -31,8 +31,6 @@ contract SuccinctProver is ERC4626, IProver {
     using SafeERC20 for IERC20;
     using Strings for uint256;
 
-    error Unauthorized();
-
     /// @inheritdoc IProver
     address public immutable override staking;
 

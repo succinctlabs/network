@@ -18,7 +18,7 @@ uint256 constant QUORUM_FRACTION = 4; // 4% of total supply required to pass a p
 
 /// @title SuccinctGovernor
 /// @author Succinct Labs
-/// @notice Governor contract for governance operations in the Succinct Prover Network.
+/// @notice Governor for governance operations in the Succinct Prover Network.
 /// @dev This contract should only be made owner of the relevant contracts (e.g. SuccinctStaking)
 ///      once sufficient staking (minting of $iPROVE) has occurred.
 contract SuccinctGovernor is
