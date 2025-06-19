@@ -28,10 +28,10 @@ contract SuccinctGovernor is
     GovernorVotes,
     GovernorVotesQuorumFraction
 {
-    constructor(address _token)
+    constructor(address _iPROVE)
         Governor(NAME)
         GovernorSettings(VOTING_DELAY, VOTING_PERIOD, PROPOSAL_THRESHOLD)
-        GovernorVotes(IVotes(_token))
+        GovernorVotes(IVotes(_iPROVE))
         GovernorVotesQuorumFraction(QUORUM_FRACTION)
     {}
 
