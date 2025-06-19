@@ -6,6 +6,7 @@ import {SuccinctStaking} from "../src/SuccinctStaking.sol";
 import {ISuccinctStaking} from "../src/interfaces/ISuccinctStaking.sol";
 import {MockVApp} from "../src/mocks/MockVApp.sol";
 import {IERC20} from "../lib/openzeppelin-contracts/contracts/interfaces/IERC20.sol";
+import {IERC4626} from "../lib/openzeppelin-contracts/contracts/interfaces/IERC4626.sol";
 
 contract SuccinctStakingUnstakeTests is SuccinctStakingTest {
     function test_Unstake_WhenValid() public {
@@ -23,7 +24,6 @@ contract SuccinctStakingUnstakeTests is SuccinctStakingTest {
         // Check balances after stake
         assertEq(IERC20(STAKING).balanceOf(STAKER_1), stakeAmount);
         assertEq(SuccinctStaking(STAKING).staked(STAKER_1), stakeAmount);
-        // assertEq(SuccinctStaking(STAKING).claimable(STAKER_1), 0);
         assertEq(SuccinctStaking(STAKING).unstakePending(STAKER_1), 0);
         assertEq(SuccinctStaking(STAKING).previewRedeem(ALICE_PROVER, stakeAmount), stakeAmount);
         assertEq(SuccinctStaking(STAKING).proverStaked(ALICE_PROVER), stakeAmount);
@@ -34,7 +34,6 @@ contract SuccinctStakingUnstakeTests is SuccinctStakingTest {
         // Nothing should have changed
         assertEq(IERC20(STAKING).balanceOf(STAKER_1), stakeAmount);
         assertEq(SuccinctStaking(STAKING).staked(STAKER_1), stakeAmount);
-        // assertEq(SuccinctStaking(STAKING).claimable(STAKER_1), 0);
         assertEq(IERC20(PROVE).balanceOf(STAKER_1), 0);
         assertEq(IERC20(I_PROVE).balanceOf(ALICE_PROVER), stakeAmount);
         assertEq(SuccinctStaking(STAKING).unstakePending(STAKER_1), stakeAmount);
@@ -48,7 +47,34 @@ contract SuccinctStakingUnstakeTests is SuccinctStakingTest {
         // Verify final state
         assertEq(SuccinctStaking(STAKING).balanceOf(STAKER_1), 0);
         assertEq(SuccinctStaking(STAKING).staked(STAKER_1), 0);
-        // assertEq(SuccinctStaking(STAKING).claimable(STAKER_1), 0);
+        assertEq(IERC20(PROVE).balanceOf(I_PROVE), 0);
+        assertEq(SuccinctStaking(STAKING).unstakePending(STAKER_1), 0);
+        assertEq(SuccinctStaking(STAKING).previewRedeem(ALICE_PROVER, stakeAmount), stakeAmount);
+        assertEq(SuccinctStaking(STAKING).previewRedeem(ALICE_PROVER, 0), 0);
+        assertEq(SuccinctStaking(STAKING).proverStaked(ALICE_PROVER), 0);
+    }
+
+    // Someone else finishes the unstake for a staker
+    function test_Unstake_WhenSomeoneElseFinishesUnstake() public {
+        uint256 stakeAmount = STAKER_PROVE_AMOUNT;
+        uint256 unstakeAmount = STAKER_PROVE_AMOUNT;
+
+        // Stake some tokens to Alice prover
+        _permitAndStake(STAKER_1, STAKER_1_PK, ALICE_PROVER, stakeAmount);
+
+        // Unstake some tokens from Alice prover
+        _requestUnstake(STAKER_1, unstakeAmount);
+
+        // Wait for the unstake period to pass
+        skip(UNSTAKE_PERIOD);
+
+        // Someone else should be able to finish the unstake
+        vm.prank(STAKER_2);
+        SuccinctStaking(STAKING).finishUnstake(STAKER_1);
+
+        // Verify final state
+        assertEq(SuccinctStaking(STAKING).balanceOf(STAKER_1), 0);
+        assertEq(SuccinctStaking(STAKING).staked(STAKER_1), 0);
         assertEq(IERC20(PROVE).balanceOf(I_PROVE), 0);
         assertEq(SuccinctStaking(STAKING).unstakePending(STAKER_1), 0);
         assertEq(SuccinctStaking(STAKING).previewRedeem(ALICE_PROVER, stakeAmount), stakeAmount);
@@ -320,7 +346,7 @@ contract SuccinctStakingUnstakeTests is SuccinctStakingTest {
 
         // Calculate expected staker reward portion
         uint256 expectedStakerRewardPerReward = (rewardAmount * STAKER_FEE_BIPS) / FEE_UNIT;
-        uint256 totalExpectedStakerRewards = expectedStakerRewardPerReward * 2;
+        uint256 expectedStakerRewardFromFirstReward = expectedStakerRewardPerReward;
 
         // Withdraw the staker reward to the prover vault to increase staked amount
         _withdrawFromVApp(ALICE_PROVER, expectedStakerRewardPerReward);
@@ -334,7 +360,7 @@ contract SuccinctStakingUnstakeTests is SuccinctStakingTest {
             "Staked amount should increase by staker reward portion"
         );
 
-        // Unstake from Alice prover
+        // Unstake from Alice prover - this snapshots the iPROVE value
         _requestUnstake(STAKER_1, stakeAmount);
 
         // Add more rewards while tokens are in the unstake queue
@@ -349,18 +375,19 @@ contract SuccinctStakingUnstakeTests is SuccinctStakingTest {
         // Claim unstaked tokens
         uint256 claimedAmount = _finishUnstake(STAKER_1);
 
-        // Verify the staker got their original stake + staker portion of BOTH rewards
+        // With the new implementation, the staker only gets rewards earned BEFORE requesting unstake
+        // The second reward goes back to the prover, not the unstaker
         assertApproxEqAbs(
             claimedAmount,
-            stakeAmount + totalExpectedStakerRewards,
+            stakeAmount + expectedStakerRewardFromFirstReward,
             1,
-            "Claimed amount should include staker rewards"
+            "Claimed amount should only include rewards earned before unstake request"
         );
         assertApproxEqAbs(
             IERC20(PROVE).balanceOf(STAKER_1),
-            stakeAmount + totalExpectedStakerRewards,
+            stakeAmount + expectedStakerRewardFromFirstReward,
             1,
-            "Final balance should include staker rewards"
+            "Final balance should only include rewards earned before unstake request"
         );
         assertEq(IERC20(ALICE_PROVER).balanceOf(STAKING), 0);
     }
@@ -445,27 +472,6 @@ contract SuccinctStakingUnstakeTests is SuccinctStakingTest {
         assertEq(IERC20(ALICE_PROVER).balanceOf(STAKING), 0);
     }
 
-    function test_RevertUnstake_WhenSomeoneElseCallsClaimUnstake() public {
-        uint256 stakeAmount = STAKER_PROVE_AMOUNT;
-        uint256 unstakeAmount = STAKER_PROVE_AMOUNT;
-
-        // Stake some tokens to Alice prover
-        _permitAndStake(STAKER_1, STAKER_1_PK, ALICE_PROVER, stakeAmount);
-
-        // Someone else should not be able to claim the unstake
-        vm.expectRevert(ISuccinctStaking.NotStaked.selector);
-        vm.prank(STAKER_2);
-        SuccinctStaking(STAKING).finishUnstake();
-
-        // Unstake some tokens from Alice prover
-        _requestUnstake(STAKER_1, unstakeAmount);
-
-        // Someone else should not be able to claim the unstake, even after unstake has been called
-        vm.expectRevert(ISuccinctStaking.NotStaked.selector);
-        vm.prank(STAKER_2);
-        SuccinctStaking(STAKING).finishUnstake();
-    }
-
     function test_RevertUnstake_WhenAmountExceedsBalance() public {
         uint256 stakeAmount = STAKER_PROVE_AMOUNT / 2; // Only stake half of the tokens
         uint256 unstakeAmount = STAKER_PROVE_AMOUNT; // Try to unstake more than staked
@@ -515,6 +521,127 @@ contract SuccinctStakingUnstakeTests is SuccinctStakingTest {
         // Attempt to finish unstake while there's a pending slash request - should revert
         vm.expectRevert(abi.encodeWithSelector(ISuccinctStaking.ProverHasSlashRequest.selector));
         vm.prank(STAKER_1);
-        SuccinctStaking(STAKING).finishUnstake();
+        SuccinctStaking(STAKING).finishUnstake(STAKER_1);
+    }
+
+    function test_Unstake_WhenSlashDuringUnstakePeriod() public {
+        // Staker stakes with Alice prover.
+        uint256 stakeAmount = STAKER_PROVE_AMOUNT;
+        _stake(STAKER_1, ALICE_PROVER, stakeAmount);
+
+        // Request unstake for the full balance.
+        uint256 stPROVEBalance = IERC20(STAKING).balanceOf(STAKER_1);
+        vm.prank(STAKER_1);
+        ISuccinctStaking(STAKING).requestUnstake(stPROVEBalance);
+
+        // During unstake period, a slash occurs.
+        // Calculate the $iPROVE amount for the slash (50% of the prover's assets).
+        uint256 proverAssets = IERC4626(ALICE_PROVER).totalAssets();
+        uint256 slashAmountiPROVE = proverAssets / 2; // 50% slash in $iPROVE terms
+        vm.prank(OWNER);
+        MockVApp(VAPP).processSlash(ALICE_PROVER, slashAmountiPROVE);
+
+        // Process the slash after slash period.
+        skip(SLASH_PERIOD);
+        vm.prank(OWNER);
+        ISuccinctStaking(STAKING).finishSlash(ALICE_PROVER, 0);
+
+        // After unstake period, finish unstake.
+        skip(UNSTAKE_PERIOD);
+
+        // The staker should receive less $PROVE due to the slash.
+        vm.prank(STAKER_1);
+        uint256 proveBalanceBefore = IERC20(PROVE).balanceOf(STAKER_1);
+        uint256 proveReceived = ISuccinctStaking(STAKING).finishUnstake(STAKER_1);
+        uint256 proveBalanceAfter = IERC20(PROVE).balanceOf(STAKER_1);
+
+        // Verify the staker received $PROVE.
+        assertEq(proveBalanceAfter - proveBalanceBefore, proveReceived);
+
+        // The staker should receive approximately 50% of their stake due to the 50% slash.
+        assertApproxEqAbs(proveReceived, stakeAmount / 2, 1, "Should receive ~50% after 50% slash");
+
+        // Verify the prover didn't receive any rewards (since they were slashed).
+        assertEq(IERC20(I_PROVE).balanceOf(ALICE_PROVER), 0);
+    }
+
+    function test_Unstake_WhenRewardDuringUnstakePeriod() public {
+        // Staker stakes with Alice prover.
+        uint256 stakeAmount = STAKER_PROVE_AMOUNT;
+        _stake(STAKER_1, ALICE_PROVER, stakeAmount);
+
+        // Alice prover earns rewards before unstake request.
+        MockVApp(VAPP).processFulfillment(ALICE_PROVER, STAKER_PROVE_AMOUNT / 2);
+
+        // Withdraw rewards to increase prover assets.
+        {
+            (uint256 protocolFee, uint256 stakerReward, uint256 ownerReward) =
+                _calculateFullRewardSplit(STAKER_PROVE_AMOUNT / 2);
+            _withdrawFromVApp(FEE_VAULT, protocolFee);
+            _withdrawFromVApp(ALICE, ownerReward);
+            _withdrawFromVApp(ALICE_PROVER, stakerReward);
+        }
+
+        // Request unstake for the full balance (this snapshots the $iPROVE value).
+        uint256 stPROVEBalance = IERC20(STAKING).balanceOf(STAKER_1);
+        vm.prank(STAKER_1);
+        ISuccinctStaking(STAKING).requestUnstake(stPROVEBalance);
+
+        // Get the snapshot $iPROVE amount from the unstake request.
+        uint256 iPROVESnapshot =
+            ISuccinctStaking(STAKING).unstakeRequests(STAKER_1)[0].iPROVESnapshot;
+
+        // More rewards are earned during unstaking period.
+        MockVApp(VAPP).processFulfillment(ALICE_PROVER, STAKER_PROVE_AMOUNT / 4);
+
+        // Withdraw these rewards too to increase prover's $iPROVE balance.
+        {
+            (uint256 protocolFee, uint256 stakerReward, uint256 ownerReward) =
+                _calculateFullRewardSplit(STAKER_PROVE_AMOUNT / 4);
+            _withdrawFromVApp(FEE_VAULT, protocolFee);
+            _withdrawFromVApp(ALICE, ownerReward);
+            _withdrawFromVApp(ALICE_PROVER, stakerReward);
+        }
+
+        // Skip to end of unstake period.
+        skip(UNSTAKE_PERIOD);
+
+        // Calculate how much $iPROVE would be redeemed for the $stPROVE (before it's burned).
+        uint256 iPROVEToBeRedeemed = IERC4626(ALICE_PROVER).previewRedeem(stPROVEBalance);
+
+        // Finish unstake.
+        vm.prank(STAKER_1);
+        uint256 proveReceived = ISuccinctStaking(STAKING).finishUnstake(STAKER_1);
+
+        // Record prover's $iPROVE balance after finishing unstake.
+        uint256 proverIPROVEAfter = IERC20(I_PROVE).balanceOf(ALICE_PROVER);
+
+        // The expected difference that should have been returned to the prover.
+        uint256 expectedReturnedIPROVE =
+            iPROVEToBeRedeemed > iPROVESnapshot ? iPROVEToBeRedeemed - iPROVESnapshot : 0;
+
+        // Verify results:
+        // The staker should receive $PROVE based on the snapshot (only rewards before unstake request).
+        assertApproxEqAbs(
+            proveReceived,
+            IERC4626(I_PROVE).previewRedeem(iPROVESnapshot),
+            1,
+            "Staker should receive $PROVE based on snapshot $iPROVE"
+        );
+
+        // The prover should receive back the $iPROVE difference (rewards earned during unstaking).
+        // The prover's balance will be: initial balance - redeemed amount + returned difference.
+        // We verify that the prover has approximately the expected returned $iPROVE.
+        assertApproxEqAbs(
+            proverIPROVEAfter,
+            expectedReturnedIPROVE,
+            2,
+            "Prover should have the $iPROVE difference from rewards during unstaking"
+        );
+
+        // Verify that the total $iPROVE is conserved (no $iPROVE is lost).
+        assertEq(
+            IERC20(I_PROVE).balanceOf(STAKING), 0, "Staking contract should have no $iPROVE left"
+        );
     }
 }

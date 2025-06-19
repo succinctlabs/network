@@ -21,10 +21,9 @@ string constant SYMBOL = "iPROVE";
 
 /// @title IntermediateSuccinct
 /// @author Succinct Labs
-/// @notice The intermediary receipt token for receiving periodic PROVE rewards.
-/// @dev This contract accepts $PROVE and mints $iPROVE:
-///      - It can gain underlying from SuccinctStaking.dispense()
-///      - It is non-transferable outside of deposit/withdraw
+/// @notice The intermediary receipt token for receiving periodic $PROVE rewards.
+/// @dev This contract accepts $PROVE and mints $iPROVE. It is non-transferable outside of
+///      staking operations.
 contract IntermediateSuccinct is ERC4626, ERC20Permit, ERC20Votes, IIntermediateSuccinct {
     /// @inheritdoc IIntermediateSuccinct
     address public override staking;

@@ -2,7 +2,6 @@
 pragma solidity ^0.8.28;
 
 import {IProver} from "../interfaces/IProver.sol";
-import {ISuccinctStaking} from "../interfaces/ISuccinctStaking.sol";
 import {IGovernor} from "../../lib/openzeppelin-contracts/contracts/governance/IGovernor.sol";
 import {ERC20} from "../../lib/openzeppelin-contracts/contracts/token/ERC20/ERC20.sol";
 import {IERC20} from "../../lib/openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
@@ -19,14 +18,8 @@ string constant SYMBOL_PREFIX = "PROVER-";
 /// @title SuccinctProver
 /// @author Succinct Labs
 /// @notice The per-prover receipt token for delegating stake to a prover.
-/// @dev This contract accepts $iPROVE and mints $PROVER-N:
-///      - Each prover has their own deployment of this contract
-///        - underlying, reward, and staking are all the same across all provers
-///        - id and owner are unique to each prover
-///      - Stakers choose which prover to delegate to
-///      - It can gain rewards from SuccinctStaking.reward()
-///      - It can lose underlying by SuccinctStaking.slash()
-///      - It is non-transferable outside of stake/unstake
+/// @dev This contract accepts $iPROVE and mints $PROVER-N. It is non-transferable
+///      outside of staking operations.
 contract SuccinctProver is ERC4626, IProver {
     using SafeERC20 for IERC20;
     using Strings for uint256;
@@ -116,7 +109,7 @@ contract SuccinctProver is ERC4626, IProver {
     }
 
     /// @inheritdoc IProver
-    function transferProveToStaking(address _from, uint256 _amount) external {
+    function transferProveToStaking(address _from, uint256 _amount) external override {
         if (msg.sender != staking) {
             revert NotStaking();
         }

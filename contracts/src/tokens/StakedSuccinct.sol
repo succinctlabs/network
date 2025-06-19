@@ -9,8 +9,9 @@ string constant SYMBOL = "stPROVE";
 /// @title StakedSuccinct
 /// @author Succinct Labs
 /// @notice The terminal receipt token for staking in the Succinct Prover Network.
-/// @dev This contract balance stays 1:1 with all $PROVER-N vaults to give one unified
-///      source of truth to track staked $PROVE.
+/// @dev This contract balance stays 1:1 with $PROVER-N vaults to give one unified
+///      source of truth to track staked $PROVE. It is non-transferable outside of
+///      staking operations.
 abstract contract StakedSuccinct is ERC20 {
     error NonTransferable();
 
