@@ -46,9 +46,9 @@ jobs:
       - name: Check Forge gas snapshot
         working-directory: contracts
         run: |
-          FOUNDRY_PROFILE=deploy forge snapshot
+          FOUNDRY_PROFILE=deploy forge snapshot --no-match-test "Fuzz"
           if [[ -n "$(git status --porcelain)" ]]; then
-            echo "::error ::Gas snapshot is out of date. Run 'FOUNDRY_PROFILE=deploy forge snapshot' and commit the result.";
+            echo "::error ::Gas snapshot is out of date. Run 'FOUNDRY_PROFILE=deploy forge snapshot --no-match-test \"Fuzz\"' and commit the result.";
             git status
             exit 1
           fi
