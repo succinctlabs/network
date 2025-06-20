@@ -485,6 +485,26 @@ contract SuccinctStakingUnstakeTests is SuccinctStakingTest {
         SuccinctStaking(STAKING).requestUnstake(unstakeAmount);
     }
 
+    function test_RevertUnstake_WhenTooManyUnstakeRequests() public {
+        uint256 stakeAmount = STAKER_PROVE_AMOUNT;
+        uint256 maxRequests = SuccinctStaking(STAKING).maxUnstakeRequests();
+        uint256 unstakeAmountPerRequest = stakeAmount / (maxRequests + 1);
+
+        // Stake tokens to Alice prover
+        _permitAndStake(STAKER_1, STAKER_1_PK, ALICE_PROVER, stakeAmount);
+
+        // Create the maximum allowed unstake requests
+        for (uint256 i = 0; i < maxRequests; i++) {
+            vm.prank(STAKER_1);
+            SuccinctStaking(STAKING).requestUnstake(unstakeAmountPerRequest);
+        }
+
+        // The next request should revert
+        vm.expectRevert(ISuccinctStaking.TooManyUnstakeRequests.selector);
+        vm.prank(STAKER_1);
+        SuccinctStaking(STAKING).requestUnstake(unstakeAmountPerRequest);
+    }
+
     function test_RevertUnstake_WhenRequestUnstakeWhileProverHasSlashRequest() public {
         uint256 stakeAmount = STAKER_PROVE_AMOUNT;
         uint256 slashAmount = STAKER_PROVE_AMOUNT / 2;

@@ -75,6 +75,10 @@ interface ISuccinctStaking is IProverRegistry {
     /// @dev Thrown if the staker tries to unstake while there is no unstake requests.
     error NoUnstakeRequests();
 
+    /// @dev Thrown if the staker tries to unstake while they already have too many unstake
+    ///      requests.
+    error TooManyUnstakeRequests();
+
     /// @dev Thrown if the staker tries to stake or unstake a zero amount.
     error ZeroAmount();
 
@@ -98,6 +102,9 @@ interface ISuccinctStaking is IProverRegistry {
 
     /// @notice The minimum amount of $PROVE that a staker needs to stake.
     function minStakeAmount() external view returns (uint256);
+
+    /// @notice The maximum number of unstake requests that a staker can have at once.
+    function maxUnstakeRequests() external view returns (uint256);
 
     /// @notice The minimum amount of time needed between `requestUnstake()` and `finishUnstake()`.
     function unstakePeriod() external view returns (uint256);

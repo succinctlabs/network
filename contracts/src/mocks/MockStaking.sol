@@ -7,6 +7,7 @@ import {ProverRegistry} from "../libraries/ProverRegistry.sol";
 
 contract MockStaking is ProverRegistry, ISuccinctStaking {
     uint256 public minStakeAmount;
+    uint256 public maxUnstakeRequests;
     uint256 public unstakePeriod;
     uint256 public slashPeriod;
     uint256 public dispenseRate;

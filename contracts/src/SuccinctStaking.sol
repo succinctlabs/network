@@ -31,6 +31,9 @@ contract SuccinctStaking is
     uint256 public override minStakeAmount;
 
     /// @inheritdoc ISuccinctStaking
+    uint256 public override maxUnstakeRequests;
+
+    /// @inheritdoc ISuccinctStaking
     uint256 public override unstakePeriod;
 
     /// @inheritdoc ISuccinctStaking
@@ -68,6 +71,7 @@ contract SuccinctStaking is
         address _prove,
         address _intermediateProve,
         uint256 _minStakeAmount,
+        uint256 _maxUnstakeRequests,
         uint256 _unstakePeriod,
         uint256 _slashPeriod,
         uint256 _dispenseRate
@@ -82,6 +86,7 @@ contract SuccinctStaking is
         // Setup the initial state.
         __ProverRegistry_init(_governor, _vApp, _prove, _intermediateProve);
         minStakeAmount = _minStakeAmount;
+        maxUnstakeRequests = _maxUnstakeRequests;
         unstakePeriod = _unstakePeriod;
         slashPeriod = _slashPeriod;
 
@@ -215,6 +220,9 @@ contract SuccinctStaking is
 
         // Check that this prover is not in the process of being slashed.
         if (slashClaims[prover].length > 0) revert ProverHasSlashRequest();
+
+        // Check that this staker has not already requested too many unstake requests.
+        if (unstakeClaims[msg.sender].length >= maxUnstakeRequests) revert TooManyUnstakeRequests();
 
         // Get the amount of $stPROVE this staker currently has.
         uint256 stPROVEBalance = balanceOf(msg.sender);

@@ -17,6 +17,7 @@ contract SuccinctStakingInitalizationTests is SuccinctStakingTest {
             PROVE,
             I_PROVE,
             MIN_STAKE_AMOUNT,
+            MAX_UNSTAKE_REQUESTS,
             UNSTAKE_PERIOD,
             SLASH_PERIOD,
             DISPENSE_RATE
@@ -32,6 +33,7 @@ contract SuccinctStakingInitalizationTests is SuccinctStakingTest {
             PROVE,
             I_PROVE,
             MIN_STAKE_AMOUNT,
+            MAX_UNSTAKE_REQUESTS,
             UNSTAKE_PERIOD,
             SLASH_PERIOD,
             DISPENSE_RATE
