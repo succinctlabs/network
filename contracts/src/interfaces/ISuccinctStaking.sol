@@ -7,7 +7,8 @@ interface ISuccinctStaking is IProverRegistry {
     /// @dev Represents a claim for unstaking some amount of $stPROVE.
     /// @param stPROVE The requested amount of $stPROVE to unstake.
     /// @param iPROVESnapshot The expected $iPROVE to be received at time of unstake request.
-    /// @param timestamp The timestamp when the unstake was requested.
+    /// @param timestamp The timestamp when the unstake was requested. Used for comparing against
+    ///        the `unstakePeriod()` to determine if the claim can be finished.
     struct UnstakeClaim {
         uint256 stPROVE;
         uint256 iPROVESnapshot;
@@ -16,7 +17,8 @@ interface ISuccinctStaking is IProverRegistry {
 
     /// @dev Represents a claim to slash a prover for some amount of $iPROVE.
     /// @param iPROVE The requested amount of $iPROVE to slash.
-    /// @param timestamp The timestamp when the slash was requested.
+    /// @param timestamp The timestamp when the slash was requested. Used for comparing against
+    ///        the `slashPeriod()` to determine if the claim can be finished.
     struct SlashClaim {
         uint256 iPROVE;
         uint256 timestamp;
@@ -33,7 +35,7 @@ interface ISuccinctStaking is IProverRegistry {
 
     /// @dev Emitted when a staker requests to unstake $stPROVE from a prover.
     event UnstakeRequest(
-        address indexed staker, address indexed prover, uint256 stPROVE, uint256 snapshotPROVE
+        address indexed staker, address indexed prover, uint256 stPROVE, uint256 iPROVESnapshot
     );
 
     /// @dev Emitted when a staker unstakes from a prover.
@@ -207,10 +209,15 @@ interface ISuccinctStaking is IProverRegistry {
     ///         VApp.
     /// @param prover The address of the prover to slash.
     /// @param iPROVE The amount of $iPROVE to slash.
-    /// @return The index of the slash request.
+    /// @return The index of the new slash request in this prover's slash requests storage array.
+    ///         Because when slash requests are processed, it alters the order of the array, it is
+    ///         best to first call `slashRequests(prover)` to get the index of the specific slash
+    ///         request that is intended to be executed.
     function requestSlash(address prover, uint256 iPROVE) external returns (uint256);
 
     /// @notice Cancels a slash request. Only callable by the owner.
+    /// @dev The index may not match what was originally returned by `requestSlash()`, and
+    ///      should be re-calculated by calling `slashRequests(prover)` first.
     /// @param prover The address of the prover to slash.
     /// @param index The index of the slash request to cancel.
     function cancelSlash(address prover, uint256 index) external;
@@ -218,6 +225,8 @@ interface ISuccinctStaking is IProverRegistry {
     /// @notice Finishes the slashing process. Must have first called `requestSlash()` and waited
     ///         for the slash period to pass. Decreases the value of $stPROVE for all stakers of that
     ///         prover. Only callable by the owner.
+    /// @dev The index may not match what was originally returned by `requestSlash()`, and
+    ///      should be re-calculated by calling `slashRequests(prover)` first.
     /// @param prover The address of the prover to slash.
     /// @param index The index of the slash request to finish.
     /// @return The amount of $iPROVE slashed.
@@ -226,7 +235,7 @@ interface ISuccinctStaking is IProverRegistry {
     /// @notice Rewards all stakers ($iPROVE holders) with $PROVE. Only callable by the owner.
     /// @dev The amount MUST be less than or equal to maxDispense() (if not type(uint256).max), and
     ///      the amount MUST be less than or equal to the amount of $PROVE balance of this contract.
-    /// @param PROVE The amount of $PROVE to dispense. If PROVE is type(uint256).max, dispense the
+    /// @param PROVE The amount of $PROVE to dispense. If this is `type(uint256).max`, dispense the
     ///        maximum available amount.
     function dispense(uint256 PROVE) external;
 
