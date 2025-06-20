@@ -32,11 +32,7 @@ contract SuccinctStakingRegistryTests is SuccinctStakingTest {
         SuccinctStaking(STAKING).createProver(STAKER_FEE_BIPS);
     }
 
-    /*//////////////////////////////////////////////////////////////
-                              FUZZ TESTS
-    //////////////////////////////////////////////////////////////*/
-
-    function testFuzz_CreateProver_WithVariableFees(uint256 _stakerFeeBips) public {
+    function testFuzz_CreateProver_WhenWithVariableFees(uint256 _stakerFeeBips) public {
         uint256 stakerFeeBips = bound(_stakerFeeBips, 0, FEE_UNIT); // 0 to 100%
         address proverOwner = makeAddr("PROVER_OWNER");
 
@@ -52,7 +48,7 @@ contract SuccinctStakingRegistryTests is SuccinctStakingTest {
         assertEq(SuccinctStaking(STAKING).proverStaked(prover), MIN_STAKE_AMOUNT);
     }
 
-    function testFuzz_CreateMultipleProvers(uint8 _numProvers) public {
+    function testFuzz_CreateProver_WhenMultipleProvers(uint8 _numProvers) public {
         uint256 numProvers = bound(uint256(_numProvers), 1, 10);
         address[] memory provers = new address[](numProvers);
 
@@ -77,7 +73,7 @@ contract SuccinctStakingRegistryTests is SuccinctStakingTest {
         }
     }
 
-    function testFuzz_ProverOwnershipAndStaking(
+    function testFuzz_CreateProver_WhenProverOwnershipAndStaking(
         address _proverOwner,
         address _staker,
         uint256 _stakeAmount

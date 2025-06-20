@@ -196,7 +196,7 @@ interface ISuccinctStaking is IProverRegistry {
     function requestUnstake(uint256 stPROVE) external;
 
     /// @notice Finishes the unstaking process for the specified address. Can be called by anyone.
-    ///         Must have first called requestUnstake() and waited for the unstake period to pass.
+    ///         Must have first called `requestUnstake()` and waited for the unstake period to pass.
     /// @dev For each claim, if any snapshotted $iPROVE is lower than the actual $iPROVE that was
     ///      received, then the difference is given back to the prover.
     /// @param staker The address whose unstake claims to finish.

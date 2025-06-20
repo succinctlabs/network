@@ -22,6 +22,12 @@ To run the tests:
 forge test
 ```
 
+To run with additional fuzz runs:
+
+```sh
+FOUNDRY_PROFILE=fuzz forge test
+```
+
 ## Gas Report
 
 To generate a gas report:

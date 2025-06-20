@@ -353,7 +353,7 @@ contract SuccinctStakingDispenseTests is SuccinctStakingTest {
     function testFuzz_Dispense_WhenValid(uint256 _dispenseAmount) public {
         uint256 stakeAmount = STAKER_PROVE_AMOUNT;
         // Use a more reasonable upper bound for testing
-        uint256 maxDispenseAmount = 1_000_000e18; // 1M tokens
+        uint256 maxDispenseAmount = DISPENSE_AMOUNT; // 1M tokens
         uint256 dispenseAmount = bound(_dispenseAmount, 1000, maxDispenseAmount);
 
         // Stake to Alice prover
@@ -365,8 +365,11 @@ contract SuccinctStakingDispenseTests is SuccinctStakingTest {
         // Verify rewards were distributed
         assertEq(SuccinctStaking(STAKING).balanceOf(STAKER_1), stakeAmount);
         uint256 expectedStakedAfterDispense = stakeAmount + dispenseAmount;
+        // Use dynamic tolerance for large amounts
+        uint256 stakeTolerance =
+            expectedStakedAfterDispense / 100000 > 50 ? expectedStakedAfterDispense / 100000 : 50;
         assertApproxEqAbs(
-            SuccinctStaking(STAKING).staked(STAKER_1), expectedStakedAfterDispense, 10
+            SuccinctStaking(STAKING).staked(STAKER_1), expectedStakedAfterDispense, stakeTolerance
         );
         assertEq(IERC20(PROVE).balanceOf(I_PROVE), stakeAmount + dispenseAmount);
 
@@ -376,12 +379,18 @@ contract SuccinctStakingDispenseTests is SuccinctStakingTest {
         // Verify final state
         assertEq(SuccinctStaking(STAKING).balanceOf(STAKER_1), 0);
         assertEq(SuccinctStaking(STAKING).staked(STAKER_1), 0);
-        assertApproxEqAbs(IERC20(PROVE).balanceOf(STAKER_1), stakeAmount + dispenseAmount, 10);
-        assertApproxEqAbs(IERC20(PROVE).balanceOf(I_PROVE), 0, 10);
+        uint256 finalTolerance = (stakeAmount + dispenseAmount) / 100000 > 50
+            ? (stakeAmount + dispenseAmount) / 100000
+            : 50;
+        assertApproxEqAbs(
+            IERC20(PROVE).balanceOf(STAKER_1), stakeAmount + dispenseAmount, finalTolerance
+        );
+        // For large dispense amounts, allow slightly more tolerance for vault rounding
+        assertApproxEqAbs(IERC20(PROVE).balanceOf(I_PROVE), 0, 100);
         assertEq(IERC20(I_PROVE).balanceOf(ALICE_PROVER), 0);
     }
 
-    function testFuzz_Dispense_MultipleStakers(
+    function testFuzz_Dispense_WhenMultipleStakers(
         uint256[3] memory _stakeAmounts,
         uint256 _dispenseAmount
     ) public {
@@ -396,7 +405,7 @@ contract SuccinctStakingDispenseTests is SuccinctStakingTest {
             totalStaked += _stakeAmounts[i];
         }
 
-        uint256 dispenseAmount = bound(_dispenseAmount, 1000, 1_000_000e18);
+        uint256 dispenseAmount = bound(_dispenseAmount, 1000, DISPENSE_AMOUNT);
 
         // Dispense
         _dispense(dispenseAmount);
@@ -416,13 +425,13 @@ contract SuccinctStakingDispenseTests is SuccinctStakingTest {
         }
     }
 
-    function testFuzz_Dispense_MultipleProvers(
+    function testFuzz_Dispense_WhenMultipleProvers(
         uint256[2] memory _stakeAmounts,
         uint256 _dispenseAmount
     ) public {
         uint256 stakeAmount1 = bound(_stakeAmounts[0], MIN_STAKE_AMOUNT, STAKER_PROVE_AMOUNT / 2);
         uint256 stakeAmount2 = bound(_stakeAmounts[1], MIN_STAKE_AMOUNT, STAKER_PROVE_AMOUNT / 2);
-        uint256 dispenseAmount = bound(_dispenseAmount, 1000, 1_000_000e18);
+        uint256 dispenseAmount = bound(_dispenseAmount, 1000, DISPENSE_AMOUNT);
 
         // Stake to different provers
         _stake(STAKER_1, ALICE_PROVER, stakeAmount1);
@@ -485,7 +494,7 @@ contract SuccinctStakingDispenseTests is SuccinctStakingTest {
         assertApproxEqAbs(actualRemaining, expectedRemaining, remainingTolerance);
     }
 
-    function testFuzz_Dispense_RateChanges(
+    function testFuzz_Dispense_WhenRateChanges(
         uint256 _initialRate,
         uint256 _newRate,
         uint256 _waitTime

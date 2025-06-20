@@ -415,7 +415,7 @@ contract SuccinctStakingFulfillmentTests is SuccinctStakingTest {
                               FUZZ TESTS
     //////////////////////////////////////////////////////////////*/
 
-    function testFuzz_Reward_VariableAmounts(uint256 _rewardAmount) public {
+    function testFuzz_Reward_WhenVariableAmounts(uint256 _rewardAmount) public {
         uint256 stakeAmount = STAKER_PROVE_AMOUNT;
         // Start with a minimum that ensures non-zero fees
         uint256 rewardAmount = bound(_rewardAmount, 1000, REQUESTER_PROVE_AMOUNT);
@@ -439,9 +439,10 @@ contract SuccinctStakingFulfillmentTests is SuccinctStakingTest {
         assertApproxEqAbs(SuccinctStaking(STAKING).staked(STAKER_1), stakeAmount + stakerReward, 1);
     }
 
-    function testFuzz_Reward_MultipleStakers(uint256[3] memory _stakeAmounts, uint256 _rewardAmount)
-        public
-    {
+    function testFuzz_Reward_WhenMultipleStakers(
+        uint256[3] memory _stakeAmounts,
+        uint256 _rewardAmount
+    ) public {
         address[3] memory stakers = [STAKER_1, STAKER_2, makeAddr("STAKER_3")];
         uint256 totalStaked = 0;
 
@@ -479,7 +480,7 @@ contract SuccinctStakingFulfillmentTests is SuccinctStakingTest {
         }
     }
 
-    function testFuzz_Reward_WithPartialUnstake(uint256 _unstakePercent, uint256 _rewardAmount)
+    function testFuzz_Reward_WhenWithPartialUnstake(uint256 _unstakePercent, uint256 _rewardAmount)
         public
     {
         uint256 stakeAmount = STAKER_PROVE_AMOUNT;
@@ -520,7 +521,7 @@ contract SuccinctStakingFulfillmentTests is SuccinctStakingTest {
         );
     }
 
-    function testFuzz_Reward_FeeCalculations(uint256 _stakerFeeBips) public {
+    function testFuzz_Reward_WhenFeeCalculations(uint256 _stakerFeeBips) public {
         // Bound fees to reasonable ranges
         uint256 stakerFeeBips = bound(_stakerFeeBips, 0, 5000); // 0-50%
 
@@ -557,7 +558,7 @@ contract SuccinctStakingFulfillmentTests is SuccinctStakingTest {
         );
     }
 
-    function testFuzz_Reward_MultipleProvers(uint8 _numProvers, uint256 _rewardSeed) public {
+    function testFuzz_Reward_WhenMultipleProvers(uint8 _numProvers, uint256 _rewardSeed) public {
         uint256 numProvers = bound(uint256(_numProvers), 2, 5);
         address[] memory provers = new address[](numProvers);
 

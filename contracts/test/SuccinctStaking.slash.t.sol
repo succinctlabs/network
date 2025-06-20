@@ -496,10 +496,6 @@ contract SuccinctStakingSlashTests is SuccinctStakingTest {
         assertEq(IERC20(PROVE).balanceOf(STAKER_1), 0);
     }
 
-    /*//////////////////////////////////////////////////////////////
-                              FUZZ TESTS
-    //////////////////////////////////////////////////////////////*/
-
     function testFuzz_Slash_VariableAmounts(uint256 _slashAmount) public {
         uint256 stakeAmount = STAKER_PROVE_AMOUNT;
         uint256 slashAmount = bound(_slashAmount, 1, stakeAmount * 2); // Allow over-slashing
