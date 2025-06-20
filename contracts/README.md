@@ -30,10 +30,10 @@ FOUNDRY_PROFILE=fuzz forge test
 
 ## Gas Report
 
-To generate a gas report:
+To generate a gas report (exclude fuzz tests for reproducibility):
 
 ```sh
-FOUNDRY_PROFILE=deploy forge snapshot
+FOUNDRY_PROFILE=deploy forge snapshot --no-match-test "Fuzz"
 ```
 
 ## Deployment
