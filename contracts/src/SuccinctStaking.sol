@@ -460,8 +460,8 @@ contract SuccinctStaking is
     /// @dev Iterate over the unstake claims, processing each one that has passed the unstake
     ///      period.
     function _finishUnstake(address _staker, address _prover, UnstakeClaim[] storage _claims)
-        stakingOperation
         internal
+        stakingOperation
         returns (uint256 PROVE)
     {
         uint256 i = 0;
