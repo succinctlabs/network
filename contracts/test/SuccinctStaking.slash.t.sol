@@ -518,9 +518,10 @@ contract SuccinctStakingSlashTests is SuccinctStakingTest {
         assertEq(SuccinctStaking(STAKING).staked(STAKER_1), stakeAmount - actualSlashAmount);
     }
 
-    function testFuzz_Slash_WhenMultipleStakers(uint256[3] memory _stakeAmounts, uint256 _slashAmount)
-        public
-    {
+    function testFuzz_Slash_WhenMultipleStakers(
+        uint256[3] memory _stakeAmounts,
+        uint256 _slashAmount
+    ) public {
         // Setup 3 stakers with different amounts
         address[3] memory stakers = [STAKER_1, STAKER_2, makeAddr("STAKER_3")];
         uint256 totalStaked = 0;
@@ -558,9 +559,10 @@ contract SuccinctStakingSlashTests is SuccinctStakingTest {
         }
     }
 
-    function testFuzz_Slash_WhenWithDispenseBeforeSlash(uint256 _dispenseAmount, uint256 _slashAmount)
-        public
-    {
+    function testFuzz_Slash_WhenWithDispenseBeforeSlash(
+        uint256 _dispenseAmount,
+        uint256 _slashAmount
+    ) public {
         uint256 stakeAmount = STAKER_PROVE_AMOUNT;
         uint256 dispenseAmount = bound(_dispenseAmount, 1000, 1_000_000e18);
 
