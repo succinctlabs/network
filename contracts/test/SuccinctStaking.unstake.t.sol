@@ -644,4 +644,149 @@ contract SuccinctStakingUnstakeTests is SuccinctStakingTest {
             IERC20(I_PROVE).balanceOf(STAKING), 0, "Staking contract should have no $iPROVE left"
         );
     }
+
+    /*//////////////////////////////////////////////////////////////
+                              FUZZ TESTS
+    //////////////////////////////////////////////////////////////*/
+
+    function testFuzz_Unstake_PartialAmount(uint256 _unstakeAmount) public {
+        uint256 stakeAmount = STAKER_PROVE_AMOUNT;
+        uint256 unstakeAmount = bound(_unstakeAmount, 1, stakeAmount);
+
+        // Stake to Alice prover
+        _stake(STAKER_1, ALICE_PROVER, stakeAmount);
+
+        // Request partial unstake
+        _requestUnstake(STAKER_1, unstakeAmount);
+
+        // Check that unstake pending matches requested amount
+        assertEq(SuccinctStaking(STAKING).unstakePending(STAKER_1), unstakeAmount);
+
+        // Check that staked amount hasn't changed yet
+        assertEq(SuccinctStaking(STAKING).staked(STAKER_1), stakeAmount);
+
+        // Wait and complete unstake
+        skip(UNSTAKE_PERIOD);
+        uint256 receivedAmount = _finishUnstake(STAKER_1);
+
+        // Verify amounts
+        assertEq(receivedAmount, unstakeAmount);
+        assertEq(SuccinctStaking(STAKING).balanceOf(STAKER_1), stakeAmount - unstakeAmount);
+        assertEq(SuccinctStaking(STAKING).staked(STAKER_1), stakeAmount - unstakeAmount);
+        assertEq(IERC20(PROVE).balanceOf(STAKER_1), unstakeAmount);
+    }
+
+    function testFuzz_Unstake_WithDispenseRewards(uint256 _dispenseAmount, uint256 _unstakeAmount)
+        public
+    {
+        uint256 stakeAmount = STAKER_PROVE_AMOUNT;
+        uint256 dispenseAmount = bound(_dispenseAmount, 1000, 1_000_000e18);
+        uint256 unstakeAmount = bound(_unstakeAmount, 1, stakeAmount);
+
+        // Stake to Alice prover
+        _stake(STAKER_1, ALICE_PROVER, stakeAmount);
+
+        // Dispense rewards
+        _dispense(dispenseAmount);
+
+        // Get staked amount after dispense
+        uint256 stakedAfterDispense = SuccinctStaking(STAKING).staked(STAKER_1);
+        assertApproxEqAbs(stakedAfterDispense, stakeAmount + dispenseAmount, 10);
+
+        // Request unstake
+        _requestUnstake(STAKER_1, unstakeAmount);
+
+        // Complete unstake
+        skip(UNSTAKE_PERIOD);
+        uint256 receivedAmount = _finishUnstake(STAKER_1);
+
+        // Should receive proportional share of the rewards
+        uint256 expectedReceived = (unstakeAmount * stakedAfterDispense) / stakeAmount;
+        assertApproxEqAbs(receivedAmount, expectedReceived, 10);
+    }
+
+    function testFuzz_Unstake_MultipleRequests(uint256[3] memory _amounts) public {
+        uint256 stakeAmount = STAKER_PROVE_AMOUNT;
+
+        // Bound each unstake amount
+        uint256 totalUnstake = 0;
+        for (uint256 i = 0; i < _amounts.length; i++) {
+            _amounts[i] = bound(_amounts[i], MIN_STAKE_AMOUNT, stakeAmount / 4);
+            totalUnstake += _amounts[i];
+        }
+
+        // Ensure we don't unstake more than staked
+        vm.assume(totalUnstake <= stakeAmount);
+
+        // Stake initial amount
+        _stake(STAKER_1, ALICE_PROVER, stakeAmount);
+
+        // Make multiple unstake requests
+        for (uint256 i = 0; i < _amounts.length; i++) {
+            _requestUnstake(STAKER_1, _amounts[i]);
+            skip(1 days); // Add some time between requests
+        }
+
+        // Check total pending
+        assertEq(SuccinctStaking(STAKING).unstakePending(STAKER_1), totalUnstake);
+
+        // Wait for all to mature
+        skip(UNSTAKE_PERIOD);
+
+        // Finish unstake
+        uint256 totalReceived = _finishUnstake(STAKER_1);
+
+        assertEq(totalReceived, totalUnstake);
+        assertEq(SuccinctStaking(STAKING).balanceOf(STAKER_1), stakeAmount - totalUnstake);
+        assertEq(IERC20(PROVE).balanceOf(STAKER_1), totalUnstake);
+    }
+
+    function testFuzz_Unstake_WithSlashDuringUnstakePeriod(uint256 _slashAmount) public {
+        uint256 stakeAmount = STAKER_PROVE_AMOUNT;
+        uint256 unstakeAmount = stakeAmount;
+        uint256 slashAmount = bound(_slashAmount, 1, stakeAmount / 2);
+
+        // Stake to Alice prover
+        _stake(STAKER_1, ALICE_PROVER, stakeAmount);
+
+        // Request unstake
+        _requestUnstake(STAKER_1, unstakeAmount);
+
+        // Slash during unstake period
+        skip(UNSTAKE_PERIOD / 2);
+        _requestSlash(ALICE_PROVER, slashAmount);
+        skip(SLASH_PERIOD);
+        _finishSlash(ALICE_PROVER, 0);
+
+        // Complete unstake after slash
+        skip(UNSTAKE_PERIOD / 2);
+        uint256 receivedAmount = _finishUnstake(STAKER_1);
+
+        // Should receive reduced amount due to slash
+        assertApproxEqAbs(receivedAmount, stakeAmount - slashAmount, 10);
+    }
+
+    function testFuzz_Unstake_TimingBeforeAndAfterPeriod(uint256 _waitTime) public {
+        uint256 stakeAmount = STAKER_PROVE_AMOUNT;
+
+        // Stake and request unstake
+        _stake(STAKER_1, ALICE_PROVER, stakeAmount);
+        _requestUnstake(STAKER_1, stakeAmount);
+
+        // Bound wait time around unstake period
+        uint256 waitTime = bound(_waitTime, 1, UNSTAKE_PERIOD * 2);
+        skip(waitTime);
+
+        uint256 receivedAmount = _finishUnstake(STAKER_1);
+
+        if (waitTime < UNSTAKE_PERIOD) {
+            // Should not receive anything yet
+            assertEq(receivedAmount, 0);
+            assertEq(IERC20(PROVE).balanceOf(STAKER_1), 0);
+        } else {
+            // Should receive the full amount
+            assertEq(receivedAmount, stakeAmount);
+            assertEq(IERC20(PROVE).balanceOf(STAKER_1), stakeAmount);
+        }
+    }
 }

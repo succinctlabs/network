@@ -118,17 +118,18 @@ contract SuccinctStakingTest is Test {
         deal(PROVE, STAKER_2, STAKER_PROVE_AMOUNT);
     }
 
-    function _stake(address _staker, address _prover, uint256 _amount) internal {
+    function _stake(address _staker, address _prover, uint256 _amount) internal returns (uint256) {
         vm.prank(_staker);
         IERC20(PROVE).approve(STAKING, _amount);
         vm.prank(_staker);
-        SuccinctStaking(STAKING).stake(_prover, _amount);
+        return SuccinctStaking(STAKING).stake(_prover, _amount);
     }
 
     function _permitAndStake(address _staker, uint256 _stakerPK, address _prover, uint256 _amount)
         internal
+        returns (uint256)
     {
-        _permitAndStake(_staker, _stakerPK, _prover, _amount, block.timestamp + 1 days);
+        return _permitAndStake(_staker, _stakerPK, _prover, _amount, block.timestamp + 1 days);
     }
 
     function _permitAndStake(
@@ -137,10 +138,11 @@ contract SuccinctStakingTest is Test {
         address _prover,
         uint256 _amount,
         uint256 _deadline
-    ) internal {
+    ) internal returns (uint256) {
         (uint8 v, bytes32 r, bytes32 s) =
             _signPermit(_stakerPK, _staker, _prover, _amount, _deadline);
-        SuccinctStaking(STAKING).permitAndStake(_prover, _staker, _amount, _deadline, v, r, s);
+        return
+            SuccinctStaking(STAKING).permitAndStake(_prover, _staker, _amount, _deadline, v, r, s);
     }
 
     function _completeUnstake(address _staker, uint256 _amount) internal returns (uint256) {
@@ -181,7 +183,9 @@ contract SuccinctStakingTest is Test {
     }
 
     function _waitRequiredDispenseTime(uint256 _amount) internal {
-        skip(_amount * DISPENSE_RATE);
+        // Calculate time needed, ensuring at least 1 second for small amounts
+        uint256 timeNeeded = (_amount + DISPENSE_RATE - 1) / DISPENSE_RATE;
+        skip(timeNeeded);
     }
 
     function _signPermit(
@@ -212,6 +216,15 @@ contract SuccinctStakingTest is Test {
     function _withdrawFromVApp(address _account, uint256 _amount) internal {
         MockVApp(VAPP).requestWithdraw(_account, _amount);
         MockVApp(VAPP).finishWithdraw(_account);
+    }
+
+    function _withdrawFullBalanceFromVApp(address _account) internal returns (uint256) {
+        uint256 balance = MockVApp(VAPP).balances(_account);
+        if (balance > 0) {
+            MockVApp(VAPP).requestWithdraw(_account, balance);
+            MockVApp(VAPP).finishWithdraw(_account);
+        }
+        return balance;
     }
 
     function _calculateStakerReward(uint256 _totalReward) internal pure returns (uint256) {
