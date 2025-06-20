@@ -2,7 +2,7 @@
 //!
 //! This module contains the utilities for the vApp.
 
-use alloy_primitives::Address;
+use alloy_primitives::{Address};
 use spn_network_types::TransactionVariant;
 
 use crate::errors::VAppPanic;

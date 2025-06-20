@@ -11,7 +11,7 @@ use spn_network_types::{ExecutionStatus, HashableWithSender, ProofMode, Transact
 
 use crate::{
     errors::VAppPanic,
-    fee::fee,
+    fee::{fee, AUCTIONEER_WITHDRAWAL_FEE, PROTOCOL_FEE_BIPS},
     merkle::{MerkleStorage, MerkleTreeHasher},
     receipts::{OffchainReceipt, OnchainReceipt, VAppReceipt},
     signing::{eth_sign_verify, proto_verify},
@@ -463,16 +463,22 @@ impl<A: Storage<Address, Account>, R: Storage<RequestId, bool>> VAppState<A, R> 
                     .parse::<U256>()
                     .map_err(|_| VAppPanic::InvalidU256Amount { amount: body.amount.clone() })?;
 
-                // Validate that the account has sufficient balance.
+                // Validate that the account has sufficient balance for withdrawal + auctioneer fee.
                 debug!("validate account has sufficient balance");
                 let balance = self.accounts.entry(account)?.or_default().get_balance();
-                if balance < amount {
-                    return Err(VAppPanic::InsufficientBalance { account, amount, balance });
+                let total_amount = amount + AUCTIONEER_WITHDRAWAL_FEE;
+                if balance < total_amount {
+                    return Err(VAppPanic::InsufficientBalance { account, amount: total_amount, balance });
                 }
 
                 // Deduct the amount from the account.
                 debug!("deduct amount from account");
                 self.accounts.entry(account)?.or_default().deduct_balance(amount);
+
+                // Deduct and transfer the auctioneer fee.
+                debug!("deduct and transfer auctioneer fee");
+                self.accounts.entry(account)?.or_default().deduct_balance(AUCTIONEER_WITHDRAWAL_FEE);
+                self.accounts.entry(self.auctioneer)?.or_default().add_balance(AUCTIONEER_WITHDRAWAL_FEE);
 
                 // Return the withdraw action.
                 return Ok(Some(VAppReceipt::Withdraw(OffchainReceipt {
@@ -798,7 +804,7 @@ impl<A: Storage<Address, Account>, R: Storage<RequestId, bool>> VAppState<A, R> 
 
                 // Get the protocol fee.
                 let protocol_address = self.treasury;
-                let protocol_fee_bips = U256::ZERO;
+                let protocol_fee_bips = PROTOCOL_FEE_BIPS;
 
                 // Get the staker fee from the prover account.
                 let prover_account = self
