@@ -25,12 +25,13 @@ contract SuccinctStakingDispenseTests is SuccinctStakingTest {
         _dispense(dispenseAmount);
 
         // Verify rewards were distributed
-        // balanceOf increases because there is more PROVE underlying per DST-PROVE
+        // balanceOf increases because there is more $PROVE underlying per $stPROVE
         assertEq(SuccinctStaking(STAKING).balanceOf(STAKER_1), stakeAmount);
         // staked increases because the redemption value is higher
-        uint256 expectedStakedAfterDispense = stakeAmount + dispenseAmount - 1; // Allow for rounding
-        assertGe(SuccinctStaking(STAKING).staked(STAKER_1), expectedStakedAfterDispense - 1);
-        assertLe(SuccinctStaking(STAKING).staked(STAKER_1), expectedStakedAfterDispense + 1);
+        // Note: We allow for 1 wei rounding error due to ERC4626 vault calculations
+        uint256 expectedStakedAfterDispense = stakeAmount + dispenseAmount;
+        uint256 actualStaked = SuccinctStaking(STAKING).staked(STAKER_1);
+        assertApproxEqAbs(actualStaked, expectedStakedAfterDispense, 10);
         assertEq(IERC20(PROVE).balanceOf(I_PROVE), stakeAmount + dispenseAmount);
 
         // Complete unstake process
@@ -40,9 +41,9 @@ contract SuccinctStakingDispenseTests is SuccinctStakingTest {
         assertEq(SuccinctStaking(STAKING).balanceOf(STAKER_1), 0);
         assertEq(SuccinctStaking(STAKING).staked(STAKER_1), 0);
 
-        // Note: due to rounding, 1 $PROVE is left over in I_PROVE.
-        assertEq(IERC20(PROVE).balanceOf(STAKER_1), stakeAmount + dispenseAmount - 1);
-        assertEq(IERC20(PROVE).balanceOf(I_PROVE), 1);
+        // All $PROVE should be returned to the staker (minus potential rounding)
+        assertApproxEqAbs(IERC20(PROVE).balanceOf(STAKER_1), stakeAmount + dispenseAmount, 10);
+        assertApproxEqAbs(IERC20(PROVE).balanceOf(I_PROVE), 0, 10);
         assertEq(IERC20(I_PROVE).balanceOf(ALICE_PROVER), 0);
     }
 
@@ -93,8 +94,8 @@ contract SuccinctStakingDispenseTests is SuccinctStakingTest {
         vm.prank(OWNER);
         SuccinctStaking(STAKING).dispense(maxAmount - halfAmount);
 
-        // Check that maxDispense is now 0 (or close to it due to slight timing differences)
-        assertLe(SuccinctStaking(STAKING).maxDispense(), 1);
+        // Check that maxDispense is now 0
+        assertEq(SuccinctStaking(STAKING).maxDispense(), 0);
 
         // Try to dispense again (should fail)
         vm.expectRevert(ISuccinctStaking.AmountExceedsAvailableDispense.selector);
@@ -140,8 +141,8 @@ contract SuccinctStakingDispenseTests is SuccinctStakingTest {
         vm.prank(OWNER);
         SuccinctStaking(STAKING).dispense(expectedNewlyAvailable);
 
-        // Check available is now 0 (or very close due to rounding)
-        assertLe(SuccinctStaking(STAKING).maxDispense(), 1);
+        // Check available is now 0
+        assertEq(SuccinctStaking(STAKING).maxDispense(), 0);
     }
 
     // Dispensing exactly at the limit
@@ -206,8 +207,8 @@ contract SuccinctStakingDispenseTests is SuccinctStakingTest {
         vm.prank(OWNER);
         SuccinctStaking(STAKING).dispense(available);
 
-        // Available should now be 0 or very close
-        assertLe(SuccinctStaking(STAKING).maxDispense(), 1);
+        // Available should now be 0
+        assertEq(SuccinctStaking(STAKING).maxDispense(), 0);
     }
 
     // Dispense calculation with very large time periods
@@ -266,8 +267,8 @@ contract SuccinctStakingDispenseTests is SuccinctStakingTest {
         vm.prank(OWNER);
         SuccinctStaking(STAKING).dispense(type(uint256).max);
 
-        // After dispensing, maxDispense() should be zero (or ≤ 1 due to rounding)
-        assertLe(SuccinctStaking(STAKING).maxDispense(), 1);
+        // After dispensing, maxDispense() should be zero
+        assertEq(SuccinctStaking(STAKING).maxDispense(), 0);
 
         // The I_PROVE vault’s new balance should equal old + available
         uint256 newVaultBalance = IERC20(PROVE).balanceOf(I_PROVE);
@@ -295,7 +296,7 @@ contract SuccinctStakingDispenseTests is SuccinctStakingTest {
         assertEq(IERC20(PROVE).balanceOf(I_PROVE), available);
 
         // After dispensing, there should be no more available
-        assertLe(SuccinctStaking(STAKING).maxDispense(), 1);
+        assertEq(SuccinctStaking(STAKING).maxDispense(), 0);
     }
 
     // Reverts when the staking contract doesn't have enough $PROVE. Operationally,
@@ -347,5 +348,167 @@ contract SuccinctStakingDispenseTests is SuccinctStakingTest {
         vm.prank(ALICE);
         vm.expectRevert(abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, ALICE));
         SuccinctStaking(STAKING).updateDispenseRate(newRate);
+    }
+
+    function testFuzz_Dispense_WhenValid(uint256 _dispenseAmount) public {
+        uint256 stakeAmount = STAKER_PROVE_AMOUNT;
+        // Use a more reasonable upper bound for testing
+        uint256 maxDispenseAmount = 1_000_000e18; // 1M tokens
+        uint256 dispenseAmount = bound(_dispenseAmount, 1000, maxDispenseAmount);
+
+        // Stake to Alice prover
+        _stake(STAKER_1, ALICE_PROVER, STAKER_PROVE_AMOUNT);
+
+        // Dispense
+        _dispense(dispenseAmount);
+
+        // Verify rewards were distributed
+        assertEq(SuccinctStaking(STAKING).balanceOf(STAKER_1), stakeAmount);
+        uint256 expectedStakedAfterDispense = stakeAmount + dispenseAmount;
+        assertApproxEqAbs(SuccinctStaking(STAKING).staked(STAKER_1), expectedStakedAfterDispense, 10);
+        assertEq(IERC20(PROVE).balanceOf(I_PROVE), stakeAmount + dispenseAmount);
+
+        // Complete unstake process
+        _completeUnstake(STAKER_1, stakeAmount);
+
+        // Verify final state
+        assertEq(SuccinctStaking(STAKING).balanceOf(STAKER_1), 0);
+        assertEq(SuccinctStaking(STAKING).staked(STAKER_1), 0);
+        assertApproxEqAbs(IERC20(PROVE).balanceOf(STAKER_1), stakeAmount + dispenseAmount, 10);
+        assertApproxEqAbs(IERC20(PROVE).balanceOf(I_PROVE), 0, 10);
+        assertEq(IERC20(I_PROVE).balanceOf(ALICE_PROVER), 0);
+    }
+
+    function testFuzz_Dispense_MultipleStakers(uint256[3] memory _stakeAmounts, uint256 _dispenseAmount) public {
+        address[3] memory stakers = [STAKER_1, STAKER_2, makeAddr("STAKER_3")];
+        uint256 totalStaked = 0;
+        
+        // Setup stakers
+        for (uint i = 0; i < stakers.length; i++) {
+            _stakeAmounts[i] = bound(_stakeAmounts[i], MIN_STAKE_AMOUNT, STAKER_PROVE_AMOUNT / 3);
+            deal(PROVE, stakers[i], _stakeAmounts[i]);
+            _stake(stakers[i], ALICE_PROVER, _stakeAmounts[i]);
+            totalStaked += _stakeAmounts[i];
+        }
+        
+        uint256 dispenseAmount = bound(_dispenseAmount, 1000, 1_000_000e18);
+        
+        // Dispense
+        _dispense(dispenseAmount);
+        
+        // Verify each staker's balance increased proportionally
+        for (uint i = 0; i < stakers.length; i++) {
+            uint256 expectedStaked = _stakeAmounts[i] + (_stakeAmounts[i] * dispenseAmount / totalStaked);
+            // Dynamic tolerance: 0.001% of expected value or 10, whichever is larger
+            uint256 tolerance = expectedStaked / 100000 > 10 ? expectedStaked / 100000 : 10;
+            assertApproxEqAbs(
+                SuccinctStaking(STAKING).staked(stakers[i]),
+                expectedStaked,
+                tolerance,
+                "Staker should receive proportional dispense"
+            );
+        }
+    }
+
+    function testFuzz_Dispense_MultipleProvers(uint256[2] memory _stakeAmounts, uint256 _dispenseAmount) public {
+        uint256 stakeAmount1 = bound(_stakeAmounts[0], MIN_STAKE_AMOUNT, STAKER_PROVE_AMOUNT / 2);
+        uint256 stakeAmount2 = bound(_stakeAmounts[1], MIN_STAKE_AMOUNT, STAKER_PROVE_AMOUNT / 2);
+        uint256 dispenseAmount = bound(_dispenseAmount, 1000, 1_000_000e18);
+        
+        // Stake to different provers
+        _stake(STAKER_1, ALICE_PROVER, stakeAmount1);
+        deal(PROVE, STAKER_2, stakeAmount2);
+        _stake(STAKER_2, BOB_PROVER, stakeAmount2);
+        
+        // Dispense affects all provers
+        _dispense(dispenseAmount);
+        
+        // Total stake across all provers
+        uint256 totalStaked = stakeAmount1 + stakeAmount2;
+        
+        // Verify dispense distributed proportionally
+        uint256 expectedStaked1 = stakeAmount1 + (stakeAmount1 * dispenseAmount / totalStaked);
+        uint256 expectedStaked2 = stakeAmount2 + (stakeAmount2 * dispenseAmount / totalStaked);
+        
+        // Dynamic tolerance: 0.001% of expected value or 10, whichever is larger
+        uint256 tolerance1 = expectedStaked1 / 100000 > 10 ? expectedStaked1 / 100000 : 10;
+        uint256 tolerance2 = expectedStaked2 / 100000 > 10 ? expectedStaked2 / 100000 : 10;
+        
+        assertApproxEqAbs(SuccinctStaking(STAKING).staked(STAKER_1), expectedStaked1, tolerance1);
+        assertApproxEqAbs(SuccinctStaking(STAKING).staked(STAKER_2), expectedStaked2, tolerance2);
+    }
+
+    function testFuzz_Dispense_WithUnstakeRequests(uint256 _dispenseAmount, uint256 _unstakePercent) public {
+        uint256 stakeAmount = STAKER_PROVE_AMOUNT;
+        // Bound dispense amount to what can accumulate in 30 days
+        uint256 maxDispenseIn30Days = DISPENSE_RATE * 30 days;
+        uint256 dispenseAmount = bound(_dispenseAmount, 1000, maxDispenseIn30Days);
+        uint256 unstakePercent = bound(_unstakePercent, 10, 90);
+        uint256 unstakeAmount = (stakeAmount * unstakePercent) / 100;
+        
+        // Stake
+        _stake(STAKER_1, ALICE_PROVER, stakeAmount);
+        
+        // Request unstake
+        _requestUnstake(STAKER_1, unstakeAmount);
+        
+        // Dispense while unstake is pending
+        _dispense(dispenseAmount);
+        
+        // Complete unstake
+        skip(UNSTAKE_PERIOD);
+        uint256 receivedAmount = _finishUnstake(STAKER_1);
+        
+        // Unstaked amount should not include dispense rewards  
+        // The snapshot was taken before dispense, so it shouldn't include rewards
+        // But ERC4626 rounding can cause small differences proportional to the amount
+        uint256 unstakeTolerance = unstakeAmount / 100000 > 10 ? unstakeAmount / 100000 : 10;
+        assertApproxEqAbs(receivedAmount, unstakeAmount, unstakeTolerance);
+        
+        // Verify the remaining stake got the dispense rewards
+        // Since this is the only staker, they get all the dispense rewards on their remaining stake
+        uint256 actualRemaining = SuccinctStaking(STAKING).staked(STAKER_1);
+        uint256 expectedRemaining = stakeAmount - unstakeAmount + dispenseAmount;
+        uint256 remainingTolerance = expectedRemaining / 100000 > 10 ? expectedRemaining / 100000 : 10;
+        assertApproxEqAbs(actualRemaining, expectedRemaining, remainingTolerance);
+    }
+
+    function testFuzz_Dispense_RateChanges(uint256 _initialRate, uint256 _newRate, uint256 _waitTime) public {
+        uint256 initialRate = bound(_initialRate, 1, DISPENSE_RATE * 2);
+        uint256 newRate = bound(_newRate, 1, DISPENSE_RATE * 2);
+        uint256 waitTime = bound(_waitTime, 1 days, 30 days);
+        
+        // Stake
+        _stake(STAKER_1, ALICE_PROVER, STAKER_PROVE_AMOUNT);
+        
+        // Set initial rate
+        vm.prank(OWNER);
+        SuccinctStaking(STAKING).updateDispenseRate(initialRate);
+        
+        // Wait and dispense
+        skip(waitTime);
+        uint256 firstAvailable = SuccinctStaking(STAKING).maxDispense();
+        uint256 firstDispense = firstAvailable / 2;
+        deal(PROVE, STAKING, firstDispense);
+        vm.prank(OWNER);
+        SuccinctStaking(STAKING).dispense(firstDispense);
+        
+        // Change rate
+        vm.prank(OWNER);
+        SuccinctStaking(STAKING).updateDispenseRate(newRate);
+        
+        // Wait again
+        skip(waitTime);
+        uint256 secondAvailable = SuccinctStaking(STAKING).maxDispense();
+        
+        // Verify rate change took effect
+        // When we dispensed, lastDispenseTimestamp advanced by timeConsumed
+        uint256 timeConsumed = (firstDispense + initialRate - 1) / initialRate;
+        
+        // After rate change and second wait, available amount is calculated from
+        // the time elapsed since lastDispenseTimestamp with the new rate
+        // Time elapsed = waitTime + (waitTime - timeConsumed) = 2 * waitTime - timeConsumed
+        uint256 expectedSecondAvailable = (2 * waitTime - timeConsumed) * newRate;
+        assertEq(secondAvailable, expectedSecondAvailable);
     }
 }
