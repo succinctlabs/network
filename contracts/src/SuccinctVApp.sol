@@ -116,11 +116,15 @@ contract SuccinctVApp is
         bytes32 _vkey,
         bytes32 _genesisStateRoot
     ) external initializer {
+        // Ensure that parameters critical for functionality are non-zero.
         if (
             _owner == address(0) || _prove == address(0) || _iProve == address(0)
                 || _auctioneer == address(0) || _staking == address(0) || _verifier == address(0)
         ) {
             revert ZeroAddress();
+        }
+        if (_vkey == bytes32(0) || _genesisStateRoot == bytes32(0)) {
+            revert ZeroHash();
         }
 
         // Set the state variables.
@@ -255,6 +259,9 @@ contract SuccinctVApp is
         onlyOwner
         returns (uint64, bytes32, bytes32)
     {
+        // Check that the new vkey and root are not zero.
+        if (_vkey == bytes32(0) || _root == bytes32(0)) revert ZeroHash();
+
         // Save the old vkey for event.
         bytes32 oldVkey = vkey;
 

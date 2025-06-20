@@ -50,6 +50,9 @@ interface ISuccinctVApp {
     /// @dev Thrown when an address parameter is zero.
     error ZeroAddress();
 
+    /// @dev Thrown when a hash parameter is zero.
+    error ZeroHash();
+
     /// @dev Thrown if the actual balance does not match the expected balance.
     error BalanceMismatch();
 
