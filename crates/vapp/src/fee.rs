@@ -6,6 +6,13 @@
 use crate::{errors::VAppPanic, u256};
 use alloy_primitives::U256;
 
+/// The auctioneer fee per withdrawal in PROVE tokens.
+pub const AUCTIONEER_WITHDRAWAL_FEE: U256 =
+    U256::from_limbs([1_000_000_000_000_000_000u64, 0u64, 0u64, 0u64]);
+
+/// The protocol fee in bips.
+pub const PROTOCOL_FEE_BIPS: U256 = U256::ZERO;
+
 /// Calculates the fee split for a given reward.
 ///
 /// Returns (`protocol_reward`, `staker_reward`, `owner_reward`).
