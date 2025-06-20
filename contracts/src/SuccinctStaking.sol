@@ -42,8 +42,13 @@ contract SuccinctStaking is
     /// @inheritdoc ISuccinctStaking
     uint256 public override lastDispenseTimestamp;
 
+    /// @dev A mapping from staker to the prover they are staked with.
     mapping(address => address) internal stakerToProver;
+
+    /// @dev A mapping from staker to their unstake claims.
     mapping(address => UnstakeClaim[]) internal unstakeClaims;
+
+    /// @dev A mapping from prover to their slash claims.
     mapping(address => SlashClaim[]) internal slashClaims;
 
     /*//////////////////////////////////////////////////////////////
@@ -167,36 +172,36 @@ contract SuccinctStaking is
     //////////////////////////////////////////////////////////////*/
 
     /// @inheritdoc ISuccinctStaking
-    function stake(address _prover, uint256 _amount)
+    function stake(address _prover, uint256 _PROVE)
         external
         override
         onlyForProver(_prover)
         returns (uint256)
     {
         // Transfer $PROVE from the staker to this contract.
-        IERC20(prove).safeTransferFrom(msg.sender, address(this), _amount);
+        IERC20(prove).safeTransferFrom(msg.sender, address(this), _PROVE);
 
-        return _stake(msg.sender, _prover, _amount);
+        return _stake(msg.sender, _prover, _PROVE);
     }
 
     /// @inheritdoc ISuccinctStaking
     function permitAndStake(
         address _prover,
         address _from,
-        uint256 _amount,
+        uint256 _PROVE,
         uint256 _deadline,
         uint8 _v,
         bytes32 _r,
         bytes32 _s
     ) external override onlyForProver(_prover) returns (uint256) {
         // Approve the prover to spend the $PROVE from the staker.
-        IERC20Permit(prove).permit(_from, _prover, _amount, _deadline, _v, _r, _s);
+        IERC20Permit(prove).permit(_from, _prover, _PROVE, _deadline, _v, _r, _s);
 
         // Transfer $PROVE from the staker to this contract, by utilizing the prover as the
         // spender.
-        IProver(_prover).transferProveToStaking(_from, _amount);
+        IProver(_prover).transferProveToStaking(_from, _PROVE);
 
-        return _stake(_from, _prover, _amount);
+        return _stake(_from, _prover, _PROVE);
     }
 
     /// @inheritdoc ISuccinctStaking
