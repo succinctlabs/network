@@ -30,7 +30,10 @@ abstract contract ProverRegistry is IProverRegistry {
     /// @inheritdoc IProverRegistry
     uint256 public override proverCount;
 
+    /// @dev A mapping from prover owner to prover vault.
     mapping(address => address) internal ownerToProver;
+
+    /// @dev A mapping from prover vault to whether it exists.
     mapping(address => bool) internal provers;
 
     /// @dev This call must be sent by the VApp contract. This also acts as a check to ensure that the contract
@@ -127,8 +130,8 @@ abstract contract ProverRegistry is IProverRegistry {
         // Register the prover with the VApp.
         ISuccinctVApp(vapp).createProver(prover, _owner, _stakerFeeBips);
 
-        // Approve the prover as a spender so that $iPROVE can be transferred to the prover during\
-        // stake().
+        // Approve the prover as a spender of $iPROVE, so that $iPROVE can be transferred to the
+        // prover during stake().
         IERC20(iProve).approve(prover, type(uint256).max);
 
         emit ProverDeploy(prover, _owner, _stakerFeeBips);

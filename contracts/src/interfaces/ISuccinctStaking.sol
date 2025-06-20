@@ -94,13 +94,13 @@ interface ISuccinctStaking is IProverRegistry {
     /// @dev Thrown if the specified dispense amount exceeds the maximum dispense amount.
     error AmountExceedsAvailableDispense();
 
-    /// @notice The minimum amount of $PROVE that needs to be staked.
+    /// @notice The minimum amount of $PROVE that a staker needs to stake.
     function minStakeAmount() external view returns (uint256);
 
-    /// @notice The minimum amount of time needed between requestUnstake() and finishUnstake().
+    /// @notice The minimum amount of time needed between `requestUnstake()` and `finishUnstake()`.
     function unstakePeriod() external view returns (uint256);
 
-    /// @notice The minimum amount of time needed between requestSlash() and finishSlash().
+    /// @notice The minimum amount of time needed between `requestSlash()` and `finishSlash()`.
     function slashPeriod() external view returns (uint256);
 
     /// @notice The maximum amount of $PROVE that can be dispensed per second.
@@ -145,11 +145,11 @@ interface ISuccinctStaking is IProverRegistry {
     /// @return The amount of $PROVE.
     function unstakePending(address staker) external view returns (uint256);
 
-    /// @notice The amount of $PROVE that a staker would recieve if they unstaked from a prover.
+    /// @notice The amount of $PROVE that a staker would receive if they unstaked from a prover.
     /// @param prover The address of the prover.
-    /// @param amount The amount of $stPROVE to unstake.
+    /// @param stPROVE The amount of $stPROVE to unstake.
     /// @return The amount of $PROVE.
-    function previewRedeem(address prover, uint256 amount) external view returns (uint256);
+    function previewRedeem(address prover, uint256 stPROVE) external view returns (uint256);
 
     /// @notice The maximum amount of $PROVE that can be dispensed currently.
     /// @return The maximum amount of $PROVE.
@@ -199,9 +199,9 @@ interface ISuccinctStaking is IProverRegistry {
     ///         Must have first called requestUnstake() and waited for the unstake period to pass.
     /// @dev For each claim, if any snapshotted $iPROVE is lower than the actual $iPROVE that was
     ///      received, then the difference is given back to the prover.
-    /// @param _staker The address whose unstake claims to finish.
+    /// @param staker The address whose unstake claims to finish.
     /// @return The amount of $PROVE received.
-    function finishUnstake(address _staker) external returns (uint256);
+    function finishUnstake(address staker) external returns (uint256);
 
     /// @notice Creates a request to slash a prover for the specified amount. Only callable by the
     ///         VApp.
@@ -215,7 +215,7 @@ interface ISuccinctStaking is IProverRegistry {
     /// @param index The index of the slash request to cancel.
     function cancelSlash(address prover, uint256 index) external;
 
-    /// @notice Finishes the slashing process. Must have first called requestSlash() and waited
+    /// @notice Finishes the slashing process. Must have first called `requestSlash()` and waited
     ///         for the slash period to pass. Decreases the value of $stPROVE for all stakers of that
     ///         prover. Only callable by the owner.
     /// @param prover The address of the prover to slash.
@@ -223,7 +223,7 @@ interface ISuccinctStaking is IProverRegistry {
     /// @return The amount of $iPROVE slashed.
     function finishSlash(address prover, uint256 index) external returns (uint256);
 
-    /// @notice Rewards all stakers ($iPROVE holders) with $PROVE. Only callable by the the owner.
+    /// @notice Rewards all stakers ($iPROVE holders) with $PROVE. Only callable by the owner.
     /// @dev The amount MUST be less than or equal to maxDispense() (if not type(uint256).max), and
     ///      the amount MUST be less than or equal to the amount of $PROVE balance of this contract.
     /// @param PROVE The amount of $PROVE to dispense. If PROVE is type(uint256).max, dispense the
@@ -231,6 +231,6 @@ interface ISuccinctStaking is IProverRegistry {
     function dispense(uint256 PROVE) external;
 
     /// @notice Updates the dispense rate. Only callable by the owner.
-    /// @param rate The new dispense rate.
-    function updateDispenseRate(uint256 rate) external;
+    /// @param dispenseRate The new dispense rate.
+    function updateDispenseRate(uint256 dispenseRate) external;
 }
