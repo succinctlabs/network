@@ -31,6 +31,9 @@ contract SuccinctStaking is
     uint256 public override minStakeAmount;
 
     /// @inheritdoc ISuccinctStaking
+    uint256 public override maxUnstakeRequests;
+
+    /// @inheritdoc ISuccinctStaking
     uint256 public override unstakePeriod;
 
     /// @inheritdoc ISuccinctStaking
@@ -68,20 +71,26 @@ contract SuccinctStaking is
         address _prove,
         address _intermediateProve,
         uint256 _minStakeAmount,
+        uint256 _maxUnstakeRequests,
         uint256 _unstakePeriod,
         uint256 _slashPeriod,
         uint256 _dispenseRate
     ) external onlyOwner initializer {
+        // Ensure that parameters critical for functionality are non-zero.
         if (
             _governor == address(0) || _vApp == address(0) || _prove == address(0)
                 || _intermediateProve == address(0)
         ) {
             revert ZeroAddress();
         }
+        if (_maxUnstakeRequests == 0 || _unstakePeriod == 0 || _slashPeriod == 0) {
+            revert ZeroAmount();
+        }
 
         // Setup the initial state.
         __ProverRegistry_init(_governor, _vApp, _prove, _intermediateProve);
         minStakeAmount = _minStakeAmount;
+        maxUnstakeRequests = _maxUnstakeRequests;
         unstakePeriod = _unstakePeriod;
         slashPeriod = _slashPeriod;
 
@@ -212,6 +221,9 @@ contract SuccinctStaking is
         // Get the prover that the staker is staked with.
         address prover = stakerToProver[msg.sender];
         if (prover == address(0)) revert NotStaked();
+
+        // Check that this staker has not already requested too many unstake requests.
+        if (unstakeClaims[msg.sender].length >= maxUnstakeRequests) revert TooManyUnstakeRequests();
 
         // Check that this prover is not in the process of being slashed.
         if (slashClaims[prover].length > 0) revert ProverHasSlashRequest();

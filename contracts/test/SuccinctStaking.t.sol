@@ -23,6 +23,7 @@ contract SuccinctStakingTest is Test {
     uint256 public constant REQUESTER_PROVE_AMOUNT = 1_000_000e18;
     uint256 public constant DISPENSE_AMOUNT = 10_000_000e18;
     uint256 public constant DISPENSE_RATE = 1268391679; // ~4% yearly
+    uint256 public constant MAX_UNSTAKE_REQUESTS = 100;
     uint256 public constant UNSTAKE_PERIOD = 21 days;
     uint256 public constant SLASH_PERIOD = 7 days;
     uint256 public constant STAKER_FEE_BIPS = 1000; // 10%
@@ -90,6 +91,7 @@ contract SuccinctStakingTest is Test {
             PROVE,
             I_PROVE,
             MIN_STAKE_AMOUNT,
+            MAX_UNSTAKE_REQUESTS,
             UNSTAKE_PERIOD,
             SLASH_PERIOD,
             DISPENSE_RATE

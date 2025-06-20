@@ -19,10 +19,6 @@ contract AllScript is BaseScript, FixtureLoader {
         // Read config
         bytes32 salt = readBytes32("CREATE2_SALT");
         address OWNER = readAddress("OWNER");
-        uint256 MIN_STAKE_AMOUNT = readUint256("MIN_STAKE_AMOUNT");
-        uint256 UNSTAKE_PERIOD = readUint256("UNSTAKE_PERIOD");
-        uint256 SLASH_PERIOD = readUint256("SLASH_PERIOD");
-        uint256 DISPENSE_RATE = readUint256("DISPENSE_RATE");
 
         // Deploy contracts
         address STAKING = address(new SuccinctStaking{salt: salt}(OWNER));
@@ -32,16 +28,7 @@ contract AllScript is BaseScript, FixtureLoader {
         address GOVERNOR = address(new SuccinctGovernor{salt: salt}(I_PROVE));
 
         // Initialize staking contract
-        SuccinctStaking(STAKING).initialize(
-            GOVERNOR,
-            VAPP,
-            PROVE,
-            I_PROVE,
-            MIN_STAKE_AMOUNT,
-            UNSTAKE_PERIOD,
-            SLASH_PERIOD,
-            DISPENSE_RATE
-        );
+        _initializeStaking(STAKING, GOVERNOR, VAPP, PROVE, I_PROVE);
 
         // Write addresses
         writeAddress("STAKING", STAKING);
@@ -92,5 +79,32 @@ contract AllScript is BaseScript, FixtureLoader {
         );
 
         return (VERIFIER, VAPP);
+    }
+
+    /// @dev This is a stack-too-deep workaround.
+    function _initializeStaking(
+        address STAKING,
+        address GOVERNOR,
+        address VAPP,
+        address PROVE,
+        address I_PROVE
+    ) internal {
+        uint256 MIN_STAKE_AMOUNT = readUint256("MIN_STAKE_AMOUNT");
+        uint256 MAX_UNSTAKE_REQUESTS = readUint256("MAX_UNSTAKE_REQUESTS");
+        uint256 UNSTAKE_PERIOD = readUint256("UNSTAKE_PERIOD");
+        uint256 SLASH_PERIOD = readUint256("SLASH_PERIOD");
+        uint256 DISPENSE_RATE = readUint256("DISPENSE_RATE");
+
+        SuccinctStaking(STAKING).initialize(
+            GOVERNOR,
+            VAPP,
+            PROVE,
+            I_PROVE,
+            MIN_STAKE_AMOUNT,
+            MAX_UNSTAKE_REQUESTS,
+            UNSTAKE_PERIOD,
+            SLASH_PERIOD,
+            DISPENSE_RATE
+        );
     }
 }
