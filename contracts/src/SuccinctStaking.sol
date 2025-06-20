@@ -241,26 +241,30 @@ contract SuccinctStaking is
     }
 
     /// @inheritdoc ISuccinctStaking
-    function finishUnstake(uint256 _maxClaims) external override returns (uint256 PROVE) {
+    function finishUnstake(address _staker, uint256 _maxClaims)
+        external
+        override
+        returns (uint256 PROVE)
+    {
         // Get the prover that the staker is staked with.
-        address prover = stakerToProver[msg.sender];
+        address prover = stakerToProver[_staker];
         if (prover == address(0)) revert NotStaked();
 
         // Get the unstake claims for this staker.
-        UnstakeClaim[] storage claims = unstakeClaims[msg.sender];
+        UnstakeClaim[] storage claims = unstakeClaims[_staker];
         if (claims.length == 0) revert NoUnstakeRequests();
 
         // Check that this prover is not in the process of being slashed.
         if (slashClaims[prover].length > 0) revert ProverHasSlashRequest();
 
         // Process the available unstake claims.
-        PROVE += _finishUnstake(msg.sender, prover, claims, _maxClaims);
+        PROVE += _finishUnstake(_staker, prover, claims, _maxClaims);
 
         // If the staker has no remaining balance with this prover, remove the staker's delegate.
         // This allows them to choose a different prover if they stake again.
-        if (balanceOf(msg.sender) == 0) {
+        if (balanceOf(_staker) == 0) {
             // Remove the staker's prover delegation.
-            stakerToProver[msg.sender] = address(0);
+            stakerToProver[_staker] = address(0);
         }
     }
 

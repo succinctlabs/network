@@ -195,14 +195,15 @@ interface ISuccinctStaking is IProverRegistry {
     /// @param stPROVE The amount of $stPROVE to unstake.
     function requestUnstake(uint256 stPROVE) external;
 
-    /// @notice Finishes the unstaking process. Must have first called requestUnstake() and waited
-    ///         for the unstake period to pass.
+    /// @notice Finishes the unstaking process for the specified address. The staker must have
+    ///         first called `requestUnstake()` and waited for the unstake period to pass.
     /// @dev For each claim (up to maxClaims), the staker withdraws $stPROVE/$PROVER to receive $iPROVE, then
     ///      withdraws $iPROVE to receive $PROVE. The maxClaims paramters exists to avoid the case of having
     ///      so many claims that it uses more gas than the block gas limit.
+    /// @param staker The address whose unstake claims to finish.
     /// @param maxClaims The maximum number of claims to process. Use 0 to process all claims.
     /// @return The amount of $PROVE received.
-    function finishUnstake(uint256 maxClaims) external returns (uint256);
+    function finishUnstake(address staker, uint256 maxClaims) external returns (uint256);
 
     /// @notice Creates a request to slash a prover for the specified amount. Only callable by the
     ///         VApp.

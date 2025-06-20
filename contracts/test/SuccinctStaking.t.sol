@@ -262,8 +262,6 @@ contract SuccinctStakingTest is Test {
         (protocolFee, stakerReward, ownerReward) =
             FeeCalculator.calculateFeeSplit(_totalReward, PROTOCOL_FEE_BIPS, STAKER_FEE_BIPS);
     }
-<<<<<<< HEAD
-=======
 
     function _stake(address _staker, address _prover, uint256 _amount) internal {
         vm.prank(_staker);
@@ -357,7 +355,6 @@ contract SuccinctStakingTest is Test {
         MockVApp(VAPP).requestWithdraw(_account, _amount);
         MockVApp(VAPP).finishWithdraw(_account);
     }
->>>>>>> a2f67a7 (fix(contracts): set max claims for finish unstake)
 }
 
 contract SuccinctStakingSetupTests is SuccinctStakingTest {

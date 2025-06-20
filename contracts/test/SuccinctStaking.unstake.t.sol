@@ -54,7 +54,6 @@ contract SuccinctStakingUnstakeTests is SuccinctStakingTest {
         assertEq(SuccinctStaking(STAKING).proverStaked(ALICE_PROVER), 0);
     }
 
-<<<<<<< HEAD
     // Someone else finishes the unstake for a staker
     function test_Unstake_WhenSomeoneElseFinishesUnstake() public {
         uint256 stakeAmount = STAKER_PROVE_AMOUNT;
@@ -72,7 +71,17 @@ contract SuccinctStakingUnstakeTests is SuccinctStakingTest {
         // Someone else should be able to finish the unstake
         vm.prank(STAKER_2);
         SuccinctStaking(STAKING).finishUnstake(STAKER_1);
-=======
+
+        // Verify final state
+        assertEq(SuccinctStaking(STAKING).balanceOf(STAKER_1), 0);
+        assertEq(SuccinctStaking(STAKING).staked(STAKER_1), 0);
+        assertEq(IERC20(PROVE).balanceOf(I_PROVE), 0);
+        assertEq(SuccinctStaking(STAKING).unstakePending(STAKER_1), 0);
+        assertEq(SuccinctStaking(STAKING).previewRedeem(ALICE_PROVER, stakeAmount), stakeAmount);
+        assertEq(SuccinctStaking(STAKING).previewRedeem(ALICE_PROVER, 0), 0);
+        assertEq(SuccinctStaking(STAKING).proverStaked(ALICE_PROVER), 0);
+    }
+
     function test_Unstake_WhenMaxClaimsEqualsClaims() public {
         uint256 stakeAmount = STAKER_PROVE_AMOUNT;
 
@@ -181,7 +190,6 @@ contract SuccinctStakingUnstakeTests is SuccinctStakingTest {
         // Claim 1/1
         vm.prank(STAKER_1);
         SuccinctStaking(STAKING).finishUnstake(1);
->>>>>>> a2f67a7 (fix(contracts): set max claims for finish unstake)
 
         // Verify final state
         assertEq(SuccinctStaking(STAKING).balanceOf(STAKER_1), 0);
@@ -583,8 +591,6 @@ contract SuccinctStakingUnstakeTests is SuccinctStakingTest {
         assertEq(IERC20(ALICE_PROVER).balanceOf(STAKING), 0);
     }
 
-<<<<<<< HEAD
-=======
     function test_RevertUnstake_WhenSomeoneElseCallsClaimUnstake() public {
         uint256 stakeAmount = STAKER_PROVE_AMOUNT;
         uint256 unstakeAmount = STAKER_PROVE_AMOUNT;
@@ -606,7 +612,6 @@ contract SuccinctStakingUnstakeTests is SuccinctStakingTest {
         SuccinctStaking(STAKING).finishUnstake(0);
     }
 
->>>>>>> a2f67a7 (fix(contracts): set max claims for finish unstake)
     function test_RevertUnstake_WhenAmountExceedsBalance() public {
         uint256 stakeAmount = STAKER_PROVE_AMOUNT / 2; // Only stake half of the tokens
         uint256 unstakeAmount = STAKER_PROVE_AMOUNT; // Try to unstake more than staked
@@ -656,7 +661,6 @@ contract SuccinctStakingUnstakeTests is SuccinctStakingTest {
         // Attempt to finish unstake while there's a pending slash request - should revert
         vm.expectRevert(abi.encodeWithSelector(ISuccinctStaking.ProverHasSlashRequest.selector));
         vm.prank(STAKER_1);
-<<<<<<< HEAD
         SuccinctStaking(STAKING).finishUnstake(STAKER_1);
     }
 
@@ -780,10 +784,6 @@ contract SuccinctStakingUnstakeTests is SuccinctStakingTest {
             IERC20(I_PROVE).balanceOf(STAKING), 0, "Staking contract should have no $iPROVE left"
         );
     }
-
-    /*//////////////////////////////////////////////////////////////
-                              FUZZ TESTS
-    //////////////////////////////////////////////////////////////*/
 
     function testFuzz_Unstake_PartialAmount(uint256 _unstakeAmount) public {
         uint256 stakeAmount = STAKER_PROVE_AMOUNT;
@@ -924,8 +924,7 @@ contract SuccinctStakingUnstakeTests is SuccinctStakingTest {
             assertEq(receivedAmount, stakeAmount);
             assertEq(IERC20(PROVE).balanceOf(STAKER_1), stakeAmount);
         }
-=======
-        SuccinctStaking(STAKING).finishUnstake(0);
->>>>>>> a2f67a7 (fix(contracts): set max claims for finish unstake)
+
+        SuccinctStaking(STAKING).finishUnstake(STAKER_1, 0);
     }
 }

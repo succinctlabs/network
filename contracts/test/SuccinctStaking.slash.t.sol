@@ -291,11 +291,7 @@ contract SuccinctStakingSlashTests is SuccinctStakingTest {
 
         // Complete the unstake
         vm.prank(STAKER_1);
-<<<<<<< HEAD
-        SuccinctStaking(STAKING).finishUnstake(STAKER_1);
-=======
-        SuccinctStaking(STAKING).finishUnstake(0);
->>>>>>> a2f67a7 (fix(contracts): set max claims for finish unstake)
+        SuccinctStaking(STAKING).finishUnstake(STAKER_1, 0);
 
         // Verify final state - user should get all their tokens back since slash was cancelled
         assertEq(IERC20(PROVE).balanceOf(STAKER_1), stakeAmount);
