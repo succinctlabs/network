@@ -563,21 +563,33 @@ impl<K: StorageKey, V: StorageValue, H: MerkleTreeHasher> Storage<K, V> for Merk
         let index = key.index();
         // Track that this key has been touched (entry can be used for read or write).
         self.touched_keys.insert(key);
+        // Get the entry.
         let entry = self.leaves.entry(index);
-
+        // Clear cache as tree structure may change.
+        self.cache.clear();
         Ok(entry)
     }
 
     /// Get a value at the given key.
     fn get(&mut self, key: &K) -> Result<Option<&V>, StorageError> {
         let index = key.index();
-        Ok(self.leaves.get(&index))
+        // Track that this key has been touched (entry can be used for read or write).
+        self.touched_keys.insert(key.clone());
+        // Get the leaf.
+        let leaf = self.leaves.get(&index);
+        Ok(leaf)
     }
 
     /// Get a mutable reference to a value at the given key.
     fn get_mut(&mut self, key: &K) -> Result<Option<&mut V>, StorageError> {
         let index = key.index();
-        Ok(self.leaves.get_mut(&index))
+        // Track that this key has been touched (entry can be used for read or write).
+        self.touched_keys.insert(key.clone());
+        // Get the leaf.
+        let leaf = self.leaves.get_mut(&index);
+        // Clear cache as tree structure may change.
+        self.cache.clear();
+        Ok(leaf)
     }
 }
 
@@ -1046,7 +1058,6 @@ mod tests {
         // Untracked get should not affect tracking.
         let key5 = uint!(5_U256);
         let _ = tree.get_untracked(&key5);
-        let _ = tree.get(&key5); // Uses Storage trait method.
         assert!(!tree.get_touched_keys().contains(&key5));
 
         // Clear tracking should reset everything.
