@@ -37,18 +37,18 @@ jobs:
       - name: Run Forge build
         run: FOUNDRY_PROFILE=deploy forge build --sizes --root contracts
 
-      - name: Run tests
+      - name: Run Forge tests
         run: FOUNDRY_PROFILE=deploy forge test -vvv --root contracts
 
       - name: Run Forge fmt
         run: forge fmt --check --root contracts
 
-      - name: Check gas snapshot
+      - name: Check Forge gas snapshot
         working-directory: contracts
         run: |
-          FOUNDRY_PROFILE=deploy forge snapshot
+          FOUNDRY_PROFILE=deploy forge snapshot --no-match-test "Fuzz"
           if [[ -n "$(git status --porcelain)" ]]; then
-            echo "::error ::Gas snapshot is out of date. Run 'forge snapshot' and commit the result.";
+            echo "::error ::Gas snapshot is out of date. Run 'FOUNDRY_PROFILE=deploy forge snapshot --no-match-test \"Fuzz\"' and commit the result.";
             git status
             exit 1
           fi

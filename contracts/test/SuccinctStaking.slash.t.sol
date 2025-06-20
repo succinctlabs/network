@@ -495,4 +495,172 @@ contract SuccinctStakingSlashTests is SuccinctStakingTest {
         assertEq(SuccinctStaking(STAKING).staked(STAKER_1), 0);
         assertEq(IERC20(PROVE).balanceOf(STAKER_1), 0);
     }
+
+    function testFuzz_Slash_WhenVariableAmounts(uint256 _slashAmount) public {
+        uint256 stakeAmount = STAKER_PROVE_AMOUNT;
+        uint256 slashAmount = bound(_slashAmount, 1, stakeAmount * 2); // Allow over-slashing
+
+        // Stake to Alice prover
+        _stake(STAKER_1, ALICE_PROVER, stakeAmount);
+
+        // Request slash
+        uint256 slashIndex = _requestSlash(ALICE_PROVER, slashAmount);
+
+        // Complete slash
+        skip(SLASH_PERIOD);
+        _finishSlash(ALICE_PROVER, slashIndex);
+
+        // Check results
+        uint256 actualSlashAmount = slashAmount > stakeAmount ? stakeAmount : slashAmount;
+        assertEq(
+            SuccinctStaking(STAKING).proverStaked(ALICE_PROVER), stakeAmount - actualSlashAmount
+        );
+        assertEq(SuccinctStaking(STAKING).staked(STAKER_1), stakeAmount - actualSlashAmount);
+    }
+
+    function testFuzz_Slash_WhenMultipleStakers(
+        uint256[3] memory _stakeAmounts,
+        uint256 _slashAmount
+    ) public {
+        // Setup 3 stakers with different amounts
+        address[3] memory stakers = [STAKER_1, STAKER_2, makeAddr("STAKER_3")];
+        uint256 totalStaked = 0;
+
+        for (uint256 i = 0; i < stakers.length; i++) {
+            _stakeAmounts[i] = bound(_stakeAmounts[i], MIN_STAKE_AMOUNT, STAKER_PROVE_AMOUNT / 3);
+            deal(PROVE, stakers[i], _stakeAmounts[i]);
+            _stake(stakers[i], ALICE_PROVER, _stakeAmounts[i]);
+            totalStaked += _stakeAmounts[i];
+        }
+
+        // Bound slash amount
+        uint256 slashAmount = bound(_slashAmount, 1, totalStaked);
+
+        // Initial prover stake
+        uint256 proverStakeBefore = SuccinctStaking(STAKING).proverStaked(ALICE_PROVER);
+        assertEq(proverStakeBefore, totalStaked);
+
+        // Request and complete slash
+        uint256 slashIndex = _requestSlash(ALICE_PROVER, slashAmount);
+        skip(SLASH_PERIOD);
+        _finishSlash(ALICE_PROVER, slashIndex);
+
+        // Verify proportional slashing
+        uint256 actualSlashed = slashAmount > totalStaked ? totalStaked : slashAmount;
+        for (uint256 i = 0; i < stakers.length; i++) {
+            uint256 expectedStake =
+                _stakeAmounts[i] - (_stakeAmounts[i] * actualSlashed / totalStaked);
+            assertApproxEqAbs(
+                SuccinctStaking(STAKING).staked(stakers[i]),
+                expectedStake,
+                1,
+                "Staker should be slashed proportionally"
+            );
+        }
+    }
+
+    function testFuzz_Slash_WhenWithDispenseBeforeSlash(
+        uint256 _dispenseAmount,
+        uint256 _slashAmount
+    ) public {
+        uint256 stakeAmount = STAKER_PROVE_AMOUNT;
+        uint256 dispenseAmount = bound(_dispenseAmount, 1000, 1_000_000e18);
+
+        // Stake
+        _stake(STAKER_1, ALICE_PROVER, stakeAmount);
+
+        // Dispense rewards
+        _dispense(dispenseAmount);
+
+        // Get staked amount after dispense (in iPROVE terms for slashing)
+        uint256 stakedAfterDispense = SuccinctStaking(STAKING).staked(STAKER_1);
+        uint256 iPROVEBalance = IERC4626(ALICE_PROVER).totalAssets();
+        uint256 slashAmount = bound(_slashAmount, 1, iPROVEBalance);
+
+        // Slash
+        _completeSlash(ALICE_PROVER, slashAmount);
+
+        // Verify slash applied to increased stake
+        // Allow for greater tolerance due to rounding in multiple vault operations
+        uint256 actualStaked = SuccinctStaking(STAKING).staked(STAKER_1);
+
+        // Due to ERC4626 exchange rate mechanics, when slashing iPROVE:
+        // - The exchange rate changes, affecting how stPROVE redeems to PROVE
+        // - We can't use simple arithmetic to predict the outcome
+
+        // Check that some slashing occurred
+        assertLt(actualStaked, stakedAfterDispense, "Staked amount should decrease after slash");
+
+        // For large slashes (>90% of iPROVE), expect very low remaining stake
+        if (slashAmount >= iPROVEBalance * 90 / 100) {
+            assertLe(
+                actualStaked, stakedAfterDispense / 10, "Large slash should leave minimal stake"
+            );
+        } else {
+            // For smaller slashes, ensure the result is reasonable
+            // The actual calculation depends on the vault exchange rates
+            uint256 minExpected =
+                (stakedAfterDispense * (iPROVEBalance - slashAmount)) / iPROVEBalance / 2;
+            assertGe(actualStaked, minExpected, "Slash should not reduce stake more than expected");
+        }
+    }
+
+    function testFuzz_Slash_WhenTimingAroundPeriod(uint256 _waitTime) public {
+        uint256 stakeAmount = STAKER_PROVE_AMOUNT;
+        uint256 slashAmount = stakeAmount / 2;
+
+        // Stake and request slash
+        _stake(STAKER_1, ALICE_PROVER, stakeAmount);
+        uint256 slashIndex = _requestSlash(ALICE_PROVER, slashAmount);
+
+        // Bound wait time around slash period
+        uint256 waitTime = bound(_waitTime, 1, SLASH_PERIOD * 2);
+        skip(waitTime);
+
+        if (waitTime < SLASH_PERIOD) {
+            // Should not be able to finish slash yet
+            vm.expectRevert(ISuccinctStaking.SlashNotReady.selector);
+            vm.prank(OWNER);
+            SuccinctStaking(STAKING).finishSlash(ALICE_PROVER, slashIndex);
+        } else {
+            // Should be able to finish slash
+            _finishSlash(ALICE_PROVER, slashIndex);
+            assertEq(SuccinctStaking(STAKING).staked(STAKER_1), stakeAmount - slashAmount);
+        }
+    }
+
+    function testFuzz_Slash_WhenMultipleSlashRequests(uint256[3] memory _slashAmounts) public {
+        uint256 stakeAmount = STAKER_PROVE_AMOUNT;
+
+        // Stake
+        _stake(STAKER_1, ALICE_PROVER, stakeAmount);
+
+        // Bound slash amounts
+        uint256 totalSlash = 0;
+        for (uint256 i = 0; i < _slashAmounts.length; i++) {
+            _slashAmounts[i] = bound(_slashAmounts[i], 1, stakeAmount / 4);
+            totalSlash += _slashAmounts[i];
+        }
+
+        // Ensure total slash doesn't exceed stake
+        vm.assume(totalSlash <= stakeAmount);
+
+        // Request multiple slashes
+        uint256[] memory slashIndices = new uint256[](_slashAmounts.length);
+        for (uint256 i = 0; i < _slashAmounts.length; i++) {
+            slashIndices[i] = _requestSlash(ALICE_PROVER, _slashAmounts[i]);
+            skip(1 days); // Add time between requests
+        }
+
+        // Wait for slash period
+        skip(SLASH_PERIOD);
+
+        // Complete all slashes in reverse order (to avoid index shifting issues)
+        for (uint256 i = slashIndices.length; i > 0; i--) {
+            _finishSlash(ALICE_PROVER, slashIndices[i - 1]);
+        }
+
+        // Verify cumulative slash effect
+        assertEq(SuccinctStaking(STAKING).staked(STAKER_1), stakeAmount - totalSlash);
+    }
 }

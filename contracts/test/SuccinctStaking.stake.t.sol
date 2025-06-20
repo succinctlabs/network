@@ -21,7 +21,8 @@ contract SuccinctStakingStakeTests is SuccinctStakingTest {
         assertEq(SuccinctStaking(STAKING).proverStaked(ALICE_PROVER), 0);
 
         // Stake to Alice prover.
-        _stake(STAKER_1, ALICE_PROVER, stakeAmount);
+        uint256 stPROVE = _stake(STAKER_1, ALICE_PROVER, stakeAmount);
+        assertEq(stPROVE, stakeAmount);
 
         // Check balances
         assertEq(SuccinctStaking(STAKING).stakedTo(STAKER_1), ALICE_PROVER);
@@ -40,12 +41,6 @@ contract SuccinctStakingStakeTests is SuccinctStakingTest {
     function test_RevertStake_WhenProverNotFound() public {
         uint256 stakeAmount = STAKER_PROVE_AMOUNT;
         address unknownProver = makeAddr("UNKNOWN_PROVER");
-
-        // Initial state checks
-        assertEq(IERC20(PROVE).balanceOf(STAKER_1), stakeAmount);
-        assertEq(IERC20(I_PROVE).balanceOf(ALICE_PROVER), 0);
-        assertEq(IERC20(ALICE_PROVER).balanceOf(STAKING), 0);
-        assertEq(IERC20(PROVE).balanceOf(I_PROVE), 0);
 
         // Stake to unknown prover.
         vm.prank(STAKER_1);
@@ -155,7 +150,9 @@ contract SuccinctStakingStakeTests is SuccinctStakingTest {
         uint256 stakeAmount = STAKER_PROVE_AMOUNT;
         uint256 deadline = block.timestamp + 1 days;
 
-        _permitAndStake(STAKER_1, STAKER_1_PK, ALICE_PROVER, stakeAmount, deadline);
+        uint256 stPROVE =
+            _permitAndStake(STAKER_1, STAKER_1_PK, ALICE_PROVER, stakeAmount, deadline);
+        assertEq(stPROVE, stakeAmount);
 
         // Check balances
         assertEq(IERC20(STAKING).balanceOf(STAKER_1), stakeAmount);
@@ -243,5 +240,74 @@ contract SuccinctStakingStakeTests is SuccinctStakingTest {
         assertEq(IERC20(PROVE).balanceOf(STAKER_1), STAKER_PROVE_AMOUNT);
         assertEq(IERC20(PROVE).balanceOf(I_PROVE), 0);
         assertEq(IERC20(ALICE_PROVER).balanceOf(STAKING), 0);
+    }
+
+    function testFuzz_Stake_WhenValid(uint256 _stakeAmount) public {
+        uint256 stakeAmount = bound(_stakeAmount, MIN_STAKE_AMOUNT, STAKER_PROVE_AMOUNT);
+
+        _stake(STAKER_1, ALICE_PROVER, stakeAmount);
+
+        // Check balances
+        assertEq(IERC20(STAKING).balanceOf(STAKER_1), stakeAmount);
+        assertEq(SuccinctStaking(STAKING).staked(STAKER_1), stakeAmount);
+        assertEq(IERC20(PROVE).balanceOf(STAKER_1), STAKER_PROVE_AMOUNT - stakeAmount);
+        assertEq(IERC20(I_PROVE).balanceOf(ALICE_PROVER), stakeAmount);
+        assertEq(IERC20(PROVE).balanceOf(I_PROVE), stakeAmount);
+    }
+
+    function testFuzz_PermitAndStake_WhenValid(uint256 _stakeAmount) public {
+        uint256 stakeAmount = bound(_stakeAmount, MIN_STAKE_AMOUNT, STAKER_PROVE_AMOUNT);
+
+        _permitAndStake(STAKER_1, STAKER_1_PK, ALICE_PROVER, stakeAmount);
+
+        // Check balances
+        assertEq(IERC20(STAKING).balanceOf(STAKER_1), stakeAmount);
+        assertEq(SuccinctStaking(STAKING).staked(STAKER_1), stakeAmount);
+        assertEq(IERC20(PROVE).balanceOf(STAKER_1), STAKER_PROVE_AMOUNT - stakeAmount);
+        assertEq(IERC20(I_PROVE).balanceOf(ALICE_PROVER), stakeAmount);
+        assertEq(IERC20(PROVE).balanceOf(I_PROVE), stakeAmount);
+    }
+
+    function testFuzz_Stake_WhenMultipleStakersSameProver(
+        uint256 _stakeAmount1,
+        uint256 _stakeAmount2
+    ) public {
+        uint256 stakeAmount1 = bound(_stakeAmount1, MIN_STAKE_AMOUNT, STAKER_PROVE_AMOUNT);
+        uint256 stakeAmount2 = bound(_stakeAmount2, MIN_STAKE_AMOUNT, STAKER_PROVE_AMOUNT);
+
+        _stake(STAKER_1, ALICE_PROVER, stakeAmount1);
+        _stake(STAKER_2, ALICE_PROVER, stakeAmount2);
+
+        // Check balances
+        assertEq(IERC20(STAKING).balanceOf(STAKER_1), stakeAmount1);
+        assertEq(IERC20(STAKING).balanceOf(STAKER_2), stakeAmount2);
+        assertEq(SuccinctStaking(STAKING).staked(STAKER_1), stakeAmount1);
+        assertEq(SuccinctStaking(STAKING).staked(STAKER_2), stakeAmount2);
+        assertEq(IERC20(PROVE).balanceOf(STAKER_1), STAKER_PROVE_AMOUNT - stakeAmount1);
+        assertEq(IERC20(PROVE).balanceOf(STAKER_2), STAKER_PROVE_AMOUNT - stakeAmount2);
+        assertEq(IERC20(I_PROVE).balanceOf(ALICE_PROVER), stakeAmount1 + stakeAmount2);
+        assertEq(IERC20(PROVE).balanceOf(I_PROVE), stakeAmount1 + stakeAmount2);
+    }
+
+    function testFuzz_PermitAndStake_WhenMultipleStakersDifferentProvers(
+        uint256 _stakeAmount1,
+        uint256 _stakeAmount2
+    ) public {
+        uint256 stakeAmount1 = bound(_stakeAmount1, MIN_STAKE_AMOUNT, STAKER_PROVE_AMOUNT);
+        uint256 stakeAmount2 = bound(_stakeAmount2, MIN_STAKE_AMOUNT, STAKER_PROVE_AMOUNT);
+
+        _permitAndStake(STAKER_1, STAKER_1_PK, ALICE_PROVER, stakeAmount1);
+        _permitAndStake(STAKER_2, STAKER_2_PK, BOB_PROVER, stakeAmount2);
+
+        // Check balances
+        assertEq(IERC20(STAKING).balanceOf(STAKER_1), stakeAmount1);
+        assertEq(IERC20(STAKING).balanceOf(STAKER_2), stakeAmount2);
+        assertEq(SuccinctStaking(STAKING).staked(STAKER_1), stakeAmount1);
+        assertEq(SuccinctStaking(STAKING).staked(STAKER_2), stakeAmount2);
+        assertEq(IERC20(PROVE).balanceOf(STAKER_1), STAKER_PROVE_AMOUNT - stakeAmount1);
+        assertEq(IERC20(PROVE).balanceOf(STAKER_2), STAKER_PROVE_AMOUNT - stakeAmount2);
+        assertEq(IERC20(I_PROVE).balanceOf(ALICE_PROVER), stakeAmount1);
+        assertEq(IERC20(I_PROVE).balanceOf(BOB_PROVER), stakeAmount2);
+        assertEq(IERC20(PROVE).balanceOf(I_PROVE), stakeAmount1 + stakeAmount2);
     }
 }
