@@ -496,7 +496,7 @@ contract SuccinctStakingSlashTests is SuccinctStakingTest {
         assertEq(IERC20(PROVE).balanceOf(STAKER_1), 0);
     }
 
-    function testFuzz_Slash_VariableAmounts(uint256 _slashAmount) public {
+    function testFuzz_Slash_WhenVariableAmounts(uint256 _slashAmount) public {
         uint256 stakeAmount = STAKER_PROVE_AMOUNT;
         uint256 slashAmount = bound(_slashAmount, 1, stakeAmount * 2); // Allow over-slashing
 
@@ -518,7 +518,7 @@ contract SuccinctStakingSlashTests is SuccinctStakingTest {
         assertEq(SuccinctStaking(STAKING).staked(STAKER_1), stakeAmount - actualSlashAmount);
     }
 
-    function testFuzz_Slash_MultipleStakers(uint256[3] memory _stakeAmounts, uint256 _slashAmount)
+    function testFuzz_Slash_WhenMultipleStakers(uint256[3] memory _stakeAmounts, uint256 _slashAmount)
         public
     {
         // Setup 3 stakers with different amounts
@@ -558,7 +558,7 @@ contract SuccinctStakingSlashTests is SuccinctStakingTest {
         }
     }
 
-    function testFuzz_Slash_WithDispenseBeforeSlash(uint256 _dispenseAmount, uint256 _slashAmount)
+    function testFuzz_Slash_WhenWithDispenseBeforeSlash(uint256 _dispenseAmount, uint256 _slashAmount)
         public
     {
         uint256 stakeAmount = STAKER_PROVE_AMOUNT;
@@ -603,7 +603,7 @@ contract SuccinctStakingSlashTests is SuccinctStakingTest {
         }
     }
 
-    function testFuzz_Slash_TimingAroundPeriod(uint256 _waitTime) public {
+    function testFuzz_Slash_WhenTimingAroundPeriod(uint256 _waitTime) public {
         uint256 stakeAmount = STAKER_PROVE_AMOUNT;
         uint256 slashAmount = stakeAmount / 2;
 
@@ -627,7 +627,7 @@ contract SuccinctStakingSlashTests is SuccinctStakingTest {
         }
     }
 
-    function testFuzz_Slash_MultipleSlashRequests(uint256[3] memory _slashAmounts) public {
+    function testFuzz_Slash_WhenMultipleSlashRequests(uint256[3] memory _slashAmounts) public {
         uint256 stakeAmount = STAKER_PROVE_AMOUNT;
 
         // Stake
