@@ -38,7 +38,7 @@ jobs:
         run: FOUNDRY_PROFILE=deploy forge build --sizes --root contracts
 
       - name: Run Forge tests
-        run: FOUNDRY_PROFILE=fuzz forge test -vvv --root contracts
+        run: FOUNDRY_PROFILE=deploy forge test -vvv --root contracts
 
       - name: Run Forge fmt
         run: forge fmt --check --root contracts
