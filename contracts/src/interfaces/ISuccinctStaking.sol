@@ -61,7 +61,7 @@ interface ISuccinctStaking is IProverRegistry {
     event Dispense(uint256 PROVE);
 
     /// @dev Emitted when the dispense rate is updated.
-    event DispenseRateUpdate(uint256 oldRate, uint256 newRate);
+    event DispenseRateUpdate(uint256 oldDispenseRate, uint256 newDispenseRate);
 
     /// @dev Thrown if the staker has insufficient balance to unstake, or if attempting to slash
     ///      more than the prover has.
