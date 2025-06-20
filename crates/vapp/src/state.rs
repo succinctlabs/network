@@ -19,6 +19,7 @@ use crate::{
     sparse::SparseStorage,
     storage::{RequestId, Storage},
     transactions::{OnchainTransaction, VAppTransaction},
+    u256,
     utils::{address, bytes_to_words_be, tx_variant},
     verifier::VAppVerifier,
 };
@@ -617,7 +618,8 @@ impl<A: Storage<Address, Account>, R: Storage<RequestId, bool>> VAppState<A, R> 
                         .map_err(VAppPanic::U256ParseError)?;
 
                     // Check that the punishment is less than the max price.
-                    let max_price = max_price_per_pgu * U256::from(request.gas_limit) + base_fee;
+                    let gas_limit = U256::from(request.gas_limit);
+                    let max_price = u256::add(u256::mul(max_price_per_pgu, gas_limit)?, base_fee)?;
                     if punishment > max_price {
                         return Err(VAppPanic::PunishmentExceedsMaxCost { punishment, max_price });
                     }
@@ -744,12 +746,13 @@ impl<A: Storage<Address, Account>, R: Storage<RequestId, bool>> VAppState<A, R> 
                 }
 
                 // Calculate the cost of the proof.
-                let pgus = execute.pgus.ok_or(VAppPanic::MissingPgusUsed)?;
-                let cost = price * U256::from(pgus) + base_fee;
+                let pgus = U256::from(execute.pgus.ok_or(VAppPanic::MissingPgusUsed)?);
+                let cost = u256::add(u256::mul(price, pgus)?, base_fee)?;
 
                 // Validate that the execute gas_used was lower than the request gas_limit.
-                if pgus > request.gas_limit {
-                    return Err(VAppPanic::GasLimitExceeded { pgus, gas_limit: request.gas_limit });
+                let gas_limit = U256::from(request.gas_limit);
+                if pgus > gas_limit {
+                    return Err(VAppPanic::GasLimitExceeded { pgus, gas_limit });
                 }
 
                 // Ensure the user can afford the cost of the proof.

@@ -3,7 +3,7 @@
 //! This module contains the constants and functions related to calculating the fee split upon the
 //! processing of a [`crate::transactions::VAppTransaction::Clear`] transaction.
 
-use crate::errors::VAppPanic;
+use crate::{errors::VAppPanic, u256};
 use alloy_primitives::U256;
 
 /// Calculates the fee split for a given reward.
@@ -32,25 +32,25 @@ pub fn fee(
     // - staker_fee_bips = 7000
     // - total_fee_bips = 12000
     // - adjusted_staker_fee_bips = 5000
-    let total_fee_bips = protocol_fee_bips + staker_fee_bips;
+    let total_fee_bips = u256::add(protocol_fee_bips, staker_fee_bips)?;
     let adjusted_staker_fee_bips = if total_fee_bips > denominator {
-        let overflow = total_fee_bips - denominator;
-        staker_fee_bips - overflow
+        let overflow = u256::sub(total_fee_bips, denominator)?;
+        u256::sub(staker_fee_bips, overflow)?
     } else {
         staker_fee_bips
     };
 
     // Ensure that the combined fee percentages do not exceed 100%.
-    if protocol_fee_bips + adjusted_staker_fee_bips > denominator {
+    if u256::add(protocol_fee_bips, adjusted_staker_fee_bips)? > denominator {
         return Err(VAppPanic::TotalFeeTooHigh {
             protocol_bips: protocol_fee_bips,
             staker_bips: staker_fee_bips,
         });
     }
 
-    let protocol_reward = amount * protocol_fee_bips / denominator;
-    let staker_reward = amount * adjusted_staker_fee_bips / denominator;
-    let owner_reward = amount - protocol_reward - staker_reward;
+    let protocol_reward = u256::div(u256::mul(amount, protocol_fee_bips)?, denominator)?;
+    let staker_reward = u256::div(u256::mul(amount, adjusted_staker_fee_bips)?, denominator)?;
+    let owner_reward = u256::sub(u256::sub(amount, protocol_reward)?, staker_reward)?;
 
     Ok((protocol_reward, staker_reward, owner_reward))
 }
