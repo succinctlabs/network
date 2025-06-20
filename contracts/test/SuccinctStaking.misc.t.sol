@@ -261,7 +261,7 @@ contract SuccinctStakingMiscellaneousTests is SuccinctStakingTest {
         // Try to finish unstake without any requests
         vm.expectRevert(ISuccinctStaking.NoUnstakeRequests.selector);
         vm.prank(STAKER_1);
-        SuccinctStaking(STAKING).finishUnstake(STAKER_1);
+        SuccinctStaking(STAKING).finishUnstake(STAKER_1, 0);
     }
 
     // Test non-owner cannot perform owner operations
@@ -423,7 +423,7 @@ contract SuccinctStakingMiscellaneousTests is SuccinctStakingTest {
         skip(UNSTAKE_PERIOD);
         vm.expectRevert(ISuccinctStaking.ProverHasSlashRequest.selector);
         vm.prank(STAKER_1);
-        SuccinctStaking(STAKING).finishUnstake(STAKER_1);
+        SuccinctStaking(STAKING).finishUnstake(STAKER_1, 0);
 
         // Complete the slash
         skip(SLASH_PERIOD);
@@ -540,7 +540,7 @@ contract SuccinctStakingMiscellaneousTests is SuccinctStakingTest {
         skip(UNSTAKE_PERIOD);
         vm.expectRevert(ISuccinctStaking.ProverHasSlashRequest.selector);
         vm.prank(STAKER_1);
-        SuccinctStaking(STAKING).finishUnstake(STAKER_1);
+        SuccinctStaking(STAKING).finishUnstake(STAKER_1, 0);
 
         // Complete slash
         skip(SLASH_PERIOD);

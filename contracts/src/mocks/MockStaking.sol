@@ -88,8 +88,38 @@ contract MockStaking is ProverRegistry, ISuccinctStaking {
         );
     }
 
-    function finishUnstake(uint256) external pure override returns (uint256) {
-        return 0;
+    function finishUnstake(address _staker, uint256 _maxClaims)
+        external
+        override
+        returns (uint256)
+    {
+        // Process all unstake claims for the staker.
+        UnstakeClaim[] storage claims = unstakeClaims[_staker];
+        uint256 totalAmount = 0;
+        uint256 claimsToProcess = claims.length;
+
+        if (_maxClaims > 0 && _maxClaims < claimsToProcess) {
+            claimsToProcess = _maxClaims;
+        }
+
+        for (uint256 i = 0; i < claimsToProcess; i++) {
+            totalAmount += claims[i].iPROVESnapshot;
+        }
+
+        // Remove processed claims.
+        for (uint256 i = 0; i < claimsToProcess; i++) {
+            claims[0] = claims[claims.length - 1];
+            claims.pop();
+        }
+
+        // Transfer the PROVE tokens to the staker.
+        if (totalAmount > 0) {
+            address prover = stakerToProver[_staker];
+            proverVaultBalances[prover][_staker] -= totalAmount;
+            IERC20(prove).transfer(_staker, totalAmount);
+        }
+
+        return totalAmount;
     }
 
     function requestSlash(address _prover, uint256 _iPROVE) external override returns (uint256) {
