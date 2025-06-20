@@ -34,7 +34,7 @@ contract SuccinctStakingFulfillmentTests is SuccinctStakingTest {
     }
 
     // A prover receives rewards and the staker receives by calling claimReward
-    function test_Reward() public {
+    function test_Reward_WhenValid() public {
         uint256 stakeAmount = STAKER_PROVE_AMOUNT;
         uint256 rewardAmount = STAKER_PROVE_AMOUNT;
 

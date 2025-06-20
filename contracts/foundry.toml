@@ -12,6 +12,26 @@ fs_permissions = [
 [profile.deploy]
 optimizer = true
 optimizer_runs = 200
+runs = 1000
+seed = "0x1234"
+
+[profile.default.fuzz]
+optimizer = true
+optimizer_runs = 200
+runs = 1000
+seed = "0x1234"
+
+[profile.pr.fuzz]
+optimizer = true
+optimizer_runs = 200
+runs = 1000
+seed = "0x1234"
+
+[profile.ci.fuzz]
+optimizer = true
+optimizer_runs = 200
+runs = 1000
+seed = "0x1234"
 
 [profile.fuzz]
 optimizer = true
