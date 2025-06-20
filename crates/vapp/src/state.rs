@@ -468,7 +468,11 @@ impl<A: Storage<Address, Account>, R: Storage<RequestId, bool>> VAppState<A, R> 
                 let balance = self.accounts.entry(account)?.or_default().get_balance();
                 let total_amount = amount + AUCTIONEER_WITHDRAWAL_FEE;
                 if balance < total_amount {
-                    return Err(VAppPanic::InsufficientBalance { account, amount: total_amount, balance });
+                    return Err(VAppPanic::InsufficientBalance {
+                        account,
+                        amount: total_amount,
+                        balance,
+                    });
                 }
 
                 // Deduct the amount from the account.
@@ -477,8 +481,14 @@ impl<A: Storage<Address, Account>, R: Storage<RequestId, bool>> VAppState<A, R> 
 
                 // Deduct and transfer the auctioneer fee.
                 debug!("deduct and transfer auctioneer fee");
-                self.accounts.entry(account)?.or_default().deduct_balance(AUCTIONEER_WITHDRAWAL_FEE);
-                self.accounts.entry(self.auctioneer)?.or_default().add_balance(AUCTIONEER_WITHDRAWAL_FEE);
+                self.accounts
+                    .entry(account)?
+                    .or_default()
+                    .deduct_balance(AUCTIONEER_WITHDRAWAL_FEE);
+                self.accounts
+                    .entry(self.auctioneer)?
+                    .or_default()
+                    .add_balance(AUCTIONEER_WITHDRAWAL_FEE);
 
                 // Return the withdraw action.
                 return Ok(Some(VAppReceipt::Withdraw(OffchainReceipt {
