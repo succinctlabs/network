@@ -50,8 +50,8 @@ contract SuccinctStaking is
                               INITIALIZER
     //////////////////////////////////////////////////////////////*/
 
-    /// @dev This contract only has an owner so it can be initialized by the owner later. This is done because
-    ///      other contracts (e.g. SuccinctVApp) need a reference to this contract, and this contract needs a
+    /// @dev Only the owner is set in the constructor. This is done because other contracts
+    ///      (e.g. SuccinctVApp) need a reference to this contract, and this contract needs a
     ///      reference to it. So we deploy this first, then initialize it later.
     constructor(address _owner) Ownable(_owner) {}
 
