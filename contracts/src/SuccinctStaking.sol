@@ -428,7 +428,6 @@ contract SuccinctStaking is
     ///        staker redeems the lower amount (received $iPROVE), bearing the loss from slashing.
     function _unstake(address _staker, address _prover, uint256 _stPROVE, uint256 _iPROVESnapshot)
         internal
-        stakingOperation
         returns (uint256 PROVE)
     {
         // Ensure unstaking a non-zero amount.
@@ -462,6 +461,7 @@ contract SuccinctStaking is
     ///      period.
     function _finishUnstake(address _staker, address _prover, UnstakeClaim[] storage _claims)
         internal
+        stakingOperation
         returns (uint256 PROVE)
     {
         uint256 i = 0;
