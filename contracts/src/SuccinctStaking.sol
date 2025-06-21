@@ -496,7 +496,7 @@ contract SuccinctStaking is
                 _claims[i] = _claims[_claims.length - 1];
                 _claims.pop();
 
-                // Add to totals unstake amounts.
+                // Add to the total amount to be unstaked.
                 stPROVE += claim.stPROVE;
                 iPROVESnapshot += claim.iPROVESnapshot;
             } else {
