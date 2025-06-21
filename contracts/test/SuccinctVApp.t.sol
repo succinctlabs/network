@@ -8,7 +8,7 @@ import {ISuccinctVApp} from "../src/interfaces/ISuccinctVApp.sol";
 import {
     StepPublicValues,
     TransactionStatus,
-    Receipt,
+    Receipt as VAppReceipt,
     TransactionVariant,
     Deposit,
     Withdraw,
@@ -29,6 +29,13 @@ import {IERC20Permit} from
 contract SuccinctVAppTest is Test, FixtureLoader {
     using stdJson for string;
 
+    // Simple fixture struct without dynamic arrays to avoid compilation issues
+    struct SimpleFixture {
+        bytes32 oldRoot;
+        bytes32 newRoot;
+        uint64 timestamp;
+    }
+
     // Constants
     uint256 constant FEE_UNIT = 10000;
     uint64 constant MAX_ACTION_DELAY = 1 days;
@@ -38,7 +45,7 @@ contract SuccinctVAppTest is Test, FixtureLoader {
 
     // Fixtures
     SP1ProofFixtureJson public jsonFixture;
-    StepPublicValues public fixture;
+    SimpleFixture public fixture;
 
     // EOAs
     address OWNER;
@@ -66,11 +73,19 @@ contract SuccinctVAppTest is Test, FixtureLoader {
     bytes32 public GENESIS_STATE_ROOT;
 
     function setUp() public {
-        // Load fixtures
-        fixture.oldRoot = bytes32(uint256(5346634509));
-        fixture.newRoot = bytes32(uint256(3402673290));
-        fixture.timestamp = uint64(1);
-        jsonFixture.publicValues = abi.encode(fixture);
+        // Load fixtures from JSON file
+        jsonFixture = loadFixture(vm, Fixture.Groth16);
+
+        // Decode the public values from the loaded fixture
+        StepPublicValues memory publicValues =
+            abi.decode(jsonFixture.publicValues, (StepPublicValues));
+
+        // Store in simple fixture struct without dynamic arrays
+        fixture = SimpleFixture({
+            oldRoot: publicValues.oldRoot,
+            newRoot: publicValues.newRoot,
+            timestamp: publicValues.timestamp
+        });
 
         // Set program and state root
         VKEY = jsonFixture.vkey;
@@ -160,6 +175,10 @@ contract SuccinctVAppTest is Test, FixtureLoader {
 
         // Sign the digest
         return vm.sign(_pk, digest);
+    }
+
+    function getFixturePublicValues() internal view returns (StepPublicValues memory) {
+        return abi.decode(jsonFixture.publicValues, (StepPublicValues));
     }
 }
 
