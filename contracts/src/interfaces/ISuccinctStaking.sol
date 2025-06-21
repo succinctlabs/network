@@ -75,6 +75,10 @@ interface ISuccinctStaking is IProverRegistry {
     /// @dev Thrown if the staker tries to unstake while there is no unstake requests.
     error NoUnstakeRequests();
 
+    /// @dev Thrown if the staker tries to unstake while there are unstakes requests, but none
+    ///      of them are ready to be finished (have passed the `unstakePeriod()`).
+    error NoReadyUnstakeRequests();
+
     /// @dev Thrown if the staker tries to unstake while they already have too many unstake
     ///      requests.
     error TooManyUnstakeRequests();

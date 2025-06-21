@@ -74,14 +74,15 @@ contract SuccinctStakingMiscellaneousTests is SuccinctStakingTest {
         _stake(STAKER_1, ALICE_PROVER, stakeAmount);
         _requestUnstake(STAKER_1, stakeAmount);
 
-        // Try to finish exactly 1 second before period ends
+        // Try to finish exactly 1 second before period ends - should revert
         skip(UNSTAKE_PERIOD - 1);
-        uint256 received = _finishUnstake(STAKER_1);
-        assertEq(received, 0, "Should not receive anything before period");
+        vm.expectRevert(abi.encodeWithSelector(ISuccinctStaking.NoReadyUnstakeRequests.selector));
+        vm.prank(STAKER_1);
+        SuccinctStaking(STAKING).finishUnstake(STAKER_1);
 
         // Now wait exactly 1 more second
         skip(1);
-        received = _finishUnstake(STAKER_1);
+        uint256 received = _finishUnstake(STAKER_1);
         assertGt(received, 0, "Should receive tokens after period");
     }
 
