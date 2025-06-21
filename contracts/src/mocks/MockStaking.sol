@@ -55,7 +55,7 @@ contract MockStaking is ProverRegistry, ISuccinctStaking {
         return 0;
     }
 
-    function previewRedeem(address, uint256) public pure override returns (uint256 amount) {
+    function previewUnstake(address, uint256) public pure override returns (uint256 amount) {
         return amount;
     }
 
