@@ -266,8 +266,10 @@ contract SuccinctStakingUnstakeTests is SuccinctStakingTest {
         // Wait for less than the unstake period
         skip(partialUnstakePeriod);
 
-        // Try to claim unstaked tokens early - should not receive tokens yet
-        _finishUnstake(STAKER_1);
+        // Try to claim unstaked tokens early - should revert
+        vm.expectRevert(abi.encodeWithSelector(ISuccinctStaking.NoReadyUnstakeRequests.selector));
+        vm.prank(STAKER_1);
+        SuccinctStaking(STAKING).finishUnstake(STAKER_1);
 
         // Verify that tokens are still not received
         assertEq(IERC20(PROVE).balanceOf(STAKER_1), 0);
@@ -544,6 +546,28 @@ contract SuccinctStakingUnstakeTests is SuccinctStakingTest {
         SuccinctStaking(STAKING).finishUnstake(STAKER_1);
     }
 
+    function test_RevertUnstake_WhenNoReadyRequests() public {
+        // Staker stakes with Alice prover
+        uint256 stakeAmount = STAKER_PROVE_AMOUNT;
+        _stake(STAKER_1, ALICE_PROVER, stakeAmount);
+
+        // Request unstake
+        uint256 stPROVEBalance = IERC20(STAKING).balanceOf(STAKER_1);
+        vm.prank(STAKER_1);
+        ISuccinctStaking(STAKING).requestUnstake(stPROVEBalance);
+
+        // Attempt to finish unstake immediately (before unstake period has passed)
+        vm.expectRevert(abi.encodeWithSelector(ISuccinctStaking.NoReadyUnstakeRequests.selector));
+        vm.prank(STAKER_1);
+        SuccinctStaking(STAKING).finishUnstake(STAKER_1);
+
+        // Verify the unstake request is still pending
+        ISuccinctStaking.UnstakeClaim[] memory claims =
+            SuccinctStaking(STAKING).unstakeRequests(STAKER_1);
+        assertEq(claims.length, 1);
+        assertEq(claims[0].stPROVE, stPROVEBalance);
+    }
+
     function test_Unstake_WhenSlashDuringUnstakePeriod() public {
         // Staker stakes with Alice prover.
         uint256 stakeAmount = STAKER_PROVE_AMOUNT;
@@ -797,14 +821,18 @@ contract SuccinctStakingUnstakeTests is SuccinctStakingTest {
         uint256 waitTime = bound(_waitTime, 1, UNSTAKE_PERIOD * 2);
         skip(waitTime);
 
-        uint256 receivedAmount = _finishUnstake(STAKER_1);
-
         if (waitTime < UNSTAKE_PERIOD) {
-            // Should not receive anything yet
-            assertEq(receivedAmount, 0);
+            // Should revert when trying to finish unstake early
+            vm.expectRevert(
+                abi.encodeWithSelector(ISuccinctStaking.NoReadyUnstakeRequests.selector)
+            );
+            vm.prank(STAKER_1);
+            SuccinctStaking(STAKING).finishUnstake(STAKER_1);
+
             assertEq(IERC20(PROVE).balanceOf(STAKER_1), 0);
         } else {
             // Should receive the full amount
+            uint256 receivedAmount = _finishUnstake(STAKER_1);
             assertEq(receivedAmount, stakeAmount);
             assertEq(IERC20(PROVE).balanceOf(STAKER_1), stakeAmount);
         }
