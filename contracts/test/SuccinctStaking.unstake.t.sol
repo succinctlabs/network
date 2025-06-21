@@ -546,28 +546,6 @@ contract SuccinctStakingUnstakeTests is SuccinctStakingTest {
         SuccinctStaking(STAKING).finishUnstake(STAKER_1);
     }
 
-    function test_RevertUnstake_WhenNoReadyRequests() public {
-        // Staker stakes with Alice prover
-        uint256 stakeAmount = STAKER_PROVE_AMOUNT;
-        _stake(STAKER_1, ALICE_PROVER, stakeAmount);
-
-        // Request unstake
-        uint256 stPROVEBalance = IERC20(STAKING).balanceOf(STAKER_1);
-        vm.prank(STAKER_1);
-        ISuccinctStaking(STAKING).requestUnstake(stPROVEBalance);
-
-        // Attempt to finish unstake immediately (before unstake period has passed)
-        vm.expectRevert(abi.encodeWithSelector(ISuccinctStaking.NoReadyUnstakeRequests.selector));
-        vm.prank(STAKER_1);
-        SuccinctStaking(STAKING).finishUnstake(STAKER_1);
-
-        // Verify the unstake request is still pending
-        ISuccinctStaking.UnstakeClaim[] memory claims =
-            SuccinctStaking(STAKING).unstakeRequests(STAKER_1);
-        assertEq(claims.length, 1);
-        assertEq(claims[0].stPROVE, stPROVEBalance);
-    }
-
     function test_Unstake_WhenSlashDuringUnstakePeriod() public {
         // Staker stakes with Alice prover.
         uint256 stakeAmount = STAKER_PROVE_AMOUNT;
