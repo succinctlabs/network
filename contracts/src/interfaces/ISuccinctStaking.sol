@@ -158,7 +158,7 @@ interface ISuccinctStaking is IProverRegistry {
     /// @param prover The address of the prover.
     /// @param stPROVE The amount of $stPROVE to unstake.
     /// @return The amount of $PROVE.
-    function previewRedeem(address prover, uint256 stPROVE) external view returns (uint256);
+    function previewUnstake(address prover, uint256 stPROVE) external view returns (uint256);
 
     /// @notice The maximum amount of $PROVE that can be dispensed currently.
     /// @return The maximum amount of $PROVE.

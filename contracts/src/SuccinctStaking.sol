@@ -119,7 +119,7 @@ contract SuccinctStaking is
 
         // Get the amount of $PROVE the staker would get if the staker's full $stPROVE balance was
         // unstaked.
-        return previewRedeem(prover, balanceOf(_staker));
+        return previewUnstake(prover, balanceOf(_staker));
     }
 
     /// @inheritdoc ISuccinctStaking
@@ -153,11 +153,11 @@ contract SuccinctStaking is
         if (prover == address(0)) return 0;
 
         // Get the amount of $PROVE that would be received if the pending $stPROVE was redeemed.
-        return previewRedeem(prover, _getUnstakeClaimBalance(_staker));
+        return previewUnstake(prover, _getUnstakeClaimBalance(_staker));
     }
 
     /// @inheritdoc ISuccinctStaking
-    function previewRedeem(address _prover, uint256 _stPROVE)
+    function previewUnstake(address _prover, uint256 _stPROVE)
         public
         view
         override

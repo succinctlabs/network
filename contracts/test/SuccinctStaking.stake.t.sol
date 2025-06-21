@@ -29,7 +29,7 @@ contract SuccinctStakingStakeTests is SuccinctStakingTest {
         assertEq(SuccinctStaking(STAKING).balanceOf(STAKER_1), stakeAmount);
         assertEq(SuccinctStaking(STAKING).staked(STAKER_1), stakeAmount);
         assertEq(SuccinctStaking(STAKING).unstakePending(STAKER_1), 0);
-        assertEq(SuccinctStaking(STAKING).previewRedeem(ALICE_PROVER, stakeAmount), stakeAmount);
+        assertEq(SuccinctStaking(STAKING).previewUnstake(ALICE_PROVER, stakeAmount), stakeAmount);
         assertEq(SuccinctStaking(STAKING).proverStaked(ALICE_PROVER), stakeAmount);
         assertEq(IERC20(PROVE).balanceOf(STAKING), DISPENSE_AMOUNT);
         assertEq(IERC20(I_PROVE).balanceOf(ALICE_PROVER), stakeAmount);
