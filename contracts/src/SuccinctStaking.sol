@@ -483,6 +483,10 @@ contract SuccinctStaking is
         returns (uint256 PROVE)
     {
         uint256 i = 0;
+        uint256 stPROVE = 0;
+        uint256 iPROVESnapshot = 0;
+
+        // Identify ready claims and calculate totals.
         while (i < _claims.length) {
             if (block.timestamp >= _claims[i].timestamp + unstakePeriod) {
                 // Store claim before modifying the array.
@@ -492,12 +496,21 @@ contract SuccinctStaking is
                 _claims[i] = _claims[_claims.length - 1];
                 _claims.pop();
 
-                // Process the unstake.
-                PROVE += _unstake(_staker, _prover, claim.stPROVE, claim.iPROVESnapshot);
+                // Add to the total amount to be unstaked.
+                stPROVE += claim.stPROVE;
+                iPROVESnapshot += claim.iPROVESnapshot;
             } else {
                 i++;
             }
         }
+
+        // Ensure that at least one claim was found ready to be finished.
+        if (stPROVE == 0) {
+            revert NoReadyUnstakeRequests();
+        }
+
+        // Process the unstake.
+        PROVE = _unstake(_staker, _prover, stPROVE, iPROVESnapshot);
     }
 
     /// @dev Get the $stPROVE sum of all unstake claims for a staker.
