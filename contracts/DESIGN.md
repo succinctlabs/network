@@ -1,26 +1,38 @@
 # Design
 
-This document describes the onchain Succinct Prover Network in detail.
+This document describes the Succinct Prover Network contracts in detail.
 
 ## Contracts
 
 The protocol consists of the following core contracts:
 
 * [Succinct](./src/tokens/Succinct.sol) "Succinct ($PROVE)" - The primary ERC20 token.
-* [IntermediateSuccinct](./src/tokens/IntermediateSuccinct.sol) "IntermediateSuccinct ($iPROVE)" - The ERC4626 token with $PROVE as the underlying. Non-transferable outside of staking operations.
-* [SuccinctProver](./src/tokens/SuccinctProver.sol) "Prover-N ($PROVER-N)" - The ERC4626 token with $iPROVE as the underlying. Each prover has their own deployment of this contract, and `N` is replaced with an incrementing number representing the prover's ID. Non-transferable outside of staking operations.
-* [SuccinctStaking](./src/SuccinctStaking.sol) "StakedSuccinct ($stPROVE)" - The staking receipt ERC20 token, containing the logic for prover creation, staking, unstaking, slashing, and dispensing. For the purposes of this document, $stPROVE treated as distinct from the staking contract logic, but they are actually combined into a single contract. Non-transferable outside of staking operations, and acts as the Governance token.
-* [SuccinctVApp](./src/SuccinctVApp.sol) - Handles settlement of the offchain VApp transactions and is responsible for deposits, withdrawals, and triggering slashing.
-* [SuccinctGovernor](./src/SuccinctGovernor.sol) - The governor for onchain governance, using $stPROVE as the votes token.
+* [IntermediateSuccinct](./src/tokens/IntermediateSuccinct.sol) "IntermediateSuccinct ($iPROVE)" - The ERC4626 token with $PROVE as the underlying. This is a shared vault for all stakers, which allows dispense to distribute $PROVE proportionally. This token is also used as the governance token. Non-transferable outside of staking operations.
+* [SuccinctProver](./src/tokens/SuccinctProver.sol) "Prover-N ($PROVER-N)" - The ERC4626 token with $iPROVE as the underlying. Each prover has their own deployment of this contract, and `N` is replaced with an incrementing number representing the prover's ID. Since $iPROVE is the underlying and is the governance votes token, this allows prover owners to particpate in governance utilizing the `onlyOwner` functions on the vault. Non-transferable outside of staking operations.
+* [SuccinctStaking](./src/SuccinctStaking.sol) "StakedSuccinct ($stPROVE)" - The staking receipt ERC20 token, containing the logic for prover creation, staking, unstaking, slashing, and dispensing. Non-fungible since the amount of $iPROVE and therefor $PROVE recieved is dependent on which particular prover it represents staking for. For the purposes of this document, $stPROVE treated as distinct from the staking contract logic, but they are actually combined into a single contract. Non-transferable outside of staking operations.
+* [SuccinctVApp](./src/SuccinctVApp.sol) - Handles settlement of the verifiable application (VApp) onchain and offchain transactions. Onchain transactions include the creation of new provers and deposits. Offchain transactions include clears (when a proof has been fulfilled), transfers, withdrawals, and slashing.
+* [SuccinctGovernor](./src/SuccinctGovernor.sol) - The governor for onchain governance, using $iPROVE as the votes token.
 
 ## Operations
 
-The protocol contracts have several core operations that can occur:
+The SuccinctStaking contract has these core operations that can occur:
 
 * [Stake](./#stake)
 * [Unstake](./#unstake)
 * [Slash](./#slash)
 * [Dispense](./#dispense)
+
+The SuccinctVApp contract has these core operations that can occur:
+
+* Deposit
+* Withdraw
+* CreateProver
+
+The SuccinctGovernor contract has these core operations that can occur:
+
+* Propose
+* Vote
+* Execute
 
 In the diagrams below, tokens/vaults are shown in red, logic contracts are shown in green, and off-chain systems are shown in yellow.
 
@@ -28,7 +40,7 @@ In the diagrams below, tokens/vaults are shown in red, logic contracts are shown
 
 ![Stake](./media/stake.png)
 
-Triggered by a staker calling either [SuccinctStaking.stake()](./src/SuccinctStaking.sol#L160) or [SuccinctStaking.permitAndStake()](./src/SuccinctStaking.sol#L170), specifying the prover to stake to and the amount of $PROVE to stake.
+Triggered by a staker calling either [SuccinctStaking.stake()](./src/SuccinctStaking.sol#L184) or [SuccinctStaking.permitAndStake()](./src/SuccinctStaking.sol#L197), specifying the prover to stake to and the amount of $PROVE to stake.
 
 This deposits $PROVE from the staker into the $iPROVE vault (minting $iPROVE), and then takes that $iPROVE and deposits it into the chosen $PROVER-N vault (minting $PROVER-N). The staking contract escrows this $PROVER-N, while minting $stPROVE to the staker (which acts as the receipt token for staking).
 
@@ -40,7 +52,7 @@ After this operation, the staker receives a corresponding amount of $stPROVE.
 
 ![Unstake](./media/unstake.png)
 
-Triggered by a staker calling [SuccinctStaking.requestUnstake()](./src/SuccinctStaking.sol#L186), waiting for [SuccinctStaking.unstakePeriod()](./src/SuccinctStaking.sol#L34) seconds to pass, and then calling [SuccinctStaking.finishUnstake()](./src/SuccinctStaking.sol#L219).
+Triggered by a staker calling [SuccinctStaking.requestUnstake()](./src/SuccinctStaking.sol#L217), waiting for [SuccinctStaking.unstakePeriod()](./src/SuccinctStaking.sol#L37) seconds to pass, and then calling [SuccinctStaking.finishUnstake()](./src/SuccinctStaking.sol#L256).
 
 This burns the staker's $stPROVE, and then withdraws the $iPROVE from the $PROVER-N vault (burning $PROVER-N), and then withdraws the $PROVE from the $iPROVE vault (burning $iPROVE).
 
@@ -52,7 +64,7 @@ After this finishing this operation, the staker receives a corresponding amount 
 
 ![Slash](./media/slash.png)
 
-First triggered by the Auctioneer/VApp calling [SuccinctStaking.requestSlash()](./src/SuccinctStaking.sol#L253). Then, the [SuccinctStaking.owner()](./src/SuccinctStaking.sol#L56) can process the requested slash either by cancelling it via [SuccinctStaking.cancelSlash()](./src/SuccinctStaking.sol#L281) or, if [SuccinctStaking.slashPeriod()](./src/SuccinctStaking.sol#L37) seconds have passed, it can be finished via [SuccinctStaking.finishSlash()](./src/SuccinctStaking.sol#L300).
+First triggered by the Auctioneer/VApp calling [SuccinctStaking.requestSlash()](./src/SuccinctStaking.sol#L284). Then, the SuccinctStaking.owner() can process the requested slash either by cancelling it via [SuccinctStaking.cancelSlash()](./src/SuccinctStaking.sol#L306) or, if [SuccinctStaking.slashPeriod()](./src/SuccinctStaking.sol#L40) seconds have passed, it can be finished via [SuccinctStaking.finishSlash()](./src/SuccinctStaking.sol#L325).
 
 If the latter, burns the selected prover vault's corresponding $iPROVE and $PROVE.
 
@@ -62,11 +74,11 @@ After finishing this operation, the prover's stakers will have a decreased amoun
 
 ![Dispense](./media/dispense.png)
 
-Triggered by the [SuccinctStaking.owner()](./src/SuccinctStaking.sol#L56) calling [SuccinctStaking.dispense()](./src/SuccinctStaking.sol#L330), specifying the amount of $PROVE to dispense.
+Triggered by the SuccinctStaking.owner() calling [SuccinctStaking.dispense()](./src/SuccinctStaking.sol#L359), specifying the amount of $PROVE to dispense.
 
 This moves $PROVE from the staking contract to the $iPROVE vault, effectively distributing the $PROVE to all stakers.
 
-The maximum amount of dispense is defined as [SuccinctStaking.maxDispense()](./src/SuccinctStaking.sol#L150), which is bounded by the [SuccinctStaking.dispenseRate()](./src/SuccinctStaking.sol#L40). Dispense rate can also be changed by the owner via [SuccinctStaking.updateDispenseRate()](./src/SuccinctStaking.sol#L354).
+The maximum amount of dispense is defined as [SuccinctStaking.maxDispense()](./src/SuccinctStaking.sol#L174), which is bounded by the [SuccinctStaking.dispenseRate()](./src/SuccinctStaking.sol#L43). Dispense rate can also be changed by the owner via [SuccinctStaking.updateDispenseRate()](./src/SuccinctStaking.sol#L383).
 
 It is assumed that the staking contract has ownership of this much $PROVE. Operationally, the staking contract will need to be periodically topped up with $PROVE to cover the dispense rate.
 

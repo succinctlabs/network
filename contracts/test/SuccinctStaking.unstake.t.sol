@@ -14,8 +14,8 @@ contract SuccinctStakingUnstakeTests is SuccinctStakingTest {
 
         // Sanity check
         assertEq(SuccinctStaking(STAKING).unstakePending(STAKER_1), 0);
-        assertEq(SuccinctStaking(STAKING).previewRedeem(ALICE_PROVER, stakeAmount), stakeAmount);
-        assertEq(SuccinctStaking(STAKING).previewRedeem(ALICE_PROVER, 0), 0);
+        assertEq(SuccinctStaking(STAKING).previewUnstake(ALICE_PROVER, stakeAmount), stakeAmount);
+        assertEq(SuccinctStaking(STAKING).previewUnstake(ALICE_PROVER, 0), 0);
         assertEq(SuccinctStaking(STAKING).proverStaked(ALICE_PROVER), 0);
 
         // Stake to Alice prover
@@ -25,7 +25,7 @@ contract SuccinctStakingUnstakeTests is SuccinctStakingTest {
         assertEq(IERC20(STAKING).balanceOf(STAKER_1), stakeAmount);
         assertEq(SuccinctStaking(STAKING).staked(STAKER_1), stakeAmount);
         assertEq(SuccinctStaking(STAKING).unstakePending(STAKER_1), 0);
-        assertEq(SuccinctStaking(STAKING).previewRedeem(ALICE_PROVER, stakeAmount), stakeAmount);
+        assertEq(SuccinctStaking(STAKING).previewUnstake(ALICE_PROVER, stakeAmount), stakeAmount);
         assertEq(SuccinctStaking(STAKING).proverStaked(ALICE_PROVER), stakeAmount);
 
         // Step 1: Submit unstake request
@@ -37,7 +37,7 @@ contract SuccinctStakingUnstakeTests is SuccinctStakingTest {
         assertEq(IERC20(PROVE).balanceOf(STAKER_1), 0);
         assertEq(IERC20(I_PROVE).balanceOf(ALICE_PROVER), stakeAmount);
         assertEq(SuccinctStaking(STAKING).unstakePending(STAKER_1), stakeAmount);
-        assertEq(SuccinctStaking(STAKING).previewRedeem(ALICE_PROVER, stakeAmount), stakeAmount);
+        assertEq(SuccinctStaking(STAKING).previewUnstake(ALICE_PROVER, stakeAmount), stakeAmount);
         assertEq(SuccinctStaking(STAKING).proverStaked(ALICE_PROVER), stakeAmount);
 
         // Step 2: Wait for unstake period to pass and claim
@@ -49,8 +49,8 @@ contract SuccinctStakingUnstakeTests is SuccinctStakingTest {
         assertEq(SuccinctStaking(STAKING).staked(STAKER_1), 0);
         assertEq(IERC20(PROVE).balanceOf(I_PROVE), 0);
         assertEq(SuccinctStaking(STAKING).unstakePending(STAKER_1), 0);
-        assertEq(SuccinctStaking(STAKING).previewRedeem(ALICE_PROVER, stakeAmount), stakeAmount);
-        assertEq(SuccinctStaking(STAKING).previewRedeem(ALICE_PROVER, 0), 0);
+        assertEq(SuccinctStaking(STAKING).previewUnstake(ALICE_PROVER, stakeAmount), stakeAmount);
+        assertEq(SuccinctStaking(STAKING).previewUnstake(ALICE_PROVER, 0), 0);
         assertEq(SuccinctStaking(STAKING).proverStaked(ALICE_PROVER), 0);
     }
 
@@ -77,8 +77,8 @@ contract SuccinctStakingUnstakeTests is SuccinctStakingTest {
         assertEq(SuccinctStaking(STAKING).staked(STAKER_1), 0);
         assertEq(IERC20(PROVE).balanceOf(I_PROVE), 0);
         assertEq(SuccinctStaking(STAKING).unstakePending(STAKER_1), 0);
-        assertEq(SuccinctStaking(STAKING).previewRedeem(ALICE_PROVER, stakeAmount), stakeAmount);
-        assertEq(SuccinctStaking(STAKING).previewRedeem(ALICE_PROVER, 0), 0);
+        assertEq(SuccinctStaking(STAKING).previewUnstake(ALICE_PROVER, stakeAmount), stakeAmount);
+        assertEq(SuccinctStaking(STAKING).previewUnstake(ALICE_PROVER, 0), 0);
         assertEq(SuccinctStaking(STAKING).proverStaked(ALICE_PROVER), 0);
     }
 
