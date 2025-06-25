@@ -303,6 +303,34 @@ contract SuccinctVApp is
         _updateMinDepositAmount(_amount);
     }
 
+    function updateStateRoot(bytes32 _root) external onlyOwner {
+        _updateStateRoot(_root);
+    }
+
+    function _updateStateRoot(bytes32 _root) internal {
+        roots[blockNumber] = _root;
+    }
+
+    function updateVKey(bytes32 _vkey) external onlyOwner {
+        _updateVKey(_vkey);
+    }
+
+    function _updateVKey(bytes32 _vkey) internal {
+        vkey = _vkey;
+    }
+
+    function updateBlockNumber(uint64 _blockNumber) external onlyOwner {
+        _updateBlockNumber(_blockNumber);
+    }
+
+    function _updateBlockNumber(uint64 _blockNumber) internal {
+        blockNumber = _blockNumber;
+    }
+
+    function updateFinalizedOnchainTxId(uint64 _txId) external onlyOwner {
+        finalizedOnchainTxId = _txId;
+    }
+
     /// @inheritdoc ISuccinctVApp
     function pause() external override onlyOwner whenNotPaused {
         _pause();
