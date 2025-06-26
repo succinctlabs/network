@@ -45,19 +45,19 @@ enum TransactionStatus {
 }
 
 /// @notice The action data for a deposit.
-struct Deposit {
+struct DepositAction {
     address account;
     uint256 amount;
 }
 
 /// @notice The action data for a withdraw.
-struct Withdraw {
+struct WithdrawAction {
     address account;
     uint256 amount;
 }
 
 /// @notice The action data for an add signer.
-struct CreateProver {
+struct CreateProverAction {
     address prover;
     address owner;
     uint256 stakerFeeBips;

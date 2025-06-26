@@ -10,9 +10,7 @@ import {
     TransactionStatus,
     Receipt as TxReceipt,
     TransactionVariant,
-    Deposit,
-    Withdraw,
-    CreateProver
+    DepositAction
 } from "../src/libraries/PublicValues.sol";
 import {ISuccinctVApp} from "../src/interfaces/ISuccinctVApp.sol";
 import {MockERC20} from "./utils/MockERC20.sol";
@@ -32,7 +30,7 @@ contract SuccinctVAppDepositTest is SuccinctVAppTest {
         MockERC20(PROVE).approve(VAPP, amount);
 
         // Deposit
-        bytes memory data = abi.encode(Deposit({account: REQUESTER_1, amount: amount}));
+        bytes memory data = abi.encode(DepositAction({account: REQUESTER_1, amount: amount}));
         vm.expectEmit(true, true, true, true);
         emit ISuccinctVApp.TransactionPending(1, TransactionVariant.Deposit, data);
         SuccinctVApp(VAPP).deposit(amount);
@@ -82,7 +80,7 @@ contract SuccinctVAppDepositTest is SuccinctVAppTest {
         // Deposit
         (uint8 v, bytes32 r, bytes32 s) =
             _signPermit(REQUESTER_1_PK, REQUESTER_1, amount, block.timestamp + 1 days);
-        bytes memory data = abi.encode(Deposit({account: REQUESTER_1, amount: amount}));
+        bytes memory data = abi.encode(DepositAction({account: REQUESTER_1, amount: amount}));
         vm.expectEmit(true, true, true, true);
         emit ISuccinctVApp.TransactionPending(1, TransactionVariant.Deposit, data);
         SuccinctVApp(VAPP).permitAndDeposit(REQUESTER_1, amount, block.timestamp + 1 days, v, r, s);

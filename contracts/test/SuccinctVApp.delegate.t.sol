@@ -10,9 +10,7 @@ import {
     TransactionStatus,
     Receipt as VAppReceipt,
     TransactionVariant,
-    Deposit,
-    Withdraw,
-    CreateProver
+    CreateProverAction
 } from "../src/libraries/PublicValues.sol";
 import {ISuccinctVApp} from "../src/interfaces/ISuccinctVApp.sol";
 import {MockStaking} from "../src/mocks/MockStaking.sol";
@@ -28,7 +26,7 @@ contract SuccinctVAppDelegateTest is SuccinctVAppTest {
 
         // The expected action data for alice creating a prover.
         bytes memory expectedProverData = abi.encode(
-            CreateProver({prover: aliceProver, owner: ALICE, stakerFeeBips: STAKER_FEE_BIPS})
+            CreateProverAction({prover: aliceProver, owner: ALICE, stakerFeeBips: STAKER_FEE_BIPS})
         );
 
         (TransactionVariant actionType, TransactionStatus status,, bytes memory data) =

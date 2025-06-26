@@ -26,8 +26,11 @@ interface ISuccinctVApp {
     /// @notice Emitted when the program was forked.
     event Fork(uint64 indexed block, bytes32 oldVkey, bytes32 newVkey);
 
-    /// @notice Emitted when a withdrawal is claimed.
-    event Withdrawal(address indexed account, uint256 amount);
+    /// @notice Emitted when a deposit is processed.
+    event Deposit(address indexed from, uint256 amount);
+
+    /// @notice Emitted when a withdrawal is processed.
+    event Withdraw(address indexed to, uint256 amount);
 
     /// @notice Emitted when the auctioneer address was updated.
     event AuctioneerUpdate(address oldAuctioneer, address newAuctioneer);
