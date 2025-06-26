@@ -125,7 +125,7 @@ contract SuccinctStaking is
     /// @inheritdoc ISuccinctStaking
     function proverStaked(address _prover) public view override returns (uint256) {
         // Get the amount of $iPROVE in the prover.
-        uint256 iPROVE = IERC4626(_prover).totalAssets();
+        uint256 iPROVE = IERC20(iProve).balanceOf(_prover);
 
         // Get the amount of $PROVE that would be received if the $iPROVE was redeemed.
         return IERC4626(iProve).previewRedeem(iPROVE);
@@ -336,7 +336,7 @@ contract SuccinctStaking is
         if (block.timestamp < claim.timestamp + slashPeriod) revert SlashNotReady();
 
         // Determine how much can actually be slashed (cannot exceed the prover's current balance).
-        uint256 iPROVEBalance = IERC4626(_prover).totalAssets();
+        uint256 iPROVEBalance = IERC20(iProve).balanceOf(_prover);
         iPROVE = claim.iPROVE > iPROVEBalance ? iPROVEBalance : claim.iPROVE;
 
         // Delete the claim.
