@@ -9,10 +9,7 @@ import {
     StepPublicValues,
     TransactionStatus,
     Receipt as TxReceipt,
-    TransactionVariant,
-    Deposit,
-    Withdraw,
-    CreateProver
+    TransactionVariant
 } from "../src/libraries/PublicValues.sol";
 import {ISuccinctVApp} from "../src/interfaces/ISuccinctVApp.sol";
 

@@ -8,9 +8,9 @@ import {
     Receipt,
     Transaction,
     TransactionVariant,
-    Deposit,
-    Withdraw,
-    CreateProver
+    DepositAction,
+    WithdrawAction,
+    CreateProverAction
 } from "./libraries/PublicValues.sol";
 import {ISuccinctVApp} from "./interfaces/ISuccinctVApp.sol";
 import {ISuccinctStaking} from "./interfaces/ISuccinctStaking.sol";
@@ -201,7 +201,7 @@ contract SuccinctVApp is
 
         // Create the receipt.
         bytes memory data = abi.encode(
-            CreateProver({prover: _prover, owner: _owner, stakerFeeBips: _stakerFeeBips})
+            CreateProverAction({prover: _prover, owner: _owner, stakerFeeBips: _stakerFeeBips})
         );
         receipt = _createTransaction(TransactionVariant.CreateProver, data);
     }
@@ -325,11 +325,13 @@ contract SuccinctVApp is
         }
 
         // Create the receipt.
-        bytes memory data = abi.encode(Deposit({account: _from, amount: _amount}));
+        bytes memory data = abi.encode(DepositAction({account: _from, amount: _amount}));
         receipt = _createTransaction(TransactionVariant.Deposit, data);
 
         // Transfer $PROVE from the sender to the VApp.
         IERC20(prove).safeTransferFrom(_from, address(this), _amount);
+
+        emit Deposit(_from, _amount);
     }
 
     /// @dev Creates a receipt for an action.
@@ -420,7 +422,7 @@ contract SuccinctVApp is
         }
 
         if (_receipt.variant == TransactionVariant.Withdraw) {
-            Withdraw memory withdraw = abi.decode(_receipt.action, (Withdraw));
+            WithdrawAction memory withdraw = abi.decode(_receipt.action, (WithdrawAction));
             _processWithdraw(withdraw.account, withdraw.amount);
         } else {
             revert TransactionVariantInvalid();
@@ -441,6 +443,8 @@ contract SuccinctVApp is
             // Transfer the $PROVE from this contract to the `_to` address.
             IERC20(prove).safeTransfer(_to, _amount);
         }
+
+        emit Withdraw(_to, _amount);
     }
 
     /// @dev Updates the auctioneer.

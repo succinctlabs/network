@@ -5,9 +5,9 @@ import {
     TransactionVariant,
     TransactionStatus,
     Transaction,
-    Deposit,
-    Withdraw,
-    CreateProver,
+    DepositAction,
+    WithdrawAction,
+    CreateProverAction,
     Receipt
 } from "./PublicValues.sol";
 
@@ -44,8 +44,8 @@ library Receipts {
             revert TransactionVariantMismatch(_transaction.variant, _receipt.variant);
         }
 
-        Deposit memory deposit = abi.decode(_transaction.action, (Deposit));
-        Deposit memory depositReceipt = abi.decode(_receipt.action, (Deposit));
+        DepositAction memory deposit = abi.decode(_transaction.action, (DepositAction));
+        DepositAction memory depositReceipt = abi.decode(_receipt.action, (DepositAction));
 
         if (deposit.account != depositReceipt.account) {
             revert TransactionReceiptMismatch(TransactionVariant.Deposit, _receipt.onchainTxId);
@@ -66,8 +66,8 @@ library Receipts {
             revert TransactionVariantMismatch(_transaction.variant, _receipt.variant);
         }
 
-        CreateProver memory prover = abi.decode(_transaction.action, (CreateProver));
-        CreateProver memory proverReceipt = abi.decode(_receipt.action, (CreateProver));
+        CreateProverAction memory prover = abi.decode(_transaction.action, (CreateProverAction));
+        CreateProverAction memory proverReceipt = abi.decode(_receipt.action, (CreateProverAction));
 
         if (prover.prover != proverReceipt.prover) {
             revert TransactionReceiptMismatch(TransactionVariant.CreateProver, _receipt.onchainTxId);

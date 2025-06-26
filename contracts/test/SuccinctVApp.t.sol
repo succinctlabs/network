@@ -9,10 +9,7 @@ import {
     StepPublicValues,
     TransactionStatus,
     Receipt as VAppReceipt,
-    TransactionVariant,
-    Deposit,
-    Withdraw,
-    CreateProver
+    TransactionVariant
 } from "../src/libraries/PublicValues.sol";
 import {MockStaking} from "../src/mocks/MockStaking.sol";
 import {MockVerifier} from "../src/mocks/MockVerifier.sol";

@@ -8,10 +8,7 @@ import {
     StepPublicValues,
     TransactionStatus,
     Receipt,
-    TransactionVariant,
-    Deposit,
-    Withdraw,
-    CreateProver
+    TransactionVariant
 } from "../src/libraries/PublicValues.sol";
 import {ISuccinctVApp} from "../src/interfaces/ISuccinctVApp.sol";
 import {Ownable} from "../lib/openzeppelin-contracts/contracts/access/Ownable.sol";
