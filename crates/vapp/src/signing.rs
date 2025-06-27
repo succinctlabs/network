@@ -11,39 +11,28 @@ use spn_network_types::MessageFormat;
 
 /// Verifies a signature for any protobuf message and returns the recovered signer address.
 ///
-/// This function maintains backward compatibility by using binary protobuf encoding.
-pub fn proto_verify<T: Message>(message: &T, signature: &[u8]) -> Result<Address> {
-    let mut message_bytes = Vec::new();
-    message.encode(&mut message_bytes)?;
-    let recovered_signer = eth_sign_verify(&message_bytes, signature)?;
-    Ok(recovered_signer)
-}
-
-/// Verifies a signature for any protobuf message with format-aware serialization.
-///
 /// This function respects the format field and serializes the message accordingly:
 /// - MessageFormat::Binary: Uses protobuf binary encoding
 /// - MessageFormat::Json: Uses JSON serialization
-/// - MessageFormat::UnspecifiedMessageFormat: Defaults to binary encoding
-pub fn proto_verify_with_format<T: Message + Serialize>(
+///
+/// If the format is neither of those, it returns an error.
+pub fn proto_verify<T: Message + Serialize>(
     message: &T,
     signature: &[u8],
     format: MessageFormat,
 ) -> Result<Address> {
     let message_bytes = match format {
         MessageFormat::Binary => {
-            // Serialize as protobuf binary (default behavior)
             let mut bytes = Vec::new();
-            message.encode(&mut bytes)?;
+            message.encode(&mut bytes).map_err(|e| {
+                eyre::eyre!("failed to serialize message as protobuf binary: {}", e)
+            })?;
             bytes
         }
-        MessageFormat::Json => {
-            // Serialize as JSON
-            serde_json::to_vec(message)
-                .map_err(|e| eyre::eyre!("Failed to serialize message as JSON: {}", e))?
-        }
-        MessageFormat::UnspecifiedMessageFormat => {
-            return Err(eyre::eyre!("Invalid message format: UnspecifiedMessageFormat"));
+        MessageFormat::Json => serde_json::to_vec(message)
+            .map_err(|e| eyre::eyre!("failed to serialize message as JSON: {}", e))?,
+        _ => {
+            return Err(eyre::eyre!("invalid message format"));
         }
     };
 
@@ -94,7 +83,7 @@ mod tests {
 
         // Verify the request proof signature.
         let signature = hex::decode(signature_hex).unwrap();
-        let result = proto_verify_with_format(&decoded_body, &signature, MessageFormat::Binary);
+        let result = proto_verify(&decoded_body, &signature, MessageFormat::Binary);
 
         // Check that signature verification succeeded.
         assert!(result.is_ok(), "Signature verification failed: {:?}", result.err());
@@ -118,7 +107,7 @@ mod tests {
 
         // Verify the bid request signature.
         let signature = hex::decode(signature_hex).unwrap();
-        let result = proto_verify_with_format(&decoded_body, &signature, MessageFormat::Binary);
+        let result = proto_verify(&decoded_body, &signature, MessageFormat::Binary);
 
         assert!(result.is_ok(), "Signature verification failed: {:?}", result.err());
         let recovered_signer = result.unwrap();
@@ -139,7 +128,7 @@ mod tests {
 
         // Verify the settle request signature.
         let signature = hex::decode(signature_hex).unwrap();
-        let result = proto_verify_with_format(&decoded_body, &signature, MessageFormat::Binary);
+        let result = proto_verify(&decoded_body, &signature, MessageFormat::Binary);
 
         assert!(result.is_ok(), "Signature verification failed: {:?}", result.err());
         let recovered_signer = result.unwrap();
@@ -166,7 +155,7 @@ mod tests {
             signature
         };
 
-        let result = proto_verify_with_format(&decoded_body, &signature, MessageFormat::Binary);
+        let result = proto_verify(&decoded_body, &signature, MessageFormat::Binary);
 
         assert!(result.is_ok(), "Signature verification failed: {:?}", result.err());
         let recovered_signer = result.unwrap();
@@ -188,7 +177,7 @@ mod tests {
 
         // Verify the fulfill proof request signature.
         let signature = hex::decode(signature_hex).unwrap();
-        let result = proto_verify_with_format(&decoded_body, &signature, MessageFormat::Binary);
+        let result = proto_verify(&decoded_body, &signature, MessageFormat::Binary);
 
         assert!(result.is_ok(), "Signature verification failed: {:?}", result.err());
         let recovered_signer = result.unwrap();
@@ -198,7 +187,7 @@ mod tests {
 
     #[test]
     fn test_verify_proto_with_json_format() {
-        // Test that proto_verify_with_format correctly handles JSON format using real example data.
+        // Test that proto_verify correctly handles JSON format using real example data.
         // This test uses a SetDelegationRequestBody message that was signed in JSON format.
 
         // Example data from example.json - signature for a JSON-serialized SetDelegationRequestBody.
@@ -229,7 +218,7 @@ mod tests {
         let signature = hex::decode(signature_hex).unwrap();
 
         // Verify using JSON format.
-        let result = proto_verify_with_format(&delegation_body, &signature, MessageFormat::Json);
+        let result = proto_verify(&delegation_body, &signature, MessageFormat::Json);
 
         // Check that verification succeeded.
         assert!(result.is_ok(), "JSON signature verification failed: {:?}", result.err());
@@ -242,7 +231,7 @@ mod tests {
 
     #[test]
     fn test_verify_proto_with_unspecified_format() {
-        // Test that proto_verify_with_format returns error with UnspecifiedMessageFormat.
+        // Test that proto_verify returns error with UnspecifiedMessageFormat.
         let bid_body = BidRequestBody {
             nonce: 1,
             request_id: vec![0x20; 32],
@@ -256,11 +245,7 @@ mod tests {
         let signature = vec![0u8; 65];
 
         // Verify using UnspecifiedMessageFormat - should return error.
-        let result = proto_verify_with_format(
-            &bid_body,
-            &signature,
-            MessageFormat::UnspecifiedMessageFormat,
-        );
+        let result = proto_verify(&bid_body, &signature, MessageFormat::UnspecifiedMessageFormat);
 
         assert!(result.is_err());
         assert!(result.unwrap_err().to_string().contains("Invalid message format"));
