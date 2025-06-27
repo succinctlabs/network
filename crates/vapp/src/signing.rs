@@ -12,8 +12,8 @@ use spn_network_types::MessageFormat;
 /// Verifies a signature for any protobuf message and returns the recovered signer address.
 ///
 /// This function respects the format field and serializes the message accordingly:
-/// - MessageFormat::Binary: Uses protobuf binary encoding
-/// - MessageFormat::Json: Uses JSON serialization
+/// - `MessageFormat::Binary`: Uses protobuf binary encoding
+/// - `MessageFormat::Json`: Uses JSON serialization
 ///
 /// If the format is neither of those, it returns an error.
 pub fn proto_verify<T: Message + Serialize>(
