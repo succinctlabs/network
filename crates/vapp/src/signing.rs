@@ -187,13 +187,8 @@ mod tests {
 
     #[test]
     fn test_verify_proto_with_json_format() {
-        // Test that proto_verify correctly handles JSON format using real example data.
-        // This test uses a SetDelegationRequestBody message that was signed in JSON format.
-
-        // Example data from example.json - signature for a JSON-serialized SetDelegationRequestBody.
+        // Example signature for a JSON-serialized SetDelegationRequestBody.
         let signature_hex = "0d4b962e356dd54b2e2b0712ed3299fbb497ded75b7668d60c97e03cbd8a6a5b53671c66e63b7d1f7aad17080b9f1d2f0a16ff569f6a29f5f0c9daab4edb68121c";
-
-        // Expected signer address - this is the recovered address from the signature.
         let expected_signer = "0xcb3c66b00a027279628b15a27b3e0a899f63ee82";
 
         // Create the SetDelegationRequestBody from the JSON data.
@@ -248,6 +243,6 @@ mod tests {
         let result = proto_verify(&bid_body, &signature, MessageFormat::UnspecifiedMessageFormat);
 
         assert!(result.is_err());
-        assert!(result.unwrap_err().to_string().contains("Invalid message format"));
+        assert!(result.unwrap_err().to_string().contains("invalid message format"));
     }
 }
