@@ -5,12 +5,48 @@
 use alloy_primitives::{Address, Signature};
 use eyre::Result;
 use prost::Message;
+use serde::Serialize;
 use sha2::{Digest, Sha256};
+use spn_network_types::MessageFormat;
 
 /// Verifies a signature for any protobuf message and returns the recovered signer address.
+/// 
+/// This function maintains backward compatibility by using binary protobuf encoding.
 pub fn proto_verify<T: Message>(message: &T, signature: &[u8]) -> Result<Address> {
     let mut message_bytes = Vec::new();
     message.encode(&mut message_bytes)?;
+    let recovered_signer = eth_sign_verify(&message_bytes, signature)?;
+    Ok(recovered_signer)
+}
+
+/// Verifies a signature for any protobuf message with format-aware serialization.
+/// 
+/// This function respects the format field and serializes the message accordingly:
+/// - MessageFormat::Binary: Uses protobuf binary encoding
+/// - MessageFormat::Json: Uses JSON serialization
+/// - MessageFormat::UnspecifiedMessageFormat: Defaults to binary encoding
+pub fn proto_verify_with_format<T: Message + Serialize>(
+    message: &T,
+    signature: &[u8],
+    format: MessageFormat,
+) -> Result<Address> {
+    let message_bytes = match format {
+        MessageFormat::Json => {
+            // Serialize as JSON
+            serde_json::to_vec(message)
+                .map_err(|e| eyre::eyre!("Failed to serialize message as JSON: {}", e))?
+        }
+        MessageFormat::Binary => {
+            // Serialize as protobuf binary (default behavior)
+            let mut bytes = Vec::new();
+            message.encode(&mut bytes)?;
+            bytes
+        }
+        _ => {
+            return Err(eyre::eyre!("Invalid message format"));
+        }
+    };
+    
     let recovered_signer = eth_sign_verify(&message_bytes, signature)?;
     Ok(recovered_signer)
 }
