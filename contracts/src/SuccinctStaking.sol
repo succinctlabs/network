@@ -265,6 +265,12 @@ contract SuccinctStaking is
         // Check that this prover is not in the process of being slashed.
         if (slashClaims[prover].length > 0) revert ProverHasSlashRequest();
 
+        // Dispense all available yield if any.
+        uint256 available = maxDispense();
+        if (available > 0) {
+            _dispense(available);
+        }
+
         // Process the available unstake claims.
         PROVE += _finishUnstake(_staker, prover, claims);
 
@@ -356,27 +362,12 @@ contract SuccinctStaking is
     }
 
     /// @inheritdoc ISuccinctStaking
-    function dispense(uint256 _PROVE) external override onlyOwner {
-        // Get the maximum amount of $PROVE that can be dispensed.
-        uint256 available = maxDispense();
-
-        // If caller passed in type(uint256).max, attempt to dispense the full available amount.
-        uint256 amount = _PROVE == type(uint256).max ? available : _PROVE;
-
-        // Ensure dispensing a non‐zero amount.
+    function dispense() external override {
+        // Calculate and validate available amount.
+        uint256 amount = maxDispense();
         if (amount == 0) revert ZeroAmount();
 
-        // If caller passed a specific number, make sure it doesn't exceed available
-        if (amount > available) revert AmountExceedsAvailableDispense();
-
-        // Update the timestamp based on the (possibly‐adjusted) amount
-        uint256 timeConsumed = (amount + dispenseRate - 1) / dispenseRate;
-        lastDispenseTimestamp += timeConsumed;
-
-        // Transfer the amount to the iPROVE vault. This distributes the $PROVE to all stakers.
-        IERC20(prove).safeTransfer(iProve, amount);
-
-        emit Dispense(amount);
+        _dispense(amount);
     }
 
     /// @inheritdoc ISuccinctStaking
@@ -395,6 +386,12 @@ contract SuccinctStaking is
         stakingOperation
         returns (uint256 stPROVE)
     {
+        // Dispense before staking to ensure fair exchange rate.
+        uint256 available = maxDispense();
+        if (available > 0) {
+            _dispense(available);
+        }
+
         // Ensure staking a non-zero amount.
         if (_PROVE == 0) revert ZeroAmount();
 
@@ -518,6 +515,18 @@ contract SuccinctStaking is
         for (uint256 i = 0; i < unstakeClaims[_staker].length; i++) {
             stPROVE += unstakeClaims[_staker][i].stPROVE;
         }
+    }
+
+    /// @dev Dispense the specified amount of $PROVE to the iPROVE vault.
+    function _dispense(uint256 _amount) internal {
+        // Update timestamp based on amount consumed.
+        uint256 timeConsumed = (_amount + dispenseRate - 1) / dispenseRate;
+        lastDispenseTimestamp += timeConsumed;
+
+        // Transfer to iPROVE vault.
+        IERC20(prove).safeTransfer(iProve, _amount);
+
+        emit Dispense(_amount);
     }
 
     /// @dev Set the new dispense rate.
