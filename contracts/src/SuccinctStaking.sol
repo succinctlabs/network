@@ -398,6 +398,11 @@ contract SuccinctStaking is
         _updateDispenseRate(_rate);
     }
 
+    /// @inheritdoc ISuccinctStaking
+    function setDispenser(address _dispenser) external override onlyOwner {
+        _setDispenser(_dispenser);
+    }
+
     /*//////////////////////////////////////////////////////////////
                                  INTERNAL
     //////////////////////////////////////////////////////////////*/
@@ -539,5 +544,12 @@ contract SuccinctStaking is
         emit DispenseRateUpdate(dispenseRate, _dispenseRate);
 
         dispenseRate = _dispenseRate;
+    }
+
+    /// @dev set the new dispenser
+    function _setDispenser(address _dispenser) internal {
+        emit DispenserUpdate(dispenser, _dispenser);
+
+        dispenser = _dispenser;
     }
 }

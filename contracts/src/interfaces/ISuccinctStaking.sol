@@ -65,6 +65,9 @@ interface ISuccinctStaking is IProverRegistry {
     /// @dev Emitted when the dispense rate is updated.
     event DispenseRateUpdate(uint256 oldDispenseRate, uint256 newDispenseRate);
 
+    /// @dev Emitted when the dispenser is updated.
+    event DispenserUpdate(address oldDispenser, address newDispenser);
+
     /// @dev Thrown if the staker has insufficient balance to unstake, or if attempting to slash
     ///      more than the prover has.
     error InsufficientStakeBalance();
@@ -249,7 +252,7 @@ interface ISuccinctStaking is IProverRegistry {
     /// @return The amount of $iPROVE slashed.
     function finishSlash(address prover, uint256 index) external returns (uint256);
 
-    /// @notice Rewards all stakers ($iPROVE holders) with $PROVE. Only callable by the owner.
+    /// @notice Rewards all stakers ($iPROVE holders) with $PROVE. Only callable by the dispenser.
     /// @dev The amount MUST be less than or equal to maxDispense() (if not type(uint256).max), and
     ///      the amount MUST be less than or equal to the amount of $PROVE balance of this contract.
     /// @param PROVE The amount of $PROVE to dispense. If this is `type(uint256).max`, dispense the
@@ -259,4 +262,8 @@ interface ISuccinctStaking is IProverRegistry {
     /// @notice Updates the dispense rate. Only callable by the owner.
     /// @param dispenseRate The new dispense rate.
     function updateDispenseRate(uint256 dispenseRate) external;
+
+    /// @notice Updates the dispenser. Only callable by the owner.
+    /// @param dispenser The new dispenser.
+    function setDispenser(address dispenser) external;
 }
