@@ -27,6 +27,9 @@ contract SuccinctStaking is
 {
     using SafeERC20 for IERC20;
 
+    /// @dev The address of the contract that can dispense yield.
+    address public dispenser;
+
     /// @inheritdoc ISuccinctStaking
     uint256 public override minStakeAmount;
 
@@ -55,6 +58,15 @@ contract SuccinctStaking is
     mapping(address => SlashClaim[]) internal slashClaims;
 
     /*//////////////////////////////////////////////////////////////
+                              MODIFIERS
+    //////////////////////////////////////////////////////////////*/
+
+    modifier onlyDispenser() {
+        if (msg.sender != dispenser) revert NotDispenser();
+        _;
+    }
+
+    /*//////////////////////////////////////////////////////////////
                               INITIALIZER
     //////////////////////////////////////////////////////////////*/
 
@@ -70,6 +82,7 @@ contract SuccinctStaking is
         address _vApp,
         address _prove,
         address _intermediateProve,
+        address _dispenser,
         uint256 _minStakeAmount,
         uint256 _maxUnstakeRequests,
         uint256 _unstakePeriod,
@@ -79,7 +92,7 @@ contract SuccinctStaking is
         // Ensure that parameters critical for functionality are non-zero.
         if (
             _governor == address(0) || _vApp == address(0) || _prove == address(0)
-                || _intermediateProve == address(0)
+                || _intermediateProve == address(0) || _dispenser == address(0)
         ) {
             revert ZeroAddress();
         }
@@ -89,6 +102,7 @@ contract SuccinctStaking is
 
         // Setup the initial state.
         __ProverRegistry_init(_governor, _vApp, _prove, _intermediateProve);
+        dispenser = _dispenser;
         minStakeAmount = _minStakeAmount;
         maxUnstakeRequests = _maxUnstakeRequests;
         unstakePeriod = _unstakePeriod;
@@ -356,7 +370,7 @@ contract SuccinctStaking is
     }
 
     /// @inheritdoc ISuccinctStaking
-    function dispense(uint256 _PROVE) external override onlyOwner {
+    function dispense(uint256 _PROVE) external override onlyDispenser {
         // Get the maximum amount of $PROVE that can be dispensed.
         uint256 available = maxDispense();
 

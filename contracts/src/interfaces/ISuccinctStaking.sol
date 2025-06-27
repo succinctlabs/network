@@ -104,6 +104,12 @@ interface ISuccinctStaking is IProverRegistry {
     /// @dev Thrown if the specified dispense amount exceeds the maximum dispense amount.
     error AmountExceedsAvailableDispense();
 
+    /// @dev Thrown if the dispenser is not the owner.
+    error NotDispenser();
+
+    /// @notice The address of the contract that can dispense yield.
+    function dispenser() external view returns (address);
+
     /// @notice The minimum amount of $PROVE that a staker needs to stake.
     function minStakeAmount() external view returns (uint256);
 
