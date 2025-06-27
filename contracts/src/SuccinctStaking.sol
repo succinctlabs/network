@@ -118,7 +118,7 @@ contract SuccinctStaking is
         if (prover == address(0)) return 0;
 
         // Get the amount of $PROVE the staker would get if the staker's full $stPROVE balance was
-        // unstaked.
+        // unstaked, including pending yield.
         return previewUnstake(prover, balanceOf(_staker));
     }
 
@@ -126,9 +126,14 @@ contract SuccinctStaking is
     function proverStaked(address _prover) public view override returns (uint256) {
         // Get the amount of $iPROVE in the prover.
         uint256 iPROVE = IERC20(iProve).balanceOf(_prover);
+        if (iPROVE == 0) return 0;
 
-        // Get the amount of $PROVE that would be received if the $iPROVE was redeemed.
-        return IERC4626(iProve).previewRedeem(iPROVE);
+        // Get the virtual exchange rate including pending yield.
+        (uint256 virtualAssets, uint256 supply) = _virtualIPROVERate();
+        if (supply == 0) return 0;
+
+        // Calculate PROVE value with virtual exchange rate.
+        return (iPROVE * virtualAssets) / supply;
     }
 
     /// @inheritdoc ISuccinctStaking
@@ -152,7 +157,8 @@ contract SuccinctStaking is
         address prover = stakerToProver[_staker];
         if (prover == address(0)) return 0;
 
-        // Get the amount of $PROVE that would be received if the pending $stPROVE was redeemed.
+        // Get the amount of $PROVE that would be received if the pending $stPROVE was redeemed,
+        // including pending yield.
         return previewUnstake(prover, _getUnstakeClaimBalance(_staker));
     }
 
@@ -163,11 +169,18 @@ contract SuccinctStaking is
         override
         returns (uint256)
     {
+        if (_stPROVE == 0) return 0;
+
         // Get the amount of $iPROVE this staker has for this prover.
         uint256 iPROVE = IERC4626(_prover).previewRedeem(_stPROVE);
+        if (iPROVE == 0) return 0;
 
-        // Get the amount of $PROVE that would be received if the $iPROVE was redeemed.
-        return IERC4626(iProve).previewRedeem(iPROVE);
+        // Get the virtual exchange rate including pending yield.
+        (uint256 virtualAssets, uint256 supply) = _virtualIPROVERate();
+        if (supply == 0) return 0;
+
+        // Calculate PROVE value with virtual exchange rate.
+        return (iPROVE * virtualAssets) / supply;
     }
 
     /// @inheritdoc ISuccinctStaking
@@ -515,6 +528,12 @@ contract SuccinctStaking is
         for (uint256 i = 0; i < unstakeClaims[_staker].length; i++) {
             stPROVE += unstakeClaims[_staker][i].stPROVE;
         }
+    }
+
+    /// @dev Calculate the virtual iPROVE exchange rate including pending yield.
+    function _virtualIPROVERate() internal view returns (uint256 virtualAssets, uint256 supply) {
+        virtualAssets = IERC4626(iProve).totalAssets() + maxDispense();
+        supply = IERC4626(iProve).totalSupply();
     }
 
     /// @dev Dispense the specified amount of $PROVE to the iPROVE vault.

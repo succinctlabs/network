@@ -243,7 +243,7 @@ interface ISuccinctStaking is IProverRegistry {
     /// @return The amount of $iPROVE slashed.
     function finishSlash(address prover, uint256 index) external returns (uint256);
 
-    /// @notice Dispense all available yield to the iPROVE vault. Now permissionless.
+    /// @notice Dispense all available yield to the iPROVE vault.
     /// @dev Always dispenses the maximum available amount based on time elapsed and dispense rate.
     function dispense() external;
 
