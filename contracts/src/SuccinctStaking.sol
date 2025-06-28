@@ -27,8 +27,8 @@ contract SuccinctStaking is
 {
     using SafeERC20 for IERC20;
 
-    /// @dev The address of the contract that can dispense yield.
-    address public dispenser;
+    /// @inheritdoc ISuccinctStaking
+    address public override dispenser;
 
     /// @inheritdoc ISuccinctStaking
     uint256 public override minStakeAmount;
