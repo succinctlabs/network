@@ -68,7 +68,7 @@ contract SuccinctStakingDispenseTests is SuccinctStakingTest {
         // Try to dispense more than allowed amount (should fail)
         uint256 excessAmount = DISPENSE_RATE * 10;
         vm.expectRevert(ISuccinctStaking.AmountExceedsAvailableDispense.selector);
-        vm.prank(OWNER);
+        vm.prank(DISPENSER);
         SuccinctStaking(STAKING).dispense(excessAmount);
 
         // Wait a bit of time
@@ -84,14 +84,14 @@ contract SuccinctStakingDispenseTests is SuccinctStakingTest {
 
         // Dispense half of the available amount
         uint256 halfAmount = maxAmount / 2;
-        vm.prank(OWNER);
+        vm.prank(DISPENSER);
         SuccinctStaking(STAKING).dispense(halfAmount);
 
         // Check that maxDispense was updated correctly
         assertEq(SuccinctStaking(STAKING).maxDispense(), maxAmount - halfAmount);
 
         // Dispense remaining amount
-        vm.prank(OWNER);
+        vm.prank(DISPENSER);
         SuccinctStaking(STAKING).dispense(maxAmount - halfAmount);
 
         // Check that maxDispense is now 0
@@ -99,7 +99,7 @@ contract SuccinctStakingDispenseTests is SuccinctStakingTest {
 
         // Try to dispense again (should fail)
         vm.expectRevert(ISuccinctStaking.AmountExceedsAvailableDispense.selector);
-        vm.prank(OWNER);
+        vm.prank(DISPENSER);
         SuccinctStaking(STAKING).dispense(1);
     }
 
@@ -121,7 +121,7 @@ contract SuccinctStakingDispenseTests is SuccinctStakingTest {
         // Dispense half of the available amount
         uint256 firstDispenseAmount = firstAvailable / 2;
         deal(PROVE, STAKING, firstDispenseAmount);
-        vm.prank(OWNER);
+        vm.prank(DISPENSER);
         SuccinctStaking(STAKING).dispense(firstDispenseAmount);
 
         // Check remaining available after first dispense
@@ -138,7 +138,7 @@ contract SuccinctStakingDispenseTests is SuccinctStakingTest {
 
         // Dispense everything available
         deal(PROVE, STAKING, expectedNewlyAvailable);
-        vm.prank(OWNER);
+        vm.prank(DISPENSER);
         SuccinctStaking(STAKING).dispense(expectedNewlyAvailable);
 
         // Check available is now 0
@@ -160,7 +160,7 @@ contract SuccinctStakingDispenseTests is SuccinctStakingTest {
 
         // Dispense exactly the available amount
         deal(PROVE, STAKING, exactAmount);
-        vm.prank(OWNER);
+        vm.prank(DISPENSER);
         SuccinctStaking(STAKING).dispense(exactAmount);
 
         // The available amount should now be 0
@@ -168,7 +168,7 @@ contract SuccinctStakingDispenseTests is SuccinctStakingTest {
 
         // Trying to dispense any amount now should fail
         vm.expectRevert(ISuccinctStaking.AmountExceedsAvailableDispense.selector);
-        vm.prank(OWNER);
+        vm.prank(DISPENSER);
         SuccinctStaking(STAKING).dispense(1);
     }
 
@@ -188,7 +188,7 @@ contract SuccinctStakingDispenseTests is SuccinctStakingTest {
         // Dispense half of the available amount
         uint256 halfAmount = initialAvailable / 2;
         deal(PROVE, STAKING, halfAmount);
-        vm.prank(OWNER);
+        vm.prank(DISPENSER);
         SuccinctStaking(STAKING).dispense(halfAmount);
 
         // Change the dispense rate (double it)
@@ -204,7 +204,7 @@ contract SuccinctStakingDispenseTests is SuccinctStakingTest {
 
         // Dispense again to verify it works with the new rate
         deal(PROVE, STAKING, available);
-        vm.prank(OWNER);
+        vm.prank(DISPENSER);
         SuccinctStaking(STAKING).dispense(available);
 
         // Available should now be 0
@@ -229,7 +229,7 @@ contract SuccinctStakingDispenseTests is SuccinctStakingTest {
         // Try dispensing a significant portion
         uint256 largeDispenseAmount = expectedMax / 2;
         deal(PROVE, STAKING, largeDispenseAmount);
-        vm.prank(OWNER);
+        vm.prank(DISPENSER);
         SuccinctStaking(STAKING).dispense(largeDispenseAmount);
 
         // Check the remaining amount
@@ -237,7 +237,7 @@ contract SuccinctStakingDispenseTests is SuccinctStakingTest {
 
         // Can still dispense the remainder
         deal(PROVE, STAKING, expectedMax - largeDispenseAmount);
-        vm.prank(OWNER);
+        vm.prank(DISPENSER);
         SuccinctStaking(STAKING).dispense(expectedMax - largeDispenseAmount);
 
         // Available should now be 0
@@ -264,7 +264,7 @@ contract SuccinctStakingDispenseTests is SuccinctStakingTest {
         deal(PROVE, STAKING, available);
 
         // Owner calls dispense with max uint256 sentinel
-        vm.prank(OWNER);
+        vm.prank(DISPENSER);
         SuccinctStaking(STAKING).dispense(type(uint256).max);
 
         // After dispensing, maxDispense() should be zero
@@ -289,7 +289,7 @@ contract SuccinctStakingDispenseTests is SuccinctStakingTest {
         deal(PROVE, STAKING, available);
 
         // Owner calls dispense with max uint256 sentinel
-        vm.prank(OWNER);
+        vm.prank(DISPENSER);
         SuccinctStaking(STAKING).dispense(type(uint256).max);
 
         // I_PROVE vault should have received exactly 'available' PROVE
@@ -317,7 +317,7 @@ contract SuccinctStakingDispenseTests is SuccinctStakingTest {
                 dispenseAmount
             )
         );
-        vm.prank(OWNER);
+        vm.prank(DISPENSER);
         SuccinctStaking(STAKING).dispense(dispenseAmount);
     }
 
@@ -515,7 +515,7 @@ contract SuccinctStakingDispenseTests is SuccinctStakingTest {
         uint256 firstAvailable = SuccinctStaking(STAKING).maxDispense();
         uint256 firstDispense = firstAvailable / 2;
         deal(PROVE, STAKING, firstDispense);
-        vm.prank(OWNER);
+        vm.prank(DISPENSER);
         SuccinctStaking(STAKING).dispense(firstDispense);
 
         // Change rate

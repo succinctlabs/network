@@ -108,7 +108,7 @@ contract SuccinctStakingMiscellaneousTests is SuccinctStakingTest {
         skip(1 days);
         uint256 initialAvailable = SuccinctStaking(STAKING).maxDispense();
         deal(PROVE, STAKING, initialAvailable);
-        vm.prank(OWNER);
+        vm.prank(DISPENSER);
         SuccinctStaking(STAKING).dispense(initialAvailable);
 
         // Now no time has passed since last dispense
@@ -117,7 +117,7 @@ contract SuccinctStakingMiscellaneousTests is SuccinctStakingTest {
 
         // Try to dispense - should revert with AmountExceedsAvailableDispense
         vm.expectRevert(ISuccinctStaking.AmountExceedsAvailableDispense.selector);
-        vm.prank(OWNER);
+        vm.prank(DISPENSER);
         SuccinctStaking(STAKING).dispense(1);
     }
 
@@ -132,7 +132,7 @@ contract SuccinctStakingMiscellaneousTests is SuccinctStakingTest {
 
         // Dispense 1 wei
         deal(PROVE, STAKING, 1);
-        vm.prank(OWNER);
+        vm.prank(DISPENSER);
         SuccinctStaking(STAKING).dispense(1);
     }
 
@@ -572,7 +572,7 @@ contract SuccinctStakingMiscellaneousTests is SuccinctStakingTest {
         assertLt(maxDispense, hugeAmount);
 
         // Should be able to dispense available amount
-        vm.prank(OWNER);
+        vm.prank(DISPENSER);
         SuccinctStaking(STAKING).dispense(maxDispense);
     }
 }

@@ -6,6 +6,7 @@ import {ISuccinctStaking} from "../interfaces/ISuccinctStaking.sol";
 import {ProverRegistry} from "../libraries/ProverRegistry.sol";
 
 contract MockStaking is ProverRegistry, ISuccinctStaking {
+    address public dispenser;
     uint256 public minStakeAmount;
     uint256 public maxUnstakeRequests;
     uint256 public unstakePeriod;
@@ -18,8 +19,19 @@ contract MockStaking is ProverRegistry, ISuccinctStaking {
     mapping(address => UnstakeClaim[]) internal unstakeClaims;
     mapping(address => SlashClaim[]) internal slashClaims;
 
-    constructor(address _governor, address _prove, address _iProve) {
-        __ProverRegistry_init(_governor, address(this), _prove, _iProve);
+    constructor(
+        address _governor,
+        address _vapp,
+        address _prove,
+        address _iProve,
+        address _dispenser
+    ) {
+        __ProverRegistry_init(_governor, _vapp, _prove, _iProve);
+        dispenser = _dispenser;
+    }
+
+    function setDispenser(address _dispenser) external {
+        dispenser = _dispenser;
     }
 
     function setVApp(address _vapp) external {

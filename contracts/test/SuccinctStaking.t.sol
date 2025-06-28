@@ -32,6 +32,7 @@ contract SuccinctStakingTest is Test {
 
     // EOAs
     address public OWNER;
+    address public DISPENSER;
     address public REQUESTER;
     address public STAKER_1;
     uint256 public STAKER_1_PK;
@@ -53,6 +54,9 @@ contract SuccinctStakingTest is Test {
     function setUp() public virtual {
         // Create the owner
         OWNER = makeAddr("OWNER");
+
+        // Create the dispenser
+        DISPENSER = makeAddr("DISPENSER");
 
         // Create the requester
         REQUESTER = makeAddr("REQUESTER");
@@ -90,6 +94,7 @@ contract SuccinctStakingTest is Test {
             VAPP,
             PROVE,
             I_PROVE,
+            DISPENSER,
             MIN_STAKE_AMOUNT,
             MAX_UNSTAKE_REQUESTS,
             UNSTAKE_PERIOD,
@@ -180,7 +185,7 @@ contract SuccinctStakingTest is Test {
 
     function _dispense(uint256 _amount) internal {
         _waitRequiredDispenseTime(_amount);
-        vm.prank(OWNER);
+        vm.prank(DISPENSER);
         SuccinctStaking(STAKING).dispense(_amount);
     }
 

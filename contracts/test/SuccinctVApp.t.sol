@@ -47,6 +47,7 @@ contract SuccinctVAppTest is Test, FixtureLoader {
     // EOAs
     address OWNER;
     address AUCTIONEER;
+    address DISPENSER;
     address ALICE;
     address BOB;
     address REQUESTER_1;
@@ -96,6 +97,7 @@ contract SuccinctVAppTest is Test, FixtureLoader {
 
         OWNER = address(this);
         AUCTIONEER = address(this);
+        DISPENSER = makeAddr("DISPENSER");
         ALICE = makeAddr("ALICE");
         BOB = makeAddr("BOB");
 
@@ -118,7 +120,7 @@ contract SuccinctVAppTest is Test, FixtureLoader {
         GOVERNOR = address(new SuccinctGovernor(I_PROVE));
 
         // Deploy staking
-        STAKING = address(new MockStaking(GOVERNOR, PROVE, I_PROVE));
+        STAKING = address(new MockStaking(GOVERNOR, VAPP, PROVE, I_PROVE, DISPENSER));
 
         // Deploy VApp
         address vappImpl = address(new SuccinctVApp());

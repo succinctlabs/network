@@ -26,6 +26,7 @@ contract SuccinctStakingScript is BaseScript {
         address VAPP = readAddress("VAPP");
         address PROVE = readAddress("PROVE");
         address I_PROVE = readAddress("I_PROVE");
+        address DISPENSER = readAddress("DISPENSER");
         uint256 MIN_STAKE_AMOUNT = readUint256("MIN_STAKE_AMOUNT");
         uint256 MAX_UNSTAKE_REQUESTS = readUint256("MAX_UNSTAKE_REQUESTS");
         uint256 UNSTAKE_PERIOD = readUint256("UNSTAKE_PERIOD");
@@ -37,6 +38,7 @@ contract SuccinctStakingScript is BaseScript {
             VAPP,
             PROVE,
             I_PROVE,
+            DISPENSER,
             MIN_STAKE_AMOUNT,
             MAX_UNSTAKE_REQUESTS,
             UNSTAKE_PERIOD,
