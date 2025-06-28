@@ -83,6 +83,10 @@ contract SuccinctVApp is
     /// @inheritdoc ISuccinctVApp
     mapping(uint64 => Transaction) public override transactions;
 
+    /*//////////////////////////////////////////////////////////////
+                            MODIFIERS
+    //////////////////////////////////////////////////////////////*/
+
     /// @dev Modifier to ensure that the caller is the auctioneer.
     modifier onlyAuctioneer() {
         if (msg.sender != auctioneer) revert NotAuctioneer();
@@ -96,7 +100,7 @@ contract SuccinctVApp is
     }
 
     /*//////////////////////////////////////////////////////////////
-                              INITIALIZER
+                           INITIALIZER
     //////////////////////////////////////////////////////////////*/
 
     /// @custom:oz-upgrades-unsafe-allow constructor
@@ -149,7 +153,7 @@ contract SuccinctVApp is
     }
 
     /*//////////////////////////////////////////////////////////////
-                                 VIEW
+                               VIEW
     //////////////////////////////////////////////////////////////*/
 
     /// @inheritdoc ISuccinctVApp
@@ -163,7 +167,7 @@ contract SuccinctVApp is
     }
 
     /*//////////////////////////////////////////////////////////////
-                                  CORE
+                               CORE
     //////////////////////////////////////////////////////////////*/
 
     /// @inheritdoc ISuccinctVApp
@@ -249,7 +253,7 @@ contract SuccinctVApp is
     }
 
     /*//////////////////////////////////////////////////////////////
-                                 OWNER
+                            AUTHORIZED
     //////////////////////////////////////////////////////////////*/
 
     /// @inheritdoc ISuccinctVApp
@@ -314,7 +318,7 @@ contract SuccinctVApp is
     }
 
     /*//////////////////////////////////////////////////////////////
-                                 INTERNAL
+                             INTERNAL
     //////////////////////////////////////////////////////////////*/
 
     /// @dev Credits a deposit receipt and transfers $PROVE from the sender to the VApp.
