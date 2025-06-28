@@ -106,7 +106,7 @@ interface ISuccinctStaking is IProverRegistry {
 
     /// @dev Thrown if the dispenser is not the owner.
     error NotDispenser();
-    
+
     /// @dev Thrown if the specified dispense amount exceeds the maximum dispense amount.
     error AmountExceedsAvailableDispense();
 
