@@ -154,6 +154,9 @@ pub enum VAppPanic {
     #[error("Invalid transaction variant")]
     InvalidTransactionVariant,
 
+    #[error("Invalid message format: {format}")]
+    InvalidMessageFormat { format: i32 },
+
     #[error("Storage error: {0}")]
     StorageError(#[from] StorageError),
 
