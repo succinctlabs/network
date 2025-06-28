@@ -89,6 +89,7 @@ contract AllScript is BaseScript, FixtureLoader {
         address PROVE,
         address I_PROVE
     ) internal {
+        address DISPENSER = readAddress("DISPENSER");
         uint256 MIN_STAKE_AMOUNT = readUint256("MIN_STAKE_AMOUNT");
         uint256 MAX_UNSTAKE_REQUESTS = readUint256("MAX_UNSTAKE_REQUESTS");
         uint256 UNSTAKE_PERIOD = readUint256("UNSTAKE_PERIOD");
@@ -100,6 +101,7 @@ contract AllScript is BaseScript, FixtureLoader {
             VAPP,
             PROVE,
             I_PROVE,
+            DISPENSER,
             MIN_STAKE_AMOUNT,
             MAX_UNSTAKE_REQUESTS,
             UNSTAKE_PERIOD,

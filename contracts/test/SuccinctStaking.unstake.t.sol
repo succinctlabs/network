@@ -234,7 +234,7 @@ contract SuccinctStakingUnstakeTests is SuccinctStakingTest {
         skip(requiredTime);
 
         // Dispense rewards to all stakers
-        vm.prank(OWNER);
+        vm.prank(DISPENSER);
         SuccinctStaking(STAKING).dispense(dispenseAmount);
 
         // Complete unstake process for both stakers

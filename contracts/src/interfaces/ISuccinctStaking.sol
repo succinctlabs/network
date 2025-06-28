@@ -62,6 +62,9 @@ interface ISuccinctStaking is IProverRegistry {
     /// @dev Emitted when stakers are dispensed $PROVE.
     event Dispense(uint256 PROVE);
 
+    /// @dev Emitted when the dispenser is updated.
+    event DispenserUpdate(address oldDispenser, address newDispenser);
+
     /// @dev Emitted when the dispense rate is updated.
     event DispenseRateUpdate(uint256 oldDispenseRate, uint256 newDispenseRate);
 
@@ -101,8 +104,14 @@ interface ISuccinctStaking is IProverRegistry {
     /// @dev Thrown if the slash request is not ready to be completed.
     error SlashNotReady();
 
+    /// @dev Thrown if the dispenser is not the owner.
+    error NotDispenser();
+
     /// @dev Thrown if the specified dispense amount exceeds the maximum dispense amount.
     error AmountExceedsAvailableDispense();
+
+    /// @notice The address of the contract that can dispense yield.
+    function dispenser() external view returns (address);
 
     /// @notice The minimum amount of $PROVE that a staker needs to stake.
     function minStakeAmount() external view returns (uint256);
@@ -243,12 +252,16 @@ interface ISuccinctStaking is IProverRegistry {
     /// @return The amount of $iPROVE slashed.
     function finishSlash(address prover, uint256 index) external returns (uint256);
 
-    /// @notice Rewards all stakers ($iPROVE holders) with $PROVE. Only callable by the owner.
+    /// @notice Rewards all stakers ($iPROVE holders) with $PROVE. Only callable by the dispenser.
     /// @dev The amount MUST be less than or equal to maxDispense() (if not type(uint256).max), and
     ///      the amount MUST be less than or equal to the amount of $PROVE balance of this contract.
     /// @param PROVE The amount of $PROVE to dispense. If this is `type(uint256).max`, dispense the
     ///        maximum available amount.
     function dispense(uint256 PROVE) external;
+
+    /// @notice Updates the dispenser. Only callable by the owner.
+    /// @param dispenser The new dispenser.
+    function setDispenser(address dispenser) external;
 
     /// @notice Updates the dispense rate. Only callable by the owner.
     /// @param dispenseRate The new dispense rate.
