@@ -343,11 +343,23 @@ contract SuccinctStakingDispenseTests is SuccinctStakingTest {
         assertEq(maxAmount, waitTime * newRate);
     }
 
-    function test_Revert_WhenSetDispenseRate_WhenNotOwner() public {
-        uint256 newRate = 0;
+    function test_Revert_WhenSetDispenseRate_WhenNotDispenser() public {
         vm.prank(ALICE);
         vm.expectRevert(abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, ALICE));
-        SuccinctStaking(STAKING).updateDispenseRate(newRate);
+        SuccinctStaking(STAKING).updateDispenseRate(DISPENSE_RATE);
+    }
+
+    function test_SetDispenser_WhenValid() public {
+        address newDispenser = makeAddr("NEW_DISPENSER");
+        vm.prank(OWNER);
+        SuccinctStaking(STAKING).setDispenser(newDispenser);
+        assertEq(SuccinctStaking(STAKING).dispenser(), newDispenser);
+    }
+
+    function test_Revert_WhenSetDispenser_WhenNotOwner() public {
+        vm.prank(ALICE);
+        vm.expectRevert(abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, ALICE));
+        SuccinctStaking(STAKING).setDispenser(DISPENSER);
     }
 
     function testFuzz_Dispense_WhenValid(uint256 _dispenseAmount) public {

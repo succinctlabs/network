@@ -259,11 +259,11 @@ interface ISuccinctStaking is IProverRegistry {
     ///        maximum available amount.
     function dispense(uint256 PROVE) external;
 
-    /// @notice Updates the dispense rate. Only callable by the owner.
-    /// @param dispenseRate The new dispense rate.
-    function updateDispenseRate(uint256 dispenseRate) external;
-
     /// @notice Updates the dispenser. Only callable by the owner.
     /// @param dispenser The new dispenser.
     function setDispenser(address dispenser) external;
+
+    /// @notice Updates the dispense rate. Only callable by the owner.
+    /// @param dispenseRate The new dispense rate.
+    function updateDispenseRate(uint256 dispenseRate) external;
 }
