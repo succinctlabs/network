@@ -58,7 +58,7 @@ contract SuccinctStaking is
     mapping(address => SlashClaim[]) internal slashClaims;
 
     /*//////////////////////////////////////////////////////////////
-                              MODIFIERS
+                                MODIFIER
     //////////////////////////////////////////////////////////////*/
 
     modifier onlyDispenser() {
@@ -291,7 +291,7 @@ contract SuccinctStaking is
     }
 
     /*//////////////////////////////////////////////////////////////
-                                 VAPP
+                              AUTHORIZED
     //////////////////////////////////////////////////////////////*/
 
     /// @inheritdoc ISuccinctStaking
@@ -311,10 +311,6 @@ contract SuccinctStaking is
 
         emit SlashRequest(_prover, _iPROVE, index);
     }
-
-    /*//////////////////////////////////////////////////////////////
-                                 OWNER
-    //////////////////////////////////////////////////////////////*/
 
     /// @inheritdoc ISuccinctStaking
     function cancelSlash(address _prover, uint256 _index)
@@ -404,7 +400,7 @@ contract SuccinctStaking is
     }
 
     /*//////////////////////////////////////////////////////////////
-                                 INTERNAL
+                               INTERNAL
     //////////////////////////////////////////////////////////////*/
 
     /// @dev Deposit a staker's $PROVE to mint $iPROVE, then deposit $iPROVE to mint $PROVER-N, and
