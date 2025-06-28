@@ -62,11 +62,11 @@ interface ISuccinctStaking is IProverRegistry {
     /// @dev Emitted when stakers are dispensed $PROVE.
     event Dispense(uint256 PROVE);
 
-    /// @dev Emitted when the dispense rate is updated.
-    event DispenseRateUpdate(uint256 oldDispenseRate, uint256 newDispenseRate);
-
     /// @dev Emitted when the dispenser is updated.
     event DispenserUpdate(address oldDispenser, address newDispenser);
+
+    /// @dev Emitted when the dispense rate is updated.
+    event DispenseRateUpdate(uint256 oldDispenseRate, uint256 newDispenseRate);
 
     /// @dev Thrown if the staker has insufficient balance to unstake, or if attempting to slash
     ///      more than the prover has.
@@ -104,11 +104,11 @@ interface ISuccinctStaking is IProverRegistry {
     /// @dev Thrown if the slash request is not ready to be completed.
     error SlashNotReady();
 
-    /// @dev Thrown if the specified dispense amount exceeds the maximum dispense amount.
-    error AmountExceedsAvailableDispense();
-
     /// @dev Thrown if the dispenser is not the owner.
     error NotDispenser();
+    
+    /// @dev Thrown if the specified dispense amount exceeds the maximum dispense amount.
+    error AmountExceedsAvailableDispense();
 
     /// @notice The address of the contract that can dispense yield.
     function dispenser() external view returns (address);
