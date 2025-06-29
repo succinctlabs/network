@@ -90,13 +90,8 @@ contract SuccinctVAppTest is Test, FixtureLoader {
         GENESIS_STATE_ROOT = fixture.oldRoot;
 
         // Create owner
-
-        // TODO: Fix these
-        // OWNER = makeAddr("OWNER");
-        // AUCTIONEER = makeAddr("AUCTIONEER");
-
-        OWNER = address(this);
-        AUCTIONEER = address(this);
+        OWNER = makeAddr("OWNER");
+        AUCTIONEER = makeAddr("AUCTIONEER");
         DISPENSER = makeAddr("DISPENSER");
         ALICE = makeAddr("ALICE");
         BOB = makeAddr("BOB");
