@@ -6,19 +6,18 @@ use alloy_primitives::{Address, Signature};
 use eyre::Result;
 use prost::Message;
 use serde::Serialize;
-use sha2::{Digest, Sha256};
 use spn_network_types::MessageFormat;
 
 use crate::errors::VAppPanic;
 
-/// Verifies a signature for any protobuf message and returns the recovered signer address.
+/// Verifies a signature for any message and returns the recovered signer address.
 ///
 /// This function respects the format field and serializes the message accordingly:
 /// - `MessageFormat::Binary`: Uses protobuf binary encoding
 /// - `MessageFormat::Json`: Uses JSON serialization
 ///
 /// If the format is neither of those, it returns an error.
-pub fn proto_verify<T: Message + Serialize>(
+pub fn verify_signed_message<T: Message + Serialize>(
     message: &T,
     signature: &[u8],
     format: MessageFormat,
@@ -45,15 +44,6 @@ pub fn proto_verify<T: Message + Serialize>(
 
     let recovered_signer = eth_sign_verify(&message_bytes, signature)?;
     Ok(recovered_signer)
-}
-
-/// Calculate the hash of a protobuf message and sender address.
-pub fn proto_hash<T: Message>(message: &T, sender: &Address) -> Vec<u8> {
-    let tx_bytes = message.encode_to_vec();
-    let mut hasher = Sha256::new();
-    hasher.update(&tx_bytes);
-    hasher.update(<Address as AsRef<[u8]>>::as_ref(sender));
-    hasher.finalize().to_vec()
 }
 
 /// Verifies an Ethereum signature using the `personal_sign` format.
@@ -93,7 +83,7 @@ mod tests {
 
         // Verify the request proof signature.
         let signature = hex::decode(signature_hex).unwrap();
-        let result = proto_verify(&decoded_body, &signature, MessageFormat::Binary);
+        let result = verify_signed_message(&decoded_body, &signature, MessageFormat::Binary);
 
         // Check that signature verification succeeded.
         assert!(result.is_ok(), "Signature verification failed: {:?}", result.err());
@@ -117,7 +107,7 @@ mod tests {
 
         // Verify the bid request signature.
         let signature = hex::decode(signature_hex).unwrap();
-        let result = proto_verify(&decoded_body, &signature, MessageFormat::Binary);
+        let result = verify_signed_message(&decoded_body, &signature, MessageFormat::Binary);
 
         assert!(result.is_ok(), "Signature verification failed: {:?}", result.err());
         let recovered_signer = result.unwrap();
@@ -138,7 +128,7 @@ mod tests {
 
         // Verify the settle request signature.
         let signature = hex::decode(signature_hex).unwrap();
-        let result = proto_verify(&decoded_body, &signature, MessageFormat::Binary);
+        let result = verify_signed_message(&decoded_body, &signature, MessageFormat::Binary);
 
         assert!(result.is_ok(), "Signature verification failed: {:?}", result.err());
         let recovered_signer = result.unwrap();
@@ -165,7 +155,7 @@ mod tests {
             signature
         };
 
-        let result = proto_verify(&decoded_body, &signature, MessageFormat::Binary);
+        let result = verify_signed_message(&decoded_body, &signature, MessageFormat::Binary);
 
         assert!(result.is_ok(), "Signature verification failed: {:?}", result.err());
         let recovered_signer = result.unwrap();
@@ -187,7 +177,7 @@ mod tests {
 
         // Verify the fulfill proof request signature.
         let signature = hex::decode(signature_hex).unwrap();
-        let result = proto_verify(&decoded_body, &signature, MessageFormat::Binary);
+        let result = verify_signed_message(&decoded_body, &signature, MessageFormat::Binary);
 
         assert!(result.is_ok(), "Signature verification failed: {:?}", result.err());
         let recovered_signer = result.unwrap();
@@ -223,7 +213,7 @@ mod tests {
         let signature = hex::decode(signature_hex).unwrap();
 
         // Verify using JSON format.
-        let result = proto_verify(&delegation_body, &signature, MessageFormat::Json);
+        let result = verify_signed_message(&delegation_body, &signature, MessageFormat::Json);
 
         // Check that verification succeeded.
         assert!(result.is_ok(), "JSON signature verification failed: {:?}", result.err());
@@ -236,7 +226,7 @@ mod tests {
 
     #[test]
     fn test_verify_proto_with_unspecified_format() {
-        // Test that proto_verify returns error with UnspecifiedMessageFormat.
+        // Test that verify_signed_message returns error with UnspecifiedMessageFormat.
         let bid_body = BidRequestBody {
             nonce: 1,
             request_id: vec![0x20; 32],
@@ -250,7 +240,8 @@ mod tests {
         let signature = vec![0u8; 65];
 
         // Verify using UnspecifiedMessageFormat - should return error.
-        let result = proto_verify(&bid_body, &signature, MessageFormat::UnspecifiedMessageFormat);
+        let result =
+            verify_signed_message(&bid_body, &signature, MessageFormat::UnspecifiedMessageFormat);
 
         assert!(result.is_err());
         assert!(result.unwrap_err().to_string().contains("Invalid message format"));

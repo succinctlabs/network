@@ -14,7 +14,7 @@ use crate::{
     fee::{fee, AUCTIONEER_WITHDRAWAL_FEE, PROTOCOL_FEE_BIPS},
     merkle::{MerkleStorage, MerkleTreeHasher},
     receipts::{OffchainReceipt, OnchainReceipt, VAppReceipt},
-    signing::{eth_sign_verify, proto_verify},
+    signing::{eth_sign_verify, verify_signed_message},
     sol::{Account, TransactionStatus, VAppStateContainer, Withdraw},
     sparse::SparseStorage,
     storage::{RequestId, Storage},
@@ -293,7 +293,7 @@ impl<A: Storage<Address, Account>, R: Storage<RequestId, bool>> VAppState<A, R> 
                 let format =
                     spn_network_types::MessageFormat::try_from(delegation.delegation.format)
                         .map_err(|_| VAppPanic::InvalidMessageFormat)?;
-                let signer = proto_verify(body, &delegation.delegation.signature, format)?;
+                let signer = verify_signed_message(body, &delegation.delegation.signature, format)?;
 
                 // Verify that the transaction is not already processed.
                 let delegate_id = body
@@ -356,7 +356,7 @@ impl<A: Storage<Address, Account>, R: Storage<RequestId, bool>> VAppState<A, R> 
                 debug!("verify proto signature");
                 let format = spn_network_types::MessageFormat::try_from(transfer.transfer.format)
                     .map_err(|_| VAppPanic::InvalidMessageFormat)?;
-                let from = proto_verify(body, &transfer.transfer.signature, format)?;
+                let from = verify_signed_message(body, &transfer.transfer.signature, format)?;
 
                 // Verify the domain.
                 debug!("verify domain");
@@ -424,7 +424,7 @@ impl<A: Storage<Address, Account>, R: Storage<RequestId, bool>> VAppState<A, R> 
                 debug!("verify proto signature");
                 let format = spn_network_types::MessageFormat::try_from(withdraw.withdraw.format)
                     .map_err(|_| VAppPanic::InvalidMessageFormat)?;
-                let from = proto_verify(body, &withdraw.withdraw.signature, format)?;
+                let from = verify_signed_message(body, &withdraw.withdraw.signature, format)?;
 
                 // Verify the domain.
                 debug!("verify domain");
@@ -521,11 +521,12 @@ impl<A: Storage<Address, Account>, R: Storage<RequestId, bool>> VAppState<A, R> 
                         .map_err(|_| VAppPanic::InvalidMessageFormat)?;
 
                 let request_signer =
-                    proto_verify(request, &clear.request.signature, request_format)?;
-                let bid_signer = proto_verify(bid, &clear.bid.signature, bid_format)?;
-                let settle_signer = proto_verify(settle, &clear.settle.signature, settle_format)?;
+                    verify_signed_message(request, &clear.request.signature, request_format)?;
+                let bid_signer = verify_signed_message(bid, &clear.bid.signature, bid_format)?;
+                let settle_signer =
+                    verify_signed_message(settle, &clear.settle.signature, settle_format)?;
                 let execute_signer =
-                    proto_verify(execute, &clear.execute.signature, execute_format)?;
+                    verify_signed_message(execute, &clear.execute.signature, execute_format)?;
 
                 // Verify the variants for (request, bid, settle, execute).
                 let request_variant = tx_variant(request.variant)?;
@@ -690,7 +691,7 @@ impl<A: Storage<Address, Account>, R: Storage<RequestId, bool>> VAppState<A, R> 
                 let fulfill_format = spn_network_types::MessageFormat::try_from(fulfill.format)
                     .map_err(|_| VAppPanic::InvalidMessageFormat)?;
                 let fulfill_signer =
-                    proto_verify(fulfill_body, &fulfill.signature, fulfill_format)?;
+                    verify_signed_message(fulfill_body, &fulfill.signature, fulfill_format)?;
 
                 // Verify the domain of the fulfill.
                 let fulfill_domain = B256::try_from(fulfill_body.domain.as_slice())
