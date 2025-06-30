@@ -5,12 +5,44 @@
 use alloy_primitives::{Address, Signature};
 use eyre::Result;
 use prost::Message;
+use serde::Serialize;
 use sha2::{Digest, Sha256};
+use spn_network_types::MessageFormat;
+
+use crate::errors::VAppPanic;
 
 /// Verifies a signature for any protobuf message and returns the recovered signer address.
-pub fn proto_verify<T: Message>(message: &T, signature: &[u8]) -> Result<Address> {
-    let mut message_bytes = Vec::new();
-    message.encode(&mut message_bytes)?;
+///
+/// This function respects the format field and serializes the message accordingly:
+/// - `MessageFormat::Binary`: Uses protobuf binary encoding
+/// - `MessageFormat::Json`: Uses JSON serialization
+///
+/// If the format is neither of those, it returns an error.
+pub fn proto_verify<T: Message + Serialize>(
+    message: &T,
+    signature: &[u8],
+    format: MessageFormat,
+) -> Result<Address, VAppPanic> {
+    let message_bytes = match format {
+        MessageFormat::Binary => {
+            let mut bytes = Vec::new();
+            message.encode(&mut bytes).map_err(|e| VAppPanic::FailedToSerializeMessage {
+                format: MessageFormat::Binary.into(),
+                error: e.to_string(),
+            })?;
+            bytes
+        }
+        MessageFormat::Json => {
+            serde_json::to_vec(message).map_err(|e| VAppPanic::FailedToSerializeMessage {
+                format: MessageFormat::Json.into(),
+                error: e.to_string(),
+            })?
+        }
+        _ => {
+            return Err(VAppPanic::InvalidMessageFormat);
+        }
+    };
+
     let recovered_signer = eth_sign_verify(&message_bytes, signature)?;
     Ok(recovered_signer)
 }
@@ -25,9 +57,12 @@ pub fn proto_hash<T: Message>(message: &T, sender: &Address) -> Vec<u8> {
 }
 
 /// Verifies an Ethereum signature using the `personal_sign` format.
-pub fn eth_sign_verify(message: &[u8], signature: &[u8]) -> Result<Address> {
-    let signature = Signature::from_raw(signature)?;
-    let address = signature.recover_address_from_msg(message)?;
+pub fn eth_sign_verify(message: &[u8], signature: &[u8]) -> Result<Address, VAppPanic> {
+    let signature = Signature::from_raw(signature)
+        .map_err(|e| VAppPanic::InvalidSignature { error: e.to_string() })?;
+    let address = signature
+        .recover_address_from_msg(message)
+        .map_err(|e| VAppPanic::InvalidSignature { error: e.to_string() })?;
     Ok(address)
 }
 
@@ -35,8 +70,8 @@ pub fn eth_sign_verify(message: &[u8], signature: &[u8]) -> Result<Address> {
 mod tests {
     use super::*;
     use spn_network_types::{
-        BidRequestBody, ExecuteProofRequestBody, FulfillProofRequestBody, RequestProofRequestBody,
-        SettleRequestBody,
+        BidRequestBody, ExecuteProofRequestBody, FulfillProofRequestBody, MessageFormat,
+        RequestProofRequestBody, SetDelegationRequestBody, SettleRequestBody,
     };
     use std::str::FromStr;
 
@@ -58,7 +93,7 @@ mod tests {
 
         // Verify the request proof signature.
         let signature = hex::decode(signature_hex).unwrap();
-        let result = proto_verify(&decoded_body, &signature);
+        let result = proto_verify(&decoded_body, &signature, MessageFormat::Binary);
 
         // Check that signature verification succeeded.
         assert!(result.is_ok(), "Signature verification failed: {:?}", result.err());
@@ -82,7 +117,7 @@ mod tests {
 
         // Verify the bid request signature.
         let signature = hex::decode(signature_hex).unwrap();
-        let result = proto_verify(&decoded_body, &signature);
+        let result = proto_verify(&decoded_body, &signature, MessageFormat::Binary);
 
         assert!(result.is_ok(), "Signature verification failed: {:?}", result.err());
         let recovered_signer = result.unwrap();
@@ -103,7 +138,7 @@ mod tests {
 
         // Verify the settle request signature.
         let signature = hex::decode(signature_hex).unwrap();
-        let result = proto_verify(&decoded_body, &signature);
+        let result = proto_verify(&decoded_body, &signature, MessageFormat::Binary);
 
         assert!(result.is_ok(), "Signature verification failed: {:?}", result.err());
         let recovered_signer = result.unwrap();
@@ -130,7 +165,7 @@ mod tests {
             signature
         };
 
-        let result = proto_verify(&decoded_body, &signature);
+        let result = proto_verify(&decoded_body, &signature, MessageFormat::Binary);
 
         assert!(result.is_ok(), "Signature verification failed: {:?}", result.err());
         let recovered_signer = result.unwrap();
@@ -152,11 +187,72 @@ mod tests {
 
         // Verify the fulfill proof request signature.
         let signature = hex::decode(signature_hex).unwrap();
-        let result = proto_verify(&decoded_body, &signature);
+        let result = proto_verify(&decoded_body, &signature, MessageFormat::Binary);
 
         assert!(result.is_ok(), "Signature verification failed: {:?}", result.err());
         let recovered_signer = result.unwrap();
         let expected_address = Address::from_str(sender_hex).unwrap();
         assert_eq!(recovered_signer, expected_address);
+    }
+
+    #[test]
+    fn test_verify_proto_with_json_format() {
+        // Example signature for a JSON-serialized SetDelegationRequestBody.
+        let signature_hex = "0d4b962e356dd54b2e2b0712ed3299fbb497ded75b7668d60c97e03cbd8a6a5b53671c66e63b7d1f7aad17080b9f1d2f0a16ff569f6a29f5f0c9daab4edb68121c";
+        let expected_signer = "0xcb3c66b00a027279628b15a27b3e0a899f63ee82";
+
+        // Create the SetDelegationRequestBody from the JSON data.
+        let delegation_body = SetDelegationRequestBody {
+            nonce: 524,
+            delegate: vec![
+                203, 60, 102, 176, 10, 2, 114, 121, 98, 139, 21, 162, 123, 62, 10, 137, 159, 99,
+                238, 130,
+            ],
+            prover: vec![
+                199, 244, 214, 54, 63, 3, 106, 30, 80, 153, 73, 52, 192, 192, 215, 153, 252, 101,
+                110, 170,
+            ],
+            domain: vec![
+                65, 246, 90, 2, 79, 53, 248, 227, 102, 65, 194, 159, 182, 207, 20, 26, 117, 17, 9,
+                160, 44, 25, 168, 249, 81, 195, 1, 159, 160, 150, 14, 155,
+            ],
+            variant: 5, // DELEGATE_VARIANT
+        };
+
+        // Decode the signature.
+        let signature = hex::decode(signature_hex).unwrap();
+
+        // Verify using JSON format.
+        let result = proto_verify(&delegation_body, &signature, MessageFormat::Json);
+
+        // Check that verification succeeded.
+        assert!(result.is_ok(), "JSON signature verification failed: {:?}", result.err());
+
+        // Verify the recovered signer matches the expected address.
+        let recovered_signer = result.unwrap();
+        let expected_address = Address::from_str(expected_signer).unwrap();
+        assert_eq!(recovered_signer, expected_address);
+    }
+
+    #[test]
+    fn test_verify_proto_with_unspecified_format() {
+        // Test that proto_verify returns error with UnspecifiedMessageFormat.
+        let bid_body = BidRequestBody {
+            nonce: 1,
+            request_id: vec![0x20; 32],
+            amount: "1000".to_string(),
+            domain: vec![0; 32],
+            prover: vec![0; 20],
+            variant: 1, // BID_VARIANT
+        };
+
+        // Create a dummy signature.
+        let signature = vec![0u8; 65];
+
+        // Verify using UnspecifiedMessageFormat - should return error.
+        let result = proto_verify(&bid_body, &signature, MessageFormat::UnspecifiedMessageFormat);
+
+        assert!(result.is_err());
+        assert!(result.unwrap_err().to_string().contains("Invalid message format"));
     }
 }

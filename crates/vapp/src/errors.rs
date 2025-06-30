@@ -23,29 +23,14 @@ pub enum VAppPanic {
     #[error("Insufficient balance for account {account}: {amount} > {balance}")]
     InsufficientBalance { account: Address, amount: U256, balance: U256 },
 
-    #[error("Invalid proto signature for request in clear")]
-    InvalidRequestSignature,
+    #[error("Invalid message format")]
+    InvalidMessageFormat,
 
-    #[error("Invalid proto signature for bid in clear")]
-    InvalidBidSignature,
+    #[error("Failed to serialize message: {format}")]
+    FailedToSerializeMessage { format: i32, error: String },
 
-    #[error("Invalid proto signature for settle in clear")]
-    InvalidSettleSignature,
-
-    #[error("Invalid proto signature for fulfill in clear")]
-    InvalidFulfillSignature,
-
-    #[error("Invalid proto signature for execute in clear")]
-    InvalidExecuteSignature,
-
-    #[error("Invalid proto signature for transfer")]
-    InvalidTransferSignature,
-
-    #[error("Invalid proto signature for delegation")]
-    InvalidDelegationSignature,
-
-    #[error("Invalid proto signature for withdraw")]
-    InvalidWithdrawSignature,
+    #[error("Invalid signature: {error}")]
+    InvalidSignature { error: String },
 
     #[error("Missing proto body")]
     MissingProtoBody,
