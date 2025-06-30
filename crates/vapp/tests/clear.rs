@@ -1335,9 +1335,9 @@ fn test_clear_invalid_request_signature() {
         clear.request.signature[0] ^= 0xFF;
     }
 
-    // Execute should fail with InvalidRequestSignature.
+    // Execute should fail with InvalidSignature.
     let result = test.state.execute::<MockVerifier>(&clear_tx);
-    assert!(matches!(result, Err(VAppPanic::InvalidRequestSignature)));
+    assert!(matches!(result, Err(VAppPanic::InvalidSignature { .. })));
 }
 
 #[test]
@@ -1381,7 +1381,7 @@ fn test_clear_invalid_settle_signature() {
 
     // Execute should fail with AuctioneerMismatch because corrupted signature recovers wrong address.
     let result = test.state.execute::<MockVerifier>(&clear_tx);
-    assert!(matches!(result, Err(VAppPanic::InvalidSettleSignature)));
+    assert!(matches!(result, Err(VAppPanic::InvalidSignature { .. })));
 }
 
 #[test]
@@ -1469,9 +1469,9 @@ fn test_clear_invalid_fulfill_signature() {
         }
     }
 
-    // Execute should fail with InvalidFulfillSignature.
+    // Execute should fail with InvalidSignature.
     let result = test.state.execute::<MockVerifier>(&clear_tx);
-    assert!(matches!(result, Err(VAppPanic::InvalidFulfillSignature)));
+    assert!(matches!(result, Err(VAppPanic::InvalidSignature { .. })));
 }
 
 #[test]

@@ -9,6 +9,8 @@ use serde::Serialize;
 use sha2::{Digest, Sha256};
 use spn_network_types::MessageFormat;
 
+use crate::errors::VAppPanic;
+
 /// Verifies a signature for any protobuf message and returns the recovered signer address.
 ///
 /// This function respects the format field and serializes the message accordingly:
@@ -20,19 +22,24 @@ pub fn proto_verify<T: Message + Serialize>(
     message: &T,
     signature: &[u8],
     format: MessageFormat,
-) -> Result<Address> {
+) -> Result<Address, VAppPanic> {
     let message_bytes = match format {
         MessageFormat::Binary => {
             let mut bytes = Vec::new();
-            message.encode(&mut bytes).map_err(|e| {
-                eyre::eyre!("failed to serialize message as protobuf binary: {}", e)
+            message.encode(&mut bytes).map_err(|e| VAppPanic::FailedToSerializeMessage {
+                format: MessageFormat::Binary.into(),
+                error: e.to_string(),
             })?;
             bytes
         }
-        MessageFormat::Json => serde_json::to_vec(message)
-            .map_err(|e| eyre::eyre!("failed to serialize message as JSON: {}", e))?,
+        MessageFormat::Json => {
+            serde_json::to_vec(message).map_err(|e| VAppPanic::FailedToSerializeMessage {
+                format: MessageFormat::Json.into(),
+                error: e.to_string(),
+            })?
+        }
         _ => {
-            return Err(eyre::eyre!("invalid message format"));
+            return Err(VAppPanic::InvalidMessageFormat);
         }
     };
 
@@ -50,9 +57,12 @@ pub fn proto_hash<T: Message>(message: &T, sender: &Address) -> Vec<u8> {
 }
 
 /// Verifies an Ethereum signature using the `personal_sign` format.
-pub fn eth_sign_verify(message: &[u8], signature: &[u8]) -> Result<Address> {
-    let signature = Signature::from_raw(signature)?;
-    let address = signature.recover_address_from_msg(message)?;
+pub fn eth_sign_verify(message: &[u8], signature: &[u8]) -> Result<Address, VAppPanic> {
+    let signature = Signature::from_raw(signature)
+        .map_err(|e| VAppPanic::InvalidSignature { error: e.to_string() })?;
+    let address = signature
+        .recover_address_from_msg(message)
+        .map_err(|e| VAppPanic::InvalidSignature { error: e.to_string() })?;
     Ok(address)
 }
 
@@ -243,6 +253,6 @@ mod tests {
         let result = proto_verify(&bid_body, &signature, MessageFormat::UnspecifiedMessageFormat);
 
         assert!(result.is_err());
-        assert!(result.unwrap_err().to_string().contains("invalid message format"));
+        assert!(result.unwrap_err().to_string().contains("Invalid message format"));
     }
 }
