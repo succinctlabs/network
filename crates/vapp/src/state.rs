@@ -357,7 +357,9 @@ impl<A: Storage<Address, Account>, R: Storage<RequestId, bool>> VAppState<A, R> 
 
                 // Set the delegate as a signer for the prover's account.
                 debug!("set delegate as signer");
-                let prover_account = self.accounts.get_mut(&prover)?.expect("prover should exist");
+                let Some(prover_account) = self.accounts.get_mut(&prover)? else {
+                    return Err(VAppPanic::ProverDoesNotExist { prover });
+                };
                 prover_account.set_signer(delegate);
 
                 // No action returned since delegation is off-chain.
