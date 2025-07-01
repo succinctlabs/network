@@ -176,6 +176,27 @@ contract SuccinctStakingStakeTests is SuccinctStakingTest {
         assertEq(IERC20(PROVE).balanceOf(I_PROVE), stakeAmount);
     }
 
+    // An attacker frontrun by spending a staker's permit signature, but because the allowance
+    // equalling the amount being stake skips the PROVE.permit() call, this does not block the
+    // SuccinctStaking.permitAndStake() call.
+    function test_PermitAndStake_WhenAttackerFrontruns() public {
+        uint256 stakeAmount = STAKER_PROVE_AMOUNT;
+        uint256 deadline = block.timestamp + 1 days;
+
+        // Staker signs a permit for a *larger* amount than they intend to stake.
+        (uint8 v, bytes32 r, bytes32 s) =
+            _signPermit(STAKER_1_PK, STAKER_1, ALICE_PROVER, stakeAmount, deadline);
+
+        // An attacker submits the permit on‑chain (simulating front‑run or user action).
+        ERC20Permit(PROVE).permit(STAKER_1, ALICE_PROVER, stakeAmount, deadline, v, r, s);
+
+        // The stake still succeeds because permit is now skipped.
+        vm.prank(STAKER_1);
+        SuccinctStaking(STAKING).permitAndStake(
+            ALICE_PROVER, STAKER_1, stakeAmount, deadline, v, r, s
+        );
+    }
+
     function test_RevertPermitAndStake_WhenSignatureInvalid() public {
         uint256 stakeAmount = STAKER_PROVE_AMOUNT;
         uint256 deadline = block.timestamp + 1 days;

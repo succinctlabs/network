@@ -184,8 +184,8 @@ contract SuccinctVApp is
         bytes32 _r,
         bytes32 _s
     ) external override whenNotPaused returns (uint64 receipt) {
-        // If the $PROVE allowance is not enough, permit this contract to spend the $PROVE from
-        // the depositor.
+        // If the $PROVE allowance is not equal to the amount being deposited, permit this contract
+        // to spend the $PROVE from the depositor.
         if (IERC20(prove).allowance(_from, address(this)) != _amount) {
             IERC20Permit(prove).permit(_from, address(this), _amount, _deadline, _v, _r, _s);
         }

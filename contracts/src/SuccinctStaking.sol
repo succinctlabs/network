@@ -217,8 +217,8 @@ contract SuccinctStaking is
         bytes32 _r,
         bytes32 _s
     ) external override onlyForProver(_prover) returns (uint256) {
-        // If the $PROVE allowance is not enough, permit the prover to spend the $PROVE from the
-        // staker.
+        // If the $PROVE allowance is not equal to the amount being staked, permit the prover to
+        // spend the $PROVE from the staker.
         if (IERC20(prove).allowance(_from, _prover) != _PROVE) {
             IERC20Permit(prove).permit(_from, _prover, _PROVE, _deadline, _v, _r, _s);
         }
