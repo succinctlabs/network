@@ -133,11 +133,12 @@ contract SuccinctVAppDepositTest is SuccinctVAppTest {
 
         uint256 deadline = block.timestamp + 1 days;
 
-        // Staker signs a permit for a *larger* amount than they intend to deposit.
+        // Staker signs a permit for the amount than they intend to deposit.
         (uint8 v, bytes32 r, bytes32 s) =
             _signPermit(REQUESTER_1_PK, REQUESTER_1, depositAmount, deadline);
 
-        // An attacker submits the permit on‑chain (simulating front‑run or user action).
+        // An attacker spends the permit (simulating a frontrun).
+        vm.prank(OWNER);
         ERC20Permit(PROVE).permit(REQUESTER_1, VAPP, depositAmount, deadline, v, r, s);
 
         // The deposit still succeeds because permit is now skipped.

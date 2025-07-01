@@ -183,11 +183,12 @@ contract SuccinctStakingStakeTests is SuccinctStakingTest {
         uint256 stakeAmount = STAKER_PROVE_AMOUNT;
         uint256 deadline = block.timestamp + 1 days;
 
-        // Staker signs a permit for a *larger* amount than they intend to stake.
+        // Staker signs a permit for the amount than they intend to stake.
         (uint8 v, bytes32 r, bytes32 s) =
             _signPermit(STAKER_1_PK, STAKER_1, ALICE_PROVER, stakeAmount, deadline);
 
-        // An attacker submits the permit on‑chain (simulating front‑run or user action).
+        // An attacker spends the permit (simulating a frontrun).
+        vm.prank(OWNER);
         ERC20Permit(PROVE).permit(STAKER_1, ALICE_PROVER, stakeAmount, deadline, v, r, s);
 
         // The stake still succeeds because permit is now skipped.
