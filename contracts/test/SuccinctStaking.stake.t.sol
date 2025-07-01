@@ -177,7 +177,7 @@ contract SuccinctStakingStakeTests is SuccinctStakingTest {
     }
 
     // An attacker frontrun by spending a staker's permit signature, but because the allowance
-    // equalling the amount being stake skips the PROVE.permit() call, this does not block the
+    // equalling the amount being staked skips the PROVE.permit() call, this does not block the
     // SuccinctStaking.permitAndStake() call.
     function test_PermitAndStake_WhenAttackerFrontruns() public {
         uint256 stakeAmount = STAKER_PROVE_AMOUNT;
