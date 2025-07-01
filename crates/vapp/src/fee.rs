@@ -8,7 +8,11 @@ use alloy_primitives::U256;
 
 /// The auctioneer fee per withdrawal in PROVE tokens.
 pub const AUCTIONEER_WITHDRAWAL_FEE: U256 =
-    U256::from_limbs([1_000_000_000_000_000_000u64, 0u64, 0u64, 0u64]);
+    U256::from_limbs([1_000_000_000_000_000_000u64, 0u64, 0u64, 0u64]); // 1 PROVE
+
+/// The auctioneer fee per delegation in PROVE tokens.
+pub const AUCTIONEER_DELEGATE_FEE: U256 =
+    U256::from_limbs([1_000_000_000_000_000_000u64, 0u64, 0u64, 0u64]); // 1 PROVE
 
 /// The protocol fee in bips.
 pub const PROTOCOL_FEE_BIPS: U256 = U256::ZERO;

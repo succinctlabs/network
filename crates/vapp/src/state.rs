@@ -11,7 +11,7 @@ use spn_network_types::{ExecutionStatus, HashableWithSender, ProofMode, Transact
 
 use crate::{
     errors::VAppPanic,
-    fee::{fee, AUCTIONEER_WITHDRAWAL_FEE, PROTOCOL_FEE_BIPS},
+    fee::{fee, AUCTIONEER_DELEGATE_FEE, AUCTIONEER_WITHDRAWAL_FEE, PROTOCOL_FEE_BIPS},
     merkle::{MerkleStorage, MerkleTreeHasher},
     receipts::{OffchainReceipt, OnchainReceipt, VAppReceipt},
     signing::{eth_sign_verify, verify_signed_message},
@@ -313,17 +313,42 @@ impl<A: Storage<Address, Account>, R: Storage<RequestId, bool>> VAppState<A, R> 
                 let prover = Address::try_from(body.prover.as_slice())
                     .map_err(|_| VAppPanic::AddressDeserializationFailed)?;
 
-                // Verify that the prover exists.
+                // Verify that the prover exists and get its owner.
                 debug!("verify prover exists");
-                let Some(prover) = self.accounts.get_mut(&prover)? else {
+                let Some(prover_account) = self.accounts.get(&prover)? else {
                     return Err(VAppPanic::ProverDoesNotExist { prover });
                 };
 
                 // Verify that the signer of the delegation is the owner of the prover.
                 debug!("verify signer is owner");
-                if signer != prover.get_owner() {
+                if signer != prover_account.get_owner() {
                     return Err(VAppPanic::OnlyOwnerCanDelegate);
                 }
+
+                // Check that the prover owner has sufficient balance for the delegation fee.
+                //
+                // The prover owner must have a non-zero balance to set a delegate, which they can
+                // accomplish by making a deposit.
+                debug!("validate prover owner has sufficient balance for delegation fee");
+                let owner_balance = self.accounts.entry(signer)?.or_default().get_balance();
+                if owner_balance < AUCTIONEER_DELEGATE_FEE {
+                    return Err(VAppPanic::InsufficientBalance {
+                        account: signer,
+                        amount: AUCTIONEER_DELEGATE_FEE,
+                        balance: owner_balance,
+                    });
+                }
+
+                // Deduct the delegation fee from the prover owner.
+                debug!("deduct delegation fee from prover owner");
+                self.accounts.entry(signer)?.or_default().deduct_balance(AUCTIONEER_DELEGATE_FEE);
+
+                // Transfer the fee to the auctioneer.
+                debug!("transfer delegation fee to auctioneer");
+                self.accounts
+                    .entry(self.auctioneer)?
+                    .or_default()
+                    .add_balance(AUCTIONEER_DELEGATE_FEE);
 
                 // Extract the delegate address.
                 debug!("extract delegate address");
@@ -332,7 +357,10 @@ impl<A: Storage<Address, Account>, R: Storage<RequestId, bool>> VAppState<A, R> 
 
                 // Set the delegate as a signer for the prover's account.
                 debug!("set delegate as signer");
-                prover.set_signer(delegate);
+                let Some(prover_account) = self.accounts.get_mut(&prover)? else {
+                    return Err(VAppPanic::ProverDoesNotExist { prover });
+                };
+                prover_account.set_signer(delegate);
 
                 // No action returned since delegation is off-chain.
                 return Ok(None);
