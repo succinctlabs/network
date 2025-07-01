@@ -471,7 +471,7 @@ impl<A: Storage<Address, Account>, R: Storage<RequestId, bool>> VAppState<A, R> 
                 // Validate that the account has sufficient balance for withdrawal + auctioneer fee.
                 debug!("validate account has sufficient balance");
                 let balance = self.accounts.entry(account)?.or_default().get_balance();
-                let total_amount = amount + AUCTIONEER_WITHDRAWAL_FEE;
+                let total_amount = u256::add(amount, AUCTIONEER_WITHDRAWAL_FEE)?;
                 if balance < total_amount {
                     return Err(VAppPanic::InsufficientBalance {
                         account,
