@@ -315,21 +315,20 @@ impl<A: Storage<Address, Account>, R: Storage<RequestId, bool>> VAppState<A, R> 
 
                 // Verify that the prover exists and get its owner.
                 debug!("verify prover exists");
-                {
-                    let Some(prover) = self.accounts.get(&prover)? else {
-                        return Err(VAppPanic::ProverDoesNotExist { prover });
-                    };
+                let Some(prover_account) = self.accounts.get(&prover)? else {
+                    return Err(VAppPanic::ProverDoesNotExist { prover });
+                };
 
-                    // Verify that the signer of the delegation is the owner of the prover.
-                    debug!("verify signer is owner");
-                    if signer != prover.get_owner() {
-                        return Err(VAppPanic::OnlyOwnerCanDelegate);
-                    }
+                // Verify that the signer of the delegation is the owner of the prover.
+                debug!("verify signer is owner");
+                if signer != prover_account.get_owner() {
+                    return Err(VAppPanic::OnlyOwnerCanDelegate);
                 }
 
                 // Check that the prover owner has sufficient balance for the delegation fee.
-                // The prover owner must have a non-zero balance to set a delegate, which they
-                // can accomplish either by making a deposit or by having their prover earn rewards.
+                //
+                // The prover owner must have a non-zero balance to set a delegate, which they can
+                // accomplish by making a deposit.
                 debug!("validate prover owner has sufficient balance for delegation fee");
                 let owner_balance = self.accounts.entry(signer)?.or_default().get_balance();
                 if owner_balance < AUCTIONEER_DELEGATE_FEE {
@@ -358,8 +357,8 @@ impl<A: Storage<Address, Account>, R: Storage<RequestId, bool>> VAppState<A, R> 
 
                 // Set the delegate as a signer for the prover's account.
                 debug!("set delegate as signer");
-                let prover = self.accounts.get_mut(&prover)?.expect("prover should exist");
-                prover.set_signer(delegate);
+                let prover_account = self.accounts.get_mut(&prover)?.expect("prover should exist");
+                prover_account.set_signer(delegate);
 
                 // No action returned since delegation is off-chain.
                 return Ok(None);
