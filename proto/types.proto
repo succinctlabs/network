@@ -49,8 +49,10 @@ message WithdrawRequestBody {
   bytes domain = 4;
   // The variant of the transaction.
   TransactionVariant variant = 5;
+  // The auctioneer address that will receive the fee.
+  bytes auctioneer = 6;
   // The fee to pay for the withdrawal operation.
-  string fee = 6;
+  string fee = 7;
 }
 
 message WithdrawResponseBody {}
@@ -3095,8 +3097,10 @@ message SetDelegationRequestBody {
   bytes domain = 4;
   // The variant of the transaction.
   TransactionVariant variant = 5;
+  // The auctioneer address that will receive the fee.
+  bytes auctioneer = 6;
   // The fee to pay for the delegation operation.
-  string fee = 6;
+  string fee = 7;
 }
 
 message SetDelegationResponse {}
@@ -3313,4 +3317,30 @@ enum ChargeType {
   GROTH16_PROOF = 4;
   // For plonk proofs.
   PLONK_PROOF = 5;
+}
+
+// Request to get delegated balance
+message GetDelegatedBalanceRequest {
+  // The address to query
+  bytes address = 1;
+}
+
+// Response with delegated balance
+message GetDelegatedBalanceResponse {
+  // The delegated balance amount
+  string balance = 1;
+}
+
+// Request to set GPU delegate
+message SetGpuDelegateRequest {
+  // The GPU ID
+  int64 gpu_id = 1;
+  // The delegate address
+  bytes delegate = 2;
+}
+
+// Response for setting GPU delegate
+message SetGpuDelegateResponse {
+  // Success status
+  bool success = 1;
 }

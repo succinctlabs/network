@@ -320,6 +320,11 @@ impl<A: Storage<Address, Account>, R: Storage<RequestId, bool>> VAppState<A, R> 
                     .parse::<U256>()
                     .map_err(|_| VAppPanic::InvalidU256Amount { amount: body.fee.clone() })?;
 
+                // Parse the auctioneer address from the request body.
+                debug!("parse auctioneer address");
+                let auctioneer = Address::try_from(body.auctioneer.as_slice())
+                    .map_err(|_| VAppPanic::AddressDeserializationFailed)?;
+
                 // Verify that the prover exists and get its owner.
                 debug!("verify prover exists");
                 let Some(prover_account) = self.accounts.get(&prover)? else {
@@ -352,7 +357,7 @@ impl<A: Storage<Address, Account>, R: Storage<RequestId, bool>> VAppState<A, R> 
 
                 // Transfer the fee to the auctioneer.
                 debug!("transfer delegation fee to auctioneer");
-                self.accounts.entry(self.auctioneer)?.or_default().add_balance(auctioneer_fee);
+                self.accounts.entry(auctioneer)?.or_default().add_balance(auctioneer_fee);
 
                 // Extract the delegate address.
                 debug!("extract delegate address");
@@ -507,6 +512,11 @@ impl<A: Storage<Address, Account>, R: Storage<RequestId, bool>> VAppState<A, R> 
                     .parse::<U256>()
                     .map_err(|_| VAppPanic::InvalidU256Amount { amount: body.fee.clone() })?;
 
+                // Parse the auctioneer address from the request body.
+                debug!("parse auctioneer address");
+                let auctioneer = Address::try_from(body.auctioneer.as_slice())
+                    .map_err(|_| VAppPanic::AddressDeserializationFailed)?;
+
                 // Validate that the account has sufficient balance for withdrawal + auctioneer fee.
                 debug!("validate account has sufficient balance");
                 let balance = self.accounts.entry(account)?.or_default().get_balance();
@@ -526,7 +536,7 @@ impl<A: Storage<Address, Account>, R: Storage<RequestId, bool>> VAppState<A, R> 
                 // Deduct and transfer the auctioneer fee.
                 debug!("deduct and transfer auctioneer fee");
                 self.accounts.entry(account)?.or_default().deduct_balance(auctioneer_fee);
-                self.accounts.entry(self.auctioneer)?.or_default().add_balance(auctioneer_fee);
+                self.accounts.entry(auctioneer)?.or_default().add_balance(auctioneer_fee);
 
                 // Return the withdraw action.
                 return Ok(Some(VAppReceipt::Withdraw(OffchainReceipt {

@@ -3,8 +3,7 @@
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use alloy::signers::{local::PrivateKeySigner, SignerSync};
-use alloy_primitives::{keccak256, Signature};
-use alloy_primitives::{Address, U256};
+use alloy_primitives::{keccak256, Address, Signature, U256};
 use prost::Message;
 use spn_network_types::{
     BidRequest, BidRequestBody, ExecuteProofRequest, ExecuteProofRequestBody, ExecutionStatus,
@@ -13,15 +12,15 @@ use spn_network_types::{
     SettleRequest, SettleRequestBody, TransactionVariant, WithdrawRequest, WithdrawRequestBody,
 };
 use spn_utils::SPN_SEPOLIA_V1_DOMAIN;
-use spn_vapp_core::transactions::WithdrawTransaction;
-use spn_vapp_core::{merkle::MerkleStorage, state::VAppState, storage::RequestId};
 use spn_vapp_core::{
+    merkle::MerkleStorage,
     receipts::VAppReceipt,
     sol::{Account, CreateProver, Deposit, TransactionStatus},
-    storage::Storage,
+    state::VAppState,
+    storage::{RequestId, Storage},
     transactions::{
         ClearTransaction, DelegateTransaction, OnchainTransaction, TransferTransaction,
-        VAppTransaction,
+        VAppTransaction, WithdrawTransaction,
     },
 };
 
@@ -152,6 +151,7 @@ pub fn withdraw_tx(
         amount: amount.to_string(),
         domain: spn_utils::SPN_SEPOLIA_V1_DOMAIN.to_vec(),
         variant: TransactionVariant::WithdrawVariant as i32,
+        auctioneer: crate::common::signer("auctioneer").address().to_vec(),
         fee: "1000000000000000000".to_string(), // 1 PROVE default fee
     };
     let signature = proto_sign(signer, &body);
@@ -177,6 +177,7 @@ pub fn delegate_tx(
         prover: prover_address.to_vec(),
         domain: spn_utils::SPN_SEPOLIA_V1_DOMAIN.to_vec(),
         variant: TransactionVariant::DelegateVariant as i32,
+        auctioneer: crate::common::signer("auctioneer").address().to_vec(),
         fee: "1000000000000000000".to_string(), // 1 PROVE default fee
     };
     let signature = proto_sign(prover_owner, &body);
@@ -300,6 +301,7 @@ pub fn delegate_tx_with_domain(
         prover: prover_address.to_vec(),
         domain: domain.to_vec(),
         variant: TransactionVariant::DelegateVariant as i32,
+        auctioneer: crate::common::signer("auctioneer").address().to_vec(),
         fee: "1000000000000000000".to_string(), // 1 PROVE default fee
     };
     let signature = proto_sign(prover_owner, &body);

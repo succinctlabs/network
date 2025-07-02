@@ -32,8 +32,11 @@ pub struct WithdrawRequestBody {
     /// The variant of the transaction.
     #[prost(enumeration = "TransactionVariant", tag = "5")]
     pub variant: i32,
+    /// The auctioneer address that will receive the fee.
+    #[prost(bytes = "vec", tag = "6")]
+    pub auctioneer: ::prost::alloc::vec::Vec<u8>,
     /// The fee to pay for the withdrawal operation.
-    #[prost(string, tag = "6")]
+    #[prost(string, tag = "7")]
     pub fee: ::prost::alloc::string::String,
 }
 #[derive(serde::Serialize, serde::Deserialize)]
@@ -100,7 +103,7 @@ pub struct RequestProofRequestBody {
     /// any prover can participate. Only applicable if the strategy is auction.
     #[prost(bytes = "vec", repeated, tag = "11")]
     pub whitelist: ::prost::alloc::vec::Vec<::prost::alloc::vec::Vec<u8>>,
-    /// The domain separator for the request.
+    /// The domain separator bytes for the request.
     #[prost(bytes = "vec", tag = "12")]
     pub domain: ::prost::alloc::vec::Vec<u8>,
     /// The auctioneer address.
@@ -644,6 +647,35 @@ pub struct GetOverviewGraphsResponse {
     pub programs: ::prost::alloc::vec::Vec<GraphData>,
 }
 #[derive(serde::Serialize, serde::Deserialize)]
+#[derive(Clone, Copy, PartialEq, ::prost::Message)]
+pub struct GetProofRequestParamsRequest {
+    /// The mode for the request.
+    #[prost(enumeration = "ProofMode", tag = "1")]
+    pub mode: i32,
+}
+#[derive(serde::Serialize, serde::Deserialize)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct GetProofRequestParamsResponse {
+    /// The domain separator bytes.
+    #[prost(bytes = "vec", tag = "1")]
+    pub domain: ::prost::alloc::vec::Vec<u8>,
+    /// The default auctioneer address.
+    #[prost(bytes = "vec", tag = "2")]
+    pub auctioneer: ::prost::alloc::vec::Vec<u8>,
+    /// The default executor address.
+    #[prost(bytes = "vec", tag = "3")]
+    pub executor: ::prost::alloc::vec::Vec<u8>,
+    /// The default verifier address.
+    #[prost(bytes = "vec", tag = "4")]
+    pub verifier: ::prost::alloc::vec::Vec<u8>,
+    /// The default max price per prover gas unit.
+    #[prost(string, tag = "5")]
+    pub max_price_per_pgu: ::prost::alloc::string::String,
+    /// The base fee for the specified proof mode.
+    #[prost(string, tag = "6")]
+    pub base_fee: ::prost::alloc::string::String,
+}
+#[derive(serde::Serialize, serde::Deserialize)]
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct GetNonceRequest {
     /// The address of the account.
@@ -1029,20 +1061,6 @@ pub struct GetBalanceRequest {
 #[derive(serde::Serialize, serde::Deserialize)]
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct GetBalanceResponse {
-    /// The amount of credits owned by the account.
-    #[prost(string, tag = "1")]
-    pub amount: ::prost::alloc::string::String,
-}
-#[derive(serde::Serialize, serde::Deserialize)]
-#[derive(Clone, PartialEq, ::prost::Message)]
-pub struct GetDelegatedBalanceRequest {
-    /// The address of the account.
-    #[prost(bytes = "vec", tag = "1")]
-    pub address: ::prost::alloc::vec::Vec<u8>,
-}
-#[derive(serde::Serialize, serde::Deserialize)]
-#[derive(Clone, PartialEq, ::prost::Message)]
-pub struct GetDelegatedBalanceResponse {
     /// The amount of credits owned by the account.
     #[prost(string, tag = "1")]
     pub amount: ::prost::alloc::string::String,
@@ -1779,6 +1797,16 @@ pub struct SettleResponse {
     /// The body of the response.
     #[prost(message, optional, tag = "2")]
     pub body: ::core::option::Option<SettleResponseBody>,
+}
+#[derive(serde::Serialize, serde::Deserialize)]
+#[derive(Clone, Copy, PartialEq, ::prost::Message)]
+pub struct GetProversByUptimeRequest {}
+#[derive(serde::Serialize, serde::Deserialize)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct GetProversByUptimeResponse {
+    /// The provers that have historically had reliable uptime.
+    #[prost(bytes = "vec", repeated, tag = "1")]
+    pub provers: ::prost::alloc::vec::Vec<::prost::alloc::vec::Vec<u8>>,
 }
 #[derive(serde::Serialize, serde::Deserialize)]
 #[derive(Clone, Copy, PartialEq, ::prost::Message)]
@@ -3016,42 +3044,6 @@ pub struct GetWhitelistStatusResponse {
 }
 #[derive(serde::Serialize, serde::Deserialize)]
 #[derive(Clone, PartialEq, ::prost::Message)]
-pub struct SetGpuDelegateRequest {
-    /// The message format of the body.
-    #[prost(enumeration = "MessageFormat", tag = "1")]
-    pub format: i32,
-    /// The signature of the sender.
-    #[prost(bytes = "vec", tag = "2")]
-    pub signature: ::prost::alloc::vec::Vec<u8>,
-    /// The body of the request.
-    #[prost(message, optional, tag = "3")]
-    pub body: ::core::option::Option<SetGpuDelegateRequestBody>,
-}
-#[derive(serde::Serialize, serde::Deserialize)]
-#[derive(Clone, PartialEq, ::prost::Message)]
-pub struct SetGpuDelegateRequestBody {
-    /// The account nonce of the sender.
-    #[prost(uint64, tag = "1")]
-    pub nonce: u64,
-    /// The ethereum address to delegate to.
-    #[prost(bytes = "vec", tag = "2")]
-    pub delegate: ::prost::alloc::vec::Vec<u8>,
-}
-#[derive(serde::Serialize, serde::Deserialize)]
-#[derive(Clone, PartialEq, ::prost::Message)]
-pub struct SetGpuDelegateResponse {
-    /// The transaction hash.
-    #[prost(bytes = "vec", tag = "1")]
-    pub tx_hash: ::prost::alloc::vec::Vec<u8>,
-    /// The body of the response.
-    #[prost(message, optional, tag = "2")]
-    pub body: ::core::option::Option<SetGpuDelegateResponseBody>,
-}
-#[derive(serde::Serialize, serde::Deserialize)]
-#[derive(Clone, Copy, PartialEq, ::prost::Message)]
-pub struct SetGpuDelegateResponseBody {}
-#[derive(serde::Serialize, serde::Deserialize)]
-#[derive(Clone, PartialEq, ::prost::Message)]
 pub struct ClaimGpuRequest {
     /// The message format of the body.
     #[prost(enumeration = "MessageFormat", tag = "1")]
@@ -3970,16 +3962,16 @@ pub struct GetProverStatsRequest {
     pub address: ::core::option::Option<::prost::alloc::vec::Vec<u8>>,
 }
 #[derive(serde::Serialize, serde::Deserialize)]
-#[derive(Clone, Copy, PartialEq, ::prost::Message)]
+#[derive(Clone, PartialEq, ::prost::Message)]
 pub struct GetProverStatsResponse {
-    #[prost(uint64, tag = "1")]
-    pub total_earnings: u64,
-    #[prost(uint64, tag = "2")]
-    pub total_cycles: u64,
-    #[prost(uint64, tag = "3")]
-    pub total_gas_proved: u64,
-    #[prost(uint64, tag = "4")]
-    pub active_provers: u64,
+    #[prost(string, tag = "1")]
+    pub total_earnings: ::prost::alloc::string::String,
+    #[prost(string, tag = "2")]
+    pub total_cycles: ::prost::alloc::string::String,
+    #[prost(string, tag = "3")]
+    pub total_gas_proved: ::prost::alloc::string::String,
+    #[prost(string, tag = "4")]
+    pub active_provers: ::prost::alloc::string::String,
 }
 #[derive(serde::Serialize, serde::Deserialize)]
 #[derive(Clone, PartialEq, ::prost::Message)]
@@ -3992,27 +3984,29 @@ pub struct ProverStats {
     pub total_auction_requests: u64,
     #[prost(uint64, tag = "6")]
     pub successful_requests: u64,
-    #[prost(uint64, tag = "7")]
-    pub total_gas_proved: u64,
+    #[prost(string, tag = "7")]
+    pub total_gas_proved: ::prost::alloc::string::String,
     #[prost(uint64, tag = "8")]
     pub last_active_at: u64,
     #[prost(uint64, tag = "9")]
     pub created_at: u64,
-    #[prost(uint64, tag = "10")]
-    pub total_earnings: u64,
+    #[prost(string, tag = "10")]
+    pub total_earnings: ::prost::alloc::string::String,
     #[prost(bytes = "vec", tag = "11")]
     pub owner: ::prost::alloc::vec::Vec<u8>,
     #[prost(uint64, tag = "12")]
     pub block_number: u64,
     #[prost(bytes = "vec", tag = "13")]
     pub tx_hash: ::prost::alloc::vec::Vec<u8>,
-    #[prost(uint64, tag = "14")]
-    pub lifetime_rewards: u64,
+    #[prost(string, tag = "14")]
+    pub lifetime_rewards: ::prost::alloc::string::String,
     #[prost(string, optional, tag = "15")]
     pub image_url: ::core::option::Option<::prost::alloc::string::String>,
+    #[prost(string, optional, tag = "16")]
+    pub ip_address: ::core::option::Option<::prost::alloc::string::String>,
 }
 #[derive(serde::Serialize, serde::Deserialize)]
-#[derive(Clone, Copy, PartialEq, ::prost::Message)]
+#[derive(Clone, PartialEq, ::prost::Message)]
 pub struct GetFilteredProverStatsRequest {
     /// The optional maximum number of requests to return (default is 10,
     /// maximum is 100).
@@ -4021,6 +4015,21 @@ pub struct GetFilteredProverStatsRequest {
     /// The optional page number to return (default is 1).
     #[prost(uint32, optional, tag = "2")]
     pub page: ::core::option::Option<u32>,
+    /// Whether to include featured provers.
+    #[prost(bool, optional, tag = "3")]
+    pub is_featured: ::core::option::Option<bool>,
+    /// Whether to include whitelisted provers.
+    #[prost(bool, optional, tag = "4")]
+    pub is_whitelisted: ::core::option::Option<bool>,
+    /// Whether to show featured provers first in sorting.
+    #[prost(bool, optional, tag = "5")]
+    pub featured_first: ::core::option::Option<bool>,
+    /// Whether to show whitelisted provers first in sorting.
+    #[prost(bool, optional, tag = "6")]
+    pub whitelisted_first: ::core::option::Option<bool>,
+    /// Optional search query to filter by prover name or address.
+    #[prost(string, optional, tag = "7")]
+    pub search: ::core::option::Option<::prost::alloc::string::String>,
 }
 #[derive(serde::Serialize, serde::Deserialize)]
 #[derive(Clone, PartialEq, ::prost::Message)]
@@ -4069,6 +4078,9 @@ pub struct GetFilteredBidHistoryRequest {
     /// The page for the results.
     #[prost(uint32, optional, tag = "3")]
     pub page: ::core::option::Option<u32>,
+    /// Whether to show the winner first in sorting.
+    #[prost(bool, optional, tag = "4")]
+    pub winner_first: ::core::option::Option<bool>,
 }
 #[derive(serde::Serialize, serde::Deserialize)]
 #[derive(Clone, PartialEq, ::prost::Message)]
@@ -4205,7 +4217,7 @@ pub struct GetStakerStakeBalanceResponse {
 pub struct GetProverStakeBalanceRequest {
     /// The address of the prover.
     #[prost(bytes = "vec", tag = "1")]
-    pub address: ::prost::alloc::vec::Vec<u8>,
+    pub prover: ::prost::alloc::vec::Vec<u8>,
 }
 #[derive(serde::Serialize, serde::Deserialize)]
 #[derive(Clone, PartialEq, ::prost::Message)]
@@ -4326,8 +4338,11 @@ pub struct SetDelegationRequestBody {
     /// The variant of the transaction.
     #[prost(enumeration = "TransactionVariant", tag = "5")]
     pub variant: i32,
+    /// The auctioneer address that will receive the fee.
+    #[prost(bytes = "vec", tag = "6")]
+    pub auctioneer: ::prost::alloc::vec::Vec<u8>,
     /// The fee to pay for the delegation operation.
-    #[prost(string, tag = "6")]
+    #[prost(string, tag = "7")]
     pub fee: ::prost::alloc::string::String,
 }
 #[derive(serde::Serialize, serde::Deserialize)]
@@ -4392,6 +4407,41 @@ pub struct GetFilteredWithdrawalReceiptsResponse {
     /// The withdrawal receipts.
     #[prost(message, repeated, tag = "1")]
     pub receipts: ::prost::alloc::vec::Vec<WithdrawalReceipt>,
+}
+/// Request to get delegated balance
+#[derive(serde::Serialize, serde::Deserialize)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct GetDelegatedBalanceRequest {
+    /// The address to query
+    #[prost(bytes = "vec", tag = "1")]
+    pub address: ::prost::alloc::vec::Vec<u8>,
+}
+/// Response with delegated balance
+#[derive(serde::Serialize, serde::Deserialize)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct GetDelegatedBalanceResponse {
+    /// The delegated balance amount
+    #[prost(string, tag = "1")]
+    pub balance: ::prost::alloc::string::String,
+}
+/// Request to set GPU delegate
+#[derive(serde::Serialize, serde::Deserialize)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct SetGpuDelegateRequest {
+    /// The GPU ID
+    #[prost(int64, tag = "1")]
+    pub gpu_id: i64,
+    /// The delegate address
+    #[prost(bytes = "vec", tag = "2")]
+    pub delegate: ::prost::alloc::vec::Vec<u8>,
+}
+/// Response for setting GPU delegate
+#[derive(serde::Serialize, serde::Deserialize)]
+#[derive(Clone, Copy, PartialEq, ::prost::Message)]
+pub struct SetGpuDelegateResponse {
+    /// Success status
+    #[prost(bool, tag = "1")]
+    pub success: bool,
 }
 /// Format to help decode signature in backend.
 #[derive(serde::Serialize, serde::Deserialize)]
@@ -4709,7 +4759,7 @@ pub enum BalanceOperation {
     UnspecifiedBalanceChangeOperation = 0,
     /// A deposit operation (positive).
     Deposit = 1,
-    /// A withdrawal operation (negative).
+    /// A withdrawal operation (no effect).
     Withdrawal = 2,
     /// A reward operation (positive).
     Reward = 3,
@@ -4717,6 +4767,8 @@ pub enum BalanceOperation {
     TransferOut = 4,
     /// A transfer-in operation (positive).
     TransferIn = 5,
+    /// A withdraw request operation (negative).
+    WithdrawRequest = 6,
 }
 impl BalanceOperation {
     /// String value of the enum field names used in the ProtoBuf definition.
@@ -4733,6 +4785,7 @@ impl BalanceOperation {
             Self::Reward => "REWARD",
             Self::TransferOut => "TRANSFER_OUT",
             Self::TransferIn => "TRANSFER_IN",
+            Self::WithdrawRequest => "WITHDRAW_REQUEST",
         }
     }
     /// Creates an enum from field names used in the ProtoBuf definition.
@@ -4746,6 +4799,7 @@ impl BalanceOperation {
             "REWARD" => Some(Self::Reward),
             "TRANSFER_OUT" => Some(Self::TransferOut),
             "TRANSFER_IN" => Some(Self::TransferIn),
+            "WITHDRAW_REQUEST" => Some(Self::WithdrawRequest),
             _ => None,
         }
     }

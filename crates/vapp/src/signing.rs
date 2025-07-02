@@ -206,7 +206,8 @@ mod tests {
                 65, 246, 90, 2, 79, 53, 248, 227, 102, 65, 194, 159, 182, 207, 20, 26, 117, 17, 9,
                 160, 44, 25, 168, 249, 81, 195, 1, 159, 160, 150, 14, 155,
             ],
-            variant: 5,                             // DELEGATE_VARIANT
+            variant: 5, // DELEGATE_VARIANT
+            auctioneer: hex::decode("cb3c66b00a027279628b15a27b3e0a899f63ee82").unwrap(), /* Auctioneer address */
             fee: "1000000000000000000".to_string(), // 1 PROVE default fee
         };
 
