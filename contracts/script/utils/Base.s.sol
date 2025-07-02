@@ -1,9 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.28;
 
-import "forge-std/Vm.sol";
-import {stdJson} from "forge-std/StdJson.sol";
-import {Script} from "forge-std/Script.sol";
+import {stdJson} from "../../lib/forge-std/src/StdJson.sol";
+import {Script} from "../../lib/forge-std/src/Script.sol";
 
 /// @notice Script to inherit from to get access to helper functions for deployments.
 abstract contract BaseScript is Script {

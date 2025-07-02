@@ -9,7 +9,7 @@ enum Fixture {
     Plonk
 }
 
-struct SP1ProofFixtureJson {
+struct ProofFixtureJson {
     bytes proof;
     bytes publicValues;
     bytes32 vkey;
@@ -21,7 +21,7 @@ contract FixtureLoader {
     function loadFixture(VmSafe vm, Fixture fixture)
         public
         view
-        returns (SP1ProofFixtureJson memory)
+        returns (ProofFixtureJson memory)
     {
         string memory fixturePath;
         if (fixture == Fixture.Groth16) {
@@ -36,6 +36,6 @@ contract FixtureLoader {
         string memory path = string.concat(root, fixturePath);
         string memory json = vm.readFile(path);
         bytes memory jsonBytes = json.parseRaw(".");
-        return abi.decode(jsonBytes, (SP1ProofFixtureJson));
+        return abi.decode(jsonBytes, (ProofFixtureJson));
     }
 }

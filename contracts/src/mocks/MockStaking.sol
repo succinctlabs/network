@@ -4,8 +4,11 @@ pragma solidity ^0.8.28;
 import {IERC20} from "../../lib/openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
 import {ISuccinctStaking} from "../interfaces/ISuccinctStaking.sol";
 import {ProverRegistry} from "../libraries/ProverRegistry.sol";
+import {SafeERC20} from "../../lib/openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol";
 
 contract MockStaking is ProverRegistry, ISuccinctStaking {
+    using SafeERC20 for IERC20;
+
     address public dispenser;
     uint256 public minStakeAmount;
     uint256 public maxUnstakeRequests;
@@ -80,7 +83,7 @@ contract MockStaking is ProverRegistry, ISuccinctStaking {
     }
 
     function stake(address _prover, uint256 _amount) external override returns (uint256) {
-        IERC20(prove).transferFrom(msg.sender, address(this), _amount);
+        IERC20(prove).safeTransferFrom(msg.sender, address(this), _amount);
         proverVaultBalances[_prover][msg.sender] += _amount;
         stakerToProver[msg.sender] = _prover;
         return _amount;

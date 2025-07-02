@@ -3,7 +3,7 @@ pragma solidity ^0.8.28;
 
 import {BaseScript} from "../utils/Base.s.sol";
 import {SuccinctVApp} from "../../src/SuccinctVApp.sol";
-import {FixtureLoader, SP1ProofFixtureJson, Fixture} from "../../test/utils/FixtureLoader.sol";
+import {FixtureLoader, ProofFixtureJson, Fixture} from "../../test/utils/FixtureLoader.sol";
 import {ERC1967Proxy} from
     "../../lib/openzeppelin-contracts/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 
@@ -26,7 +26,7 @@ contract SuccinctVAppScript is BaseScript, FixtureLoader {
         uint256 MIN_DEPOSIT_AMOUNT = readUint256("MIN_DEPOSIT_AMOUNT");
 
         // Load fixture
-        SP1ProofFixtureJson memory fixture = loadFixture(vm, Fixture.Groth16);
+        ProofFixtureJson memory fixture = loadFixture(vm, Fixture.Groth16);
         bytes32 VKEY = fixture.vkey;
 
         // Deploy contract

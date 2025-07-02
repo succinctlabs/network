@@ -9,7 +9,7 @@ import {MockStaking} from "../src/mocks/MockStaking.sol";
 import {MockVerifier} from "../src/mocks/MockVerifier.sol";
 import {SuccinctGovernor} from "../src/SuccinctGovernor.sol";
 import {ISP1Verifier} from "../lib/sp1-contracts/contracts/src/ISP1Verifier.sol";
-import {FixtureLoader, Fixture, SP1ProofFixtureJson} from "./utils/FixtureLoader.sol";
+import {FixtureLoader, Fixture, ProofFixtureJson} from "./utils/FixtureLoader.sol";
 import {MockERC20} from "./utils/MockERC20.sol";
 import {ERC1967Proxy} from "../lib/openzeppelin-contracts/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import {Initializable} from "../lib/openzeppelin-contracts/contracts/proxy/utils/Initializable.sol";
@@ -38,7 +38,7 @@ contract SuccinctVAppTest is Test, FixtureLoader {
     uint256 constant QUORUM_FRACTION = 4;
 
     // Fixtures
-    SP1ProofFixtureJson public jsonFixture;
+    ProofFixtureJson public jsonFixture;
     SimpleFixture public fixture;
 
     // EOAs

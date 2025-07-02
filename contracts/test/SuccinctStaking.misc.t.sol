@@ -443,7 +443,8 @@ contract SuccinctStakingMiscellaneousTests is SuccinctStakingTest {
 
         // Attacker tries to manipulate by sending tokens directly
         deal(PROVE, address(this), stakeAmount);
-        IERC20(PROVE).transfer(I_PROVE, stakeAmount);
+        bool success = IERC20(PROVE).transfer(I_PROVE, stakeAmount);
+        assertTrue(success);
 
         // Staker 2 stakes after manipulation
         deal(PROVE, STAKER_2, stakeAmount);
