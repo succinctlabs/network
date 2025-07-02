@@ -24,8 +24,8 @@ contract AllScript is BaseScript, FixtureLoader {
         address STAKING = address(new SuccinctStaking{salt: salt}(OWNER));
         address PROVE = address(new Succinct{salt: salt}(OWNER));
         address I_PROVE = address(new IntermediateSuccinct{salt: salt}(PROVE, STAKING));
+        address GOVERNOR = _deployGovernor(salt, I_PROVE);
         (address VERIFIER, address VAPP) = _deployVAppAsProxy(salt, OWNER, PROVE, I_PROVE, STAKING);
-        address GOVERNOR = address(new SuccinctGovernor{salt: salt}(I_PROVE));
 
         // Initialize staking contract
         _initializeStaking(STAKING, GOVERNOR, VAPP, PROVE, I_PROVE);
@@ -37,6 +37,20 @@ contract AllScript is BaseScript, FixtureLoader {
         writeAddress("PROVE", PROVE);
         writeAddress("I_PROVE", I_PROVE);
         writeAddress("GOVERNOR", GOVERNOR);
+    }
+
+    /// @dev This is a stack-too-deep workaround.
+    function _deployGovernor(bytes32 salt, address I_PROVE) internal returns (address) {
+        uint48 VOTING_DELAY = readUint48("VOTING_DELAY");
+        uint32 VOTING_PERIOD = readUint32("VOTING_PERIOD");
+        uint256 PROPOSAL_THRESHOLD = readUint256("PROPOSAL_THRESHOLD");
+        uint256 QUORUM_FRACTION = readUint256("QUORUM_FRACTION");
+
+        return address(
+            new SuccinctGovernor{salt: salt}(
+                I_PROVE, VOTING_DELAY, VOTING_PERIOD, PROPOSAL_THRESHOLD, QUORUM_FRACTION
+            )
+        );
     }
 
     /// @dev This is a stack-too-deep workaround.

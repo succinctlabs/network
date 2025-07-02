@@ -1,20 +1,18 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.28;
 
-import {Governor} from "@openzeppelin/contracts/governance/Governor.sol";
+import {Governor} from "../lib/openzeppelin-contracts/contracts/governance/Governor.sol";
 import {GovernorCountingSimple} from
-    "@openzeppelin/contracts/governance/extensions/GovernorCountingSimple.sol";
-import {GovernorSettings} from "@openzeppelin/contracts/governance/extensions/GovernorSettings.sol";
-import {GovernorVotes} from "@openzeppelin/contracts/governance/extensions/GovernorVotes.sol";
+    "../lib/openzeppelin-contracts/contracts/governance/extensions/GovernorCountingSimple.sol";
+import {GovernorSettings} from
+    "../lib/openzeppelin-contracts/contracts/governance/extensions/GovernorSettings.sol";
+import {GovernorVotes} from
+    "../lib/openzeppelin-contracts/contracts/governance/extensions/GovernorVotes.sol";
 import {GovernorVotesQuorumFraction} from
-    "@openzeppelin/contracts/governance/extensions/GovernorVotesQuorumFraction.sol";
-import {IVotes} from "@openzeppelin/contracts/governance/utils/IVotes.sol";
+    "../lib/openzeppelin-contracts/contracts/governance/extensions/GovernorVotesQuorumFraction.sol";
+import {IVotes} from "../lib/openzeppelin-contracts/contracts/governance/utils/IVotes.sol";
 
 string constant NAME = "SuccinctGovernor";
-uint48 constant VOTING_DELAY = 7200; // 1 day
-uint32 constant VOTING_PERIOD = 50400; // 1 week
-uint256 constant PROPOSAL_THRESHOLD = 100_000e18; // 100,000 tokens minimum to propose
-uint256 constant QUORUM_FRACTION = 4; // 4% of total supply required to pass a proposal
 
 /// @title SuccinctGovernor
 /// @author Succinct Labs
@@ -28,11 +26,17 @@ contract SuccinctGovernor is
     GovernorVotes,
     GovernorVotesQuorumFraction
 {
-    constructor(address _iPROVE)
+    constructor(
+        address _iPROVE,
+        uint48 _votingDelay,
+        uint32 _votingPeriod,
+        uint256 _proposalThreshold,
+        uint256 _quorumFraction
+    )
         Governor(NAME)
-        GovernorSettings(VOTING_DELAY, VOTING_PERIOD, PROPOSAL_THRESHOLD)
+        GovernorSettings(_votingDelay, _votingPeriod, _proposalThreshold)
         GovernorVotes(IVotes(_iPROVE))
-        GovernorVotesQuorumFraction(QUORUM_FRACTION)
+        GovernorVotesQuorumFraction(_quorumFraction)
     {}
 
     // The following functions are overrides required by Solidity.
