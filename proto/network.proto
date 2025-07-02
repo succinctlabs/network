@@ -47,6 +47,9 @@ service ProverNetwork {
   // Get overview graphs for proof requests.
   rpc GetOverviewGraphs(types.GetOverviewGraphsRequest)
       returns (types.GetOverviewGraphsResponse) {}
+  // Get network proof request parameters.
+  rpc GetProofRequestParams(types.GetProofRequestParamsRequest)
+      returns (types.GetProofRequestParamsResponse) {}
 
   /*
    * Accounts
@@ -91,8 +94,6 @@ service ProverNetwork {
 
   // Get the available balance of an account.
   rpc GetBalance(types.GetBalanceRequest) returns (types.GetBalanceResponse) {}
-  // Get the available delegated balance of an account.
-  rpc GetDelegatedBalance(types.GetDelegatedBalanceRequest) returns (types.GetDelegatedBalanceResponse) {}
   // Get the balance logs that meet the filter criteria.
   rpc GetFilteredBalanceLogs(types.GetFilteredBalanceLogsRequest)
       returns (types.GetFilteredBalanceLogsResponse) {}
@@ -117,6 +118,11 @@ service ProverNetwork {
   rpc GetUsageSummary(types.GetUsageSummaryRequest) returns (types.GetUsageSummaryResponse) {}
   // Transfer $PROVE from one account to another.
   rpc Transfer(types.TransferRequest) returns (types.TransferResponse) {}
+  // Get withdraw parameters.
+  rpc GetWithdrawParams(types.GetWithdrawParamsRequest)
+      returns (types.GetWithdrawParamsResponse) {}
+  // Withdraw $PROVE from an account.
+  rpc Withdraw(types.WithdrawRequest) returns (types.WithdrawResponse) {}
 
   /*
    * Reservations
@@ -144,6 +150,8 @@ service ProverNetwork {
   // Settle the bids on a proof request to choose the assigned prover. Only callable by
   // the approved auctioneer.
   rpc Settle(types.SettleRequest) returns (types.SettleResponse) {}
+  // Get the provers that have historically had reliable uptime.
+  rpc GetProversByUptime(types.GetProversByUptimeRequest) returns (types.GetProversByUptimeResponse) {}
 
 
   /*
@@ -233,9 +241,6 @@ service ProverNetwork {
    // Check if address or social identity is whitelisted.
    rpc GetWhitelistStatus(types.GetWhitelistStatusRequest)
       returns (types.GetWhitelistStatusResponse) {}
-   // Set the gpu delegate.
-   rpc SetGpuDelegate(types.SetGpuDelegateRequest)
-      returns (types.SetGpuDelegateResponse) {}
    // Claim a gpu.
    rpc ClaimGpu(types.ClaimGpuRequest)
       returns (types.ClaimGpuResponse) {}
@@ -314,6 +319,8 @@ service ProverNetwork {
   rpc GetProverStats(types.GetProverStatsRequest) returns (types.GetProverStatsResponse) {}
   // Get statistics for all provers with pagination
   rpc GetFilteredProverStats(types.GetFilteredProverStatsRequest) returns (types.GetFilteredProverStatsResponse) {}
+  // Get detailed statistics for a single prover by address
+  rpc GetProverStatsDetail(types.GetProverStatsDetailRequest) returns (types.GetProverStatsDetailResponse) {}
   // Get search results for provers
   rpc GetProverSearchResults(types.GetProverSearchResultsRequest) returns (types.GetProverSearchResultsResponse) {}
   // Get paginated auction history
@@ -348,8 +355,6 @@ service ProverNetwork {
    // Get the provers that meet the filter criteria.
    rpc GetFilteredProvers(types.GetFilteredProversRequest)
       returns (types.GetFilteredProversResponse) {}
-   // Get the available balance of a staker.
-   rpc GetStakerStakeBalance(types.GetStakerStakeBalanceRequest) returns (types.GetStakerStakeBalanceResponse) {}
    // Get the available balance of a prover.
    rpc GetProverStakeBalance(types.GetProverStakeBalanceRequest) returns (types.GetProverStakeBalanceResponse) {}
    // Get the staker balance logs that meet the filter criteria.
@@ -365,6 +370,9 @@ service ProverNetwork {
    * These methods are for managing delegations.
    */
 
+   // Get the delegation parameters.
+   rpc GetDelegationParams(types.GetDelegationParamsRequest)
+      returns (types.GetDelegationParamsResponse) {}
    // Set a delegation.
    rpc SetDelegation(types.SetDelegationRequest) returns (types.SetDelegationResponse) {}
    // Get a delegation.
