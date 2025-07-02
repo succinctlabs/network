@@ -49,6 +49,8 @@ message WithdrawRequestBody {
   bytes domain = 4;
   // The variant of the transaction.
   TransactionVariant variant = 5;
+  // The fee to pay for the withdrawal operation.
+  string fee = 6;
 }
 
 message WithdrawResponseBody {}
@@ -3088,6 +3090,8 @@ message SetDelegationRequestBody {
   bytes domain = 4;
   // The variant of the transaction.
   TransactionVariant variant = 5;
+  // The fee to pay for the delegation operation.
+  string fee = 6;
 }
 
 message SetDelegationResponse {}

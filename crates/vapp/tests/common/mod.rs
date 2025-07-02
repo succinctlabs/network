@@ -152,6 +152,7 @@ pub fn withdraw_tx(
         amount: amount.to_string(),
         domain: spn_utils::SPN_SEPOLIA_V1_DOMAIN.to_vec(),
         variant: TransactionVariant::WithdrawVariant as i32,
+        fee: "1000000000000000000".to_string(), // 1 PROVE default fee
     };
     let signature = proto_sign(signer, &body);
     VAppTransaction::Withdraw(WithdrawTransaction {

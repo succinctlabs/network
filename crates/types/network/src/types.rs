@@ -32,6 +32,9 @@ pub struct WithdrawRequestBody {
     /// The variant of the transaction.
     #[prost(enumeration = "TransactionVariant", tag = "5")]
     pub variant: i32,
+    /// The fee to pay for the withdrawal operation.
+    #[prost(string, tag = "6")]
+    pub fee: ::prost::alloc::string::String,
 }
 #[derive(serde::Serialize, serde::Deserialize)]
 #[derive(Clone, Copy, PartialEq, ::prost::Message)]
@@ -4323,6 +4326,9 @@ pub struct SetDelegationRequestBody {
     /// The variant of the transaction.
     #[prost(enumeration = "TransactionVariant", tag = "5")]
     pub variant: i32,
+    /// The fee to pay for the delegation operation.
+    #[prost(string, tag = "6")]
+    pub fee: ::prost::alloc::string::String,
 }
 #[derive(serde::Serialize, serde::Deserialize)]
 #[derive(Clone, Copy, PartialEq, ::prost::Message)]
