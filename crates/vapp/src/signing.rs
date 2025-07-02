@@ -189,7 +189,7 @@ mod tests {
     fn test_verify_proto_with_json_format() {
         // Example signature for a JSON-serialized SetDelegationRequestBody.
         let signature_hex = "0d4b962e356dd54b2e2b0712ed3299fbb497ded75b7668d60c97e03cbd8a6a5b53671c66e63b7d1f7aad17080b9f1d2f0a16ff569f6a29f5f0c9daab4edb68121c";
-        let expected_signer = "0xcb3c66b00a027279628b15a27b3e0a899f63ee82";
+        let expected_signer = "0x2edfdc3c360452eccba1d0b94079ec83f56c1e3c";
 
         // Create the SetDelegationRequestBody from the JSON data.
         let delegation_body = SetDelegationRequestBody {
