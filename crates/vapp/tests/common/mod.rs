@@ -177,6 +177,7 @@ pub fn delegate_tx(
         prover: prover_address.to_vec(),
         domain: spn_utils::SPN_SEPOLIA_V1_DOMAIN.to_vec(),
         variant: TransactionVariant::DelegateVariant as i32,
+        fee: "1000000000000000000".to_string(), // 1 PROVE default fee
     };
     let signature = proto_sign(prover_owner, &body);
     VAppTransaction::Delegate(DelegateTransaction {
@@ -299,6 +300,7 @@ pub fn delegate_tx_with_domain(
         prover: prover_address.to_vec(),
         domain: domain.to_vec(),
         variant: TransactionVariant::DelegateVariant as i32,
+        fee: "1000000000000000000".to_string(), // 1 PROVE default fee
     };
     let signature = proto_sign(prover_owner, &body);
 
