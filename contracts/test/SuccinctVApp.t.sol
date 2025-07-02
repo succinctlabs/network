@@ -4,13 +4,7 @@ pragma solidity ^0.8.28;
 import {Test} from "../lib/forge-std/src/Test.sol";
 import {stdJson} from "../lib/forge-std/src/StdJson.sol";
 import {SuccinctVApp} from "../src/SuccinctVApp.sol";
-import {ISuccinctVApp} from "../src/interfaces/ISuccinctVApp.sol";
-import {
-    StepPublicValues,
-    TransactionStatus,
-    Receipt as VAppReceipt,
-    TransactionVariant
-} from "../src/libraries/PublicValues.sol";
+import {StepPublicValues} from "../src/libraries/PublicValues.sol";
 import {MockStaking} from "../src/mocks/MockStaking.sol";
 import {MockVerifier} from "../src/mocks/MockVerifier.sol";
 import {SuccinctGovernor} from "../src/SuccinctGovernor.sol";
@@ -19,7 +13,6 @@ import {FixtureLoader, Fixture, SP1ProofFixtureJson} from "./utils/FixtureLoader
 import {MockERC20} from "./utils/MockERC20.sol";
 import {ERC1967Proxy} from "../lib/openzeppelin-contracts/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import {Initializable} from "../lib/openzeppelin-contracts/contracts/proxy/utils/Initializable.sol";
-import {ISuccinctVApp} from "../src/interfaces/ISuccinctVApp.sol";
 import {IERC20Permit} from
     "../lib/openzeppelin-contracts/contracts/token/ERC20/extensions/IERC20Permit.sol";
 
@@ -39,6 +32,10 @@ contract SuccinctVAppTest is Test, FixtureLoader {
     uint256 constant PROTOCOL_FEE_BIPS = 30; // 0.3%
     uint256 constant STAKER_FEE_BIPS = 1000; // 10%
     uint256 constant MIN_DEPOSIT_AMOUNT = 1e16; // 0.01 $PROVE
+    uint48 constant VOTING_DELAY = 7200;
+    uint32 constant VOTING_PERIOD = 100800;
+    uint256 constant PROPOSAL_THRESHOLD = 100_000e18;
+    uint256 constant QUORUM_FRACTION = 4;
 
     // Fixtures
     SP1ProofFixtureJson public jsonFixture;
@@ -117,7 +114,11 @@ contract SuccinctVAppTest is Test, FixtureLoader {
         I_PROVE = address(new MockERC20("Succinct", "iPROVE", 18));
 
         // Deploy governor
-        GOVERNOR = address(new SuccinctGovernor(I_PROVE));
+        GOVERNOR = address(
+            new SuccinctGovernor(
+                I_PROVE, VOTING_DELAY, VOTING_PERIOD, PROPOSAL_THRESHOLD, QUORUM_FRACTION
+            )
+        );
 
         // Deploy staking
         STAKING = address(new MockStaking(GOVERNOR, VAPP, PROVE, I_PROVE, DISPENSER));

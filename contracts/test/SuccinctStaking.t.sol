@@ -29,6 +29,10 @@ contract SuccinctStakingTest is Test {
     uint256 public constant STAKER_FEE_BIPS = 1000; // 10%
     uint256 public constant FEE_UNIT = 10000; // 100%
     uint256 public constant PROTOCOL_FEE_BIPS = 30; // 0.3%
+    uint48 public constant VOTING_DELAY = 7200;
+    uint32 public constant VOTING_PERIOD = 100800;
+    uint256 public constant PROPOSAL_THRESHOLD = 100_000e18;
+    uint256 public constant QUORUM_FRACTION = 4;
 
     // EOAs
     address public OWNER;
@@ -85,7 +89,11 @@ contract SuccinctStakingTest is Test {
         VAPP = address(new MockVApp(STAKING, PROVE, I_PROVE, FEE_VAULT, PROTOCOL_FEE_BIPS));
 
         // Deploy SuccinctGovernor with iPROVE as the voting token
-        GOVERNOR = address(new SuccinctGovernor(I_PROVE));
+        GOVERNOR = address(
+            new SuccinctGovernor(
+                I_PROVE, VOTING_DELAY, VOTING_PERIOD, PROPOSAL_THRESHOLD, QUORUM_FRACTION
+            )
+        );
 
         // Initialize Succinct Staking
         vm.prank(OWNER);

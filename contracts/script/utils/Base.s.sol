@@ -99,6 +99,16 @@ abstract contract BaseScript is Script {
         return uint64(vm.envUint(key));
     }
 
+    /// @notice Tries to read a uint48 from the env.
+    function readUint48(string memory key) internal view returns (uint48) {
+        return uint48(vm.envUint(key));
+    }
+
+    /// @notice Tries to read a uint32 from the env.
+    function readUint32(string memory key) internal view returns (uint32) {
+        return uint32(vm.envUint(key));
+    }
+
     /// @notice Writes an address to the deployments file for the current chain.
     function writeAddress(string memory key, address value) internal {
         ensureExists();
