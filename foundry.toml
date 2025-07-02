@@ -1,4 +1,4 @@
 [profile.default]
 src = 'contracts/src'
 test = 'contracts/test'
-libs = ['contracts/lib'] 
+libs = ['contracts/lib']

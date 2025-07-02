@@ -2,7 +2,6 @@
 pragma solidity ^0.8.28;
 
 import {SuccinctStakingTest} from "./SuccinctStaking.t.sol";
-import {SuccinctStaking} from "../src/SuccinctStaking.sol";
 import {ERC20} from "../lib/openzeppelin-contracts/contracts/token/ERC20/ERC20.sol";
 import {IIntermediateSuccinct} from "../src/interfaces/IIntermediateSuccinct.sol";
 import {IERC4626} from "../lib/openzeppelin-contracts/contracts/interfaces/IERC4626.sol";
@@ -15,7 +14,8 @@ contract SuccinctStakingTransferTests is SuccinctStakingTest {
         uint256 currentBalance = ERC20(PROVE).balanceOf(STAKER_2);
 
         vm.prank(STAKER_1);
-        ERC20(PROVE).transfer(STAKER_2, transferAmount);
+        bool success = ERC20(PROVE).transfer(STAKER_2, transferAmount);
+        assertTrue(success);
 
         assertEq(ERC20(PROVE).balanceOf(STAKER_2), currentBalance + transferAmount);
     }
@@ -29,7 +29,8 @@ contract SuccinctStakingTransferTests is SuccinctStakingTest {
         // Try to transfer iPROVE
         vm.expectRevert(abi.encodeWithSelector(IIntermediateSuccinct.NonTransferable.selector));
         vm.prank(STAKER_1);
-        ERC20(I_PROVE).transfer(OWNER, stakeAmount);
+        bool success = ERC20(I_PROVE).transfer(OWNER, stakeAmount);
+        assertFalse(success);
     }
 
     function test_RevertTransfer_WhenPROVER() public {
@@ -41,7 +42,8 @@ contract SuccinctStakingTransferTests is SuccinctStakingTest {
         // Try to transfer $PROVER-N
         vm.expectRevert(abi.encodeWithSelector(IIntermediateSuccinct.NonTransferable.selector));
         vm.prank(STAKER_1);
-        ERC20(ALICE_PROVER).transfer(OWNER, stakeAmount);
+        bool success = ERC20(ALICE_PROVER).transfer(OWNER, stakeAmount);
+        assertFalse(success);
     }
 
     function test_RevertTransfer_WhenstPROVE() public {
@@ -53,7 +55,8 @@ contract SuccinctStakingTransferTests is SuccinctStakingTest {
         // Try to transfer stPROVE
         vm.expectRevert(abi.encodeWithSelector(IIntermediateSuccinct.NonTransferable.selector));
         vm.prank(STAKER_1);
-        ERC20(STAKING).transfer(OWNER, stakeAmount);
+        bool success = ERC20(STAKING).transfer(OWNER, stakeAmount);
+        assertFalse(success);
     }
 
     function test_RevertDeposit_WhenDirectiPROVE() public {

@@ -6,7 +6,7 @@ pragma solidity ^0.8.28;
 // import {SuccinctStaking} from "../../src/SuccinctStaking.sol";
 // import {MockERC20} from "../../test/utils/MockERC20.sol";
 // import {MockStaking} from "../../src/mocks/MockStaking.sol";
-// import {FixtureLoader, SP1ProofFixtureJson, Fixture} from "../../test/utils/FixtureLoader.sol";
+// import {FixtureLoader, ProofFixtureJson, Fixture} from "../../test/utils/FixtureLoader.sol";
 // import {ERC1967Proxy} from
 //     "../../lib/openzeppelin-contracts/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 // import {console} from "../../lib/forge-std/src/console.sol";

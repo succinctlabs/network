@@ -4,14 +4,7 @@ pragma solidity ^0.8.28;
 import {SuccinctVAppTest} from "./SuccinctVApp.t.sol";
 import {SuccinctVApp} from "../src/SuccinctVApp.sol";
 import {ISuccinctVApp} from "../src/interfaces/ISuccinctVApp.sol";
-import {Receipts} from "../src/libraries/Receipts.sol";
-import {
-    StepPublicValues,
-    TransactionStatus,
-    Receipt as TxReceipt,
-    TransactionVariant
-} from "../src/libraries/PublicValues.sol";
-import {ISuccinctVApp} from "../src/interfaces/ISuccinctVApp.sol";
+import {Receipt as TxReceipt, StepPublicValues} from "../src/libraries/PublicValues.sol";
 
 contract SuccinctVAppStateTest is SuccinctVAppTest {
     function test_Step_WhenValid() public {

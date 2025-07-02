@@ -3,15 +3,7 @@ pragma solidity ^0.8.28;
 
 import {SuccinctVAppTest} from "./SuccinctVApp.t.sol";
 import {SuccinctVApp} from "../src/SuccinctVApp.sol";
-import {ISuccinctVApp} from "../src/interfaces/ISuccinctVApp.sol";
 import {ISuccinctStaking} from "../src/interfaces/ISuccinctStaking.sol";
-import {
-    StepPublicValues,
-    TransactionStatus,
-    Receipt,
-    TransactionVariant
-} from "../src/libraries/PublicValues.sol";
-import {ISuccinctVApp} from "../src/interfaces/ISuccinctVApp.sol";
 import {PausableUpgradeable} from
     "../lib/openzeppelin-contracts-upgradeable/contracts/utils/PausableUpgradeable.sol";
 

@@ -4,7 +4,6 @@ pragma solidity ^0.8.28;
 import {SuccinctVAppTest} from "./SuccinctVApp.t.sol";
 import {SuccinctVApp} from "../src/SuccinctVApp.sol";
 import {ISuccinctVApp} from "../src/interfaces/ISuccinctVApp.sol";
-import {Receipts} from "../src/libraries/Receipts.sol";
 import {
     StepPublicValues,
     TransactionStatus,
