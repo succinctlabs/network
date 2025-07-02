@@ -49,6 +49,10 @@ message WithdrawRequestBody {
   bytes domain = 4;
   // The variant of the transaction.
   TransactionVariant variant = 5;
+  // The auctioneer address that will receive the fee.
+  bytes auctioneer = 6;
+  // The fee to pay for the withdrawal operation.
+  string fee = 7;
 }
 
 message WithdrawResponseBody {}
@@ -3088,6 +3092,10 @@ message SetDelegationRequestBody {
   bytes domain = 4;
   // The variant of the transaction.
   TransactionVariant variant = 5;
+  // The auctioneer address that will receive the fee.
+  bytes auctioneer = 6;
+  // The fee to pay for the delegation operation.
+  string fee = 7;
 }
 
 message SetDelegationResponse {}

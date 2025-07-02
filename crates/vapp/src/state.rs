@@ -11,7 +11,7 @@ use spn_network_types::{ExecutionStatus, HashableWithSender, ProofMode, Transact
 
 use crate::{
     errors::VAppPanic,
-    fee::{fee, AUCTIONEER_DELEGATE_FEE, AUCTIONEER_WITHDRAWAL_FEE, PROTOCOL_FEE_BIPS},
+    fee::{fee, PROTOCOL_FEE_BIPS},
     merkle::{MerkleStorage, MerkleTreeHasher},
     receipts::{OffchainReceipt, OnchainReceipt, VAppReceipt},
     signing::{eth_sign_verify, verify_signed_message},
@@ -313,6 +313,18 @@ impl<A: Storage<Address, Account>, R: Storage<RequestId, bool>> VAppState<A, R> 
                 let prover = Address::try_from(body.prover.as_slice())
                     .map_err(|_| VAppPanic::AddressDeserializationFailed)?;
 
+                // Parse the fee from the request body.
+                debug!("parse delegation fee");
+                let auctioneer_fee = body
+                    .fee
+                    .parse::<U256>()
+                    .map_err(|_| VAppPanic::InvalidU256Amount { amount: body.fee.clone() })?;
+
+                // Parse the auctioneer address from the request body.
+                debug!("parse auctioneer address");
+                let auctioneer = Address::try_from(body.auctioneer.as_slice())
+                    .map_err(|_| VAppPanic::AddressDeserializationFailed)?;
+
                 // Verify that the prover exists and get its owner.
                 debug!("verify prover exists");
                 let Some(prover_account) = self.accounts.get(&prover)? else {
@@ -331,24 +343,21 @@ impl<A: Storage<Address, Account>, R: Storage<RequestId, bool>> VAppState<A, R> 
                 // accomplish by making a deposit.
                 debug!("validate prover owner has sufficient balance for delegation fee");
                 let owner_balance = self.accounts.entry(signer)?.or_default().get_balance();
-                if owner_balance < AUCTIONEER_DELEGATE_FEE {
+                if owner_balance < auctioneer_fee {
                     return Err(VAppPanic::InsufficientBalance {
                         account: signer,
-                        amount: AUCTIONEER_DELEGATE_FEE,
+                        amount: auctioneer_fee,
                         balance: owner_balance,
                     });
                 }
 
                 // Deduct the delegation fee from the prover owner.
                 debug!("deduct delegation fee from prover owner");
-                self.accounts.entry(signer)?.or_default().deduct_balance(AUCTIONEER_DELEGATE_FEE);
+                self.accounts.entry(signer)?.or_default().deduct_balance(auctioneer_fee);
 
                 // Transfer the fee to the auctioneer.
                 debug!("transfer delegation fee to auctioneer");
-                self.accounts
-                    .entry(self.auctioneer)?
-                    .or_default()
-                    .add_balance(AUCTIONEER_DELEGATE_FEE);
+                self.accounts.entry(auctioneer)?.or_default().add_balance(auctioneer_fee);
 
                 // Extract the delegate address.
                 debug!("extract delegate address");
@@ -496,10 +505,22 @@ impl<A: Storage<Address, Account>, R: Storage<RequestId, bool>> VAppState<A, R> 
                     .parse::<U256>()
                     .map_err(|_| VAppPanic::InvalidU256Amount { amount: body.amount.clone() })?;
 
+                // Parse the fee from the request body.
+                debug!("parse withdrawal fee");
+                let auctioneer_fee = body
+                    .fee
+                    .parse::<U256>()
+                    .map_err(|_| VAppPanic::InvalidU256Amount { amount: body.fee.clone() })?;
+
+                // Parse the auctioneer address from the request body.
+                debug!("parse auctioneer address");
+                let auctioneer = Address::try_from(body.auctioneer.as_slice())
+                    .map_err(|_| VAppPanic::AddressDeserializationFailed)?;
+
                 // Validate that the account has sufficient balance for withdrawal + auctioneer fee.
                 debug!("validate account has sufficient balance");
                 let balance = self.accounts.entry(account)?.or_default().get_balance();
-                let total_amount = u256::add(amount, AUCTIONEER_WITHDRAWAL_FEE)?;
+                let total_amount = u256::add(amount, auctioneer_fee)?;
                 if balance < total_amount {
                     return Err(VAppPanic::InsufficientBalance {
                         account,
@@ -514,14 +535,8 @@ impl<A: Storage<Address, Account>, R: Storage<RequestId, bool>> VAppState<A, R> 
 
                 // Deduct and transfer the auctioneer fee.
                 debug!("deduct and transfer auctioneer fee");
-                self.accounts
-                    .entry(account)?
-                    .or_default()
-                    .deduct_balance(AUCTIONEER_WITHDRAWAL_FEE);
-                self.accounts
-                    .entry(self.auctioneer)?
-                    .or_default()
-                    .add_balance(AUCTIONEER_WITHDRAWAL_FEE);
+                self.accounts.entry(account)?.or_default().deduct_balance(auctioneer_fee);
+                self.accounts.entry(auctioneer)?.or_default().add_balance(auctioneer_fee);
 
                 // Return the withdraw action.
                 return Ok(Some(VAppReceipt::Withdraw(OffchainReceipt {

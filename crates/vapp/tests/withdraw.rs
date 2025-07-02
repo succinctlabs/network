@@ -22,7 +22,8 @@ fn test_withdraw_basic() {
     let withdraw_tx = withdraw_tx(&test.requester, account, withdraw_amount, 0);
     let receipt = test.state.execute::<MockVerifier>(&withdraw_tx).unwrap();
 
-    // Verify the balance was deducted correctly (60 withdrawn + 1 auctioneer fee = 61 PROVE deducted).
+    // Verify the balance was deducted correctly (60 withdrawn + 1 auctioneer fee = 61 PROVE
+    // deducted).
     let expected_balance = U256::from(40) * U256::from(10).pow(U256::from(18)); // 101 - 61 = 40 PROVE
     let auctioneer_fee = U256::from(10).pow(U256::from(18)); // 1 PROVE
     assert_account_balance(&mut test, account, expected_balance);
