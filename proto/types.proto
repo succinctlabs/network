@@ -27,6 +27,16 @@ enum TransactionVariant {
   WITHDRAW_VARIANT = 7;
 }
 
+message GetWithdrawParamsRequest {
+}
+
+message GetWithdrawParamsResponse {
+  // The default auctioneer address.
+  bytes auctioneer = 1;
+  // The default withdraw fee.
+  string fee = 2;
+}
+
 message WithdrawRequest {
   // The message format of the body.
   MessageFormat format = 1;
@@ -39,13 +49,11 @@ message WithdrawRequest {
 message WithdrawRequestBody {
   // The nonce of the request.
   uint64 nonce = 1;
-  // The account address to withdraw from.
-  //
-  // This should either be the sender or a prover the account owns.
+  // The account address to withdraw from. If not a prover, must be the signing account.
   bytes account = 2;
   // The amount to withdraw.
   string amount = 3;
-  // The domain of the request.
+  // The domain separator bytes for the request.
   bytes domain = 4;
   // The variant of the transaction.
   TransactionVariant variant = 5;
@@ -104,7 +112,7 @@ message RequestProofRequestBody {
   // The whitelist of provers that can bid and prove this request. An empty list indicates that
   // any prover can participate. Only applicable if the strategy is auction.
   repeated bytes whitelist = 11;
-  // The domain separator for the request.
+  // The domain separator bytes for the request.
   bytes domain = 12;
   // The auctioneer address.
   bytes auctioneer = 13;
@@ -493,6 +501,26 @@ message GetOverviewGraphsResponse {
   repeated GraphData programs = 3;
 }
 
+message GetProofRequestParamsRequest {
+  // The mode for the request.
+  ProofMode mode = 1;
+}
+
+message GetProofRequestParamsResponse {
+  // The domain separator bytes.
+  bytes domain = 1;
+  // The default auctioneer address.
+  bytes auctioneer = 2;
+  // The default executor address.
+  bytes executor = 3;
+  // The default verifier address.
+  bytes verifier = 4;
+  // The default max price per prover gas unit.
+  string max_price_per_pgu = 5;
+  // The base fee for the specified proof mode.
+  string base_fee = 6;
+}
+
 /****************
  *** Accounts ***
  ****************/
@@ -776,16 +804,6 @@ message GetBalanceResponse {
   string amount = 1;
 }
 
-message GetDelegatedBalanceRequest {
-  // The address of the account.
-  bytes address = 1;
-}
-
-message GetDelegatedBalanceResponse {
-  // The amount of credits owned by the account.
-  string amount = 1;
-}
-
 message BalanceLog {
   // The address of the account.
   bytes address = 1;
@@ -864,7 +882,7 @@ message TransferRequestBody {
   bytes to = 2;
   // The amount of credits to transfer.
   string amount = 3;
-  // The domain of the request.
+  // The domain separator bytes for the request.
   bytes domain = 4;
   // The variant of the transaction.
   TransactionVariant variant = 5;
@@ -1297,6 +1315,13 @@ message SettleResponse {
   bytes tx_hash = 1;
   // The body of the response.
   SettleResponseBody body = 2;
+}
+
+message GetProversByUptimeRequest {}
+
+message GetProversByUptimeResponse {
+  // The provers that have historically had reliable uptime.
+  repeated bytes provers = 1;
 }
 
 message SettleResponseBody {}
@@ -2168,31 +2193,6 @@ message GetWhitelistStatusResponse {
   bool is_whitelisted = 1;
 }
 
-message SetGpuDelegateRequest {
-  // The message format of the body.
-  MessageFormat format = 1;
-  // The signature of the sender.
-  bytes signature = 2;
-  // The body of the request.
-  SetGpuDelegateRequestBody body = 3;
-}
-
-message SetGpuDelegateRequestBody {
-  // The account nonce of the sender.
-  uint64 nonce = 1;
-  // The ethereum address to delegate to.
-  bytes delegate = 2;
-}
-
-message SetGpuDelegateResponse {
-  // The transaction hash.
-  bytes tx_hash = 1;
-  // The body of the response.
-  SetGpuDelegateResponseBody body = 2;
-}
-
-message SetGpuDelegateResponseBody {}
-
 message ClaimGpuRequest {
   // The message format of the body.
   MessageFormat format = 1;
@@ -2839,10 +2839,10 @@ message GetProverStatsRequest {
 }
 
 message GetProverStatsResponse {
-  uint64 total_earnings = 1;
-  uint64 total_cycles = 2;
-  uint64 total_gas_proved = 3;
-  uint64 active_provers = 4;
+  string total_earnings = 1;
+  string total_cycles = 2;
+  string total_gas_proved = 3;
+  string active_provers = 4;
 }
 
 message ProverStats {
@@ -2854,15 +2854,16 @@ message ProverStats {
   reserved 4;
   uint64 total_auction_requests = 5;
   uint64 successful_requests = 6;
-  uint64 total_gas_proved = 7;
+  string total_gas_proved = 7;
   uint64 last_active_at = 8;
   uint64 created_at = 9;  
-  uint64 total_earnings = 10;
+  string total_earnings = 10;
   bytes owner = 11;
   uint64 block_number = 12;
   bytes tx_hash = 13;
-  uint64 lifetime_rewards = 14;
+  string lifetime_rewards = 14;
   optional string image_url = 15;
+  optional string ip_address = 16;
 }
 
 message GetFilteredProverStatsRequest {
@@ -2871,6 +2872,16 @@ message GetFilteredProverStatsRequest {
   optional uint32 limit = 1;
   // The optional page number to return (default is 1).
   optional uint32 page = 2;
+  // Whether to include featured provers.
+  optional bool is_featured = 3;
+  // Whether to include whitelisted provers.
+  optional bool is_whitelisted = 4;
+  // Whether to show featured provers first in sorting.
+  optional bool featured_first = 5;
+  // Whether to show whitelisted provers first in sorting.
+  optional bool whitelisted_first = 6;
+  // Optional search query to filter by prover name or address.
+  optional string search = 7;
 }
 
 message GetFilteredProverStatsResponse {
@@ -2904,6 +2915,8 @@ message GetFilteredBidHistoryRequest {
   optional uint32 limit = 2;
   // The page for the results.
   optional uint32 page = 3;
+  // Whether to show the winner first in sorting.
+  optional bool winner_first = 4;
 }
 
 message GetFilteredBidHistoryResponse {
@@ -3007,7 +3020,7 @@ message GetStakerStakeBalanceResponse {
 
 message GetProverStakeBalanceRequest {
   // The address of the prover.
-  bytes address = 1;
+  bytes prover = 1;
 }
 
 message GetProverStakeBalanceResponse {
@@ -3072,6 +3085,16 @@ message GetFilteredProverStakeBalanceLogsResponse {
   repeated StakeBalanceLog logs = 1;
 }
 
+message GetDelegationParamsRequest {
+}
+
+message GetDelegationParamsResponse {
+  // The default auctioneer address.
+  bytes auctioneer = 1;
+  // The default delegation fee.
+  string fee = 2;
+}
+
 message SetDelegationRequest {
   // The message format of the body.
   MessageFormat format = 1;
@@ -3088,7 +3111,7 @@ message SetDelegationRequestBody {
   bytes delegate = 2;
   // The prover address that the delegation applies to.
   bytes prover = 3;
-  // The domain of the request.
+  // The domain separator bytes for the request.
   bytes domain = 4;
   // The variant of the transaction.
   TransactionVariant variant = 5;
@@ -3098,7 +3121,14 @@ message SetDelegationRequestBody {
   string fee = 7;
 }
 
-message SetDelegationResponse {}
+message SetDelegationResponseBody {}
+
+message SetDelegationResponse {
+  // The transaction hash.
+  bytes tx_hash = 1;
+  // The body of the response.
+  SetDelegationResponseBody body = 2;
+}
 
 message GetDelegationRequest { 
   // The prover address to get the delegation for.
@@ -3216,7 +3246,7 @@ enum BalanceOperation {
   UNSPECIFIED_BALANCE_CHANGE_OPERATION = 0;
   // A deposit operation (positive).
   DEPOSIT = 1;
-  // A withdrawal operation (negative).
+  // A withdrawal operation (no effect).
   WITHDRAWAL = 2;
   // A reward operation (positive).
   REWARD = 3;
@@ -3224,6 +3254,8 @@ enum BalanceOperation {
   TRANSFER_OUT = 4;
   // A transfer-in operation (positive).
   TRANSFER_IN = 5;
+  // A withdraw request operation (negative).
+  WITHDRAW_REQUEST = 6;
 }
 
 // The different types of balance changes that can occur for stake.
