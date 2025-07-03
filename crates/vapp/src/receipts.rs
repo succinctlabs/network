@@ -20,7 +20,8 @@ pub enum VAppReceipt {
     Withdraw(OffchainReceipt<Withdraw>),
 }
 
-/// Onchain receipts are produced by transactions included in the ledger from the settlement contract.
+/// Onchain receipts are produced by transactions included in the ledger from the settlement
+/// contract.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct OnchainReceipt<T> {
     /// The onchain transaction ID.

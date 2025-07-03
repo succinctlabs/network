@@ -984,10 +984,10 @@ fn test_clear_invalid_bid_amount_parsing() {
     let create_prover_tx = create_prover_tx(prover_address, prover_address, U256::ZERO, 1, 2, 2);
     test.state.execute::<MockVerifier>(&create_prover_tx).unwrap();
 
-    // For this test we need to create a transaction where parsing fails before signature validation.
-    // Since the VApp validates signatures before parsing amounts, we can't easily test U256ParseError
-    // for bid amounts by modifying an already-signed transaction. Instead, this test demonstrates
-    // that signature validation happens first.
+    // For this test we need to create a transaction where parsing fails before signature
+    // validation. Since the VApp validates signatures before parsing amounts, we can't easily
+    // test U256ParseError for bid amounts by modifying an already-signed transaction. Instead,
+    // this test demonstrates that signature validation happens first.
     let mut clear_tx = create_clear_tx(
         &test.requester,
         &test.fulfiller,
@@ -1379,7 +1379,8 @@ fn test_clear_invalid_settle_signature() {
         clear.settle.signature[0] ^= 0xFF;
     }
 
-    // Execute should fail with AuctioneerMismatch because corrupted signature recovers wrong address.
+    // Execute should fail with AuctioneerMismatch because corrupted signature recovers wrong
+    // address.
     let result = test.state.execute::<MockVerifier>(&clear_tx);
     assert!(matches!(result, Err(VAppPanic::InvalidSignature { .. })));
 }

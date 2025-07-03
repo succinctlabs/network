@@ -341,8 +341,9 @@ impl Artifact {
     }
 }
 
-/// Given a S3 URL (e.g. <s3://prover-network-staging/artifacts/artifact_01j92x39ngfnrra5br9n8zr07x>),
-/// extract the artifact name from the URL (e.g. `artifact_01j92x39ngfnrra5br9n8zr07x`).
+/// Given a S3 URL (e.g.
+/// <s3://prover-network-staging/artifacts/artifact_01j92x39ngfnrra5br9n8zr07x>), extract the
+/// artifact name from the URL (e.g. `artifact_01j92x39ngfnrra5br9n8zr07x`).
 ///
 /// This is used because the cluster assumes a specific bucket and path already, and just operates
 /// on the artifact name.

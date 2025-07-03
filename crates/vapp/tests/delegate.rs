@@ -413,7 +413,8 @@ fn test_delegate_invalid_transaction_variant() {
         delegate: delegate_address.to_vec(),
         prover: prover_address.to_vec(),
         domain: spn_utils::SPN_SEPOLIA_V1_DOMAIN.to_vec(),
-        variant: TransactionVariant::TransferVariant as i32, // Invalid variant - should be DelegateVariant
+        variant: TransactionVariant::TransferVariant as i32, /* Invalid variant - should be
+                                                              * DelegateVariant */
         auctioneer: crate::common::signer("auctioneer").address().to_vec(),
         fee: "1000000000000000000".to_string(), // 1 PROVE default fee
     };
