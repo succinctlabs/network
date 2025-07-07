@@ -42,6 +42,12 @@ contract SuccinctStakingUnstakeTests is SuccinctStakingTest {
 
         // Step 2: Wait for unstake period to pass and claim
         skip(UNSTAKE_PERIOD);
+
+        vm.expectEmit(true, true, true, true);
+        emit ISuccinctStaking.Unstake(STAKER_1, ALICE_PROVER, stakeAmount, stakeAmount, stakeAmount);
+        vm.expectEmit(true, true, true, true);
+        emit ISuccinctStaking.ProverUnbound(STAKER_1, ALICE_PROVER);
+
         _finishUnstake(STAKER_1);
 
         // Verify final state

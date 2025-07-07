@@ -20,8 +20,17 @@ contract SuccinctStakingStakeTests is SuccinctStakingTest {
         assertEq(IERC20(PROVE).balanceOf(I_PROVE), 0);
         assertEq(SuccinctStaking(STAKING).proverStaked(ALICE_PROVER), 0);
 
+        vm.prank(STAKER_1);
+        IERC20(PROVE).approve(STAKING, stakeAmount);
+
+        vm.expectEmit(true, true, true, true);
+        emit ISuccinctStaking.ProverBound(STAKER_1, ALICE_PROVER);
+        vm.expectEmit(true, true, true, true);
+        emit ISuccinctStaking.Stake(STAKER_1, ALICE_PROVER, stakeAmount, stakeAmount, stakeAmount);
+
         // Stake to Alice prover.
-        uint256 stPROVE = _stake(STAKER_1, ALICE_PROVER, stakeAmount);
+        vm.prank(STAKER_1);
+        uint256 stPROVE = SuccinctStaking(STAKING).stake(ALICE_PROVER, stakeAmount);
         assertEq(stPROVE, stakeAmount);
 
         // Check balances

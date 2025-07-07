@@ -24,6 +24,14 @@ interface ISuccinctStaking is IProverRegistry {
         uint256 timestamp;
     }
 
+    /// @dev Emitted when a staker first stakes to their delegated prover. This indicates that any
+    ///      additional stake from the staker can only be added to this prover, unless unbound.
+    event ProverBound(address indexed staker, address indexed prover);
+
+    /// @dev Emitted when a staker fully unstakes from their delegated prover. This indicates that
+    ///      the staker can now stake to a different prover.
+    event ProverUnbound(address indexed staker, address indexed prover);
+
     /// @dev Emitted when a staker stakes into a prover.
     event Stake(
         address indexed staker,
