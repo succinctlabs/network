@@ -290,6 +290,8 @@ contract SuccinctStaking is
         if (balanceOf(_staker) == 0) {
             // Remove the staker's prover delegation.
             stakerToProver[_staker] = address(0);
+
+            emit ProverUnbound(_staker, prover);
         }
     }
 
@@ -431,6 +433,8 @@ contract SuccinctStaking is
         // Set the prover as the staker's delegate.
         if (existingProver == address(0)) {
             stakerToProver[_staker] = _prover;
+
+            emit ProverBound(_staker, _prover);
         }
 
         // Deposit $PROVE to mint $iPROVE, sending it to this contract.
