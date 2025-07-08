@@ -68,11 +68,11 @@ pub type RequestId = [u8; 32];
 
 impl StorageKey for RequestId {
     fn index(&self) -> U256 {
-        U256::from_be_slice(&self[..16])
+        U256::from_be_slice(&self[..20])
     }
 
     fn bits() -> usize {
-        128
+        160
     }
 }
 
