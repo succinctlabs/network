@@ -38,7 +38,7 @@ impl ErrorCapture {
         if messages.is_empty() {
             format!("{error}")
         } else {
-            format!("{}\nPanic details:\n{}", error, messages.join("\n"))
+            format!("{error}\nPanic details:\n{}", messages.join("\n"))
         }
     }
 

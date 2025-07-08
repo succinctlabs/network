@@ -148,10 +148,11 @@ async fn main() -> Result<()> {
             }
 
             // Create results table data.
+            let pgus_per_second = metrics.pgus_per_second.round();
             let results_data = vec![
                 CalibrationResultsTable {
                     name: "Estimated Throughput".to_string(),
-                    value: format!("{} PGUs/second", metrics.pgus_per_second.round()),
+                    value: format!("{pgus_per_second} PGUs/second"),
                 },
                 CalibrationResultsTable {
                     name: "Estimated Bid Price".to_string(),
