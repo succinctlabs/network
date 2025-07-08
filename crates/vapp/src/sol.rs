@@ -6,6 +6,8 @@ use alloy_primitives::{Address, U256};
 use alloy_sol_types::sol;
 use serde::{Deserialize, Serialize};
 
+use crate::{errors::VAppPanic, u256};
+
 sol! {
     /// @notice A transaction.
     #[derive(Debug)]
@@ -127,13 +129,15 @@ impl Account {
     }
 
     /// Adds an amount to the balance of the account.
-    pub fn add_balance(&mut self, amount: U256) {
-        self.balance += amount;
+    pub fn add_balance(&mut self, amount: U256) -> Result<(), VAppPanic> {
+        self.balance = u256::add(self.balance, amount)?;
+        Ok(())
     }
 
     /// Removes an amount from the balance of the account.
-    pub fn deduct_balance(&mut self, amount: U256) {
-        self.balance = self.balance.saturating_sub(amount);
+    pub fn deduct_balance(&mut self, amount: U256) -> Result<(), VAppPanic> {
+        self.balance = u256::sub(self.balance, amount)?;
+        Ok(())
     }
 
     /// Set the owner of the account.

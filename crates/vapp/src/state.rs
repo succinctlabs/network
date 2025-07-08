@@ -219,7 +219,7 @@ impl<A: Storage<Address, Account>, R: Storage<RequestId, bool>> VAppState<A, R> 
                 self.accounts
                     .entry(deposit.action.account)?
                     .or_default()
-                    .add_balance(deposit.action.amount);
+                    .add_balance(deposit.action.amount)?;
 
                 // Return the deposit action.
                 return Ok(Some(VAppReceipt::Deposit(OnchainReceipt {
@@ -353,11 +353,11 @@ impl<A: Storage<Address, Account>, R: Storage<RequestId, bool>> VAppState<A, R> 
 
                 // Deduct the delegation fee from the prover owner.
                 debug!("deduct delegation fee from prover owner");
-                self.accounts.entry(signer)?.or_default().deduct_balance(auctioneer_fee);
+                self.accounts.entry(signer)?.or_default().deduct_balance(auctioneer_fee)?;
 
                 // Transfer the fee to the auctioneer.
                 debug!("transfer delegation fee to auctioneer");
-                self.accounts.entry(auctioneer)?.or_default().add_balance(auctioneer_fee);
+                self.accounts.entry(auctioneer)?.or_default().add_balance(auctioneer_fee)?;
 
                 // Extract the delegate address.
                 debug!("extract delegate address");
@@ -436,9 +436,9 @@ impl<A: Storage<Address, Account>, R: Storage<RequestId, bool>> VAppState<A, R> 
 
                 // Transfer the amount from the transferer to the recipient.
                 info!("├── Account({}): - {} $PROVE", from, amount);
-                self.accounts.entry(from)?.or_default().deduct_balance(amount);
+                self.accounts.entry(from)?.or_default().deduct_balance(amount)?;
                 info!("├── Account({}): + {} $PROVE", to, amount);
-                self.accounts.entry(to)?.or_default().add_balance(amount);
+                self.accounts.entry(to)?.or_default().add_balance(amount)?;
 
                 return Ok(None);
             }
@@ -531,12 +531,12 @@ impl<A: Storage<Address, Account>, R: Storage<RequestId, bool>> VAppState<A, R> 
 
                 // Deduct the amount from the account.
                 debug!("deduct amount from account");
-                self.accounts.entry(account)?.or_default().deduct_balance(amount);
+                self.accounts.entry(account)?.or_default().deduct_balance(amount)?;
 
                 // Deduct and transfer the auctioneer fee.
                 debug!("deduct and transfer auctioneer fee");
-                self.accounts.entry(account)?.or_default().deduct_balance(auctioneer_fee);
-                self.accounts.entry(auctioneer)?.or_default().add_balance(auctioneer_fee);
+                self.accounts.entry(account)?.or_default().deduct_balance(auctioneer_fee)?;
+                self.accounts.entry(auctioneer)?.or_default().add_balance(auctioneer_fee)?;
 
                 // Return the withdraw action.
                 return Ok(Some(VAppReceipt::Withdraw(OffchainReceipt {
@@ -708,10 +708,10 @@ impl<A: Storage<Address, Account>, R: Storage<RequestId, bool>> VAppState<A, R> 
                     }
 
                     // Deduct the punishment from the requester.
-                    self.accounts.entry(request_signer)?.or_default().deduct_balance(punishment);
+                    self.accounts.entry(request_signer)?.or_default().deduct_balance(punishment)?;
 
                     // Send the punishment to the treasury
-                    self.accounts.entry(self.treasury)?.or_default().add_balance(punishment);
+                    self.accounts.entry(self.treasury)?.or_default().add_balance(punishment)?;
 
                     // Set the transaction as processed.
                     self.transactions.insert(request_id, true)?;
@@ -871,7 +871,7 @@ impl<A: Storage<Address, Account>, R: Storage<RequestId, bool>> VAppState<A, R> 
 
                 // Deduct the cost from the requester.
                 info!("├── Account({}): - {} $PROVE (Requester Fee)", request_signer, cost);
-                self.accounts.entry(request_signer)?.or_default().deduct_balance(cost);
+                self.accounts.entry(request_signer)?.or_default().deduct_balance(cost)?;
 
                 // Get the protocol fee.
                 let protocol_address = self.treasury;
@@ -892,19 +892,19 @@ impl<A: Storage<Address, Account>, R: Storage<RequestId, bool>> VAppState<A, R> 
                     "├── Account({}): + {} $PROVE (Protocol Fee)",
                     protocol_address, protocol_fee
                 );
-                self.accounts.entry(protocol_address)?.or_default().add_balance(protocol_fee);
+                self.accounts.entry(protocol_address)?.or_default().add_balance(protocol_fee)?;
 
                 info!(
                     "├── Account({}): + {} $PROVE (Staker Reward)",
                     prover_address, prover_staker_fee
                 );
-                self.accounts.entry(prover_address)?.or_default().add_balance(prover_staker_fee);
+                self.accounts.entry(prover_address)?.or_default().add_balance(prover_staker_fee)?;
 
                 info!(
                     "├── Account({}): + {} $PROVE (Owner Reward)",
                     prover_owner, prover_owner_fee
                 );
-                self.accounts.entry(prover_owner)?.or_default().add_balance(prover_owner_fee);
+                self.accounts.entry(prover_owner)?.or_default().add_balance(prover_owner_fee)?;
 
                 return Ok(None);
             }
