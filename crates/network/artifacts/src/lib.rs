@@ -154,14 +154,13 @@ impl Artifact {
         let parsed_url = Url::parse(uri).context("Failed to parse URI")?;
         match parsed_url.scheme() {
             "s3" => {
-                let bucket = parsed_url
-                    .host_str()
-                    .ok_or_else(|| anyhow!("S3 URI missing bucket: {}", uri))?;
+                let bucket =
+                    parsed_url.host_str().ok_or_else(|| anyhow!("S3 URI missing bucket: {uri}"))?;
                 let s3_client = get_s3_client(s3_region).await;
                 download_s3_file(&s3_client, bucket, &self.id, artifact_type).await
             }
             "https" => download_https_file(uri).await,
-            scheme => Err(anyhow!("Unsupported URI scheme for download_raw_from_uri: {}", scheme)),
+            scheme => Err(anyhow!("Unsupported URI scheme for download_raw_from_uri: {scheme}")),
         }
     }
 
@@ -368,7 +367,7 @@ pub fn get_s3_prefix(artifact_type: ArtifactType) -> &'static str {
 /// Given an artifact type and an ID, return the S3 key for the artifact.
 #[must_use]
 pub fn get_s3_key(artifact_type: ArtifactType, id: &str) -> String {
-    format!("{}/{}", get_s3_prefix(artifact_type), id)
+    format!("{}/{id}", get_s3_prefix(artifact_type))
 }
 
 /// Get an S3 client for a given region.
@@ -436,7 +435,7 @@ async fn download_https_file(uri: &str) -> Result<Bytes> {
     let client = reqwest::Client::new();
     let res = client.get(uri).send().await.context("Failed to GET HTTPS URL")?;
     if !res.status().is_success() {
-        return Err(anyhow!("Failed to download from HTTPS URL {}: status {}", uri, res.status()));
+        return Err(anyhow!("Failed to download from HTTPS URL {uri}: status {}", res.status()));
     }
     let bytes = res.bytes().await.context("Failed to read HTTPS response body")?;
     Ok(bytes)

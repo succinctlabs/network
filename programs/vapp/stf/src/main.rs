@@ -54,14 +54,14 @@ pub fn main() {
         let action = state.execute::<SP1RecursiveVerifier>(&tx);
         match action {
             Ok(Some(receipt)) => {
-                println!("tx {} processed", pos);
+                println!("tx {pos} processed");
                 receipts.push(receipt);
             }
             Ok(None) => {
-                println!("tx {} processed", pos);
+                println!("tx {pos} processed");
             }
             Err(panic) => {
-                panic!("tx {} panicked: {:?}", pos, panic);
+                panic!("tx {pos} panicked: {panic:?}");
             }
         }
     }

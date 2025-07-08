@@ -14,7 +14,7 @@ fn main() {
     let hash = vk.hash_u32();
 
     // Create key.rs file with the hash as [u32; 8]
-    let content = format!("pub const STF_VKEY: [u32; 8] = {:?};", hash);
+    let content = format!("pub const STF_VKEY: [u32; 8] = {hash:?};");
 
     // Write the generated file into OUT_DIR.
     let out_dir = std::env::var("OUT_DIR").expect("OUT_DIR environment variable not set");
