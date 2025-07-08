@@ -508,7 +508,7 @@ fn test_clear_request_id_mismatch_bid() {
     }
 
     let result = test.state.execute::<MockVerifier>(&clear_tx);
-    println!("Result: {:?}", result);
+    println!("Result: {result:?}");
     assert!(matches!(result, Err(VAppPanic::RequestIdMismatch { .. })));
 }
 
@@ -2288,7 +2288,7 @@ fn test_clear_public_values_hash_mismatch() {
 
     // Execute should fail with PublicValuesHashMismatch.
     let result = test.state.execute::<MockVerifier>(&clear_tx);
-    println!("Result: {:?}", result);
+    println!("Result: {result:?}");
     assert!(matches!(result, Err(VAppPanic::PublicValuesHashMismatch)));
 }
 
