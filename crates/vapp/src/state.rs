@@ -427,11 +427,28 @@ impl<A: Storage<Address, Account>, R: Storage<RequestId, bool>> VAppState<A, R> 
                     VAppPanic::InvalidTransferAmount { amount: body.amount.clone() }
                 })?;
 
-                // Validate that the from account has sufficient balance.
+                // Parse the fee from the request body.
+                debug!("parse transfer fee");
+                let auctioneer_fee = body
+                    .fee
+                    .parse::<U256>()
+                    .map_err(|_| VAppPanic::InvalidU256Amount { amount: body.fee.clone() })?;
+
+                // Parse the auctioneer address from the request body.
+                debug!("parse auctioneer address");
+                let auctioneer = Address::try_from(body.auctioneer.as_slice())
+                    .map_err(|_| VAppPanic::AddressDeserializationFailed)?;
+
+                // Validate that the from account has sufficient balance for transfer + auctioneer fee.
                 debug!("validate from account has sufficient balance");
                 let balance = self.accounts.entry(from)?.or_default().get_balance();
-                if balance < amount {
-                    return Err(VAppPanic::InsufficientBalance { account: from, amount, balance });
+                let total_amount = u256::add(amount, auctioneer_fee)?;
+                if balance < total_amount {
+                    return Err(VAppPanic::InsufficientBalance {
+                        account: from,
+                        amount: total_amount,
+                        balance,
+                    });
                 }
 
                 // Transfer the amount from the transferer to the recipient.
@@ -439,6 +456,12 @@ impl<A: Storage<Address, Account>, R: Storage<RequestId, bool>> VAppState<A, R> 
                 self.accounts.entry(from)?.or_default().deduct_balance(amount)?;
                 info!("├── Account({}): + {} $PROVE", to, amount);
                 self.accounts.entry(to)?.or_default().add_balance(amount)?;
+
+                // Deduct and transfer the auctioneer fee.
+                info!("├── Account({}): - {} $PROVE (fee)", from, auctioneer_fee);
+                self.accounts.entry(from)?.or_default().deduct_balance(auctioneer_fee)?;
+                info!("└── Auctioneer({}): + {} $PROVE (fee)", auctioneer, auctioneer_fee);
+                self.accounts.entry(auctioneer)?.or_default().add_balance(auctioneer_fee)?;
 
                 return Ok(None);
             }
