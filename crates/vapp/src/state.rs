@@ -293,11 +293,12 @@ impl<A: Storage<Address, Account>, R: Storage<RequestId, bool>> VAppState<A, R> 
                 let format =
                     spn_network_types::MessageFormat::try_from(delegation.delegation.format)
                         .map_err(|_| VAppPanic::InvalidMessageFormat)?;
-                let signer = verify_signed_message(body, &delegation.delegation.signature, format)?;
+                let prover_owner =
+                    verify_signed_message(body, &delegation.delegation.signature, format)?;
 
                 // Verify that the transaction is not already processed.
                 let delegate_id = body
-                    .hash_with_signer(signer.as_slice())
+                    .hash_with_signer(prover_owner.as_slice())
                     .map_err(|_| VAppPanic::HashingBodyFailed)?;
                 if *self.transactions.entry(delegate_id)?.or_default() {
                     return Err(VAppPanic::TransactionAlreadyProcessed {
@@ -333,7 +334,7 @@ impl<A: Storage<Address, Account>, R: Storage<RequestId, bool>> VAppState<A, R> 
 
                 // Verify that the signer of the delegation is the owner of the prover.
                 debug!("verify signer is owner");
-                if signer != prover_account.get_owner() {
+                if prover_owner != prover_account.get_owner() {
                     return Err(VAppPanic::OnlyOwnerCanDelegate);
                 }
 
@@ -342,10 +343,10 @@ impl<A: Storage<Address, Account>, R: Storage<RequestId, bool>> VAppState<A, R> 
                 // The prover owner must have a non-zero balance to set a delegate, which they can
                 // accomplish by making a deposit.
                 debug!("validate prover owner has sufficient balance for delegation fee");
-                let owner_balance = self.accounts.entry(signer)?.or_default().get_balance();
+                let owner_balance = self.accounts.entry(prover_owner)?.or_default().get_balance();
                 if owner_balance < auctioneer_fee {
                     return Err(VAppPanic::InsufficientBalance {
-                        account: signer,
+                        account: prover_owner,
                         amount: auctioneer_fee,
                         balance: owner_balance,
                     });
@@ -353,7 +354,7 @@ impl<A: Storage<Address, Account>, R: Storage<RequestId, bool>> VAppState<A, R> 
 
                 // Deduct the delegation fee from the prover owner.
                 debug!("deduct delegation fee from prover owner");
-                self.accounts.entry(signer)?.or_default().deduct_balance(auctioneer_fee)?;
+                self.accounts.entry(prover_owner)?.or_default().deduct_balance(auctioneer_fee)?;
 
                 // Transfer the fee to the auctioneer.
                 debug!("transfer delegation fee to auctioneer");
