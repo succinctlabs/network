@@ -196,6 +196,8 @@ pub fn transfer_tx(
     to: Address,
     amount: U256,
     nonce: u64,
+    auctioneer: Address,
+    fee: U256,
 ) -> VAppTransaction {
     use spn_network_types::{MessageFormat, TransferRequest, TransferRequestBody};
 
@@ -205,6 +207,8 @@ pub fn transfer_tx(
         amount: amount.to_string(),
         domain: spn_utils::SPN_SEPOLIA_V1_DOMAIN.to_vec(),
         variant: TransactionVariant::TransferVariant as i32,
+        auctioneer: auctioneer.to_vec(),
+        fee: fee.to_string(),
     };
     let signature = proto_sign(from_signer, &body);
 
@@ -224,6 +228,8 @@ pub fn transfer_tx_with_domain(
     amount: U256,
     nonce: u64,
     domain: [u8; 32],
+    auctioneer: Address,
+    fee: U256,
 ) -> VAppTransaction {
     use spn_network_types::{MessageFormat, TransferRequest, TransferRequestBody};
 
@@ -233,6 +239,8 @@ pub fn transfer_tx_with_domain(
         amount: amount.to_string(),
         domain: domain.to_vec(),
         variant: TransactionVariant::TransferVariant as i32,
+        auctioneer: auctioneer.to_vec(),
+        fee: fee.to_string(),
     };
     let signature = proto_sign(from_signer, &body);
 
@@ -264,6 +272,8 @@ pub fn transfer_tx_invalid_amount(
     to: Address,
     invalid_amount: &str,
     nonce: u64,
+    auctioneer: Address,
+    fee: U256,
 ) -> VAppTransaction {
     use spn_network_types::{MessageFormat, TransferRequest, TransferRequestBody};
 
@@ -273,6 +283,70 @@ pub fn transfer_tx_invalid_amount(
         amount: invalid_amount.to_string(),
         domain: spn_utils::SPN_SEPOLIA_V1_DOMAIN.to_vec(),
         variant: TransactionVariant::TransferVariant as i32,
+        auctioneer: auctioneer.to_vec(),
+        fee: fee.to_string(),
+    };
+    let signature = proto_sign(from_signer, &body);
+
+    VAppTransaction::Transfer(TransferTransaction {
+        transfer: TransferRequest {
+            format: MessageFormat::Binary.into(),
+            body: Some(body),
+            signature: signature.as_bytes().to_vec(),
+        },
+    })
+}
+
+/// Creates a transfer tx with invalid fee string for testing parsing.
+pub fn transfer_tx_invalid_fee(
+    from_signer: &alloy::signers::local::PrivateKeySigner,
+    to: Address,
+    amount: U256,
+    nonce: u64,
+    auctioneer: Address,
+    invalid_fee: &str,
+) -> VAppTransaction {
+    use spn_network_types::{MessageFormat, TransferRequest, TransferRequestBody};
+
+    let body = TransferRequestBody {
+        nonce,
+        to: to.to_vec(),
+        amount: amount.to_string(),
+        domain: spn_utils::SPN_SEPOLIA_V1_DOMAIN.to_vec(),
+        variant: TransactionVariant::TransferVariant as i32,
+        auctioneer: auctioneer.to_vec(),
+        fee: invalid_fee.to_string(),
+    };
+    let signature = proto_sign(from_signer, &body);
+
+    VAppTransaction::Transfer(TransferTransaction {
+        transfer: TransferRequest {
+            format: MessageFormat::Binary.into(),
+            body: Some(body),
+            signature: signature.as_bytes().to_vec(),
+        },
+    })
+}
+
+/// Creates a transfer tx with invalid auctioneer address for testing parsing.
+pub fn transfer_tx_invalid_auctioneer(
+    from_signer: &alloy::signers::local::PrivateKeySigner,
+    to: Address,
+    amount: U256,
+    nonce: u64,
+    invalid_auctioneer: Vec<u8>,
+    fee: U256,
+) -> VAppTransaction {
+    use spn_network_types::{MessageFormat, TransferRequest, TransferRequestBody};
+
+    let body = TransferRequestBody {
+        nonce,
+        to: to.to_vec(),
+        amount: amount.to_string(),
+        domain: spn_utils::SPN_SEPOLIA_V1_DOMAIN.to_vec(),
+        variant: TransactionVariant::TransferVariant as i32,
+        auctioneer: invalid_auctioneer,
+        fee: fee.to_string(),
     };
     let signature = proto_sign(from_signer, &body);
 

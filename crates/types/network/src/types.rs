@@ -1196,6 +1196,12 @@ pub struct TransferRequestBody {
     /// The variant of the transaction.
     #[prost(enumeration = "TransactionVariant", tag = "5")]
     pub variant: i32,
+    /// The auctioneer address that will receive the fee.
+    #[prost(bytes = "vec", tag = "6")]
+    pub auctioneer: ::prost::alloc::vec::Vec<u8>,
+    /// The fee to pay for the transfer operation.
+    #[prost(string, tag = "7")]
+    pub fee: ::prost::alloc::string::String,
 }
 #[derive(serde::Serialize, serde::Deserialize)]
 #[derive(Clone, PartialEq, ::prost::Message)]

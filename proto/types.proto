@@ -886,6 +886,10 @@ message TransferRequestBody {
   bytes domain = 4;
   // The variant of the transaction.
   TransactionVariant variant = 5;
+  // The auctioneer address that will receive the fee.
+  bytes auctioneer = 6;
+  // The fee to pay for the transfer operation.
+  string fee = 7;
 }
 
 message TransferResponse {
