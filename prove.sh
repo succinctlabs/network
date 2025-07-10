@@ -193,28 +193,39 @@ export PROVE_PER_BPGU=1.01
 export PGUS_PER_SECOND=10485606
 
 echo ""
-echo "Step 1: Create a Prover"
-echo "You need to create a prover at https://staking.sepolia.succinct.xyz/prover. Your prover will have an address that is under \"My Prover\"."
-echo "Copy and paste the address of your prover below."
 
-echo ""
-read -p "Enter Prover Address: " PROVER_ADDRESS
-echo ""
+# Check if PROVER_ADDRESS is already set
+if [[ -z "$PROVER_ADDRESS" ]]; then
+    echo "Step 1: Create a Prover"
+    echo "You need to create a prover at https://staking.sepolia.succinct.xyz/prover. Your prover will have an address that is under \"My Prover\"."
+    echo "Copy and paste the address of your prover below."
+    echo ""
+    read -p "Enter Prover Address: " PROVER_ADDRESS
+    echo ""
+else
+    echo "✓ Using provided PROVER_ADDRESS: $PROVER_ADDRESS"
+fi
 
+# Validate PROVER_ADDRESS format
 if [[ ! $PROVER_ADDRESS =~ ^0x[a-fA-F0-9]{40}$ ]]; then
     echo "Error: Address format is invalid. It should start with '0x' followed by 40 hexadecimal characters." >&2
     exit 1
 fi
 
-echo "Step 2: Enter Private Key"
-echo "Enter the private key of the wallet that received 1000 testnet PROVE tokens and was used to stake on https://staking.sepolia.succinct.xyz/prover."
-echo "As a sanity check, this wallet's address should be the one you see connected on the top right of the staking page. Remember, for security reasons,"
-echo "please use a fresh wallet created specifically for this prover, as the private key will be used directly in the CLI."
+# Check if PRIVATE_KEY is already set
+if [[ -z "$PRIVATE_KEY" ]]; then
+    echo "Step 2: Enter Private Key"
+    echo "Enter the private key of the wallet that received 1000 testnet PROVE tokens and was used to stake on https://staking.sepolia.succinct.xyz/prover."
+    echo "As a sanity check, this wallet's address should be the one you see connected on the top right of the staking page. Remember, for security reasons,"
+    echo "please use a fresh wallet created specifically for this prover, as the private key will be used directly in the CLI."
+    echo ""
+    read -p "Enter Private Key: " PRIVATE_KEY
+    echo ""
+else
+    echo "✓ Using provided PRIVATE_KEY (hidden for security)"
+fi
 
-echo ""
-read -p "Enter Private Key: " PRIVATE_KEY
-echo ""
-
+# Validate PRIVATE_KEY
 if [[ -z "$PRIVATE_KEY" ]]; then
     echo "Error: Private key cannot be empty" >&2
     exit 1
