@@ -541,25 +541,57 @@ impl<A: Storage<Address, Account>, R: Storage<RequestId, bool>> VAppState<A, R> 
                 let auctioneer = Address::try_from(body.auctioneer.as_slice())
                     .map_err(|_| VAppPanic::AddressDeserializationFailed)?;
 
-                // Validate that the account has sufficient balance for withdrawal + auctioneer fee.
-                debug!("validate account has sufficient balance");
-                let balance = self.accounts.entry(account)?.or_default().get_balance();
-                let total_amount = u256::add(amount, auctioneer_fee)?;
-                if balance < total_amount {
-                    return Err(VAppPanic::InsufficientBalance {
-                        account,
-                        amount: total_amount,
-                        balance,
-                    });
+                if account == from {
+                    // Self withdraw (normal user or prover owner).
+                    debug!("validate balance for self withdraw (account pays amount + fee)");
+                    let balance = self.accounts.entry(account)?.or_default().get_balance();
+                    let total = u256::add(amount, auctioneer_fee)?;
+                    if balance < total {
+                        return Err(VAppPanic::InsufficientBalance {
+                            account,
+                            amount: total,
+                            balance,
+                        });
+                    }
+
+                    // Deduct the amount from the withdrawing account.
+                    info!("├── Account({}): - {} $PROVE", account, amount);
+                    self.accounts.entry(account)?.or_default().deduct_balance(amount)?;
+                    // Deduct the fee from the withdrawing account.
+                    info!("├── Account({}): - {} $PROVE (fee)", account, auctioneer_fee);
+                    self.accounts.entry(account)?.or_default().deduct_balance(auctioneer_fee)?;
+                } else {
+                    // Someone else withdrawing for a prover.
+                    debug!("validate balances for prover withdraw (prover pays amount, signer pays fee)");
+
+                    let prover_balance = self.accounts.entry(account)?.or_default().get_balance();
+                    if prover_balance < amount {
+                        return Err(VAppPanic::InsufficientBalance {
+                            account,
+                            amount,
+                            balance: prover_balance,
+                        });
+                    }
+
+                    let from_balance = self.accounts.entry(from)?.or_default().get_balance();
+                    if from_balance < auctioneer_fee {
+                        return Err(VAppPanic::InsufficientBalance {
+                            account: from,
+                            amount: auctioneer_fee,
+                            balance: from_balance,
+                        });
+                    }
+
+                    // Deduct the amount from the prover.
+                    info!("├── Account({}): - {} $PROVE", account, amount);
+                    self.accounts.entry(account)?.or_default().deduct_balance(amount)?;
+                    // Deduct the fee from the signer.
+                    info!("├── Account({}): - {} $PROVE (fee)", from, auctioneer_fee);
+                    self.accounts.entry(from)?.or_default().deduct_balance(auctioneer_fee)?;
                 }
 
-                // Deduct the amount from the account.
-                debug!("deduct amount from account");
-                self.accounts.entry(account)?.or_default().deduct_balance(amount)?;
-
-                // Deduct and transfer the auctioneer fee.
-                debug!("deduct and transfer auctioneer fee");
-                self.accounts.entry(account)?.or_default().deduct_balance(auctioneer_fee)?;
+                // Credit the fee to the auctioneer.
+                info!("└── Auctioneer({}): + {} $PROVE (fee)", auctioneer, auctioneer_fee);
                 self.accounts.entry(auctioneer)?.or_default().add_balance(auctioneer_fee)?;
 
                 // Return the withdraw action.
