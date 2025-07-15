@@ -57,6 +57,9 @@ contract SuccinctStaking is
     /// @dev A mapping from prover to their slash claims.
     mapping(address => SlashClaim[]) internal slashClaims;
 
+    /// @dev A mapping from prover to their pending unstake pool.
+    mapping(address => UnstakePool) internal unstakePools;
+
     /*//////////////////////////////////////////////////////////////
                                 MODIFIER
     //////////////////////////////////////////////////////////////*/
@@ -266,6 +269,9 @@ contract SuccinctStaking is
             })
         );
 
+        // Track pending shares for this prover.
+        unstakePools[prover].stPROVEPending += _stPROVE;
+
         emit UnstakeRequest(msg.sender, prover, _stPROVE, iPROVESnapshot);
     }
 
@@ -364,7 +370,19 @@ contract SuccinctStaking is
         // of its stakers proportionally.
         uint256 PROVE = 0;
         if (iPROVE > 0) {
+            // Burn the $iPROVE and underlying $PROVE from the vaults.
             PROVE = IIntermediateSuccinct(iProve).burn(_prover, iPROVE);
+
+            // Burn the same percentage from the withheld pool.
+            UnstakePool storage pool = unstakePools[_prover];
+            if (pool.iPROVEWithheld != 0) {
+                uint256 balanceBefore = IERC20(iProve).balanceOf(_prover) + iPROVE;
+                uint256 burnFromPool = (pool.iPROVEWithheld * iPROVE) / balanceBefore;
+                if (burnFromPool != 0) {
+                    pool.iPROVEWithheld -= burnFromPool;
+                    IIntermediateSuccinct(iProve).burn(address(this), burnFromPool);
+                }
+            }
         }
 
         emit Slash(_prover, PROVE, iPROVE, _index);
@@ -459,13 +477,15 @@ contract SuccinctStaking is
     /// @dev Burn a staker's $stPROVE and withdraw $PROVER-N to receive $iPROVE, then withdraw
     ///      $iPROVE to receive $PROVE, which gets sent to the staker.
     ///
-    ///      The actual $iPROVE withdrawn is adjusted to ensure that prover rewards earned during the
-    ///      unstaking period do not go to the staker, while ensuring that slashing that occurs during
-    ///      the unstaking period does. This is implemented as follows:
-    ///      - If received $iPROVE > snapshot $iPROVE: Rewards were earned during unstaking, so the
-    ///        staker redeems only the snapshot amount, and the excess is returned to the prover.
-    ///      - If received $iPROVE < snapshot $iPROVE: Slashing occurred during unstaking, so the
-    ///        staker redeems the lower amount (received $iPROVE), bearing the loss from slashing.
+    ///      This function preserves key fairness guarantees to ensure that rewards not earned during the
+    ///      unstake period, but slashing still counts:
+    ///        • The staker only receives the rewards earned up to their unstake request.
+    ///        • Any rewards that accrue thereafter are held in a shared pool and
+    ///          distributed pro-rata among all outstanding unstakers.
+    ///        • Slashing events during the unstake period reduce both the vault and the pool
+    ///          proportionally, so every participant bears exactly their share of any loss.
+    ///        • Once all pending unstakes settle, any tiny rounding dust is returned to the vault
+    ///          to avoid leaving stray funds behind.
     function _unstake(address _staker, address _prover, uint256 _stPROVE, uint256 _iPROVESnapshot)
         internal
         returns (uint256 PROVE)
@@ -473,28 +493,52 @@ contract SuccinctStaking is
         // Ensure unstaking a non-zero amount.
         if (_stPROVE == 0) revert ZeroAmount();
 
-        // Burn the $stPROVE from the staker
+        // Burn the $stPROVE from the staker.
         _burn(_staker, _stPROVE);
 
         // Withdraw $PROVER-N from this contract to have this contract receive $iPROVE.
         uint256 iPROVEReceived = IERC4626(_prover).redeem(_stPROVE, address(this), address(this));
 
-        // Determine how much $iPROVE to redeem for the staker based on rewards or slashing.
-        uint256 iPROVE;
-        if (iPROVEReceived > _iPROVESnapshot) {
-            // Rewards were earned during unstaking. Return the excess to the prover.
-            uint256 excess = iPROVEReceived - _iPROVESnapshot;
-            IERC20(iProve).safeTransfer(_prover, excess);
-            iPROVE = _iPROVESnapshot;
+        // Get the pending pool for this prover.
+        UnstakePool storage pool = unstakePools[_prover];
+
+        // Calculate newly earned rewards (if any) to add to the pool.
+        uint256 withheldBefore = pool.iPROVEWithheld;
+        uint256 excess = iPROVEReceived > _iPROVESnapshot ? iPROVEReceived - _iPROVESnapshot : 0;
+        pool.iPROVEWithheld = withheldBefore + excess;
+
+        // Calculate this staker's share of the existing pool (excludes just-added excess).
+        uint256 poolShare = 0;
+        if (withheldBefore > 0 && pool.stPROVEPending > 0) {
+            poolShare = (withheldBefore * _stPROVE) / pool.stPROVEPending;
+        }
+
+        // Update pool state.
+        pool.iPROVEWithheld = pool.iPROVEWithheld - poolShare;
+        pool.stPROVEPending = pool.stPROVEPending - _stPROVE;
+
+        // Total $iPROVE to give the staker.
+        uint256 iPROVEToRedeem;
+
+        // Determine how much $iPROVE to redeem for the staker.
+        if (iPROVEReceived < _iPROVESnapshot) {
+            // Slashing occurred, so the staker gets the reduced received amount plus pool share.
+            iPROVEToRedeem = iPROVEReceived + poolShare;
         } else {
-            // Either no change or slashing occurred. Staker gets what's available.
-            iPROVE = iPROVEReceived;
+            // No slashing occurred, so the staker gets the snapshot amount plus pool share.
+            iPROVEToRedeem = _iPROVESnapshot + poolShare;
         }
 
         // Withdraw $iPROVE from this contract to have the staker receive $PROVE.
-        PROVE = IERC4626(iProve).redeem(iPROVE, _staker, address(this));
+        PROVE = IERC4626(iProve).redeem(iPROVEToRedeem, _staker, address(this));
 
-        emit Unstake(_staker, _prover, PROVE, iPROVE, _stPROVE);
+        emit Unstake(_staker, _prover, PROVE, iPROVEToRedeem, _stPROVE);
+
+        // If this was the last pending unstake, flush any dust back to the prover.
+        if (pool.stPROVEPending == 0 && pool.iPROVEWithheld > 0) {
+            IERC20(iProve).safeTransfer(_prover, pool.iPROVEWithheld);
+            pool.iPROVEWithheld = 0;
+        }
     }
 
     /// @dev Iterate over the unstake claims, processing each one that has passed the unstake

@@ -24,6 +24,16 @@ interface ISuccinctStaking is IProverRegistry {
         uint256 timestamp;
     }
 
+    /// @dev Tracks pending unstakes and withheld rewards per prover. This is so that excess
+    ///      rewards from an UnstakeClaim do not negatively impact the amount of $iPROVE that
+    ///      subsequent UnstakeClaims receive.
+    /// @param stPROVEPending The amount of $stPROVE pending UnstakeClaims for this prover.
+    /// @param iPROVEWithheld The amount of $iPROVE withheld for redistribution.
+    struct UnstakePool {
+        uint256 stPROVEPending;
+        uint256 iPROVEWithheld;
+    }
+
     /// @dev Emitted when a staker first stakes to their delegated prover. This indicates that any
     ///      additional stake from the staker can only be added to this prover, unless unbound.
     event ProverBound(address indexed staker, address indexed prover);
