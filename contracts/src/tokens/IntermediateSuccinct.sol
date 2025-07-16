@@ -13,7 +13,6 @@ import {ERC20Votes} from
     "../../lib/openzeppelin-contracts/contracts/token/ERC20/extensions/ERC20Votes.sol";
 import {ERC4626} from
     "../../lib/openzeppelin-contracts/contracts/token/ERC20/extensions/ERC4626.sol";
-import {Math} from "../../lib/openzeppelin-contracts/contracts/utils/math/Math.sol";
 import {Nonces} from "../../lib/openzeppelin-contracts/contracts/utils/Nonces.sol";
 
 string constant NAME = "IntermediateSuccinct";
@@ -52,19 +51,21 @@ contract IntermediateSuccinct is ERC4626, ERC20Permit, ERC20Votes, IIntermediate
         return PROVE;
     }
 
-    /// @dev Only the staking contract, the vApp, or the prover can deposit or withdraw.
+    /// @dev Only the staking contract, the vApp, or the prover can transfer in certain
+    ///      situations.
     ///
     ///      Each situation is as follows:
-    ///      1a. The staking contract needs to transfer $iPROVE to a prover during stake().
+    ///      1a. The staking contract needs to transfer $iPROVE to a prover during stake():
     ///         - $iPROVE.deposit() - transfer from address(0) to staking
-    ///         - $iPROVE.transfer() - transfer from staking to prover
-    ///      1b. The staking contract needs to transfer $iPROVE to a prover during unstake().
+    ///         - $PROVER-N.deposit() - transfer from staking to prover
+    ///      1b. The staking contract needs to transfer $iPROVE to a prover during unstake():
     ///         - $PROVER-N.redeem() - transfer from prover to staking
     ///         - $iPROVE.redeem() - transfer from staking to address(0)
-    ///      2. The vApp needs to transfer $iPROVE to a prover during finishWithdraw(to),
-    ///         when `to` is a prover.
-    ///         - $iPROVE.deposit() - transfer from address(0) to VApp
-    ///         - $iPROVE.transfer() - transfer from VApp to prover
+    ///      2. The vApp contract needs to deposit to $iPROVE directly to a prover during
+    ///         processWithdraw(to), when `to` is a prover to process it as a prover reward:
+    ///         - $iPROVE.deposit() - transfer from address(0) to prover
+    ///
+    ///      This function is maximally constrained to only allow for the above situations.
     function _update(address _from, address _to, uint256 _value)
         internal
         override(ERC20, ERC20Votes)
@@ -74,13 +75,15 @@ contract IntermediateSuccinct is ERC4626, ERC20Permit, ERC20Votes, IIntermediate
             || (IProverRegistry(staking).isProver(msg.sender) && (_from == staking || _to == staking));
 
         // If not (1), check for (2).
-        bool isWithdraw;
+        bool isProverReward;
         if (!isStakeOrUnstake) {
-            isWithdraw = msg.sender == IProverRegistry(staking).vapp();
+            // vApp can deposit to provers only.
+            isProverReward = msg.sender == IProverRegistry(staking).vapp() && _from == address(0)
+                && IProverRegistry(staking).isProver(_to);
         }
 
         // If not (1) or (2), revert.
-        if (!isStakeOrUnstake && !isWithdraw) {
+        if (!isStakeOrUnstake && !isProverReward) {
             revert NonTransferable();
         }
 
