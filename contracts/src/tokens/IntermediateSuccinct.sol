@@ -65,9 +65,6 @@ contract IntermediateSuccinct is ERC4626, ERC20Permit, ERC20Votes, IIntermediate
     ///         when `to` is a prover.
     ///         - $iPROVE.deposit() - transfer from address(0) to VApp
     ///         - $iPROVE.transfer() - transfer from VApp to prover
-    ///
-    ///      TODO: Double check that this is the best strictest possible solution. This is easy to test by removing
-    ///            an exception and seeing if the tests fail.
     function _update(address _from, address _to, uint256 _value)
         internal
         override(ERC20, ERC20Votes)
