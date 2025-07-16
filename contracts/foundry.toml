@@ -9,7 +9,7 @@ fs_permissions = [
 	{ access = "read-write", path = "./deployments" },
 ]
 
-[lint]
+[profile.lint]
 exclude_lints = ["mixed-case-variable", "mixed-case-function", "screaming-snake-case-immutable"]
 
 [profile.deploy]
