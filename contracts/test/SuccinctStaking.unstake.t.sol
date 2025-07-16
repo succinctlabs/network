@@ -816,62 +816,151 @@ contract SuccinctStakingUnstakeTests is SuccinctStakingTest {
         }
     }
 
-    function test_Unstake_ExchangeRate() public {
-        // Staker stakes with Alice prover.
+    // An prover reward added when an unstake is in-progress should properly get distributed to all of the
+    // stake that isn't being unstaked.
+    function test_Unstake_WhenRewardDuringOngoingUnstake() public {
+        // Staker 1 and 2 stake with Alice prover.
         uint256 stakeAmount = STAKER_PROVE_AMOUNT;
         _stake(STAKER_1, ALICE_PROVER, stakeAmount);
         _stake(STAKER_2, ALICE_PROVER, stakeAmount);
 
-        // Request unstake for the full balance and skip ahead
+        // Staker 1 requests unstake for the full balance and waits for the unstake period.
         uint256 stPROVEBalance = IERC20(STAKING).balanceOf(STAKER_1);
         vm.prank(STAKER_1);
         ISuccinctStaking(STAKING).requestUnstake(stPROVEBalance);
-        skip(UNSTAKE_PERIOD);
 
-        /*
-            At this point there are two stakers.
-            Staker 1 has requested to unstake and is able to finish it.
-        
-            Now, we pay out rewards, i.e. the iPROVE amount in the Prover contract increases
-        */
-
+        // At this point there are two stakers, and Staker 1 has requested to unstake.
+        // Now, we pay out rewards, i.e. the iPROVE balance of the prover vault increases.
         MockVApp(VAPP).processFulfillment(ALICE_PROVER, STAKER_PROVE_AMOUNT / 2);
         (, uint256 stakerReward,) = _calculateFullRewardSplit(STAKER_PROVE_AMOUNT / 2);
         _withdrawFromVApp(ALICE_PROVER, stakerReward);
 
-        /*
-            Since Staker 1 is unstaking, they are not eligible to earn any of the rewards.
-            Meaning, Staker 2 should get the full amount. But, if they request their unstaking
-            at the time where Staker 1's unstake request isn't finished, they won't earn the full amount
-        */
-
-        // Staker 2 requests unstake
+        // Staker 2 requests unstake.
+        stPROVEBalance = IERC20(STAKING).balanceOf(STAKER_2);
         vm.prank(STAKER_2);
-        ISuccinctStaking(STAKING).requestUnstake(stakeAmount);
+        ISuccinctStaking(STAKING).requestUnstake(stPROVEBalance);
 
-        // Staker 1 finishes their unstaking
+        // Staker 1 finishes their unstaking.
+        skip(UNSTAKE_PERIOD);
         vm.prank(STAKER_1);
         uint256 proveReceived = ISuccinctStaking(STAKING).finishUnstake(STAKER_1);
 
-        // Staker 1 receives their original staked amount since no rewards were paid out before they requested to unstake
-        assertEq(proveReceived, stakeAmount);
+        // Staker 1 receives their original staked amount since no rewards were paid out before they requested to unstake.
+        assertEq(proveReceived, stakeAmount, "Staker 1 should receive original stake");
 
+        // Staker 2 finishes their unstaking.
         skip(UNSTAKE_PERIOD);
         vm.prank(STAKER_2);
         proveReceived = ISuccinctStaking(STAKING).finishUnstake(STAKER_2);
 
-        // Should receive original stake + full reward amount
-        // Note: Allow 2 wei tolerance for rounding in the pool distribution calculation
+        // Staker 2 should receive original stake + full reward amount.
         assertApproxEqAbs(
             proveReceived,
             stakeAmount + stakerReward,
             2,
-            "Should receive original stake + full reward amount"
+            "Staker 2 should receive original stake + full reward amount"
         );
 
-        // Minimal dust should be left in the prover contract (rounding from pool distribution)
+        // Minimal dust should be left in the prover contract (rounding from pool distribution).
+        assertLe(
+            IERC20(I_PROVE).balanceOf(ALICE_PROVER), 2, "Minimal iPROVE dust allowed in prover"
+        );
+    }
+
+    // Same as test_Unstake_WhenRewardDuringOngoingUnstake but with staker 2 finishing the unstake
+    // first.
+    function test_Unstake_WhenRewardDuringOngoingUnstakeOutOfOrder() public {
+        // Staker 1 and 2 stake with Alice prover.
+        uint256 stakeAmount = STAKER_PROVE_AMOUNT;
+        _stake(STAKER_1, ALICE_PROVER, stakeAmount);
+        _stake(STAKER_2, ALICE_PROVER, stakeAmount);
+
+        // Staker 1 requests unstake for the full balance and waits for the unstake period.
+        uint256 stPROVEBalance = IERC20(STAKING).balanceOf(STAKER_1);
+        vm.prank(STAKER_1);
+        ISuccinctStaking(STAKING).requestUnstake(stPROVEBalance);
+
+        // At this point there are two stakers, and Staker 1 has requested to unstake.
+        // Now, we pay out rewards, i.e. the iPROVE balance of the prover vault increases.
+        MockVApp(VAPP).processFulfillment(ALICE_PROVER, STAKER_PROVE_AMOUNT / 2);
+        (, uint256 stakerReward,) = _calculateFullRewardSplit(STAKER_PROVE_AMOUNT / 2);
+        _withdrawFromVApp(ALICE_PROVER, stakerReward);
+
+        // Staker 2 requests unstake.
+        stPROVEBalance = IERC20(STAKING).balanceOf(STAKER_2);
+        vm.prank(STAKER_2);
+        ISuccinctStaking(STAKING).requestUnstake(stPROVEBalance);
+
+        // Staker 2 finishes their unstaking.
+        skip(UNSTAKE_PERIOD);
+        vm.prank(STAKER_2);
+        uint256 proveReceived = ISuccinctStaking(STAKING).finishUnstake(STAKER_2);
+
+        // Staker 2 should receive original stake + full reward amount.
+        assertApproxEqAbs(
+            proveReceived,
+            stakeAmount + stakerReward,
+            2,
+            "Staker 2 should receive original stake + full reward amount"
+        );
+
+        // Staker 1 finishes their unstaking.
+        skip(UNSTAKE_PERIOD);
+        vm.prank(STAKER_1);
+        proveReceived = ISuccinctStaking(STAKING).finishUnstake(STAKER_1);
+
+        // Staker 1 receives their original staked amount since no rewards were paid out before they requested to unstake.
+        assertEq(proveReceived, stakeAmount, "Staker 1 should receive original stake");
+
+        // Minimal dust should be left in the prover contract (rounding from pool distribution).
         assertLe(
             IERC20(I_PROVE).balanceOf(ALICE_PROVER), 2, "Minimal iPROVE dust allowed in prover"
         );
     }
 }
+
+//     function test_Unstake_WhenOngoingUnstakesExchangeRateOutOfOrder() public {
+//         // Staker 1 and 2 stake with Alice prover.
+//         uint256 stakeAmount = STAKER_PROVE_AMOUNT;
+//         _stake(STAKER_1, ALICE_PROVER, stakeAmount);
+//         _stake(STAKER_2, ALICE_PROVER, stakeAmount);
+
+//         // Staker 1 requests unstake for the full balance and waits for the unstake period.
+//         vm.prank(STAKER_1);
+//         ISuccinctStaking(STAKING).requestUnstake(stakeAmount);
+
+//         // At this point there are two stakers, and Staker 1 has requested to unstake.
+//         // Now, we pay out rewards, i.e. the iPROVE balance of the prover vault increases.
+//         MockVApp(VAPP).processFulfillment(ALICE_PROVER, STAKER_PROVE_AMOUNT);
+//         (, uint256 stakerReward,) = _calculateFullRewardSplit(STAKER_PROVE_AMOUNT);
+//         _withdrawFromVApp(ALICE_PROVER, stakerReward);
+
+//         // Staker 2 requests unstake second (after rewards).
+//         skip(1 days);
+//         vm.prank(STAKER_2);
+//         ISuccinctStaking(STAKING).requestUnstake(stakeAmount);
+
+//         // Wait for both unstake requests to mature.
+//         skip(UNSTAKE_PERIOD);
+
+//         // Staker 2 finishes first (out of order).
+//         vm.prank(STAKER_2);
+//         uint256 received2 = ISuccinctStaking(STAKING).finishUnstake(STAKER_2);
+
+//         // Staker 1 finishes second.
+//         vm.prank(STAKER_1);
+//         uint256 received1 = ISuccinctStaking(STAKING).finishUnstake(STAKER_1);
+
+//         // Verify Staker 1 gets no rewards (requested before rewards were distributed).
+//         assertEq(received1, stakeAmount, "Staker 1 should only get original stake");
+
+//         // Verify Staker 2 gets half the rewards because both stakers have pending unstakes
+//         // when Staker 2 finishes. The rewards are split proportionally among pending unstakes.
+//         assertApproxEqAbs(
+//             received2,
+//             stakeAmount + stakerReward / 2,
+//             2,
+//             "Staker 2 should get original stake + half reward"
+//         );
+//     }
+// }
