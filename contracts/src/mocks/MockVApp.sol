@@ -135,11 +135,8 @@ contract MockVApp {
         withdrawClaims[account] = 0;
 
         if (IProverRegistry(staking).isProver(account)) {
-            // Deposit $PROVE to mint $iPROVE, sending it to this contract.
-            uint256 iPROVE = IERC4626(iProve).deposit(amount, address(this));
-
-            // Transfer the $iPROVE from this contract to the prover vault.
-            IERC20(iProve).safeTransfer(account, iPROVE);
+            // Deposit $PROVE to mint $iPROVE, sending it to the prover vault.
+            IERC4626(iProve).deposit(amount, account);
         } else {
             IERC20(prove).safeTransfer(account, amount);
         }
