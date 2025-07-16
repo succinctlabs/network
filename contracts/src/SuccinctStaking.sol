@@ -514,8 +514,8 @@ contract SuccinctStaking is
         }
 
         // Update pool state.
-        pool.iPROVEWithheld = pool.iPROVEWithheld - poolShare;
-        pool.stPROVEPending = pool.stPROVEPending - _stPROVE;
+        pool.iPROVEWithheld -= poolShare;
+        pool.stPROVEPending -= _stPROVE;
 
         // Total $iPROVE to give the staker.
         uint256 iPROVEToRedeem;
