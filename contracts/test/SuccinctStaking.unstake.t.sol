@@ -393,7 +393,7 @@ contract SuccinctStakingUnstakeTests is SuccinctStakingTest {
     // Test unstake queue with rewards
     function test_Unstake_WhenMultipleRewards() public {
         uint256 stakeAmount = STAKER_PROVE_AMOUNT;
-        uint256 rewardAmount = 50e18; // Use a larger reward amount for clearer test
+        uint256 rewardAmount = STAKER_PROVE_AMOUNT / 4;
 
         // Stake to Alice prover
         _permitAndStake(STAKER_1, STAKER_1_PK, ALICE_PROVER, stakeAmount);
@@ -830,6 +830,142 @@ contract SuccinctStakingUnstakeTests is SuccinctStakingTest {
         assertEq(IERC20(I_PROVE).balanceOf(STAKING), 0, "Staking contract should have no iPROVE");
     }
 
+    // Rewards added when an unstake is in-progress go only to remaining stakers
+    function test_Unstake_WhenRewardDuringOngoingUnstake() public {
+        // Staker 1 and 2 stake with Alice prover
+        uint256 stakeAmount = STAKER_PROVE_AMOUNT;
+        _stake(STAKER_1, ALICE_PROVER, stakeAmount);
+        _stake(STAKER_2, ALICE_PROVER, stakeAmount);
+
+        // Staker 1 requests unstake (burns stPROVE, escrows iPROVE)
+        uint256 staker1Shares = IERC20(STAKING).balanceOf(STAKER_1);
+        vm.prank(STAKER_1);
+        ISuccinctStaking(STAKING).requestUnstake(staker1Shares);
+
+        uint256 staker1Escrowed = ISuccinctStaking(STAKING).unstakeRequests(STAKER_1)[0].iPROVE;
+
+        // After Staker 1 unstakes, only Staker 2 remains staked
+        // Rewards paid out now should go entirely to Staker 2
+        MockVApp(VAPP).processFulfillment(ALICE_PROVER, STAKER_PROVE_AMOUNT / 2);
+        (, uint256 stakerReward,) = _calculateFullRewardSplit(STAKER_PROVE_AMOUNT / 2);
+        _withdrawFromVApp(ALICE_PROVER, stakerReward);
+
+        // Staker 2 requests unstake after receiving rewards
+        uint256 staker2Shares = IERC20(STAKING).balanceOf(STAKER_2);
+        vm.prank(STAKER_2);
+        ISuccinctStaking(STAKING).requestUnstake(staker2Shares);
+
+        uint256 staker2Escrowed = ISuccinctStaking(STAKING).unstakeRequests(STAKER_2)[0].iPROVE;
+
+        // Staker 1 finishes unstaking
+        skip(UNSTAKE_PERIOD);
+        vm.prank(STAKER_1);
+        uint256 proveReceived1 = ISuccinctStaking(STAKING).finishUnstake(STAKER_1);
+
+        // Staker 1 receives exactly what was escrowed (no rewards during unstaking)
+        assertApproxEqAbs(
+            proveReceived1,
+            IERC4626(I_PROVE).previewRedeem(staker1Escrowed),
+            1,
+            "Staker 1 should receive only escrowed amount"
+        );
+        assertApproxEqAbs(proveReceived1, stakeAmount, 1, "Staker 1 gets original stake");
+
+        // Staker 2 finishes unstaking
+        vm.prank(STAKER_2);
+        uint256 proveReceived2 = ISuccinctStaking(STAKING).finishUnstake(STAKER_2);
+
+        // Staker 2 should receive original stake + full reward
+        assertApproxEqAbs(
+            proveReceived2,
+            IERC4626(I_PROVE).previewRedeem(staker2Escrowed),
+            2,
+            "Staker 2 should receive escrowed amount including rewards"
+        );
+        assertApproxEqAbs(
+            proveReceived2,
+            stakeAmount + stakerReward,
+            2,
+            "Staker 2 gets original stake + full reward"
+        );
+
+        // No iPROVE should remain (allow 1 wei rounding dust)
+        assertLe(
+            IERC20(I_PROVE).balanceOf(ALICE_PROVER),
+            1,
+            "Prover should have at most 1 wei iPROVE dust"
+        );
+        assertEq(IERC20(I_PROVE).balanceOf(STAKING), 0, "Staking contract should have no iPROVE");
+    }
+
+    // Same as above but with staker 2 finishing the unstake first
+    function test_Unstake_WhenRewardDuringOngoingUnstakeOutOfOrder() public {
+        // Staker 1 and 2 stake with Alice prover
+        uint256 stakeAmount = STAKER_PROVE_AMOUNT;
+        _stake(STAKER_1, ALICE_PROVER, stakeAmount);
+        _stake(STAKER_2, ALICE_PROVER, stakeAmount);
+
+        // Staker 1 requests unstake (burns stPROVE, escrows iPROVE)
+        uint256 staker1Shares = IERC20(STAKING).balanceOf(STAKER_1);
+        vm.prank(STAKER_1);
+        ISuccinctStaking(STAKING).requestUnstake(staker1Shares);
+
+        uint256 staker1Escrowed = ISuccinctStaking(STAKING).unstakeRequests(STAKER_1)[0].iPROVE;
+
+        // After Staker 1 unstakes, only Staker 2 remains staked
+        // Rewards paid out now should go entirely to Staker 2
+        MockVApp(VAPP).processFulfillment(ALICE_PROVER, STAKER_PROVE_AMOUNT / 2);
+        (, uint256 stakerReward,) = _calculateFullRewardSplit(STAKER_PROVE_AMOUNT / 2);
+        _withdrawFromVApp(ALICE_PROVER, stakerReward);
+
+        // Staker 2 requests unstake after receiving rewards
+        uint256 staker2Shares = IERC20(STAKING).balanceOf(STAKER_2);
+        vm.prank(STAKER_2);
+        ISuccinctStaking(STAKING).requestUnstake(staker2Shares);
+
+        uint256 staker2Escrowed = ISuccinctStaking(STAKING).unstakeRequests(STAKER_2)[0].iPROVE;
+
+        // Staker 2 finishes unstaking first (out of order)
+        skip(UNSTAKE_PERIOD);
+        vm.prank(STAKER_2);
+        uint256 proveReceived2 = ISuccinctStaking(STAKING).finishUnstake(STAKER_2);
+
+        // Staker 2 should receive original stake + full reward
+        assertApproxEqAbs(
+            proveReceived2,
+            IERC4626(I_PROVE).previewRedeem(staker2Escrowed),
+            2,
+            "Staker 2 should receive escrowed amount including rewards"
+        );
+        assertApproxEqAbs(
+            proveReceived2,
+            stakeAmount + stakerReward,
+            2,
+            "Staker 2 gets original stake + full reward"
+        );
+
+        // Staker 1 finishes unstaking second
+        vm.prank(STAKER_1);
+        uint256 proveReceived1 = ISuccinctStaking(STAKING).finishUnstake(STAKER_1);
+
+        // Staker 1 receives exactly what was escrowed (no rewards during unstaking)
+        assertApproxEqAbs(
+            proveReceived1,
+            IERC4626(I_PROVE).previewRedeem(staker1Escrowed),
+            1,
+            "Staker 1 should receive only escrowed amount"
+        );
+        assertApproxEqAbs(proveReceived1, stakeAmount, 1, "Staker 1 gets original stake");
+
+        // No iPROVE should remain (allow 1 wei rounding dust)
+        assertLe(
+            IERC20(I_PROVE).balanceOf(ALICE_PROVER),
+            1,
+            "Prover should have at most 1 wei iPROVE dust"
+        );
+        assertEq(IERC20(I_PROVE).balanceOf(STAKING), 0, "Staking contract should have no iPROVE");
+    }
+
     /*//////////////////////////////////////////////////////////////
                               FUZZ TESTS
     //////////////////////////////////////////////////////////////*/
@@ -970,9 +1106,8 @@ contract SuccinctStakingUnstakeTests is SuccinctStakingTest {
         uint256 totalStake = stakeAmount * 2;
         uint256 slashAmount = bound(_slashAmount, 1, totalStake);
 
-        // Get vault balance before slash (this caps the actual slash amount)
-        uint256 vaultBalance = IERC20(I_PROVE).balanceOf(ALICE_PROVER);
-        uint256 actualSlashAmount = slashAmount > vaultBalance ? vaultBalance : slashAmount;
+        // With the fix, slashes can now exceed vault balance up to total (vault + escrow)
+        uint256 actualSlashAmount = slashAmount > totalStake ? totalStake : slashAmount;
 
         // Request and execute slash
         _requestSlash(ALICE_PROVER, slashAmount);
@@ -983,7 +1118,7 @@ contract SuccinctStakingUnstakeTests is SuccinctStakingTest {
         skip(UNSTAKE_PERIOD - SLASH_PERIOD);
         uint256 receivedAmount = _finishUnstake(STAKER_1);
 
-        // The slash is capped at vault balance and distributed pro-rata
+        // The slash is distributed pro-rata between vault and escrow
         // Escrow gets: actualSlashAmount * escrowBalance / totalStake
         // Since escrow and vault are equal, escrow loses half of actualSlashAmount
         uint256 escrowSlashed = Math.mulDiv(actualSlashAmount, stakeAmount, totalStake);
@@ -1015,186 +1150,4 @@ contract SuccinctStakingUnstakeTests is SuccinctStakingTest {
             assertEq(IERC20(PROVE).balanceOf(STAKER_1), stakeAmount);
         }
     }
-
-    // Rewards added when an unstake is in-progress go only to remaining stakers
-    function test_Unstake_WhenRewardDuringOngoingUnstake() public {
-        // Staker 1 and 2 stake with Alice prover
-        uint256 stakeAmount = STAKER_PROVE_AMOUNT;
-        _stake(STAKER_1, ALICE_PROVER, stakeAmount);
-        _stake(STAKER_2, ALICE_PROVER, stakeAmount);
-
-        // Staker 1 requests unstake (burns stPROVE, escrows iPROVE)
-        uint256 staker1Shares = IERC20(STAKING).balanceOf(STAKER_1);
-        vm.prank(STAKER_1);
-        ISuccinctStaking(STAKING).requestUnstake(staker1Shares);
-
-        uint256 staker1Escrowed = ISuccinctStaking(STAKING).unstakeRequests(STAKER_1)[0].iPROVE;
-
-        // After Staker 1 unstakes, only Staker 2 remains staked
-        // Rewards paid out now should go entirely to Staker 2
-        MockVApp(VAPP).processFulfillment(ALICE_PROVER, STAKER_PROVE_AMOUNT / 2);
-        (, uint256 stakerReward,) = _calculateFullRewardSplit(STAKER_PROVE_AMOUNT / 2);
-        _withdrawFromVApp(ALICE_PROVER, stakerReward);
-
-        // Staker 2 requests unstake after receiving rewards
-        uint256 staker2Shares = IERC20(STAKING).balanceOf(STAKER_2);
-        vm.prank(STAKER_2);
-        ISuccinctStaking(STAKING).requestUnstake(staker2Shares);
-
-        uint256 staker2Escrowed = ISuccinctStaking(STAKING).unstakeRequests(STAKER_2)[0].iPROVE;
-
-        // Staker 1 finishes unstaking
-        skip(UNSTAKE_PERIOD);
-        vm.prank(STAKER_1);
-        uint256 proveReceived1 = ISuccinctStaking(STAKING).finishUnstake(STAKER_1);
-
-        // Staker 1 receives exactly what was escrowed (no rewards during unstaking)
-        assertApproxEqAbs(
-            proveReceived1,
-            IERC4626(I_PROVE).previewRedeem(staker1Escrowed),
-            1,
-            "Staker 1 should receive only escrowed amount"
-        );
-        assertApproxEqAbs(proveReceived1, stakeAmount, 1, "Staker 1 gets original stake");
-
-        // Staker 2 finishes unstaking
-        vm.prank(STAKER_2);
-        uint256 proveReceived2 = ISuccinctStaking(STAKING).finishUnstake(STAKER_2);
-
-        // Staker 2 should receive original stake + full reward
-        assertApproxEqAbs(
-            proveReceived2,
-            IERC4626(I_PROVE).previewRedeem(staker2Escrowed),
-            2,
-            "Staker 2 should receive escrowed amount including rewards"
-        );
-        assertApproxEqAbs(
-            proveReceived2,
-            stakeAmount + stakerReward,
-            2,
-            "Staker 2 gets original stake + full reward"
-        );
-
-        // No iPROVE should remain (allow 1 wei rounding dust)
-        assertLe(
-            IERC20(I_PROVE).balanceOf(ALICE_PROVER),
-            1,
-            "Prover should have at most 1 wei iPROVE dust"
-        );
-        assertEq(IERC20(I_PROVE).balanceOf(STAKING), 0, "Staking contract should have no iPROVE");
-    }
-
-    // Same as above but with staker 2 finishing the unstake first
-    function test_Unstake_WhenRewardDuringOngoingUnstakeOutOfOrder() public {
-        // Staker 1 and 2 stake with Alice prover
-        uint256 stakeAmount = STAKER_PROVE_AMOUNT;
-        _stake(STAKER_1, ALICE_PROVER, stakeAmount);
-        _stake(STAKER_2, ALICE_PROVER, stakeAmount);
-
-        // Staker 1 requests unstake (burns stPROVE, escrows iPROVE)
-        uint256 staker1Shares = IERC20(STAKING).balanceOf(STAKER_1);
-        vm.prank(STAKER_1);
-        ISuccinctStaking(STAKING).requestUnstake(staker1Shares);
-
-        uint256 staker1Escrowed = ISuccinctStaking(STAKING).unstakeRequests(STAKER_1)[0].iPROVE;
-
-        // After Staker 1 unstakes, only Staker 2 remains staked
-        // Rewards paid out now should go entirely to Staker 2
-        MockVApp(VAPP).processFulfillment(ALICE_PROVER, STAKER_PROVE_AMOUNT / 2);
-        (, uint256 stakerReward,) = _calculateFullRewardSplit(STAKER_PROVE_AMOUNT / 2);
-        _withdrawFromVApp(ALICE_PROVER, stakerReward);
-
-        // Staker 2 requests unstake after receiving rewards
-        uint256 staker2Shares = IERC20(STAKING).balanceOf(STAKER_2);
-        vm.prank(STAKER_2);
-        ISuccinctStaking(STAKING).requestUnstake(staker2Shares);
-
-        uint256 staker2Escrowed = ISuccinctStaking(STAKING).unstakeRequests(STAKER_2)[0].iPROVE;
-
-        // Staker 2 finishes unstaking first (out of order)
-        skip(UNSTAKE_PERIOD);
-        vm.prank(STAKER_2);
-        uint256 proveReceived2 = ISuccinctStaking(STAKING).finishUnstake(STAKER_2);
-
-        // Staker 2 should receive original stake + full reward
-        assertApproxEqAbs(
-            proveReceived2,
-            IERC4626(I_PROVE).previewRedeem(staker2Escrowed),
-            2,
-            "Staker 2 should receive escrowed amount including rewards"
-        );
-        assertApproxEqAbs(
-            proveReceived2,
-            stakeAmount + stakerReward,
-            2,
-            "Staker 2 gets original stake + full reward"
-        );
-
-        // Staker 1 finishes unstaking second
-        vm.prank(STAKER_1);
-        uint256 proveReceived1 = ISuccinctStaking(STAKING).finishUnstake(STAKER_1);
-
-        // Staker 1 receives exactly what was escrowed (no rewards during unstaking)
-        assertApproxEqAbs(
-            proveReceived1,
-            IERC4626(I_PROVE).previewRedeem(staker1Escrowed),
-            1,
-            "Staker 1 should receive only escrowed amount"
-        );
-        assertApproxEqAbs(proveReceived1, stakeAmount, 1, "Staker 1 gets original stake");
-
-        // No iPROVE should remain (allow 1 wei rounding dust)
-        assertLe(
-            IERC20(I_PROVE).balanceOf(ALICE_PROVER),
-            1,
-            "Prover should have at most 1 wei iPROVE dust"
-        );
-        assertEq(IERC20(I_PROVE).balanceOf(STAKING), 0, "Staking contract should have no iPROVE");
-    }
 }
-
-//     function test_Unstake_WhenOngoingUnstakesExchangeRateOutOfOrder() public {
-//         // Staker 1 and 2 stake with Alice prover.
-//         uint256 stakeAmount = STAKER_PROVE_AMOUNT;
-//         _stake(STAKER_1, ALICE_PROVER, stakeAmount);
-//         _stake(STAKER_2, ALICE_PROVER, stakeAmount);
-
-//         // Staker 1 requests unstake for the full balance and waits for the unstake period.
-//         vm.prank(STAKER_1);
-//         ISuccinctStaking(STAKING).requestUnstake(stakeAmount);
-
-//         // At this point there are two stakers, and Staker 1 has requested to unstake.
-//         // Now, we pay out rewards, i.e. the iPROVE balance of the prover vault increases.
-//         MockVApp(VAPP).processFulfillment(ALICE_PROVER, STAKER_PROVE_AMOUNT);
-//         (, uint256 stakerReward,) = _calculateFullRewardSplit(STAKER_PROVE_AMOUNT);
-//         _withdrawFromVApp(ALICE_PROVER, stakerReward);
-
-//         // Staker 2 requests unstake second (after rewards).
-//         skip(1 days);
-//         vm.prank(STAKER_2);
-//         ISuccinctStaking(STAKING).requestUnstake(stakeAmount);
-
-//         // Wait for both unstake requests to mature.
-//         skip(UNSTAKE_PERIOD);
-
-//         // Staker 2 finishes first (out of order).
-//         vm.prank(STAKER_2);
-//         uint256 received2 = ISuccinctStaking(STAKING).finishUnstake(STAKER_2);
-
-//         // Staker 1 finishes second.
-//         vm.prank(STAKER_1);
-//         uint256 received1 = ISuccinctStaking(STAKING).finishUnstake(STAKER_1);
-
-//         // Verify Staker 1 gets no rewards (requested before rewards were distributed).
-//         assertEq(received1, stakeAmount, "Staker 1 should only get original stake");
-
-//         // Verify Staker 2 gets half the rewards because both stakers have pending unstakes
-//         // when Staker 2 finishes. The rewards are split proportionally among pending unstakes.
-//         assertApproxEqAbs(
-//             received2,
-//             stakeAmount + stakerReward / 2,
-//             2,
-//             "Staker 2 should get original stake + half reward"
-//         );
-//     }
-// }

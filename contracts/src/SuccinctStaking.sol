@@ -385,7 +385,11 @@ contract SuccinctStaking is
 
         // Determine how much can actually be slashed (cannot exceed the prover's current balance).
         uint256 iPROVEBalance = IERC20(iProve).balanceOf(_prover);
-        uint256 iPROVEToSlash = claim.iPROVE > iPROVEBalance ? iPROVEBalance : claim.iPROVE;
+
+        // Get the prover's escrow pool to include escrowed funds in total.
+        EscrowPool storage pool = escrowPools[_prover];
+        uint256 iPROVETotal = iPROVEBalance + pool.iPROVEEscrow;
+        uint256 iPROVEToSlash = claim.iPROVE > iPROVETotal ? iPROVETotal : claim.iPROVE;
 
         // Delete the claim.
         if (_index != slashClaims[_prover].length - 1) {
@@ -396,11 +400,7 @@ contract SuccinctStaking is
         uint256 PROVEBurned = 0;
         iPROVEBurned = 0;
         if (iPROVEToSlash > 0) {
-            // Get the prover's escrow pool.
-            EscrowPool storage pool = escrowPools[_prover];
-
             // Pro‑rata split between vault and escrow.
-            uint256 iPROVETotal = iPROVEBalance + pool.iPROVEEscrow;
             uint256 burnFromEscrow = Math.mulDiv(iPROVEToSlash, pool.iPROVEEscrow, iPROVETotal);
             uint256 burnFromVault = iPROVEToSlash - burnFromEscrow;
 

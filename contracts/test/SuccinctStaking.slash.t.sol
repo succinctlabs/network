@@ -496,6 +496,83 @@ contract SuccinctStakingSlashTests is SuccinctStakingTest {
         assertEq(IERC20(PROVE).balanceOf(STAKER_1), 0);
     }
 
+    // Test that slash correctly handles escrow funds.
+    function test_Slash_WhenSlashExceedsVaultButNotTotal() public {
+        uint256 stakeAmount = STAKER_PROVE_AMOUNT;
+
+        // Setup: Two stakers with same prover
+        _stake(STAKER_1, ALICE_PROVER, stakeAmount);
+        _stake(STAKER_2, ALICE_PROVER, stakeAmount);
+
+        // Staker 1 requests unstake (moves funds to escrow)
+        _requestUnstake(STAKER_1, stakeAmount);
+
+        // Now we have:
+        // - Vault: stakeAmount (from STAKER_2)
+        // - Escrow: stakeAmount (from STAKER_1)
+        // - Total: 2 * stakeAmount
+
+        // Verify initial state
+        uint256 vaultBalance = IERC20(I_PROVE).balanceOf(ALICE_PROVER);
+        ISuccinctStaking.EscrowPool memory pool = ISuccinctStaking(STAKING).escrowPool(ALICE_PROVER);
+        assertEq(vaultBalance, stakeAmount, "Vault should have STAKER_2's stake");
+        assertEq(pool.iPROVEEscrow, stakeAmount, "Escrow should have STAKER_1's stake");
+
+        // Request slash for 150% of vault (but only 75% of total)
+        uint256 slashAmount = stakeAmount * 3 / 2;
+        _requestSlash(ALICE_PROVER, slashAmount);
+
+        // Execute slash
+        skip(SLASH_PERIOD);
+        vm.prank(OWNER);
+        uint256 iPROVEBurned = SuccinctStaking(STAKING).finishSlash(ALICE_PROVER, 0);
+
+        // With the bug, only vault balance (stakeAmount) would be slashed
+        // With the fix, the full slashAmount should be slashed (split between vault and escrow)
+        assertEq(iPROVEBurned, slashAmount, "Should slash the full requested amount");
+
+        // Verify the slash was distributed proportionally
+        // With equal amounts in vault and escrow, each gets 50% of the slash
+        uint256 expectedVaultSlash = slashAmount / 2; // 75k from vault
+        uint256 expectedEscrowSlash = slashAmount / 2; // 75k from escrow
+
+        // Check remaining balances
+        uint256 vaultAfter = IERC20(I_PROVE).balanceOf(ALICE_PROVER);
+        ISuccinctStaking.EscrowPool memory poolAfter =
+            ISuccinctStaking(STAKING).escrowPool(ALICE_PROVER);
+
+        assertEq(
+            vaultAfter, stakeAmount - expectedVaultSlash, "Vault should be reduced by its share"
+        );
+        assertEq(
+            poolAfter.iPROVEEscrow,
+            stakeAmount - expectedEscrowSlash,
+            "Escrow should be reduced by its share"
+        );
+
+        // Complete unstakes to verify final state
+        skip(UNSTAKE_PERIOD - SLASH_PERIOD);
+        uint256 staker1Received = _finishUnstake(STAKER_1);
+
+        // Staker 1 should receive reduced amount due to slash
+        // Original: 100k, Slash on escrow: 75k, Remaining: 25k
+        assertApproxEqAbs(
+            staker1Received,
+            stakeAmount - expectedEscrowSlash,
+            2,
+            "Staker 1 should receive 25% after 75% slash on escrow"
+        );
+
+        // Staker 2's remaining stake should also be reduced
+        // Original: 100k, Slash on vault: 75k, Remaining: 25k
+        assertApproxEqAbs(
+            SuccinctStaking(STAKING).staked(STAKER_2),
+            stakeAmount - expectedVaultSlash,
+            2,
+            "Staker 2 should have 25% remaining"
+        );
+    }
+
     function testFuzz_Slash_WhenVariableAmounts(uint256 _slashAmount) public {
         uint256 stakeAmount = STAKER_PROVE_AMOUNT;
         uint256 slashAmount = bound(_slashAmount, 1, stakeAmount * 2); // Allow over-slashing
