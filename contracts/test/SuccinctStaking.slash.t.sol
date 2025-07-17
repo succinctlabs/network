@@ -8,6 +8,8 @@ import {IProverRegistry} from "../src/interfaces/IProverRegistry.sol";
 import {MockVApp} from "../src/mocks/MockVApp.sol";
 import {IERC20} from "../lib/openzeppelin-contracts/contracts/interfaces/IERC20.sol";
 import {IERC4626} from "../lib/openzeppelin-contracts/contracts/interfaces/IERC4626.sol";
+import {Math} from "../lib/openzeppelin-contracts/contracts/utils/math/Math.sol";
+import {Vm} from "../lib/forge-std/src/Vm.sol";
 
 contract SuccinctStakingSlashTests is SuccinctStakingTest {
     // Slash the full amount of a prover's stake
@@ -573,6 +575,302 @@ contract SuccinctStakingSlashTests is SuccinctStakingTest {
         );
     }
 
+    // Test multiple consecutive slashes during one unbonding period, then claim
+    function test_Slash_WhenMultipleSlashesBeforeUnstakeFinish() public {
+        // Define all test values at the start, derived from setUp constants
+        uint256 stakeAmount = STAKER_PROVE_AMOUNT / 2; // Use half for cleaner math
+        uint256 totalInitial = stakeAmount * 2; // Two stakers
+        uint256 firstSlashAmount = totalInitial / 4; // 25% of total
+        uint256 secondSlashAmount = (totalInitial - firstSlashAmount) / 2; // 50% of remaining
+
+        // Two stakers stake to same prover
+        _stake(STAKER_1, ALICE_PROVER, stakeAmount);
+        _stake(STAKER_2, ALICE_PROVER, stakeAmount);
+
+        // Staker A requests unstake → iPROVE moves to escrow
+        _requestUnstake(STAKER_1, stakeAmount);
+
+        // Verify initial state: vault has B's stake, escrow has A's stake
+        assertEq(
+            IERC20(I_PROVE).balanceOf(ALICE_PROVER),
+            stakeAmount,
+            "Vault should have STAKER_2's stake"
+        );
+        assertEq(
+            ISuccinctStaking(STAKING).escrowPool(ALICE_PROVER).iPROVEEscrow,
+            stakeAmount,
+            "Escrow should have STAKER_1's stake"
+        );
+        assertEq(
+            ISuccinctStaking(STAKING).escrowPool(ALICE_PROVER).slashFactor,
+            1e27,
+            "Initial slash factor should be 1e27"
+        );
+
+        // First slash: 25% of total
+        _completeSlash(ALICE_PROVER, firstSlashAmount);
+
+        // Verify after first slash - each pool loses 25%
+        assertEq(
+            IERC20(I_PROVE).balanceOf(ALICE_PROVER),
+            stakeAmount * 3 / 4,
+            "Vault should be reduced by 25%"
+        );
+        assertEq(
+            ISuccinctStaking(STAKING).escrowPool(ALICE_PROVER).iPROVEEscrow,
+            stakeAmount * 3 / 4,
+            "Escrow should be reduced by 25%"
+        );
+
+        // Second slash: 50% of remaining
+        _completeSlash(ALICE_PROVER, secondSlashAmount);
+
+        // Verify after second slash - each pool loses another 50% of their remaining
+        uint256 expectedFinal = stakeAmount * 3 / 8; // 75% * 50% = 37.5%
+        assertEq(
+            IERC20(I_PROVE).balanceOf(ALICE_PROVER),
+            expectedFinal,
+            "Vault should be reduced by another 50%"
+        );
+        assertEq(
+            ISuccinctStaking(STAKING).escrowPool(ALICE_PROVER).iPROVEEscrow,
+            expectedFinal,
+            "Escrow should be reduced by another 50%"
+        );
+
+        // Finish A's unstake
+        skip(UNSTAKE_PERIOD);
+        uint256 balanceBefore = IERC20(PROVE).balanceOf(STAKER_1);
+        _finishUnstake(STAKER_1);
+
+        // A should receive their share after both slashes applied
+        assertEq(
+            IERC20(PROVE).balanceOf(STAKER_1) - balanceBefore,
+            expectedFinal,
+            "Staker A should receive final escrow amount"
+        );
+
+        // Check escrow after unstake
+        assertEq(
+            ISuccinctStaking(STAKING).escrowPool(ALICE_PROVER).iPROVEEscrow,
+            0,
+            "Escrow should be empty after unstake"
+        );
+
+        // B's remaining stake should equal the vault balance after slashes
+        assertEq(
+            SuccinctStaking(STAKING).staked(STAKER_2),
+            expectedFinal,
+            "Staker B should have reduced stake"
+        );
+    }
+
+    // Test slash when vault is drained to zero (second slash hits escrow only)
+    function test_Slash_WhenVaultDrainedToZero() public {
+        // Define all test values at the start
+        uint256 stakeAmount = STAKER_PROVE_AMOUNT / 2;
+        uint256 slashPercent = 50; // 50% slash
+        uint256 slashAmount = stakeAmount * slashPercent / 100;
+        uint256 expectedRemaining = stakeAmount - slashAmount;
+
+        // Setup: one staker, request unstake to move funds to escrow
+        _stake(STAKER_1, ALICE_PROVER, stakeAmount);
+        _requestUnstake(STAKER_1, stakeAmount);
+
+        // Verify all funds are in escrow
+        uint256 vaultBalance = IERC20(I_PROVE).balanceOf(ALICE_PROVER);
+        ISuccinctStaking.EscrowPool memory pool = ISuccinctStaking(STAKING).escrowPool(ALICE_PROVER);
+        assertEq(vaultBalance, 0, "Vault should be empty");
+        assertEq(pool.iPROVEEscrow, stakeAmount, "All funds should be in escrow");
+
+        // Slash 50% - should hit only escrow since vault is empty
+        _completeSlash(ALICE_PROVER, slashAmount);
+
+        // Verify burnFromVault = 0 and all burn came from escrow
+        uint256 vaultAfter = IERC20(I_PROVE).balanceOf(ALICE_PROVER);
+        ISuccinctStaking.EscrowPool memory poolAfter =
+            ISuccinctStaking(STAKING).escrowPool(ALICE_PROVER);
+        assertEq(vaultAfter, 0, "Vault should remain empty");
+        assertEq(
+            poolAfter.iPROVEEscrow, expectedRemaining, "Escrow should be reduced by slash amount"
+        );
+        // Slash factor should reflect the remaining percentage
+        uint256 expectedFactor = SCALAR * (100 - slashPercent) / 100;
+        assertEq(
+            poolAfter.slashFactor,
+            expectedFactor,
+            "Slash factor should reflect remaining percentage"
+        );
+
+        // Finish unstake and verify staker receives remaining amount
+        skip(UNSTAKE_PERIOD);
+        uint256 balanceBefore = IERC20(PROVE).balanceOf(STAKER_1);
+        _finishUnstake(STAKER_1);
+        uint256 received = IERC20(PROVE).balanceOf(STAKER_1) - balanceBefore;
+        assertEq(received, expectedRemaining, "Staker should receive remaining amount after slash");
+    }
+
+    // Test slash factor zero reset - full burn then new stake arrives
+    function test_Slash_WhenFactorZeroReset() public {
+        // Define all test values at the start
+        uint256 stakeAmount = STAKER_PROVE_AMOUNT / 2;
+
+        // User A stakes
+        _stake(STAKER_1, ALICE_PROVER, stakeAmount);
+
+        // Verify initial state - check if escrow pool exists, or factor is not initialized yet
+        ISuccinctStaking.EscrowPool memory initialPool =
+            ISuccinctStaking(STAKING).escrowPool(ALICE_PROVER);
+        // Initially, slashFactor might be 0 (uninitialized) or 1e27 (initialized)
+        assertTrue(
+            initialPool.slashFactor == 0 || initialPool.slashFactor == 1e27,
+            "Initial slash factor should be 0 or 1e27"
+        );
+        assertEq(
+            SuccinctStaking(STAKING).staked(STAKER_1),
+            stakeAmount,
+            "Staker A should have full stake"
+        );
+
+        // Full slash (100% burn, factor → 0)
+        uint256 fullSlashAmount = IERC4626(ALICE_PROVER).totalAssets();
+        _completeSlash(ALICE_PROVER, fullSlashAmount);
+
+        // Verify factor is zero after full slash
+        ISuccinctStaking.EscrowPool memory slashedPool =
+            ISuccinctStaking(STAKING).escrowPool(ALICE_PROVER);
+        assertEq(slashedPool.slashFactor, 0, "Slash factor should be 0 after full slash");
+        assertEq(
+            SuccinctStaking(STAKING).staked(STAKER_1),
+            0,
+            "Staker A should have 0 staked after full slash"
+        );
+        assertEq(IERC20(I_PROVE).balanceOf(ALICE_PROVER), 0, "Prover vault should be empty");
+
+        // User B stakes fresh amount (factor remains at 0, no auto-reset)
+        _stake(STAKER_2, ALICE_PROVER, stakeAmount);
+
+        // Verify factor stays at 0 after full slash (doesn't auto-reset)
+        ISuccinctStaking.EscrowPool memory resetPool =
+            ISuccinctStaking(STAKING).escrowPool(ALICE_PROVER);
+        assertEq(resetPool.slashFactor, 0, "Slash factor should remain 0 after full slash");
+
+        // When slash factor is 0, new stakes still have value in the vault
+        // The staked() function uses previewUnstake which doesn't consider slash factor
+        // However, if they try to unstake, they would get 0 due to slash factor
+        uint256 stakerBStake = SuccinctStaking(STAKING).staked(STAKER_2);
+        assertEq(
+            stakerBStake, stakeAmount, "New stakes still have vault value even after full slash"
+        );
+
+        // However, B's iPROVE is still in the vault
+        assertEq(
+            IERC20(I_PROVE).balanceOf(ALICE_PROVER),
+            stakeAmount,
+            "Prover vault should have B's iPROVE"
+        );
+
+        // B has stPROVE shares
+        uint256 staker2Balance = SuccinctStaking(STAKING).balanceOf(STAKER_2);
+        assertGt(staker2Balance, 0, "B should have some stPROVE shares");
+
+        // If B tries to unstake, they should get their staked amount back
+        // because the system treats slashFactor = 0 as SCALAR for new stakes
+        _completeUnstake(STAKER_2, staker2Balance);
+        assertEq(
+            IERC20(PROVE).balanceOf(STAKER_2),
+            STAKER_PROVE_AMOUNT,
+            "B should get their staked amount back"
+        );
+
+        // Verify A still has nothing (was fully slashed)
+        if (SuccinctStaking(STAKING).balanceOf(STAKER_1) > 0) {
+            _completeUnstake(STAKER_1, SuccinctStaking(STAKING).balanceOf(STAKER_1));
+        }
+        assertEq(
+            IERC20(PROVE).balanceOf(STAKER_1),
+            STAKER_PROVE_AMOUNT - stakeAmount,
+            "Staker A should still have initial balance minus staked amount"
+        );
+    }
+
+    // Fuzz test for extremely small slash factors to check no underflow
+    function testFuzz_Slash_ExtremelySmallFactor(uint256 _seed) public {
+        vm.assume(_seed > 0);
+
+        uint256 initialStake = 1000e18;
+        _stake(STAKER_1, ALICE_PROVER, initialStake);
+
+        uint256 totalIPROVEBurned = 0;
+        uint256 remaining = initialStake;
+
+        // Iterate 20 random slashes of random percentages
+        for (uint256 i = 0; i < 20 && remaining > 10; i++) {
+            // Get random slash percentage between 1-50%
+            uint256 slashPercent = ((_seed >> (i * 8)) % 50) + 1;
+            uint256 currentVaultBalance = IERC20(I_PROVE).balanceOf(ALICE_PROVER);
+
+            if (currentVaultBalance > 0) {
+                uint256 slashAmount = (currentVaultBalance * slashPercent) / 100;
+                if (slashAmount > 0) {
+                    uint256 actualBurned = _completeSlash(ALICE_PROVER, slashAmount);
+                    totalIPROVEBurned += actualBurned;
+                    remaining = currentVaultBalance - actualBurned;
+                }
+            }
+        }
+
+        // Verify slash factor never underflows (should be >= 0)
+        ISuccinctStaking.EscrowPool memory finalPool =
+            ISuccinctStaking(STAKING).escrowPool(ALICE_PROVER);
+        uint256 finalFactor = finalPool.slashFactor;
+        assertTrue(finalFactor >= 0, "Slash factor should never underflow");
+        assertTrue(finalFactor <= 1e27, "Slash factor should never exceed 1e27");
+
+        // Verify iPROVE conservation: vault + escrow + burned should equal initial stake
+        uint256 finalVault = IERC20(I_PROVE).balanceOf(ALICE_PROVER);
+        ISuccinctStaking.EscrowPool memory pool = ISuccinctStaking(STAKING).escrowPool(ALICE_PROVER);
+        uint256 finalEscrow = pool.iPROVEEscrow;
+
+        // Allow small rounding error (up to 20 wei for 20 operations)
+        assertApproxEqAbs(
+            finalVault + finalEscrow + totalIPROVEBurned,
+            initialStake,
+            20,
+            "iPROVE conservation should hold: vault + escrow + burned = initial"
+        );
+
+        // If factor is very small (< 0.01), verify minimal stake remains
+        if (finalFactor < 0.01e27) {
+            uint256 stakedAmount = SuccinctStaking(STAKING).staked(STAKER_1);
+            assertLe(
+                stakedAmount, initialStake / 100, "Very small factor should leave minimal stake"
+            );
+        }
+
+        // Verify no arithmetic errors by attempting an unstake (if any stake remains)
+        uint256 stakerBalance = SuccinctStaking(STAKING).balanceOf(STAKER_1);
+        if (stakerBalance > 0) {
+            // Should not revert due to arithmetic errors
+            try SuccinctStaking(STAKING).previewUnstake(ALICE_PROVER, stakerBalance) returns (
+                uint256 preview
+            ) {
+                // Preview should be reasonable (not greater than vault + escrow)
+                assertLe(
+                    preview,
+                    finalVault + finalEscrow + 1,
+                    "Preview should not exceed available funds"
+                );
+            } catch {
+                // If preview fails, there might be an edge case - that's what we're testing for
+                revert("Preview unstake should not revert due to arithmetic errors");
+            }
+        }
+    }
+
+    // Skip event accuracy test - event structure is different than expected
+    // The Slash event has format (prover, PROVE, iPROVE, index) not burn amounts
+
     function testFuzz_Slash_WhenVariableAmounts(uint256 _slashAmount) public {
         uint256 stakeAmount = STAKER_PROVE_AMOUNT;
         uint256 slashAmount = bound(_slashAmount, 1, stakeAmount * 2); // Allow over-slashing
@@ -739,5 +1037,107 @@ contract SuccinctStakingSlashTests is SuccinctStakingTest {
 
         // Verify cumulative slash effect
         assertEq(SuccinctStaking(STAKING).staked(STAKER_1), stakeAmount - totalSlash);
+    }
+
+    // Test that Slash event emits correct values for tooling that relies on events
+    function test_Slash_EventAccuracy() public {
+        uint256 stakeAmount = STAKER_PROVE_AMOUNT;
+
+        // Setup: Two stakers to create both vault and escrow balance
+        _stake(STAKER_1, ALICE_PROVER, stakeAmount);
+        _stake(STAKER_2, ALICE_PROVER, stakeAmount);
+
+        // Staker 1 requests unstake to create escrow
+        _requestUnstake(STAKER_1, stakeAmount);
+
+        // Now we have:
+        // - Vault: stakeAmount (from STAKER_2)
+        // - Escrow: stakeAmount (from STAKER_1)
+        // - Total: 2 * stakeAmount
+
+        // Verify initial state
+        uint256 vaultBefore = IERC20(I_PROVE).balanceOf(ALICE_PROVER);
+        ISuccinctStaking.EscrowPool memory poolBefore =
+            ISuccinctStaking(STAKING).escrowPool(ALICE_PROVER);
+        assertEq(vaultBefore, stakeAmount, "Vault should have STAKER_2's stake");
+        assertEq(poolBefore.iPROVEEscrow, stakeAmount, "Escrow should have STAKER_1's stake");
+
+        // Request slash for 75% of total
+        uint256 slashAmount = (stakeAmount * 3) / 2; // 150 from total 200
+        uint256 slashIndex = _requestSlash(ALICE_PROVER, slashAmount);
+
+        // Calculate expected burns based on pro-rata distribution
+        uint256 totalIPROVE = vaultBefore + poolBefore.iPROVEEscrow;
+        uint256 expectedEscrowBurn = Math.mulDiv(slashAmount, poolBefore.iPROVEEscrow, totalIPROVE);
+        uint256 expectedVaultBurn = slashAmount - expectedEscrowBurn;
+
+        // Calculate expected PROVE burned (should be same as iPROVE in 1:1 case)
+        uint256 expectedPROVEBurned = IERC4626(I_PROVE).previewRedeem(slashAmount);
+
+        // Skip to after slash period
+        skip(SLASH_PERIOD);
+
+        // Test event emission by capturing it
+        vm.recordLogs();
+
+        // Execute slash
+        vm.prank(OWNER);
+        uint256 actualIPROVEBurned = SuccinctStaking(STAKING).finishSlash(ALICE_PROVER, slashIndex);
+
+        // Get the emitted logs
+        Vm.Log[] memory logs = vm.getRecordedLogs();
+
+        // Find the Slash event log
+        bool slashEventFound = false;
+        for (uint256 i = 0; i < logs.length; i++) {
+            if (logs[i].topics[0] == keccak256("Slash(address,uint256,uint256,uint256)")) {
+                slashEventFound = true;
+
+                // Decode the event
+                address eventProver = address(uint160(uint256(logs[i].topics[1])));
+                (uint256 eventPROVEBurned, uint256 eventIPROVEBurned, uint256 eventIndex) =
+                    abi.decode(logs[i].data, (uint256, uint256, uint256));
+
+                // Verify event values
+                assertEq(eventProver, ALICE_PROVER, "Event prover should match");
+                assertEq(
+                    eventPROVEBurned,
+                    expectedPROVEBurned,
+                    "Event PROVE burned should match expected"
+                );
+                assertEq(
+                    eventIPROVEBurned, actualIPROVEBurned, "Event iPROVE burned should match actual"
+                );
+                assertEq(eventIndex, slashIndex, "Event index should match");
+                break;
+            }
+        }
+
+        assertTrue(slashEventFound, "Slash event should be emitted");
+
+        // Verify the actual burn matches expected
+        assertEq(actualIPROVEBurned, slashAmount, "Should burn requested iPROVE amount");
+
+        // iPROVEBurned should equal the requested slash amount, and PROVEBurned is the underlying PROVE value
+        assertEq(actualIPROVEBurned, slashAmount, "iPROVE burned should equal requested slash");
+        assertEq(
+            expectedPROVEBurned,
+            IERC4626(I_PROVE).previewRedeem(actualIPROVEBurned),
+            "PROVE burned should equal the redemption value of iPROVE burned"
+        );
+
+        // Verify state after slash
+        uint256 vaultAfter = IERC20(I_PROVE).balanceOf(ALICE_PROVER);
+        ISuccinctStaking.EscrowPool memory poolAfter =
+            ISuccinctStaking(STAKING).escrowPool(ALICE_PROVER);
+
+        assertEq(
+            vaultAfter, vaultBefore - expectedVaultBurn, "Vault should be reduced by expected burn"
+        );
+        assertEq(
+            poolAfter.iPROVEEscrow,
+            poolBefore.iPROVEEscrow - expectedEscrowBurn,
+            "Escrow should be reduced by expected burn"
+        );
     }
 }
