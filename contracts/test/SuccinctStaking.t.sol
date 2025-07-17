@@ -177,7 +177,7 @@ contract SuccinctStakingTest is Test {
         return SuccinctStaking(STAKING).finishUnstake(_staker);
     }
 
-    function _completeSlash(address _prover, uint256 _amount) internal returns (uint256 burned) {
+    function _completeSlash(address _prover, uint256 _amount) internal returns (uint256) {
         uint256 index = _requestSlash(_prover, _amount);
         skip(SLASH_PERIOD);
         return _finishSlash(_prover, index);
@@ -187,10 +187,7 @@ contract SuccinctStakingTest is Test {
         return MockVApp(VAPP).processSlash(_prover, _amount);
     }
 
-    function _finishSlash(address _prover, uint256 _index)
-        internal
-        returns (uint256 iPROVEBurned)
-    {
+    function _finishSlash(address _prover, uint256 _index) internal returns (uint256) {
         vm.prank(OWNER);
         return SuccinctStaking(STAKING).finishSlash(_prover, _index);
     }

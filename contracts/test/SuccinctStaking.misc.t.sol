@@ -11,6 +11,160 @@ import {Math} from "../lib/openzeppelin-contracts/contracts/utils/math/Math.sol"
 
 // Possible combinations of functionality not covered in functionality-specific test files.
 contract SuccinctStakingMiscellaneousTests is SuccinctStakingTest {
+    // Helpers for stack-too-deep workaround
+
+    function _checkConservation(
+        uint256 initialStaker1,
+        uint256 initialStaker2,
+        uint256 initialStaking
+    ) internal view {
+        // Track all PROVE token locations
+        uint256 currentStaker1 = IERC20(PROVE).balanceOf(STAKER_1);
+        uint256 currentStaker2 = IERC20(PROVE).balanceOf(STAKER_2);
+        uint256 currentStaking = IERC20(PROVE).balanceOf(STAKING);
+        uint256 currentIPROVE = IERC20(PROVE).balanceOf(I_PROVE);
+        uint256 currentFeeVault = IERC20(PROVE).balanceOf(FEE_VAULT);
+        uint256 currentAlice = IERC20(PROVE).balanceOf(ALICE);
+        uint256 currentBob = IERC20(PROVE).balanceOf(BOB);
+
+        // Initial total we dealt
+        uint256 initialTotal = initialStaker1 + initialStaker2 + initialStaking;
+
+        // Current total in all known locations
+        uint256 currentTotal = currentStaker1 + currentStaker2 + currentStaking + currentIPROVE
+            + currentFeeVault + currentAlice + currentBob;
+
+        // Conservation: When iPROVE is burned during slashing, the underlying PROVE is also burned
+        // from the vault. So we can't add iPROVEBurned directly to PROVE balances.
+        // Instead, we check that current total is less than or equal to initial total.
+        assertLe(
+            currentTotal,
+            initialTotal,
+            "Current total should not exceed initial (some may be burned)"
+        );
+    }
+
+    // Struct to group operation state and avoid stack-too-deep
+    struct OperationState {
+        uint256 opType;
+        uint256 actorIndex;
+        address actor;
+        uint256 proveBalance;
+        uint256 stPROVEBalance;
+        uint256 amount;
+    }
+
+    function _performStakeOperation(address actor, uint256 seed, uint256 iteration) internal {
+        uint256 proveBalance = IERC20(PROVE).balanceOf(actor);
+        if (proveBalance >= MIN_STAKE_AMOUNT * 2) {
+            // Use safe arithmetic to avoid overflow
+            uint256 maxStake = proveBalance / 4;
+            if (maxStake > MIN_STAKE_AMOUNT) {
+                uint256 stakeAmount =
+                    MIN_STAKE_AMOUNT + ((seed >> (iteration * 8)) % (maxStake - MIN_STAKE_AMOUNT));
+                vm.prank(actor);
+                IERC20(PROVE).approve(STAKING, stakeAmount);
+                vm.prank(actor);
+                try SuccinctStaking(STAKING).stake(ALICE_PROVER, stakeAmount) {
+                    // Success
+                } catch {
+                    // May fail if already staked to different prover
+                }
+            }
+        }
+    }
+
+    function _performUnstakeOperation(address actor, uint256 seed, uint256 iteration) internal {
+        uint256 stPROVEBalance = SuccinctStaking(STAKING).balanceOf(actor);
+        if (stPROVEBalance > 1) {
+            uint256 maxUnstake = stPROVEBalance / 2;
+            if (maxUnstake > 0) {
+                uint256 unstakeAmount = 1 + ((seed >> (iteration * 8)) % maxUnstake);
+                vm.prank(actor);
+                try SuccinctStaking(STAKING).requestUnstake(unstakeAmount) {
+                    // Success
+                } catch {
+                    // May fail if too many requests or prover has slash request
+                }
+            }
+        }
+    }
+
+    function _performFinishUnstakeOperation(address actor) internal {
+        vm.prank(actor);
+        try SuccinctStaking(STAKING).finishUnstake(actor) {
+            // Success
+        } catch {
+            // May fail if no requests or not ready
+        }
+    }
+
+    function _performDispenseOperation(uint256 seed, uint256 iteration)
+        internal
+        returns (uint256 burned)
+    {
+        // Scope dispense operation to avoid stack-too-deep
+        {
+            uint256 stakingBalance = IERC20(PROVE).balanceOf(STAKING);
+            if (stakingBalance > MIN_STAKE_AMOUNT * 10) {
+                uint256 maxFromBalance = stakingBalance / 20;
+                if (maxFromBalance > MIN_STAKE_AMOUNT) {
+                    uint256 dispenseAmount = MIN_STAKE_AMOUNT
+                        + ((seed >> (iteration * 8)) % (maxFromBalance - MIN_STAKE_AMOUNT));
+                    uint256 maxDispense = SuccinctStaking(STAKING).maxDispense();
+                    if (dispenseAmount > maxDispense) {
+                        dispenseAmount = maxDispense;
+                    }
+                    if (dispenseAmount > 0) {
+                        vm.prank(DISPENSER);
+                        try SuccinctStaking(STAKING).dispense(dispenseAmount) {
+                            // Success - no burning in dispense
+                        } catch {
+                            // May fail if not enough time elapsed
+                        }
+                    }
+                }
+            }
+        }
+        return 0; // Dispense doesn't burn tokens
+    }
+
+    function _performSlashOperation(uint256 seed, uint256 iteration)
+        internal
+        returns (uint256 burned)
+    {
+        // Scope slash operation to avoid stack-too-deep
+        {
+            uint256 totalStaked = SuccinctStaking(STAKING).proverStaked(ALICE_PROVER);
+            if (totalStaked > MIN_STAKE_AMOUNT * 5) {
+                uint256 maxSlash = totalStaked / 10;
+                if (maxSlash > MIN_STAKE_AMOUNT) {
+                    uint256 slashAmount = MIN_STAKE_AMOUNT
+                        + ((seed >> (iteration * 8)) % (maxSlash - MIN_STAKE_AMOUNT));
+                    uint256 supplyBefore = IERC20(PROVE).totalSupply();
+
+                    try MockVApp(VAPP).processSlash(ALICE_PROVER, slashAmount) returns (
+                        uint256 slashIndex
+                    ) {
+                        // Skip time and finish slash
+                        skip(SLASH_PERIOD);
+                        vm.prank(OWNER);
+                        try SuccinctStaking(STAKING).finishSlash(ALICE_PROVER, slashIndex) {
+                            uint256 supplyAfter = IERC20(PROVE).totalSupply();
+                            // Safely calculate burned amount
+                            burned = supplyBefore > supplyAfter ? supplyBefore - supplyAfter : 0;
+                        } catch {
+                            // May fail if not ready or other issues
+                        }
+                    } catch {
+                        // May fail if prover not found or other issues
+                    }
+                }
+            }
+        }
+        return burned;
+    }
+
     // Test operations with exactly minimum stake amount
     function test_Misc_ExactMinimumStake() public {
         uint256 minStake = SuccinctStaking(STAKING).minStakeAmount();
@@ -649,153 +803,6 @@ contract SuccinctStakingMiscellaneousTests is SuccinctStakingTest {
         SuccinctStaking(STAKING).dispense(maxDispense);
     }
 
-    // Helper function to check conservation
-    function _checkConservation(
-        uint256 initialStaker1,
-        uint256 initialStaker2,
-        uint256 initialStaking
-    ) internal view {
-        // Track all PROVE token locations
-        uint256 currentStaker1 = IERC20(PROVE).balanceOf(STAKER_1);
-        uint256 currentStaker2 = IERC20(PROVE).balanceOf(STAKER_2);
-        uint256 currentStaking = IERC20(PROVE).balanceOf(STAKING);
-        uint256 currentIPROVE = IERC20(PROVE).balanceOf(I_PROVE);
-        uint256 currentFeeVault = IERC20(PROVE).balanceOf(FEE_VAULT);
-        uint256 currentAlice = IERC20(PROVE).balanceOf(ALICE);
-        uint256 currentBob = IERC20(PROVE).balanceOf(BOB);
-
-        // Initial total we dealt
-        uint256 initialTotal = initialStaker1 + initialStaker2 + initialStaking;
-
-        // Current total in all known locations
-        uint256 currentTotal = currentStaker1 + currentStaker2 + currentStaking + currentIPROVE
-            + currentFeeVault + currentAlice + currentBob;
-
-        // Conservation: When iPROVE is burned during slashing, the underlying PROVE is also burned
-        // from the vault. So we can't add iPROVEBurned directly to PROVE balances.
-        // Instead, we check that current total is less than or equal to initial total.
-        assertLe(
-            currentTotal,
-            initialTotal,
-            "Current total should not exceed initial (some may be burned)"
-        );
-    }
-
-    // Struct to group operation state and avoid stack-too-deep
-    struct OperationState {
-        uint256 opType;
-        uint256 actorIndex;
-        address actor;
-        uint256 proveBalance;
-        uint256 stPROVEBalance;
-        uint256 amount;
-    }
-
-    // Helper function to perform stake operation
-    function _performStakeOperation(address actor, uint256 seed, uint256 iteration) internal {
-        uint256 proveBalance = IERC20(PROVE).balanceOf(actor);
-        if (proveBalance >= MIN_STAKE_AMOUNT * 2) {
-            // Use safe arithmetic to avoid overflow
-            uint256 maxStake = proveBalance / 4;
-            if (maxStake > MIN_STAKE_AMOUNT) {
-                uint256 stakeAmount = MIN_STAKE_AMOUNT + ((seed >> (iteration * 8)) % (maxStake - MIN_STAKE_AMOUNT));
-                vm.prank(actor);
-                IERC20(PROVE).approve(STAKING, stakeAmount);
-                vm.prank(actor);
-                try SuccinctStaking(STAKING).stake(ALICE_PROVER, stakeAmount) {
-                    // Success
-                } catch {
-                    // May fail if already staked to different prover
-                }
-            }
-        }
-    }
-
-    // Helper function to perform unstake request operation
-    function _performUnstakeOperation(address actor, uint256 seed, uint256 iteration) internal {
-        uint256 stPROVEBalance = SuccinctStaking(STAKING).balanceOf(actor);
-        if (stPROVEBalance > 1) {
-            uint256 maxUnstake = stPROVEBalance / 2;
-            if (maxUnstake > 0) {
-                uint256 unstakeAmount = 1 + ((seed >> (iteration * 8)) % maxUnstake);
-                vm.prank(actor);
-                try SuccinctStaking(STAKING).requestUnstake(unstakeAmount) {
-                    // Success
-                } catch {
-                    // May fail if too many requests or prover has slash request
-                }
-            }
-        }
-    }
-
-    // Helper function to perform finish unstake operation
-    function _performFinishUnstakeOperation(address actor) internal {
-        vm.prank(actor);
-        try SuccinctStaking(STAKING).finishUnstake(actor) {
-            // Success
-        } catch {
-            // May fail if no requests or not ready
-        }
-    }
-
-    // Helper function to perform dispense operation
-    function _performDispenseOperation(uint256 seed, uint256 iteration) internal returns (uint256 burned) {
-        // Scope dispense operation to avoid stack-too-deep
-        {
-            uint256 stakingBalance = IERC20(PROVE).balanceOf(STAKING);
-            if (stakingBalance > MIN_STAKE_AMOUNT * 10) {
-                uint256 maxFromBalance = stakingBalance / 20;
-                if (maxFromBalance > MIN_STAKE_AMOUNT) {
-                    uint256 dispenseAmount = MIN_STAKE_AMOUNT + ((seed >> (iteration * 8)) % (maxFromBalance - MIN_STAKE_AMOUNT));
-                    uint256 maxDispense = SuccinctStaking(STAKING).maxDispense();
-                    if (dispenseAmount > maxDispense) {
-                        dispenseAmount = maxDispense;
-                    }
-                    if (dispenseAmount > 0) {
-                        vm.prank(DISPENSER);
-                        try SuccinctStaking(STAKING).dispense(dispenseAmount) {
-                            // Success - no burning in dispense
-                        } catch {
-                            // May fail if not enough time elapsed
-                        }
-                    }
-                }
-            }
-        }
-        return 0; // Dispense doesn't burn tokens
-    }
-
-    // Helper function to perform slash operation
-    function _performSlashOperation(uint256 seed, uint256 iteration) internal returns (uint256 burned) {
-        // Scope slash operation to avoid stack-too-deep
-        {
-            uint256 totalStaked = SuccinctStaking(STAKING).proverStaked(ALICE_PROVER);
-            if (totalStaked > MIN_STAKE_AMOUNT * 5) {
-                uint256 maxSlash = totalStaked / 10;
-                if (maxSlash > MIN_STAKE_AMOUNT) {
-                    uint256 slashAmount = MIN_STAKE_AMOUNT + ((seed >> (iteration * 8)) % (maxSlash - MIN_STAKE_AMOUNT));
-                    uint256 supplyBefore = IERC20(PROVE).totalSupply();
-                    
-                    try MockVApp(VAPP).processSlash(ALICE_PROVER, slashAmount) returns (uint256 slashIndex) {
-                        // Skip time and finish slash
-                        skip(SLASH_PERIOD);
-                        vm.prank(OWNER);
-                        try SuccinctStaking(STAKING).finishSlash(ALICE_PROVER, slashIndex) {
-                            uint256 supplyAfter = IERC20(PROVE).totalSupply();
-                            // Safely calculate burned amount
-                            burned = supplyBefore > supplyAfter ? supplyBefore - supplyAfter : 0;
-                        } catch {
-                            // May fail if not ready or other issues
-                        }
-                    } catch {
-                        // May fail if prover not found or other issues
-                    }
-                }
-            }
-        }
-        return burned;
-    }
-
     // Invariant-style fuzz test: after random operations, check PROVE conservation
     function testFuzz_Misc_InvariantPROVEConservation(uint256 _seed) public {
         vm.assume(_seed > 0);
@@ -816,7 +823,7 @@ contract SuccinctStakingMiscellaneousTests is SuccinctStakingTest {
 
         // Record supply after dealing to track conservation
         uint256 postDealSupply = IERC20(PROVE).totalSupply();
-        
+
         // Skip supply check if it's not tracked properly in test environment
         if (postDealSupply == 0) {
             // Use balance tracking instead of supply tracking
@@ -844,7 +851,7 @@ contract SuccinctStakingMiscellaneousTests is SuccinctStakingTest {
                 });
 
                 uint256 supplyBefore = IERC20(PROVE).totalSupply();
-                
+
                 if (state.opType == 0) {
                     // STAKE
                     _performStakeOperation(state.actor, _seed, i);
@@ -866,7 +873,7 @@ contract SuccinctStakingMiscellaneousTests is SuccinctStakingTest {
                     // SKIP TIME
                     skip((_seed >> (i * 8)) % (UNSTAKE_PERIOD / 4));
                 }
-                
+
                 // Verify supply never increases unexpectedly
                 uint256 supplyAfter = IERC20(PROVE).totalSupply();
                 assertLe(supplyAfter, supplyBefore, "Supply should not increase during operations");
@@ -876,7 +883,7 @@ contract SuccinctStakingMiscellaneousTests is SuccinctStakingTest {
         // INVARIANT: Final supply should be less than or equal to post-deal supply
         // (since tokens can only be burned, not created)
         uint256 finalSupply = IERC20(PROVE).totalSupply();
-        
+
         // Handle case where totalSupply() doesn't work in test environment
         if (finalSupply == 0) {
             // Use balance tracking instead
@@ -889,7 +896,7 @@ contract SuccinctStakingMiscellaneousTests is SuccinctStakingTest {
             totalBalance += IERC20(PROVE).balanceOf(FEE_VAULT); // Add fee vault balance
             finalSupply = totalBalance;
         }
-        
+
         assertLe(
             finalSupply,
             postDealSupply,
@@ -898,7 +905,7 @@ contract SuccinctStakingMiscellaneousTests is SuccinctStakingTest {
 
         // Verify that the burned amount is reasonable
         assertLe(totalPROVEBurned, postDealSupply, "Burned amount should not exceed initial supply");
-        
+
         // Additional invariant: burned amount should match supply reduction (allow small rounding)
         uint256 actualBurned = postDealSupply > finalSupply ? postDealSupply - finalSupply : 0;
         assertApproxEqAbs(
