@@ -64,7 +64,7 @@ contract SuccinctStaking is
     /// @dev A mapping from prover to their slash claims.
     mapping(address => SlashClaim[]) internal slashClaims;
 
-    /// @dev Per‑prover escrow pool.
+    /// @dev A mapping from prover to their unstaking escrow pool.
     mapping(address => EscrowPool) internal escrowPools;
 
     /*//////////////////////////////////////////////////////////////
@@ -191,7 +191,7 @@ contract SuccinctStaking is
         for (uint256 i = 0; i < claims.length; i++) {
             // Apply cumulative slash factor to the escrowed $iPROVE.
             uint256 iPROVEScaled =
-                Math.mulDiv(claims[i].iPROVE, currentFactor, claims[i].slashFactorSnapshot);
+                Math.mulDiv(claims[i].iPROVEEscrow, currentFactor, claims[i].slashFactorSnapshot);
             // Convert $iPROVE to $PROVE.
             PROVE += IERC4626(iProve).previewRedeem(iPROVEScaled);
         }
@@ -293,7 +293,7 @@ contract SuccinctStaking is
         unstakeClaims[msg.sender].push(
             UnstakeClaim({
                 stPROVE: _stPROVE,
-                iPROVE: iPROVEEscrow,
+                iPROVEEscrow: iPROVEEscrow,
                 slashFactorSnapshot: pool.slashFactor,
                 timestamp: block.timestamp
             })
@@ -542,7 +542,7 @@ contract SuccinctStaking is
 
         // Apply cumulative slash factor to the escrowed $iPROVE.
         uint256 iPROVEScaled =
-            Math.mulDiv(_claim.iPROVE, pool.slashFactor, _claim.slashFactorSnapshot);
+            Math.mulDiv(_claim.iPROVEEscrow, pool.slashFactor, _claim.slashFactorSnapshot);
 
         // Safely subtract the $iPROVE being redeemed from the prover's escrow pool.
         if (iPROVEScaled > pool.iPROVEEscrow) {
