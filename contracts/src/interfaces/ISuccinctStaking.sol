@@ -4,14 +4,16 @@ pragma solidity ^0.8.28;
 import {IProverRegistry} from "./IProverRegistry.sol";
 
 interface ISuccinctStaking is IProverRegistry {
-    /// @dev Represents a claim for unstaking some amount of $stPROVE.
-    /// @param stPROVE The requested amount of $stPROVE to unstake.
-    /// @param iPROVESnapshot The expected $iPROVE to be received at time of unstake request.
+    /// @dev Represents a claim for unstaking.
+    /// @param stPROVE The share amount of $stPROVE requested to be unstaked.
+    /// @param iPROVE The escrowed amount of $iPROVE at request time.
+    /// @param slashFactorSnapshot The slash factor for the prover when the claim was created (1e27 fp).
     /// @param timestamp The timestamp when the unstake was requested. Used for comparing against
     ///        the `unstakePeriod()` to determine if the claim can be finished.
     struct UnstakeClaim {
         uint256 stPROVE;
-        uint256 iPROVESnapshot;
+        uint256 iPROVE;
+        uint256 slashFactorSnapshot;
         uint256 timestamp;
     }
 
@@ -24,14 +26,12 @@ interface ISuccinctStaking is IProverRegistry {
         uint256 timestamp;
     }
 
-    /// @dev Tracks pending unstakes and withheld rewards per prover. This is so that excess
-    ///      rewards from an UnstakeClaim do not negatively impact the amount of $iPROVE that
-    ///      subsequent UnstakeClaims receive.
-    /// @param stPROVEPending The amount of $stPROVE pending UnstakeClaims for this prover.
-    /// @param iPROVEWithheld The amount of $iPROVE withheld for redistribution.
-    struct UnstakePool {
-        uint256 stPROVEPending;
-        uint256 iPROVEWithheld;
+    /// @dev Represents the escrowed $iPROVE and slash factor for a prover.
+    /// @param iPROVEEscrow The amount of $iPROVE held by this contract for pending unstakes.
+    /// @param slashFactor The slash factor for the prover (1e27 fp).
+    struct EscrowPool {
+        uint256 iPROVEEscrow;
+        uint256 slashFactor;
     }
 
     /// @dev Emitted when a staker first stakes to their delegated prover. This indicates that any
@@ -173,6 +173,11 @@ interface ISuccinctStaking is IProverRegistry {
     /// @param prover The address of the prover.
     /// @return The slash requests.
     function slashRequests(address prover) external view returns (SlashClaim[] memory);
+
+    /// @notice The escrow pool for a prover.
+    /// @param prover The address of the prover.
+    /// @return The escrow pool.
+    function escrowPool(address prover) external view returns (EscrowPool memory);
 
     /// @notice The amount of $PROVE that a staker would receive with their pending unstake requests.
     /// @dev Returns the sum of snapshotted $PROVE values for all pending unstake claims, adjusted

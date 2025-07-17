@@ -14,6 +14,7 @@ import {IERC20Permit} from
 import {IERC4626} from "../lib/openzeppelin-contracts/contracts/interfaces/IERC4626.sol";
 import {SafeERC20} from "../lib/openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol";
 import {IERC20} from "../lib/openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
+import {Math} from "../lib/openzeppelin-contracts/contracts/utils/math/Math.sol";
 
 /// @title SuccinctStaking
 /// @author Succinct Labs
@@ -26,6 +27,12 @@ contract SuccinctStaking is
     ISuccinctStaking
 {
     using SafeERC20 for IERC20;
+
+    /// @dev Fixed‑point base used for slash‑factor math.
+    ///
+    ///      This allows for the multiplication of two 1e27‑scaled values without
+    ///      overflowing 256 bits while keeping sub‑wei precision.
+    uint256 internal constant SCALAR = 1e27;
 
     /// @inheritdoc ISuccinctStaking
     address public override dispenser;
@@ -57,8 +64,8 @@ contract SuccinctStaking is
     /// @dev A mapping from prover to their slash claims.
     mapping(address => SlashClaim[]) internal slashClaims;
 
-    /// @dev A mapping from prover to their pending unstake pool.
-    mapping(address => UnstakePool) internal unstakePools;
+    /// @dev Per‑prover escrow pool.
+    mapping(address => EscrowPool) internal escrowPools;
 
     /*//////////////////////////////////////////////////////////////
                                 MODIFIER
@@ -164,13 +171,30 @@ contract SuccinctStaking is
     }
 
     /// @inheritdoc ISuccinctStaking
-    function unstakePending(address _staker) external view override returns (uint256) {
+    function escrowPool(address _prover) external view override returns (EscrowPool memory) {
+        return escrowPools[_prover];
+    }
+
+    /// @inheritdoc ISuccinctStaking
+    function unstakePending(address _staker) external view override returns (uint256 PROVE) {
         // Get the prover that the staker is staked with.
         address prover = stakerToProver[_staker];
         if (prover == address(0)) return 0;
 
-        // Get the amount of $PROVE that would be received if the pending $stPROVE was redeemed.
-        return previewUnstake(prover, _getUnstakeClaimBalance(_staker));
+        // Calculate the pending $PROVE by iterating through claims and applying slash factor.
+        UnstakeClaim[] memory claims = unstakeClaims[_staker];
+        EscrowPool memory pool = escrowPools[prover];
+
+        // Use SCALAR when the pool is empty (slashFactor == 0).
+        uint256 currentFactor = pool.slashFactor == 0 ? SCALAR : pool.slashFactor;
+
+        for (uint256 i = 0; i < claims.length; i++) {
+            // Apply cumulative slash factor to the escrowed $iPROVE.
+            uint256 iPROVEScaled =
+                Math.mulDiv(claims[i].iPROVE, currentFactor, claims[i].slashFactorSnapshot);
+            // Convert $iPROVE to $PROVE.
+            PROVE += IERC4626(iProve).previewRedeem(iPROVEScaled);
+        }
     }
 
     /// @inheritdoc ISuccinctStaking
@@ -234,7 +258,7 @@ contract SuccinctStaking is
     }
 
     /// @inheritdoc ISuccinctStaking
-    function requestUnstake(uint256 _stPROVE) external override {
+    function requestUnstake(uint256 _stPROVE) external override stakingOperation {
         // Ensure unstaking a non-zero amount.
         if (_stPROVE == 0) revert ZeroAmount();
 
@@ -257,22 +281,25 @@ contract SuccinctStaking is
         // Check that this staker has enough $stPROVE to unstake this amount.
         if (stPROVEBalance < stPROVEClaim + _stPROVE) revert InsufficientStakeBalance();
 
-        // Get the amount of $iPROVE that would be received if the specified $stPROVE was redeemed.
-        uint256 iPROVESnapshot = IERC4626(prover).previewRedeem(_stPROVE);
+        // Escrow the $iPROVE.
+        uint256 iPROVEEscrow = _escrowUnstakeRequest(msg.sender, prover, _stPROVE);
 
-        // Create a claim to unstake $stPROVE from the prover for the specified amount.
+        // Update the prover's escrow pool.
+        EscrowPool storage pool = escrowPools[prover];
+        if (pool.slashFactor == 0) pool.slashFactor = SCALAR;
+        pool.iPROVEEscrow += iPROVEEscrow;
+
+        // Record the unstake request.
         unstakeClaims[msg.sender].push(
             UnstakeClaim({
                 stPROVE: _stPROVE,
-                iPROVESnapshot: iPROVESnapshot,
+                iPROVE: iPROVEEscrow,
+                slashFactorSnapshot: pool.slashFactor,
                 timestamp: block.timestamp
             })
         );
 
-        // Track pending shares for this prover.
-        unstakePools[prover].stPROVEPending += _stPROVE;
-
-        emit UnstakeRequest(msg.sender, prover, _stPROVE, iPROVESnapshot);
+        emit UnstakeRequest(msg.sender, prover, _stPROVE, iPROVEEscrow);
     }
 
     /// @inheritdoc ISuccinctStaking
@@ -291,9 +318,9 @@ contract SuccinctStaking is
         // Process the available unstake claims.
         PROVE += _finishUnstake(_staker, prover, claims);
 
-        // If the staker has no remaining balance with this prover, remove the staker's delegate.
-        // This allows them to choose a different prover if they stake again.
-        if (balanceOf(_staker) == 0) {
+        // If the staker has no remaining balance and no pending unstakes, remove the staker's
+        // delegate. This allows them to choose a different prover if they stake again.
+        if (balanceOf(_staker) == 0 && claims.length == 0) {
             // Remove the staker's prover delegation.
             stakerToProver[_staker] = address(0);
 
@@ -348,7 +375,7 @@ contract SuccinctStaking is
         override
         onlyOwner
         onlyForProver(_prover)
-        returns (uint256 iPROVE)
+        returns (uint256 iPROVEBurned)
     {
         // Get the slash claim.
         SlashClaim storage claim = slashClaims[_prover][_index];
@@ -358,7 +385,7 @@ contract SuccinctStaking is
 
         // Determine how much can actually be slashed (cannot exceed the prover's current balance).
         uint256 iPROVEBalance = IERC20(iProve).balanceOf(_prover);
-        iPROVE = claim.iPROVE > iPROVEBalance ? iPROVEBalance : claim.iPROVE;
+        uint256 iPROVEToSlash = claim.iPROVE > iPROVEBalance ? iPROVEBalance : claim.iPROVE;
 
         // Delete the claim.
         if (_index != slashClaims[_prover].length - 1) {
@@ -366,26 +393,44 @@ contract SuccinctStaking is
         }
         slashClaims[_prover].pop();
 
-        // Burn the $iPROVE and underlying $PROVE. This reduces the stake of the prover and all
-        // of its stakers proportionally.
-        uint256 PROVE = 0;
-        if (iPROVE > 0) {
-            // Burn the $iPROVE and underlying $PROVE from the vaults.
-            PROVE = IIntermediateSuccinct(iProve).burn(_prover, iPROVE);
+        uint256 PROVEBurned = 0;
+        iPROVEBurned = 0;
+        if (iPROVEToSlash > 0) {
+            // Get the prover's escrow pool.
+            EscrowPool storage pool = escrowPools[_prover];
 
-            // Burn the same percentage from the withheld pool.
-            UnstakePool storage pool = unstakePools[_prover];
-            if (pool.iPROVEWithheld != 0) {
-                uint256 balanceBefore = IERC20(iProve).balanceOf(_prover) + iPROVE;
-                uint256 burnFromPool = (pool.iPROVEWithheld * iPROVE) / balanceBefore;
-                if (burnFromPool != 0) {
-                    pool.iPROVEWithheld -= burnFromPool;
-                    IIntermediateSuccinct(iProve).burn(address(this), burnFromPool);
-                }
+            // Pro‑rata split between vault and escrow.
+            uint256 iPROVETotal = iPROVEBalance + pool.iPROVEEscrow;
+            uint256 burnFromEscrow = Math.mulDiv(iPROVEToSlash, pool.iPROVEEscrow, iPROVETotal);
+            uint256 burnFromVault = iPROVEToSlash - burnFromEscrow;
+
+            // Burn in escrow.
+            if (burnFromEscrow != 0) {
+                pool.iPROVEEscrow -= burnFromEscrow;
+                PROVEBurned += IIntermediateSuccinct(iProve).burn(address(this), burnFromEscrow);
+                iPROVEBurned += burnFromEscrow;
+            }
+
+            // Burn in vault.
+            if (burnFromVault != 0) {
+                PROVEBurned += IIntermediateSuccinct(iProve).burn(_prover, burnFromVault);
+                iPROVEBurned += burnFromVault;
+            }
+
+            // Update the prover's slash factor.
+            uint256 iPROVERemaining = iPROVETotal - iPROVEToSlash;
+            if (iPROVERemaining == 0) {
+                // If there is nothing left to slash, set the slash factor to 0.
+                pool.slashFactor = 0;
+            } else {
+                // If there is something left to slash, update the slash factor to the new ratio.
+                uint256 ratio = Math.mulDiv(iPROVERemaining, SCALAR, iPROVETotal);
+                if (pool.slashFactor == 0) pool.slashFactor = SCALAR;
+                pool.slashFactor = Math.mulDiv(pool.slashFactor, ratio, SCALAR);
             }
         }
 
-        emit Slash(_prover, PROVE, iPROVE, _index);
+        emit Slash(_prover, PROVEBurned, iPROVEBurned, _index);
     }
 
     /// @inheritdoc ISuccinctStaking
@@ -474,71 +519,48 @@ contract SuccinctStaking is
         emit Stake(_staker, _prover, _PROVE, iPROVE, stPROVE);
     }
 
-    /// @dev Burn a staker's $stPROVE and withdraw $PROVER-N to receive $iPROVE, then withdraw
-    ///      $iPROVE to receive $PROVE, which gets sent to the staker.
-    ///
-    ///      This function preserves key fairness guarantees to ensure that rewards not earned during the
-    ///      unstake period, but slashing still counts:
-    ///        • The staker only receives the rewards earned up to their unstake request.
-    ///        • Any rewards that accrue thereafter are held in a shared pool and
-    ///          distributed pro-rata among all outstanding unstakers.
-    ///        • Slashing events during the unstake period reduce both the vault and the pool
-    ///          proportionally, so every participant bears exactly their share of any loss.
-    ///        • Once all pending unstakes settle, any tiny rounding dust is returned to the vault
-    ///          to avoid leaving stray funds behind.
-    function _unstake(address _staker, address _prover, uint256 _stPROVE, uint256 _iPROVESnapshot)
+    /// @dev Burn a staker's $stPROVE and withdraw $PROVER-N to receive $iPROVE.
+    function _escrowUnstakeRequest(address _staker, address _prover, uint256 _stPROVE)
         internal
-        returns (uint256 PROVE)
+        returns (uint256 iPROVE)
     {
-        // Ensure unstaking a non-zero amount.
-        if (_stPROVE == 0) revert ZeroAmount();
-
         // Burn the $stPROVE from the staker.
         _burn(_staker, _stPROVE);
 
-        // Withdraw $PROVER-N from this contract to have this contract receive $iPROVE.
-        uint256 iPROVEReceived = IERC4626(_prover).redeem(_stPROVE, address(this), address(this));
+        // Withdraw $PROVER-N from this contract to receive $iPROVE.
+        // Note: This can return 0 if the prover has been fully slashed.
+        iPROVE = IERC4626(_prover).redeem(_stPROVE, address(this), address(this));
+    }
 
-        // Get the pending pool for this prover.
-        UnstakePool storage pool = unstakePools[_prover];
+    /// @dev Withdraw the escrowed $iPROVE to receive $PROVE, which gets sent to the staker.
+    function _finishUnstakeRequest(address _staker, address _prover, UnstakeClaim memory _claim)
+        internal
+        returns (uint256 PROVE)
+    {
+        // Get the prover's escrow pool.
+        EscrowPool storage pool = escrowPools[_prover];
 
-        // Calculate newly earned rewards (if any) to add to the pool.
-        uint256 withheldBefore = pool.iPROVEWithheld;
-        uint256 excess = iPROVEReceived > _iPROVESnapshot ? iPROVEReceived - _iPROVESnapshot : 0;
-        pool.iPROVEWithheld = withheldBefore + excess;
+        // Apply cumulative slash factor to the escrowed $iPROVE.
+        uint256 iPROVEScaled =
+            Math.mulDiv(_claim.iPROVE, pool.slashFactor, _claim.slashFactorSnapshot);
 
-        // Calculate this staker's share of the existing pool (excludes just-added excess).
-        uint256 poolShare = 0;
-        if (withheldBefore > 0 && pool.stPROVEPending > 0) {
-            poolShare = (withheldBefore * _stPROVE) / pool.stPROVEPending;
+        // Safely subtract the $iPROVE being redeemed from the prover's escrow pool.
+        if (iPROVEScaled > pool.iPROVEEscrow) {
+            iPROVEScaled = pool.iPROVEEscrow;
+        }
+        unchecked {
+            pool.iPROVEEscrow -= iPROVEScaled;
         }
 
-        // Update pool state.
-        pool.iPROVEWithheld -= poolShare;
-        pool.stPROVEPending -= _stPROVE;
-
-        // Total $iPROVE to give the staker.
-        uint256 iPROVEToRedeem;
-
-        // Determine how much $iPROVE to redeem for the staker.
-        if (iPROVEReceived < _iPROVESnapshot) {
-            // Slashing occurred, so the staker gets the reduced received amount plus pool share.
-            iPROVEToRedeem = iPROVEReceived + poolShare;
+        // Withdraw $iPROVE from this contract to have the staker receive $PROVE. Only relevant if
+        // the scaled $iPROVE is non-zero.
+        if (iPROVEScaled != 0) {
+            PROVE = IERC4626(iProve).redeem(iPROVEScaled, _staker, address(this));
         } else {
-            // No slashing occurred, so the staker gets the snapshot amount plus pool share.
-            iPROVEToRedeem = _iPROVESnapshot + poolShare;
+            PROVE = 0;
         }
 
-        // Withdraw $iPROVE from this contract to have the staker receive $PROVE.
-        PROVE = IERC4626(iProve).redeem(iPROVEToRedeem, _staker, address(this));
-
-        emit Unstake(_staker, _prover, PROVE, iPROVEToRedeem, _stPROVE);
-
-        // If this was the last pending unstake, flush any dust back to the prover.
-        if (pool.stPROVEPending == 0 && pool.iPROVEWithheld > 0) {
-            IERC20(iProve).safeTransfer(_prover, pool.iPROVEWithheld);
-            pool.iPROVEWithheld = 0;
-        }
+        emit Unstake(_staker, _prover, PROVE, iPROVEScaled, _claim.stPROVE);
     }
 
     /// @dev Iterate over the unstake claims, processing each one that has passed the unstake
@@ -559,7 +581,7 @@ contract SuccinctStaking is
                 _claims.pop();
 
                 // Process the unstake.
-                PROVE += _unstake(_staker, _prover, claim.stPROVE, claim.iPROVESnapshot);
+                PROVE += _finishUnstakeRequest(_staker, _prover, claim);
             } else {
                 i++;
             }

@@ -18,6 +18,7 @@ import {IERC4626} from "../lib/openzeppelin-contracts/contracts/interfaces/IERC4
 // Sets up the SuccinctStaking protocol for testing and exposes some useful helper functions.
 contract SuccinctStakingTest is Test {
     // Constants
+    uint256 public constant SCALAR = 1e27;
     uint256 public constant MIN_STAKE_AMOUNT = 1e12;
     uint256 public constant STAKER_PROVE_AMOUNT = 100_000e18; // >= PROPOSAL_THRESHOLD for governance tests
     uint256 public constant REQUESTER_PROVE_AMOUNT = 1_000_000e18;
