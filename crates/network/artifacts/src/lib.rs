@@ -433,7 +433,14 @@ async fn download_s3_file(
 
 async fn download_https_file(uri: &str) -> Result<Bytes> {
     let client = reqwest::Client::new();
-    let res = client.get(uri).send().await.context("Failed to GET HTTPS URL")?;
+    let res = client
+        .get(uri)
+        .connect_timeout(Duration::from_secs(10))
+        .read_timeout(Duration::from_secs(30))
+        .timeout(Duration::from_secs(60))
+        .send()
+        .await
+        .context("Failed to GET HTTPS URL")?;
     if !res.status().is_success() {
         return Err(anyhow!("Failed to download from HTTPS URL {uri}: status {}", res.status()));
     }
