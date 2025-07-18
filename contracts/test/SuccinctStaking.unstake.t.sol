@@ -720,8 +720,7 @@ contract SuccinctStakingUnstakeTests is SuccinctStakingTest {
         vm.prank(OWNER);
         MockVApp(VAPP).processSlash(ALICE_PROVER, slashAmount);
 
-        // Process the slash after slash period
-        skip(SLASH_PERIOD);
+        // Process the slash immediately
         vm.prank(OWNER);
         ISuccinctStaking(STAKING).finishSlash(ALICE_PROVER, 0);
 
@@ -733,7 +732,7 @@ contract SuccinctStakingUnstakeTests is SuccinctStakingTest {
         assertEq(poolAfter.slashFactor, SCALAR / 2, "Slash factor should be 0.5e27 after 50% slash");
 
         // After unstake period, finish unstake for Staker 1
-        skip(UNSTAKE_PERIOD - SLASH_PERIOD);
+        skip(UNSTAKE_PERIOD);
 
         vm.prank(STAKER_1);
         uint256 proveReceived = ISuccinctStaking(STAKING).finishUnstake(STAKER_1);
@@ -1419,11 +1418,10 @@ contract SuccinctStakingUnstakeTests is SuccinctStakingTest {
 
         // Request and execute slash
         _requestSlash(ALICE_PROVER, slashAmount);
-        skip(SLASH_PERIOD);
         _finishSlash(ALICE_PROVER, 0);
 
         // Complete unstake after slash
-        skip(UNSTAKE_PERIOD - SLASH_PERIOD);
+        skip(UNSTAKE_PERIOD);
         uint256 receivedAmount = _finishUnstake(STAKER_1);
 
         // The slash is distributed pro-rata between vault and escrow

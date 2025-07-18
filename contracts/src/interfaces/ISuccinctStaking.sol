@@ -20,7 +20,7 @@ interface ISuccinctStaking is IProverRegistry {
     /// @dev Represents a claim to slash a prover for some amount of $iPROVE.
     /// @param iPROVE The requested amount of $iPROVE to slash.
     /// @param timestamp The timestamp when the slash was requested. Used for comparing against
-    ///        the `slashPeriod()` to determine if the claim can be finished.
+    ///        the `slashCancellationPeriod()` to determine if the claim can be cancelled.
     /// @param resolved Whether the claim has been resolved (either cancelled or finished).
     struct SlashClaim {
         uint256 iPROVE;
@@ -119,9 +119,6 @@ interface ISuccinctStaking is IProverRegistry {
     /// @dev Thrown if staking or unstaking while the prover has one or more pending slash requests.
     error ProverHasSlashRequest();
 
-    /// @dev Thrown if the slash request is not ready to be completed.
-    error SlashNotReady();
-
     /// @dev Thrown if the dispenser is not the owner.
     error NotDispenser();
 
@@ -130,6 +127,9 @@ interface ISuccinctStaking is IProverRegistry {
 
     /// @dev Thrown if a slash claim has already been resolved.
     error SlashAlreadyResolved();
+
+    /// @dev Thrown if attempting to cancel a slash before the deadline.
+    error SlashNotReadyToCancel();
 
     /// @notice The address of the contract that can dispense yield.
     function dispenser() external view returns (address);
@@ -143,8 +143,8 @@ interface ISuccinctStaking is IProverRegistry {
     /// @notice The minimum amount of time needed between `requestUnstake()` and `finishUnstake()`.
     function unstakePeriod() external view returns (uint256);
 
-    /// @notice The minimum amount of time needed between `requestSlash()` and `finishSlash()`.
-    function slashPeriod() external view returns (uint256);
+    /// @notice The minimum amount of time needed before a slash can be cancelled.
+    function slashCancellationPeriod() external view returns (uint256);
 
     /// @notice The maximum amount of $PROVE that can be dispensed per second.
     function dispenseRate() external view returns (uint256);
@@ -261,14 +261,15 @@ interface ISuccinctStaking is IProverRegistry {
     ///         request that is intended to be executed.
     function requestSlash(address prover, uint256 iPROVE) external returns (uint256);
 
-    /// @notice Cancels a slash request. Only callable by the owner.
+    /// @notice Cancels a slash request. Only possible to call if `requestSlash()` has been called
+    ///         for this index, and the `slashPeriod()` plus governance latency has passed.
     /// @param prover The address of the prover to slash.
     /// @param index The index of the slash request to cancel.
     function cancelSlash(address prover, uint256 index) external;
 
-    /// @notice Finishes the slashing process. Must have first called `requestSlash()` and waited
-    ///         for the slash period to pass. Decreases the value of $stPROVE for all stakers of that
-    ///         prover. Only callable by the owner.
+    /// @notice Finishes the slashing process. Only possible to call if `requestSlash()` has been
+    ///         called for this index, and only callable by the owner. Decreases the value of $stPROVE
+    ///         for all stakers of that prover.
     /// @param prover The address of the prover to slash.
     /// @param index The index of the slash request to finish.
     /// @return The amount of $iPROVE slashed.

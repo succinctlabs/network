@@ -328,9 +328,6 @@ contract SuccinctGovernorTest is SuccinctStakingTest {
         IGovernor.ProposalState state = SuccinctGovernor(payable(GOVERNOR)).state(proposalId);
         assertEq(uint8(state), uint8(IGovernor.ProposalState.Active));
 
-        // Advance time so the first slash can be finished.
-        vm.warp(block.timestamp + SLASH_PERIOD + 1);
-
         // Bob makes another proposal to finish the second slash for ALICE_PROVER.
         address[] memory targets1 = new address[](1);
         targets1[0] = STAKING;
@@ -374,6 +371,9 @@ contract SuccinctGovernorTest is SuccinctStakingTest {
 
         // Alice has two slash requests before executing.
         assertEq(SuccinctStaking(STAKING).slashRequests(ALICE_PROVER).length, 2);
+
+        // Wait for the cancellation deadline to pass.
+        vm.warp(block.timestamp + SLASH_CANCELLATION_PERIOD + VOTING_DELAY + VOTING_PERIOD);
 
         // Execute the first proposal (cancel slash at index 0).
         vm.prank(STAKER_1);
