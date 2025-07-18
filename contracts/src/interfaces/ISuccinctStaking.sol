@@ -146,8 +146,14 @@ interface ISuccinctStaking is IProverRegistry {
     /// @notice The maximum amount of $PROVE that can be dispensed per second.
     function dispenseRate() external view returns (uint256);
 
-    /// @notice The last time $PROVE was dispensed.
-    function lastDispenseTimestamp() external view returns (uint256);
+    /// @notice The timestamp when the dispense rate was last updated.
+    function dispenseRateTimestamp() external view returns (uint256);
+
+    /// @notice The total amount of $PROVE earned through dispense emissions up to dispenseRateTimestamp.
+    function dispenseEarned() external view returns (uint256);
+
+    /// @notice The total amount of $PROVE distributed through the dispense mechanism.
+    function dispenseDistributed() external view returns (uint256);
 
     /// @notice The prover that a staker is staked with.
     /// @dev A staker can only be staked with one prover at a time. To switch provers, they must
