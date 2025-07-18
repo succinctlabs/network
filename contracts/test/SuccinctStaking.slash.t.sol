@@ -3,6 +3,7 @@ pragma solidity ^0.8.28;
 
 import {SuccinctStakingTest} from "./SuccinctStaking.t.sol";
 import {SuccinctStaking} from "../src/SuccinctStaking.sol";
+import {SuccinctGovernor} from "../src/SuccinctGovernor.sol";
 import {ISuccinctStaking} from "../src/interfaces/ISuccinctStaking.sol";
 import {IProverRegistry} from "../src/interfaces/IProverRegistry.sol";
 import {MockVApp} from "../src/mocks/MockVApp.sol";
@@ -280,6 +281,12 @@ contract SuccinctStakingSlashTests is SuccinctStakingTest {
         vm.prank(STAKER_1);
         SuccinctStaking(STAKING).requestUnstake(stakeAmount);
 
+        // Wait for the cancellation deadline to pass
+        uint256 votingDelay = SuccinctGovernor(payable(GOVERNOR)).votingDelay();
+        uint256 votingPeriod = SuccinctGovernor(payable(GOVERNOR)).votingPeriod();
+        uint256 cancelDeadline = SLASH_CANCELLATION_PERIOD + votingDelay + votingPeriod;
+        skip(cancelDeadline);
+
         // Cancel the slash request
         vm.prank(OWNER);
         SuccinctStaking(STAKING).cancelSlash(ALICE_PROVER, slashIndex);
@@ -326,40 +333,8 @@ contract SuccinctStakingSlashTests is SuccinctStakingTest {
         assertEq(claims.length, 1);
         assertEq(claims[0].iPROVE, slashAmount);
 
-        // Advance time and complete the (no-op) slash without reverting.
-        skip(SLASH_PERIOD);
+        // Complete the (no-op) slash without reverting.
         _finishSlash(ALICE_PROVER, index);
-    }
-
-    function test_RevertSlash_WhenFinishTooEarly() public {
-        uint256 stakeAmount = STAKER_PROVE_AMOUNT;
-
-        // Stake to Alice prover
-        _permitAndStake(STAKER_1, STAKER_1_PK, ALICE_PROVER, stakeAmount);
-
-        // Slash the prover for all of their stake
-        uint256 slashAmount = IERC4626(ALICE_PROVER).totalAssets();
-        MockVApp(VAPP).processSlash(ALICE_PROVER, slashAmount);
-
-        // Try to finish the slash before the slash period has passed
-        vm.expectRevert(abi.encodeWithSelector(ISuccinctStaking.SlashNotReady.selector));
-        vm.prank(OWNER);
-        SuccinctStaking(STAKING).finishSlash(ALICE_PROVER, 0);
-
-        // Skip to just before the end of the slash period
-        skip(SLASH_PERIOD - 10);
-
-        // Try again, should still revert
-        vm.expectRevert(abi.encodeWithSelector(ISuccinctStaking.SlashNotReady.selector));
-        vm.prank(OWNER);
-        SuccinctStaking(STAKING).finishSlash(ALICE_PROVER, 0);
-
-        // Skip to the end of the slash period
-        skip(10);
-
-        // Now it should work
-        vm.prank(OWNER);
-        SuccinctStaking(STAKING).finishSlash(ALICE_PROVER, 0);
     }
 
     // Prover's stakers can still technically recieve withdrawals after being slashed to zero.
@@ -432,7 +407,6 @@ contract SuccinctStakingSlashTests is SuccinctStakingTest {
         assertEq(claims[index0].iPROVE, excessiveSlash);
 
         // Finish the slash claims after the slash period
-        skip(SLASH_PERIOD);
         _finishSlash(ALICE_PROVER, index0);
 
         // Prover and staker should now be fully slashed
@@ -479,7 +453,6 @@ contract SuccinctStakingSlashTests is SuccinctStakingTest {
         assertEq(claims[index1].iPROVE, excessiveSlash);
 
         // Finish the slash claims after the slash period
-        skip(SLASH_PERIOD);
         _finishSlash(ALICE_PROVER, index1);
         _finishSlash(ALICE_PROVER, index0);
 
@@ -525,7 +498,6 @@ contract SuccinctStakingSlashTests is SuccinctStakingTest {
         _requestSlash(ALICE_PROVER, slashAmount);
 
         // Execute slash
-        skip(SLASH_PERIOD);
         vm.prank(OWNER);
         uint256 iPROVEBurned = SuccinctStaking(STAKING).finishSlash(ALICE_PROVER, 0);
 
@@ -553,7 +525,7 @@ contract SuccinctStakingSlashTests is SuccinctStakingTest {
         );
 
         // Complete unstakes to verify final state
-        skip(UNSTAKE_PERIOD - SLASH_PERIOD);
+        skip(UNSTAKE_PERIOD);
         uint256 staker1Received = _finishUnstake(STAKER_1);
 
         // Staker 1 should receive reduced amount due to slash
@@ -874,7 +846,6 @@ contract SuccinctStakingSlashTests is SuccinctStakingTest {
         uint256 slashIndex = _requestSlash(ALICE_PROVER, slashAmount);
 
         // Complete slash
-        skip(SLASH_PERIOD);
         _finishSlash(ALICE_PROVER, slashIndex);
 
         // Check results
@@ -909,7 +880,6 @@ contract SuccinctStakingSlashTests is SuccinctStakingTest {
 
         // Request and complete slash
         uint256 slashIndex = _requestSlash(ALICE_PROVER, slashAmount);
-        skip(SLASH_PERIOD);
         _finishSlash(ALICE_PROVER, slashIndex);
 
         // Verify proportional slashing
@@ -972,30 +942,6 @@ contract SuccinctStakingSlashTests is SuccinctStakingTest {
         }
     }
 
-    function testFuzz_Slash_WhenTimingAroundPeriod(uint256 _waitTime) public {
-        uint256 stakeAmount = STAKER_PROVE_AMOUNT;
-        uint256 slashAmount = stakeAmount / 2;
-
-        // Stake and request slash
-        _stake(STAKER_1, ALICE_PROVER, stakeAmount);
-        uint256 slashIndex = _requestSlash(ALICE_PROVER, slashAmount);
-
-        // Bound wait time around slash period
-        uint256 waitTime = bound(_waitTime, 1, SLASH_PERIOD * 2);
-        skip(waitTime);
-
-        if (waitTime < SLASH_PERIOD) {
-            // Should not be able to finish slash yet
-            vm.expectRevert(ISuccinctStaking.SlashNotReady.selector);
-            vm.prank(OWNER);
-            SuccinctStaking(STAKING).finishSlash(ALICE_PROVER, slashIndex);
-        } else {
-            // Should be able to finish slash
-            _finishSlash(ALICE_PROVER, slashIndex);
-            assertEq(SuccinctStaking(STAKING).staked(STAKER_1), stakeAmount - slashAmount);
-        }
-    }
-
     function testFuzz_Slash_WhenMultipleSlashRequests(uint256[3] memory _slashAmounts) public {
         uint256 stakeAmount = STAKER_PROVE_AMOUNT;
 
@@ -1018,9 +964,6 @@ contract SuccinctStakingSlashTests is SuccinctStakingTest {
             slashIndices[i] = _requestSlash(ALICE_PROVER, _slashAmounts[i]);
             skip(1 days); // Add time between requests
         }
-
-        // Wait for slash period
-        skip(SLASH_PERIOD);
 
         // Complete all slashes in reverse order (to avoid index shifting issues)
         for (uint256 i = slashIndices.length; i > 0; i--) {
@@ -1065,9 +1008,6 @@ contract SuccinctStakingSlashTests is SuccinctStakingTest {
 
         // Calculate expected PROVE burned (should be same as iPROVE in 1:1 case)
         uint256 expectedPROVEBurned = IERC4626(I_PROVE).previewRedeem(slashAmount);
-
-        // Skip to after slash period
-        skip(SLASH_PERIOD);
 
         // Test event emission by capturing it
         vm.recordLogs();

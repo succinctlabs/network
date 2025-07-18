@@ -6,6 +6,7 @@ import {StakedSuccinct} from "./tokens/StakedSuccinct.sol";
 import {ISuccinctStaking} from "./interfaces/ISuccinctStaking.sol";
 import {IIntermediateSuccinct} from "./interfaces/IIntermediateSuccinct.sol";
 import {IProver} from "./interfaces/IProver.sol";
+import {SuccinctGovernor} from "./SuccinctGovernor.sol";
 import {Initializable} from "../lib/openzeppelin-contracts/contracts/proxy/utils/Initializable.sol";
 import {Ownable} from "../lib/openzeppelin-contracts/contracts/access/Ownable.sol";
 import {IERC20} from "../lib/openzeppelin-contracts/contracts/interfaces/IERC20.sol";
@@ -46,7 +47,7 @@ contract SuccinctStaking is
     uint256 public override unstakePeriod;
 
     /// @inheritdoc ISuccinctStaking
-    uint256 public override slashPeriod;
+    uint256 public override slashCancellationPeriod;
 
     /// @inheritdoc ISuccinctStaking
     uint256 public override dispenseRate;
@@ -98,7 +99,7 @@ contract SuccinctStaking is
         uint256 _minStakeAmount,
         uint256 _maxUnstakeRequests,
         uint256 _unstakePeriod,
-        uint256 _slashPeriod,
+        uint256 _slashCancellationPeriod,
         uint256 _dispenseRate
     ) external onlyOwner initializer {
         // Ensure that parameters critical for functionality are non-zero.
@@ -108,7 +109,7 @@ contract SuccinctStaking is
         ) {
             revert ZeroAddress();
         }
-        if (_maxUnstakeRequests == 0 || _unstakePeriod == 0 || _slashPeriod == 0) {
+        if (_maxUnstakeRequests == 0 || _unstakePeriod == 0 || _slashCancellationPeriod == 0) {
             revert ZeroAmount();
         }
 
@@ -118,7 +119,7 @@ contract SuccinctStaking is
         minStakeAmount = _minStakeAmount;
         maxUnstakeRequests = _maxUnstakeRequests;
         unstakePeriod = _unstakePeriod;
-        slashPeriod = _slashPeriod;
+        slashCancellationPeriod = _slashCancellationPeriod;
 
         // Setup the dispense rate.
         _updateDispenseRate(_dispenseRate);
@@ -375,7 +376,6 @@ contract SuccinctStaking is
     function cancelSlash(address _prover, uint256 _index)
         external
         override
-        onlyOwner
         onlyForProver(_prover)
     {
         // Get the slash claim.
@@ -383,6 +383,17 @@ contract SuccinctStaking is
 
         // Ensure the claim hasn't already been resolved.
         if (claim.resolved) revert SlashAlreadyResolved();
+
+        // Calculate the deadline for cancellation. Must be after the slash cancellation period
+        // and governance latency has passed. This ensures that governance has had adequate time
+        // to execute a proposal to call `finishSlash()`.
+        uint256 votingDelay = SuccinctGovernor(payable(governor)).votingDelay();
+        uint256 votingPeriod = SuccinctGovernor(payable(governor)).votingPeriod();
+        uint256 cancelDeadline =
+            claim.timestamp + slashCancellationPeriod + votingDelay + votingPeriod;
+
+        // Check if the deadline has passed.
+        if (block.timestamp < cancelDeadline) revert SlashNotReadyToCancel();
 
         // Mark the claim as resolved.
         claim.resolved = true;
@@ -408,9 +419,6 @@ contract SuccinctStaking is
 
         // Ensure the claim hasn't already been resolved.
         if (claim.resolved) revert SlashAlreadyResolved();
-
-        // Ensure that the time has passed since the claim was created.
-        if (block.timestamp < claim.timestamp + slashPeriod) revert SlashNotReady();
 
         // Determine how much can actually be slashed (cannot exceed the prover's current balance).
         uint256 iPROVEBalance = IERC20(iProve).balanceOf(_prover);
