@@ -26,7 +26,9 @@ interface ISuccinctStaking is IProverRegistry {
         uint256 timestamp;
     }
 
-    /// @dev Represents the escrowed $iPROVE and slash factor for a prover.
+    /// @dev Represents the escrowed $iPROVE and slash factor for a prover. Escrowed $iPROVE is
+    ///      held when a staker unstakes, and allows unstaking to not receive prover rewards but
+    ///      still receive the effects of slashing.
     /// @param iPROVEEscrow The amount of $iPROVE held by this contract for pending unstakes.
     /// @param slashFactor The slash factor for the prover (1e27 fp).
     struct EscrowPool {
