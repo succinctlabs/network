@@ -852,19 +852,11 @@ contract SuccinctStakingSlashTests is SuccinctStakingTest {
         uint256 stakerBalance = SuccinctStaking(STAKING).balanceOf(STAKER_1);
         if (stakerBalance > 0) {
             // Should not revert due to arithmetic errors
-            try SuccinctStaking(STAKING).previewUnstake(ALICE_PROVER, stakerBalance) returns (
-                uint256 preview
-            ) {
-                // Preview should be reasonable (not greater than vault + escrow)
-                assertLe(
-                    preview,
-                    finalVault + finalEscrow + 1,
-                    "Preview should not exceed available funds"
-                );
-            } catch {
-                // If preview fails, there might be an edge case - that's what we're testing for
-                revert("Preview unstake should not revert due to arithmetic errors");
-            }
+            uint256 preview = SuccinctStaking(STAKING).previewUnstake(ALICE_PROVER, stakerBalance);
+            // Preview should be reasonable (not greater than vault + escrow)
+            assertLe(
+                preview, finalVault + finalEscrow + 1, "Preview should not exceed available funds"
+            );
         }
     }
 

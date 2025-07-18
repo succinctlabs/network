@@ -550,20 +550,19 @@ contract SuccinctStaking is
         uint256 iPROVEScaled =
             Math.mulDiv(_claim.iPROVEEscrow, pool.slashFactor, _claim.slashFactor);
 
-        // Safely subtract the $iPROVE being redeemed from the prover's escrow pool.
+        // Clamp to the pool’s remaining balance (protects against rounding).
         if (iPROVEScaled > pool.iPROVEEscrow) {
             iPROVEScaled = pool.iPROVEEscrow;
         }
-        unchecked {
-            pool.iPROVEEscrow -= iPROVEScaled;
-        }
 
-        // Withdraw $iPROVE from this contract to have the staker receive $PROVE. Only relevant if
-        // the scaled $iPROVE is non-zero.
+        // If there is $iPROVE left to redeem, update the escrow pool and redeem.
         if (iPROVEScaled != 0) {
+            unchecked {
+                pool.iPROVEEscrow -= iPROVEScaled;
+            }
+
+            // Withdraw $iPROVE from this contract to have the staker receive $PROVE.
             PROVE = IERC4626(iProve).redeem(iPROVEScaled, _staker, address(this));
-        } else {
-            PROVE = 0;
         }
 
         emit Unstake(_staker, _prover, PROVE, iPROVEScaled, _claim.stPROVE);

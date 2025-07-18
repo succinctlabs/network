@@ -4,9 +4,12 @@ pragma solidity ^0.8.28;
 import {SuccinctStakingTest} from "./SuccinctStaking.t.sol";
 import {SuccinctStaking} from "../src/SuccinctStaking.sol";
 import {ISuccinctStaking} from "../src/interfaces/ISuccinctStaking.sol";
+import {IProverRegistry} from "../src/interfaces/IProverRegistry.sol";
 import {MockVApp} from "../src/mocks/MockVApp.sol";
 import {IERC20} from "../lib/openzeppelin-contracts/contracts/interfaces/IERC20.sol";
 import {IERC4626} from "../lib/openzeppelin-contracts/contracts/interfaces/IERC4626.sol";
+import {ERC20Permit} from
+    "../lib/openzeppelin-contracts/contracts/token/ERC20/extensions/ERC20Permit.sol";
 import {Math} from "../lib/openzeppelin-contracts/contracts/utils/math/Math.sol";
 
 // Possible combinations of functionality not covered in functionality-specific test files.
@@ -63,38 +66,45 @@ contract SuccinctStakingMiscellaneousTests is SuccinctStakingTest {
                     MIN_STAKE_AMOUNT + ((_seed >> (_iteration * 8)) % (maxStake - MIN_STAKE_AMOUNT));
                 vm.prank(_actor);
                 IERC20(PROVE).approve(STAKING, stakeAmount);
-                vm.prank(_actor);
-                try SuccinctStaking(STAKING).stake(ALICE_PROVER, stakeAmount) {
-                    // Success
-                } catch {
-                    // May fail if already staked to different prover
+
+                // Check if already staked to a different prover
+                address currentProver = SuccinctStaking(STAKING).stakedTo(_actor);
+                if (currentProver == address(0) || currentProver == ALICE_PROVER) {
+                    // Check if stake would result in non-zero shares to avoid ZeroReceiptAmount
+                    uint256 iPROVEAmount = IERC4626(I_PROVE).previewDeposit(stakeAmount);
+                    if (iPROVEAmount > 0) {
+                        uint256 stPROVEAmount = IERC4626(ALICE_PROVER).previewDeposit(iPROVEAmount);
+                        if (stPROVEAmount > 0) {
+                            vm.prank(_actor);
+                            SuccinctStaking(STAKING).stake(ALICE_PROVER, stakeAmount);
+                        }
+                    }
                 }
+                // Skip if already staked to different prover or would result in zero receipt
             }
         }
     }
 
     function _performUnstakeOperation(address _actor, uint256 _seed, uint256 _iteration) internal {
         uint256 stPROVEBalance = SuccinctStaking(STAKING).balanceOf(_actor);
-        if (stPROVEBalance > 1) {
+        // Check if actor is actually staked
+        if (stPROVEBalance > 1 && SuccinctStaking(STAKING).stakedTo(_actor) != address(0)) {
             uint256 maxUnstake = stPROVEBalance / 2;
             if (maxUnstake > 0) {
                 uint256 unstakeAmount = 1 + ((_seed >> (_iteration * 8)) % maxUnstake);
                 vm.prank(_actor);
-                try SuccinctStaking(STAKING).requestUnstake(unstakeAmount) {
-                    // Success
-                } catch {
-                    // May fail if too many requests or prover has slash request
-                }
+                SuccinctStaking(STAKING).requestUnstake(unstakeAmount);
+                // May revert if too many requests or prover has slash request
             }
         }
     }
 
     function _performFinishUnstakeOperation(address _actor) internal {
-        vm.prank(_actor);
-        try SuccinctStaking(STAKING).finishUnstake(_actor) {
-            // Success
-        } catch {
-            // May fail if no requests or not ready
+        // Check if actor has any unstake requests
+        if (SuccinctStaking(STAKING).unstakeRequests(_actor).length > 0) {
+            vm.prank(_actor);
+            SuccinctStaking(STAKING).finishUnstake(_actor);
+            // May revert if not ready
         }
     }
 
@@ -116,11 +126,8 @@ contract SuccinctStakingMiscellaneousTests is SuccinctStakingTest {
                     }
                     if (dispenseAmount > 0) {
                         vm.prank(DISPENSER);
-                        try SuccinctStaking(STAKING).dispense(dispenseAmount) {
-                            // Success - no burning in dispense
-                        } catch {
-                            // May fail if not enough time elapsed
-                        }
+                        SuccinctStaking(STAKING).dispense(dispenseAmount);
+                        // May revert if not enough time elapsed or amount exceeds available
                     }
                 }
             }
@@ -142,22 +149,14 @@ contract SuccinctStakingMiscellaneousTests is SuccinctStakingTest {
                         + ((_seed >> (_iteration * 8)) % (maxSlash - MIN_STAKE_AMOUNT));
                     uint256 supplyBefore = IERC20(PROVE).totalSupply();
 
-                    try MockVApp(VAPP).processSlash(ALICE_PROVER, slashAmount) returns (
-                        uint256 slashIndex
-                    ) {
-                        // Skip time and finish slash
-                        skip(SLASH_PERIOD);
-                        vm.prank(OWNER);
-                        try SuccinctStaking(STAKING).finishSlash(ALICE_PROVER, slashIndex) {
-                            uint256 supplyAfter = IERC20(PROVE).totalSupply();
-                            // Safely calculate burned amount
-                            burned = supplyBefore > supplyAfter ? supplyBefore - supplyAfter : 0;
-                        } catch {
-                            // May fail if not ready or other issues
-                        }
-                    } catch {
-                        // May fail if prover not found or other issues
-                    }
+                    uint256 slashIndex = MockVApp(VAPP).processSlash(ALICE_PROVER, slashAmount);
+                    // Skip time and finish slash
+                    skip(SLASH_PERIOD);
+                    vm.prank(OWNER);
+                    SuccinctStaking(STAKING).finishSlash(ALICE_PROVER, slashIndex);
+                    uint256 supplyAfter = IERC20(PROVE).totalSupply();
+                    // Safely calculate burned amount
+                    burned = supplyBefore > supplyAfter ? supplyBefore - supplyAfter : 0;
                 }
             }
         }
@@ -362,7 +361,9 @@ contract SuccinctStakingMiscellaneousTests is SuccinctStakingTest {
             _signPermit(STAKER_1_PK, STAKER_1, ALICE_PROVER, stakeAmount, deadline);
 
         // Should revert due to expired deadline
-        vm.expectRevert();
+        vm.expectRevert(
+            abi.encodeWithSelector(ERC20Permit.ERC2612ExpiredSignature.selector, deadline)
+        );
         SuccinctStaking(STAKING).permitAndStake(
             ALICE_PROVER, STAKER_1, stakeAmount, deadline, v, r, s
         );
@@ -384,8 +385,8 @@ contract SuccinctStakingMiscellaneousTests is SuccinctStakingTest {
         vm.prank(STAKER_2);
         IERC20(PROVE).approve(STAKING, dustAmount);
 
-        // This should either revert with StakeBelowMinimum or ZeroReceiptAmount
-        vm.expectRevert();
+        // This should revert with StakeBelowMinimum (since dustAmount < MIN_STAKE_AMOUNT)
+        vm.expectRevert(ISuccinctStaking.StakeBelowMinimum.selector);
         vm.prank(STAKER_2);
         SuccinctStaking(STAKING).stake(ALICE_PROVER, dustAmount);
     }
@@ -402,7 +403,7 @@ contract SuccinctStakingMiscellaneousTests is SuccinctStakingTest {
         skip(SLASH_PERIOD);
 
         // Try to finish slash with invalid index
-        vm.expectRevert();
+        vm.expectRevert(abi.encodeWithSignature("Panic(uint256)", 0x32)); // Array out-of-bounds
         vm.prank(OWNER);
         SuccinctStaking(STAKING).finishSlash(ALICE_PROVER, 999);
     }
@@ -429,7 +430,7 @@ contract SuccinctStakingMiscellaneousTests is SuccinctStakingTest {
         skip(SLASH_PERIOD);
 
         // Non-owner tries to finish slash
-        vm.expectRevert();
+        vm.expectRevert(abi.encodeWithSignature("OwnableUnauthorizedAccount(address)", STAKER_1));
         vm.prank(STAKER_1);
         SuccinctStaking(STAKING).finishSlash(ALICE_PROVER, slashIndex);
     }
@@ -449,14 +450,17 @@ contract SuccinctStakingMiscellaneousTests is SuccinctStakingTest {
 
         // This might revert due to vault limits or succeed
         // Either way, it shouldn't cause unexpected behavior
+        // Try to stake - may revert due to vault limits
         vm.prank(STAKER_1);
-        try SuccinctStaking(STAKING).stake(ALICE_PROVER, safeMax) returns (uint256) {
+        (bool success,) = address(STAKING).call(
+            abi.encodeWithSelector(SuccinctStaking.stake.selector, ALICE_PROVER, safeMax)
+        );
+
+        if (success) {
             // If it succeeds, we should be able to query the stake
             assertGt(SuccinctStaking(STAKING).staked(STAKER_1), 0);
-        } catch {
-            // If it reverts, that's also acceptable
-            // The important thing is it doesn't cause undefined behavior
         }
+        // If it reverts, that's also acceptable - the important thing is it doesn't cause undefined behavior
     }
 
     // Test that multiple unstake requests cannot be exploited
@@ -731,7 +735,7 @@ contract SuccinctStakingMiscellaneousTests is SuccinctStakingTest {
     // Test that operations with zero prover address fail safely
     function test_Misc_ZeroProverAddress() public {
         // Try to stake to non-existent prover (should revert)
-        vm.expectRevert();
+        vm.expectRevert(IProverRegistry.ProverNotFound.selector);
         vm.prank(STAKER_1);
         SuccinctStaking(STAKING).stake(address(0), STAKER_PROVE_AMOUNT);
 
@@ -990,24 +994,19 @@ contract SuccinctStakingMiscellaneousTests is SuccinctStakingTest {
         skip(UNSTAKE_PERIOD);
         if (SuccinctStaking(STAKING).unstakeRequests(STAKER_1).length > 0) {
             // Should not revert due to overflow in unstake calculations
-            try SuccinctStaking(STAKING).previewUnstake(
+            uint256 preview = SuccinctStaking(STAKING).previewUnstake(
                 ALICE_PROVER, SuccinctStaking(STAKING).balanceOf(STAKER_1)
-            ) returns (uint256 preview) {
-                assertTrue(preview >= 0, "Preview should not overflow");
+            );
+            assertTrue(preview >= 0, "Preview should not overflow");
 
-                // Calculate expected maximum based on actual available iPROVE
-                uint256 vaultIPROVE = IERC20(I_PROVE).balanceOf(ALICE_PROVER);
-                uint256 escrowIPROVE = finalPool.iPROVEEscrow;
-                uint256 totalIPROVE = vaultIPROVE + escrowIPROVE;
-                // The maximum PROVE that could be redeemed from all available iPROVE
-                uint256 expectedMax = IERC4626(I_PROVE).previewRedeem(totalIPROVE);
+            // Calculate expected maximum based on actual available iPROVE
+            uint256 vaultIPROVE = IERC20(I_PROVE).balanceOf(ALICE_PROVER);
+            uint256 escrowIPROVE = finalPool.iPROVEEscrow;
+            uint256 totalIPROVE = vaultIPROVE + escrowIPROVE;
+            // The maximum PROVE that could be redeemed from all available iPROVE
+            uint256 expectedMax = IERC4626(I_PROVE).previewRedeem(totalIPROVE);
 
-                assertLe(preview, expectedMax, "Preview should not exceed total redeemable PROVE");
-            } catch {
-                // If it reverts, it should be for a valid reason, not overflow
-                // We can't easily test the revert reason here, but the fact that we got here
-                // without an overflow panic means the arithmetic didn't overflow
-            }
+            assertLe(preview, expectedMax, "Preview should not exceed total redeemable PROVE");
         }
     }
 }
