@@ -21,9 +21,11 @@ interface ISuccinctStaking is IProverRegistry {
     /// @param iPROVE The requested amount of $iPROVE to slash.
     /// @param timestamp The timestamp when the slash was requested. Used for comparing against
     ///        the `slashPeriod()` to determine if the claim can be finished.
+    /// @param resolved Whether the claim has been resolved (either cancelled or finished).
     struct SlashClaim {
         uint256 iPROVE;
         uint256 timestamp;
+        bool resolved;
     }
 
     /// @dev Represents the escrowed $iPROVE and slash factor for a prover. Escrowed $iPROVE is
@@ -125,6 +127,9 @@ interface ISuccinctStaking is IProverRegistry {
 
     /// @dev Thrown if the specified dispense amount exceeds the maximum dispense amount.
     error AmountExceedsAvailableDispense();
+
+    /// @dev Thrown if a slash claim has already been resolved.
+    error SlashAlreadyResolved();
 
     /// @notice The address of the contract that can dispense yield.
     function dispenser() external view returns (address);
