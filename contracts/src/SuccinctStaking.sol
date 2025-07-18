@@ -377,7 +377,7 @@ contract SuccinctStaking is
         SlashClaim storage claim = slashClaims[_prover][_index];
 
         // Ensure the claim hasn't already been resolved.
-        if (claim.resolved) revert SlashAlreadyResolved();
+        if (claim.resolved) revert SlashRequestAlreadyResolved();
 
         // Calculate the deadline for cancellation. Must be after the slash cancellation period
         // and governance latency has passed. This ensures that governance has had adequate time
@@ -388,7 +388,7 @@ contract SuccinctStaking is
             claim.timestamp + slashCancellationPeriod + votingDelay + votingPeriod;
 
         // Check if the deadline has passed.
-        if (block.timestamp < cancelDeadline) revert SlashNotReadyToCancel();
+        if (block.timestamp < cancelDeadline) revert SlashRequestNotReadyToCancel();
 
         // Mark the claim as resolved.
         claim.resolved = true;
@@ -413,7 +413,7 @@ contract SuccinctStaking is
         SlashClaim storage claim = slashClaims[_prover][_index];
 
         // Ensure the claim hasn't already been resolved.
-        if (claim.resolved) revert SlashAlreadyResolved();
+        if (claim.resolved) revert SlashRequestAlreadyResolved();
 
         // Determine how much can actually be slashed (cannot exceed the prover's current balance).
         uint256 iPROVEBalance = IERC20(iProve).balanceOf(_prover);

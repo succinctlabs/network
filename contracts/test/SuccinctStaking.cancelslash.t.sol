@@ -54,7 +54,7 @@ contract SuccinctStakingCancelSlashTests is SuccinctStakingTest {
         skip(totalWaitTime - 1);
 
         // Non-owner should not be able to cancel yet.
-        vm.expectRevert(ISuccinctStaking.SlashNotReadyToCancel.selector);
+        vm.expectRevert(ISuccinctStaking.SlashRequestNotReadyToCancel.selector);
         vm.prank(STAKER_1);
         SuccinctStaking(STAKING).cancelSlash(ALICE_PROVER, index);
     }
@@ -100,7 +100,7 @@ contract SuccinctStakingCancelSlashTests is SuccinctStakingTest {
         SuccinctStaking(STAKING).cancelSlash(ALICE_PROVER, index);
 
         // Try to cancel again - should revert.
-        vm.expectRevert(ISuccinctStaking.SlashAlreadyResolved.selector);
+        vm.expectRevert(ISuccinctStaking.SlashRequestAlreadyResolved.selector);
         vm.prank(OWNER);
         SuccinctStaking(STAKING).cancelSlash(ALICE_PROVER, index);
     }
@@ -168,7 +168,7 @@ contract SuccinctStakingCancelSlashTests is SuccinctStakingTest {
         skip(totalWaitTime - 1);
 
         // Should still fail.
-        vm.expectRevert(ISuccinctStaking.SlashNotReadyToCancel.selector);
+        vm.expectRevert(ISuccinctStaking.SlashRequestNotReadyToCancel.selector);
         vm.prank(STAKER_1);
         SuccinctStaking(STAKING).cancelSlash(ALICE_PROVER, index);
 
@@ -199,7 +199,7 @@ contract SuccinctStakingCancelSlashTests is SuccinctStakingTest {
         SuccinctStaking(STAKING).cancelSlash(ALICE_PROVER, index1);
 
         // Second slash cannot be cancelled yet.
-        vm.expectRevert(ISuccinctStaking.SlashNotReadyToCancel.selector);
+        vm.expectRevert(ISuccinctStaking.SlashRequestNotReadyToCancel.selector);
         vm.prank(STAKER_1);
         SuccinctStaking(STAKING).cancelSlash(ALICE_PROVER, index2);
 
