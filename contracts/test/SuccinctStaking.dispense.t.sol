@@ -299,6 +299,192 @@ contract SuccinctStakingDispenseTests is SuccinctStakingTest {
         assertEq(SuccinctStaking(STAKING).maxDispense(), 0);
     }
 
+    // Tests that repeated dust dispenses don't destroy future emissions.
+    function test_Dispense_WhenDustPreservesEmissions() public {
+        // Set dispense rate to 3 wei/s.
+        vm.prank(OWNER);
+        SuccinctStaking(STAKING).updateDispenseRate(3);
+
+        // Skip 10 seconds (30 wei earned).
+        skip(10);
+
+        // Fund the staking contract with enough PROVE for all dispenses.
+        deal(PROVE, STAKING, 30);
+
+        // Dispense 1 wei ten times.
+        for (uint256 i = 0; i < 10; i++) {
+            vm.prank(DISPENSER);
+            SuccinctStaking(STAKING).dispense(1);
+        }
+
+        // Should have 20 wei remaining available.
+        assertEq(SuccinctStaking(STAKING).maxDispense(), 20);
+    }
+
+    // Tests that rate changes preserve exact emission accounting.
+    function test_Dispense_WhenRateChangePreservesAccounting() public {
+        // Rate 1: 10 wei/s for 100 seconds.
+        vm.prank(OWNER);
+        SuccinctStaking(STAKING).updateDispenseRate(10);
+        skip(100);
+
+        // Fund the staking contract.
+        deal(PROVE, STAKING, 2000);
+
+        // Dispense 500 wei.
+        vm.prank(DISPENSER);
+        SuccinctStaking(STAKING).dispense(500);
+
+        // Rate 2: 5 wei/s for 200 seconds.
+        vm.prank(OWNER);
+        SuccinctStaking(STAKING).updateDispenseRate(5);
+        skip(200);
+
+        // Should have exactly 500 + 1000 = 1500 wei available.
+        assertEq(SuccinctStaking(STAKING).maxDispense(), 1500);
+    }
+
+    // Tests the invariant that total earned must always equal total dispensed plus available balance.
+    function test_Dispense_WhenTotalEarnedEqualsDispensedPlusAvailable() public {
+        // Initial setup.
+        vm.prank(OWNER);
+        SuccinctStaking(STAKING).updateDispenseRate(7);
+
+        // Test multiple operations.
+        skip(100);
+        uint256 totalEarned1 = SuccinctStaking(STAKING).dispenseEarned()
+            + (block.timestamp - SuccinctStaking(STAKING).dispenseRateTimestamp())
+                * SuccinctStaking(STAKING).dispenseRate();
+        uint256 totalAccounted1 =
+            SuccinctStaking(STAKING).dispenseDistributed() + SuccinctStaking(STAKING).maxDispense();
+        assertEq(totalEarned1, totalAccounted1, "Invariant broken after skip");
+
+        // Dispense some amount.
+        deal(PROVE, STAKING, 350);
+        vm.prank(DISPENSER);
+        SuccinctStaking(STAKING).dispense(350);
+
+        uint256 totalEarned2 = SuccinctStaking(STAKING).dispenseEarned()
+            + (block.timestamp - SuccinctStaking(STAKING).dispenseRateTimestamp())
+                * SuccinctStaking(STAKING).dispenseRate();
+        uint256 totalAccounted2 =
+            SuccinctStaking(STAKING).dispenseDistributed() + SuccinctStaking(STAKING).maxDispense();
+        assertEq(totalEarned2, totalAccounted2, "Invariant broken after dispense");
+
+        // Change rate.
+        vm.prank(OWNER);
+        SuccinctStaking(STAKING).updateDispenseRate(13);
+
+        uint256 totalEarned3 = SuccinctStaking(STAKING).dispenseEarned()
+            + (block.timestamp - SuccinctStaking(STAKING).dispenseRateTimestamp())
+                * SuccinctStaking(STAKING).dispenseRate();
+        uint256 totalAccounted3 =
+            SuccinctStaking(STAKING).dispenseDistributed() + SuccinctStaking(STAKING).maxDispense();
+        assertEq(totalEarned3, totalAccounted3, "Invariant broken after rate change");
+
+        // Skip more time and dispense again.
+        skip(50);
+        deal(PROVE, STAKING, 650);
+        vm.prank(DISPENSER);
+        SuccinctStaking(STAKING).dispense(650);
+
+        uint256 totalEarned4 = SuccinctStaking(STAKING).dispenseEarned()
+            + (block.timestamp - SuccinctStaking(STAKING).dispenseRateTimestamp())
+                * SuccinctStaking(STAKING).dispenseRate();
+        uint256 totalAccounted4 =
+            SuccinctStaking(STAKING).dispenseDistributed() + SuccinctStaking(STAKING).maxDispense();
+        assertEq(totalEarned4, totalAccounted4, "Invariant broken after second dispense");
+    }
+
+    // Tests demonstrating the old bug with ceiling division.
+    function test_Dispense_WhenNoCeilingDivisionLoss() public {
+        // Set a rate where ceiling division would cause issues.
+        uint256 rate = 7; // 7 wei/s
+        vm.prank(OWNER);
+        SuccinctStaking(STAKING).updateDispenseRate(rate);
+
+        // Skip time to accumulate exactly 70 wei.
+        skip(10);
+        assertEq(SuccinctStaking(STAKING).maxDispense(), 70);
+
+        // Fund the contract.
+        deal(PROVE, STAKING, 70);
+
+        // Dispense 5 wei (not divisible by 7).
+        vm.prank(DISPENSER);
+        SuccinctStaking(STAKING).dispense(5);
+
+        // With the fix, we should still have 65 wei available.
+        assertEq(SuccinctStaking(STAKING).maxDispense(), 65);
+
+        // Dispense 3 more wei.
+        vm.prank(DISPENSER);
+        SuccinctStaking(STAKING).dispense(3);
+
+        // Should have 62 wei available.
+        assertEq(SuccinctStaking(STAKING).maxDispense(), 62);
+
+        // The total dispensed should be exactly 8 wei.
+        assertEq(SuccinctStaking(STAKING).dispenseDistributed(), 8);
+    }
+
+    // Tests that partial dispenses don't affect future emission rates.
+    function test_partialDispenseNoRateImpact() public {
+        uint256 rate = 100; // 100 wei/s
+        vm.prank(OWNER);
+        SuccinctStaking(STAKING).updateDispenseRate(rate);
+
+        // Wait 10 seconds (1000 wei earned).
+        skip(10);
+
+        // Fund the contract.
+        deal(PROVE, STAKING, 1000);
+
+        // Dispense 123 wei (not a multiple of rate).
+        vm.prank(DISPENSER);
+        SuccinctStaking(STAKING).dispense(123);
+
+        // Wait another 10 seconds.
+        skip(10);
+
+        // Total available should be: 877 (remaining) + 1000 (new) = 1877 wei.
+        assertEq(SuccinctStaking(STAKING).maxDispense(), 1877);
+
+        // Verify the emission rate is still exactly 100 wei/s.
+        skip(1);
+        assertEq(SuccinctStaking(STAKING).maxDispense(), 1977);
+    }
+
+    // Tests extreme dust amounts with high dispense rate.
+    function test_Dispense_WhenExtremeDustWithHighRate() public {
+        // Set a very high rate.
+        uint256 highRate = 1e18; // 1 PROVE per second
+        vm.prank(OWNER);
+        SuccinctStaking(STAKING).updateDispenseRate(highRate);
+
+        // Skip 1 second.
+        skip(1);
+
+        // Fund the contract.
+        deal(PROVE, STAKING, 1e18);
+
+        // Dispense 1 wei (extreme dust compared to rate).
+        vm.prank(DISPENSER);
+        SuccinctStaking(STAKING).dispense(1);
+
+        // Should have exactly 1e18 - 1 wei available.
+        assertEq(SuccinctStaking(STAKING).maxDispense(), 1e18 - 1);
+
+        // Dispense many dust amounts.
+        for (uint256 i = 0; i < 100; i++) {
+            vm.prank(DISPENSER);
+            SuccinctStaking(STAKING).dispense(1);
+        }
+
+        // Should have exactly 1e18 - 101 wei available.
+        assertEq(SuccinctStaking(STAKING).maxDispense(), 1e18 - 101);
+    }
+
     // Reverts when the staking contract doesn't have enough $PROVE. Operationally,
     // the owner should ensure that enough $PROVE is owned before dispensing.
     function test_RevertDispense_WhenNotEnoughPROVE() public {
@@ -539,13 +725,10 @@ contract SuccinctStakingDispenseTests is SuccinctStakingTest {
         uint256 secondAvailable = SuccinctStaking(STAKING).maxDispense();
 
         // Verify rate change took effect
-        // When we dispensed, lastDispenseTimestamp advanced by timeConsumed
-        uint256 timeConsumed = (firstDispense + initialRate - 1) / initialRate;
-
-        // After rate change and second wait, available amount is calculated from
-        // the time elapsed since lastDispenseTimestamp with the new rate
-        // Time elapsed = waitTime + (waitTime - timeConsumed) = 2 * waitTime - timeConsumed
-        uint256 expectedSecondAvailable = (2 * waitTime - timeConsumed) * newRate;
+        // After rate change and second wait, available amount includes:
+        // 1. Remaining from first period (firstAvailable - firstDispense)
+        // 2. New accumulation at new rate (waitTime * newRate)
+        uint256 expectedSecondAvailable = (firstAvailable - firstDispense) + (waitTime * newRate);
         assertEq(secondAvailable, expectedSecondAvailable);
     }
 }

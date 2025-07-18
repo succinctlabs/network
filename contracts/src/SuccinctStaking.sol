@@ -53,7 +53,13 @@ contract SuccinctStaking is
     uint256 public override dispenseRate;
 
     /// @inheritdoc ISuccinctStaking
-    uint256 public override lastDispenseTimestamp;
+    uint256 public override dispenseRateTimestamp;
+
+    /// @inheritdoc ISuccinctStaking
+    uint256 public override dispenseEarned;
+
+    /// @inheritdoc ISuccinctStaking
+    uint256 public override dispenseDistributed;
 
     /// @dev A mapping from staker to the prover they are staked with.
     mapping(address => address) internal stakerToProver;
@@ -123,7 +129,7 @@ contract SuccinctStaking is
 
         // Setup the dispense rate.
         _updateDispenseRate(_dispenseRate);
-        lastDispenseTimestamp = block.timestamp;
+        dispenseRateTimestamp = block.timestamp;
 
         // Approve the $iPROVE contract to transfer $PROVE from this contract during stake().
         IERC20(prove).approve(iProve, type(uint256).max);
@@ -217,8 +223,12 @@ contract SuccinctStaking is
 
     /// @inheritdoc ISuccinctStaking
     function maxDispense() public view override returns (uint256) {
-        uint256 elapsedTime = block.timestamp - lastDispenseTimestamp;
-        return elapsedTime * dispenseRate;
+        // Calculate total earned: historical accrual + current period earnings.
+        uint256 totalEarned =
+            dispenseEarned + (block.timestamp - dispenseRateTimestamp) * dispenseRate;
+
+        // Available to dispense is earned minus already dispensed.
+        return totalEarned - dispenseDistributed;
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -480,15 +490,14 @@ contract SuccinctStaking is
         // If caller passed in type(uint256).max, attempt to dispense the full available amount.
         uint256 amount = _PROVE == type(uint256).max ? available : _PROVE;
 
-        // Ensure dispensing a non‐zero amount.
+        // Ensure dispensing a non-zero amount.
         if (amount == 0) revert ZeroAmount();
 
-        // If caller passed a specific number, make sure it doesn't exceed available
+        // If caller passed a specific number, make sure it doesn't exceed available.
         if (amount > available) revert AmountExceedsAvailableDispense();
 
-        // Update the timestamp based on the (possibly‐adjusted) amount
-        uint256 timeConsumed = (amount + dispenseRate - 1) / dispenseRate;
-        lastDispenseTimestamp += timeConsumed;
+        // Update the total dispensed amount.
+        dispenseDistributed += amount;
 
         // Transfer the amount to the iPROVE vault. This distributes the $PROVE to all stakers.
         IERC20(prove).safeTransfer(iProve, amount);
@@ -641,6 +650,12 @@ contract SuccinctStaking is
 
     /// @dev Set the new dispense rate.
     function _updateDispenseRate(uint256 _dispenseRate) internal {
+        // Accrue all earnings up to this point at the old rate.
+        dispenseEarned += (block.timestamp - dispenseRateTimestamp) * dispenseRate;
+
+        // Update the timestamp to mark when this new rate takes effect.
+        dispenseRateTimestamp = block.timestamp;
+
         emit DispenseRateUpdate(dispenseRate, _dispenseRate);
 
         dispenseRate = _dispenseRate;
