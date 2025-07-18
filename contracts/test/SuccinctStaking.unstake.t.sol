@@ -705,14 +705,13 @@ contract SuccinctStakingUnstakeTests is SuccinctStakingTest {
 
         // Get the escrowed amount and initial escrow pool state
         uint256 iPROVEEscrowed = ISuccinctStaking(STAKING).unstakeRequests(STAKER_1)[0].iPROVEEscrow;
-        uint256 slashFactorSnapshot =
-            ISuccinctStaking(STAKING).unstakeRequests(STAKER_1)[0].slashFactorSnapshot;
+        uint256 slashFactor = ISuccinctStaking(STAKING).unstakeRequests(STAKER_1)[0].slashFactor;
         ISuccinctStaking.EscrowPool memory poolBefore =
             ISuccinctStaking(STAKING).escrowPool(ALICE_PROVER);
 
         assertEq(poolBefore.iPROVEEscrow, iPROVEEscrowed, "Escrow should match unstake request");
         assertEq(poolBefore.slashFactor, SCALAR, "Initial slash factor should be 1e27");
-        assertEq(slashFactorSnapshot, SCALAR, "Snapshot should capture initial factor");
+        assertEq(slashFactor, SCALAR, "Snapshot should capture initial factor");
 
         // During unstake period, request a 50% slash of total stake
         // Total stake = vault (staker2) + escrow (staker1) = 2 * stakeAmount
@@ -989,7 +988,7 @@ contract SuccinctStakingUnstakeTests is SuccinctStakingTest {
             "Staker A should have 1 unstake request"
         );
         assertEq(
-            SuccinctStaking(STAKING).unstakeRequests(STAKER_1)[0].slashFactorSnapshot,
+            SuccinctStaking(STAKING).unstakeRequests(STAKER_1)[0].slashFactor,
             1e27,
             "A's snapshot should be 1e27"
         );
@@ -1015,7 +1014,7 @@ contract SuccinctStakingUnstakeTests is SuccinctStakingTest {
             "Staker B should have 1 unstake request"
         );
         assertEq(
-            SuccinctStaking(STAKING).unstakeRequests(STAKER_2)[0].slashFactorSnapshot,
+            SuccinctStaking(STAKING).unstakeRequests(STAKER_2)[0].slashFactor,
             firstFactor,
             "B's snapshot should match pool factor after first slash"
         );
@@ -1525,7 +1524,7 @@ contract SuccinctStakingUnstakeTests is SuccinctStakingTest {
         uint256 manualPending = 0;
         for (uint256 i = 0; i < claims.length; i++) {
             uint256 iPROVEScaled =
-                Math.mulDiv(claims[i].iPROVEEscrow, currentFactor, claims[i].slashFactorSnapshot);
+                Math.mulDiv(claims[i].iPROVEEscrow, currentFactor, claims[i].slashFactor);
             manualPending += IERC4626(I_PROVE).previewRedeem(iPROVEScaled);
         }
 

@@ -11,12 +11,21 @@ import {Math} from "../lib/openzeppelin-contracts/contracts/utils/math/Math.sol"
 
 // Possible combinations of functionality not covered in functionality-specific test files.
 contract SuccinctStakingMiscellaneousTests is SuccinctStakingTest {
-    // Helpers for stack-too-deep workaround
+    // Structs and helpers for stack-too-deep workaround
+
+    struct OperationState {
+        uint256 opType;
+        uint256 actorIndex;
+        address actor;
+        uint256 proveBalance;
+        uint256 stPROVEBalance;
+        uint256 amount;
+    }
 
     function _checkConservation(
-        uint256 initialStaker1,
-        uint256 initialStaker2,
-        uint256 initialStaking
+        uint256 _initialStaker1,
+        uint256 _initialStaker2,
+        uint256 _initialStaking
     ) internal view {
         // Track all PROVE token locations
         uint256 currentStaker1 = IERC20(PROVE).balanceOf(STAKER_1);
@@ -28,7 +37,7 @@ contract SuccinctStakingMiscellaneousTests is SuccinctStakingTest {
         uint256 currentBob = IERC20(PROVE).balanceOf(BOB);
 
         // Initial total we dealt
-        uint256 initialTotal = initialStaker1 + initialStaker2 + initialStaking;
+        uint256 initialTotal = _initialStaker1 + _initialStaker2 + _initialStaking;
 
         // Current total in all known locations
         uint256 currentTotal = currentStaker1 + currentStaker2 + currentStaking + currentIPROVE
@@ -44,27 +53,17 @@ contract SuccinctStakingMiscellaneousTests is SuccinctStakingTest {
         );
     }
 
-    // Struct to group operation state and avoid stack-too-deep
-    struct OperationState {
-        uint256 opType;
-        uint256 actorIndex;
-        address actor;
-        uint256 proveBalance;
-        uint256 stPROVEBalance;
-        uint256 amount;
-    }
-
-    function _performStakeOperation(address actor, uint256 seed, uint256 iteration) internal {
-        uint256 proveBalance = IERC20(PROVE).balanceOf(actor);
+    function _performStakeOperation(address _actor, uint256 _seed, uint256 _iteration) internal {
+        uint256 proveBalance = IERC20(PROVE).balanceOf(_actor);
         if (proveBalance >= MIN_STAKE_AMOUNT * 2) {
             // Use safe arithmetic to avoid overflow
             uint256 maxStake = proveBalance / 4;
             if (maxStake > MIN_STAKE_AMOUNT) {
                 uint256 stakeAmount =
-                    MIN_STAKE_AMOUNT + ((seed >> (iteration * 8)) % (maxStake - MIN_STAKE_AMOUNT));
-                vm.prank(actor);
+                    MIN_STAKE_AMOUNT + ((_seed >> (_iteration * 8)) % (maxStake - MIN_STAKE_AMOUNT));
+                vm.prank(_actor);
                 IERC20(PROVE).approve(STAKING, stakeAmount);
-                vm.prank(actor);
+                vm.prank(_actor);
                 try SuccinctStaking(STAKING).stake(ALICE_PROVER, stakeAmount) {
                     // Success
                 } catch {
@@ -74,13 +73,13 @@ contract SuccinctStakingMiscellaneousTests is SuccinctStakingTest {
         }
     }
 
-    function _performUnstakeOperation(address actor, uint256 seed, uint256 iteration) internal {
-        uint256 stPROVEBalance = SuccinctStaking(STAKING).balanceOf(actor);
+    function _performUnstakeOperation(address _actor, uint256 _seed, uint256 _iteration) internal {
+        uint256 stPROVEBalance = SuccinctStaking(STAKING).balanceOf(_actor);
         if (stPROVEBalance > 1) {
             uint256 maxUnstake = stPROVEBalance / 2;
             if (maxUnstake > 0) {
-                uint256 unstakeAmount = 1 + ((seed >> (iteration * 8)) % maxUnstake);
-                vm.prank(actor);
+                uint256 unstakeAmount = 1 + ((_seed >> (_iteration * 8)) % maxUnstake);
+                vm.prank(_actor);
                 try SuccinctStaking(STAKING).requestUnstake(unstakeAmount) {
                     // Success
                 } catch {
@@ -90,16 +89,16 @@ contract SuccinctStakingMiscellaneousTests is SuccinctStakingTest {
         }
     }
 
-    function _performFinishUnstakeOperation(address actor) internal {
-        vm.prank(actor);
-        try SuccinctStaking(STAKING).finishUnstake(actor) {
+    function _performFinishUnstakeOperation(address _actor) internal {
+        vm.prank(_actor);
+        try SuccinctStaking(STAKING).finishUnstake(_actor) {
             // Success
         } catch {
             // May fail if no requests or not ready
         }
     }
 
-    function _performDispenseOperation(uint256 seed, uint256 iteration)
+    function _performDispenseOperation(uint256 _seed, uint256 _iteration)
         internal
         returns (uint256 burned)
     {
@@ -110,7 +109,7 @@ contract SuccinctStakingMiscellaneousTests is SuccinctStakingTest {
                 uint256 maxFromBalance = stakingBalance / 20;
                 if (maxFromBalance > MIN_STAKE_AMOUNT) {
                     uint256 dispenseAmount = MIN_STAKE_AMOUNT
-                        + ((seed >> (iteration * 8)) % (maxFromBalance - MIN_STAKE_AMOUNT));
+                        + ((_seed >> (_iteration * 8)) % (maxFromBalance - MIN_STAKE_AMOUNT));
                     uint256 maxDispense = SuccinctStaking(STAKING).maxDispense();
                     if (dispenseAmount > maxDispense) {
                         dispenseAmount = maxDispense;
@@ -129,7 +128,7 @@ contract SuccinctStakingMiscellaneousTests is SuccinctStakingTest {
         return 0; // Dispense doesn't burn tokens
     }
 
-    function _performSlashOperation(uint256 seed, uint256 iteration)
+    function _performSlashOperation(uint256 _seed, uint256 _iteration)
         internal
         returns (uint256 burned)
     {
@@ -140,7 +139,7 @@ contract SuccinctStakingMiscellaneousTests is SuccinctStakingTest {
                 uint256 maxSlash = totalStaked / 10;
                 if (maxSlash > MIN_STAKE_AMOUNT) {
                     uint256 slashAmount = MIN_STAKE_AMOUNT
-                        + ((seed >> (iteration * 8)) % (maxSlash - MIN_STAKE_AMOUNT));
+                        + ((_seed >> (_iteration * 8)) % (maxSlash - MIN_STAKE_AMOUNT));
                     uint256 supplyBefore = IERC20(PROVE).totalSupply();
 
                     try MockVApp(VAPP).processSlash(ALICE_PROVER, slashAmount) returns (

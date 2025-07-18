@@ -7,13 +7,13 @@ interface ISuccinctStaking is IProverRegistry {
     /// @dev Represents a claim for unstaking.
     /// @param stPROVE The share amount of $stPROVE requested to be unstaked.
     /// @param iPROVEEscrow The escrowed amount of $iPROVE at request time.
-    /// @param slashFactorSnapshot The slash factor for the prover when the claim was created (1e27 fp).
+    /// @param slashFactor The slash factor for the prover when the claim was created (1e27 fp).
     /// @param timestamp The timestamp when the unstake was requested. Used for comparing against
     ///        the `unstakePeriod()` to determine if the claim can be finished.
     struct UnstakeClaim {
         uint256 stPROVE;
         uint256 iPROVEEscrow;
-        uint256 slashFactorSnapshot;
+        uint256 slashFactor;
         uint256 timestamp;
     }
 

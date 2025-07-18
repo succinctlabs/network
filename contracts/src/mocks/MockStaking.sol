@@ -112,7 +112,7 @@ contract MockStaking is ProverRegistry, ISuccinctStaking {
             UnstakeClaim({
                 stPROVE: _stPROVE,
                 iPROVEEscrow: _stPROVE,
-                slashFactorSnapshot: pool.slashFactor,
+                slashFactor: pool.slashFactor,
                 timestamp: block.timestamp
             })
         );

@@ -185,13 +185,14 @@ contract SuccinctStaking is
         UnstakeClaim[] memory claims = unstakeClaims[_staker];
         EscrowPool memory pool = escrowPools[prover];
 
-        // Use SCALAR when the pool is empty (slashFactor == 0).
-        uint256 currentFactor = pool.slashFactor == 0 ? SCALAR : pool.slashFactor;
+        // If everything has been slashed to zero no claim can redeem anything.
+        uint256 currentFactor = pool.slashFactor;
+        if (currentFactor == 0) return 0;
 
         for (uint256 i = 0; i < claims.length; i++) {
             // Apply cumulative slash factor to the escrowed $iPROVE.
             uint256 iPROVEScaled =
-                Math.mulDiv(claims[i].iPROVEEscrow, currentFactor, claims[i].slashFactorSnapshot);
+                Math.mulDiv(claims[i].iPROVEEscrow, currentFactor, claims[i].slashFactor);
             // Convert $iPROVE to $PROVE.
             PROVE += IERC4626(iProve).previewRedeem(iPROVEScaled);
         }
@@ -284,9 +285,14 @@ contract SuccinctStaking is
         // Escrow the $iPROVE.
         uint256 iPROVEEscrow = _escrowUnstakeRequest(msg.sender, prover, _stPROVE);
 
-        // Update the prover's escrow pool.
+        // Get the prover's escrow pool.
         EscrowPool storage pool = escrowPools[prover];
+
+        // If the escrow pool hasn't been initialized yet (or a prover was fully slashed),
+        // set the slash factor to the starting value.
         if (pool.slashFactor == 0) pool.slashFactor = SCALAR;
+
+        // Update the prover's escrow pool to account for the new escrowed $iPROVE.
         pool.iPROVEEscrow += iPROVEEscrow;
 
         // Record the unstake request.
@@ -294,7 +300,7 @@ contract SuccinctStaking is
             UnstakeClaim({
                 stPROVE: _stPROVE,
                 iPROVEEscrow: iPROVEEscrow,
-                slashFactorSnapshot: pool.slashFactor,
+                slashFactor: pool.slashFactor,
                 timestamp: block.timestamp
             })
         );
@@ -542,7 +548,7 @@ contract SuccinctStaking is
 
         // Apply cumulative slash factor to the escrowed $iPROVE.
         uint256 iPROVEScaled =
-            Math.mulDiv(_claim.iPROVEEscrow, pool.slashFactor, _claim.slashFactorSnapshot);
+            Math.mulDiv(_claim.iPROVEEscrow, pool.slashFactor, _claim.slashFactor);
 
         // Safely subtract the $iPROVE being redeemed from the prover's escrow pool.
         if (iPROVEScaled > pool.iPROVEEscrow) {
@@ -567,7 +573,6 @@ contract SuccinctStaking is
     ///      period.
     function _finishUnstake(address _staker, address _prover, UnstakeClaim[] storage _claims)
         internal
-        stakingOperation
         returns (uint256 PROVE)
     {
         uint256 i = 0;
