@@ -6,7 +6,6 @@ import {SuccinctStaking} from "../src/SuccinctStaking.sol";
 import {MockVApp} from "../src/mocks/MockVApp.sol";
 import {IERC20} from "../lib/openzeppelin-contracts/contracts/interfaces/IERC20.sol";
 import {IProver} from "../src/interfaces/IProver.sol";
-import {IProverRegistry} from "../src/interfaces/IProverRegistry.sol";
 
 contract SuccinctStakingFulfillmentTests is SuccinctStakingTest {
     /// @dev For stack-too-deep workaround
