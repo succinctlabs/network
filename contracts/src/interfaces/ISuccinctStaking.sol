@@ -69,9 +69,6 @@ interface ISuccinctStaking is IProverRegistry {
         uint256 stPROVE
     );
 
-    /// @dev Emitted when a $PROVE reward is distributed to a prover.
-    event Reward(address indexed prover, uint256 PROVE);
-
     /// @dev Emitted when a prover is requested to be slashed.
     event SlashRequest(address indexed prover, uint256 iPROVE, uint256 index);
 
@@ -119,17 +116,17 @@ interface ISuccinctStaking is IProverRegistry {
     /// @dev Thrown if staking or unstaking while the prover has one or more pending slash requests.
     error ProverHasSlashRequest();
 
+    /// @dev Thrown if a slash request has already been resolved.
+    error SlashRequestAlreadyResolved();
+
+    /// @dev Thrown if attempting to cancel a slash request before the deadline.
+    error SlashRequestNotReadyToCancel();
+
     /// @dev Thrown if the dispenser is not the owner.
     error NotDispenser();
 
     /// @dev Thrown if the specified dispense amount exceeds the maximum dispense amount.
     error AmountExceedsAvailableDispense();
-
-    /// @dev Thrown if a slash claim has already been resolved.
-    error SlashAlreadyResolved();
-
-    /// @dev Thrown if attempting to cancel a slash before the deadline.
-    error SlashNotReadyToCancel();
 
     /// @notice The address of the contract that can dispense yield.
     function dispenser() external view returns (address);
