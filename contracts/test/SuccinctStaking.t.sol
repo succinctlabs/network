@@ -26,7 +26,7 @@ contract SuccinctStakingTest is Test {
     uint256 public constant DISPENSE_RATE = 1268391679; // ~4% yearly
     uint256 public constant MAX_UNSTAKE_REQUESTS = 100;
     uint256 public constant UNSTAKE_PERIOD = 21 days;
-    uint256 public constant SLASH_PERIOD = 7 days;
+    uint256 public constant SLASH_CANCELLATION_PERIOD = 7 days;
     uint256 public constant STAKER_FEE_BIPS = 1000; // 10%
     uint256 public constant FEE_UNIT = 10000; // 100%
     uint256 public constant PROTOCOL_FEE_BIPS = 30; // 0.3%
@@ -107,7 +107,7 @@ contract SuccinctStakingTest is Test {
             MIN_STAKE_AMOUNT,
             MAX_UNSTAKE_REQUESTS,
             UNSTAKE_PERIOD,
-            SLASH_PERIOD,
+            SLASH_CANCELLATION_PERIOD,
             DISPENSE_RATE
         );
 
@@ -179,7 +179,6 @@ contract SuccinctStakingTest is Test {
 
     function _completeSlash(address _prover, uint256 _amount) internal returns (uint256) {
         uint256 index = _requestSlash(_prover, _amount);
-        skip(SLASH_PERIOD);
         return _finishSlash(_prover, index);
     }
 
@@ -287,7 +286,7 @@ contract SuccinctStakingSetupTests is SuccinctStakingTest {
         assertEq(SuccinctStaking(STAKING).prove(), PROVE);
         assertEq(SuccinctStaking(STAKING).iProve(), I_PROVE);
         assertEq(SuccinctStaking(STAKING).unstakePeriod(), UNSTAKE_PERIOD);
-        assertEq(SuccinctStaking(STAKING).slashPeriod(), SLASH_PERIOD);
+        assertEq(SuccinctStaking(STAKING).slashCancellationPeriod(), SLASH_CANCELLATION_PERIOD);
         assertEq(MockVApp(VAPP).staking(), STAKING);
         assertEq(MockVApp(VAPP).prove(), PROVE);
         assertEq(IIntermediateSuccinct(I_PROVE).staking(), STAKING);

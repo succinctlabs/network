@@ -150,8 +150,7 @@ contract SuccinctStakingMiscellaneousTests is SuccinctStakingTest {
                     uint256 supplyBefore = IERC20(PROVE).totalSupply();
 
                     uint256 slashIndex = MockVApp(VAPP).processSlash(ALICE_PROVER, slashAmount);
-                    // Skip time and finish slash
-                    skip(SLASH_PERIOD);
+                    // Finish slash
                     vm.prank(OWNER);
                     SuccinctStaking(STAKING).finishSlash(ALICE_PROVER, slashIndex);
                     uint256 supplyAfter = IERC20(PROVE).totalSupply();
@@ -247,8 +246,7 @@ contract SuccinctStakingMiscellaneousTests is SuccinctStakingTest {
 
         uint256 slashIndex = _requestSlash(ALICE_PROVER, stakeAmount / 2);
 
-        // Try to finish exactly at boundary
-        skip(SLASH_PERIOD);
+        // Finish slash immediately
         _finishSlash(ALICE_PROVER, slashIndex);
 
         // Verify slash was applied
@@ -343,7 +341,6 @@ contract SuccinctStakingMiscellaneousTests is SuccinctStakingTest {
         uint256 slashIndex = _requestSlash(ALICE_PROVER, slashAmount);
 
         // Complete slash
-        skip(SLASH_PERIOD);
         _finishSlash(ALICE_PROVER, slashIndex);
 
         // Verify final state
@@ -400,8 +397,6 @@ contract SuccinctStakingMiscellaneousTests is SuccinctStakingTest {
         // Request one slash
         _requestSlash(ALICE_PROVER, stakeAmount / 2);
 
-        skip(SLASH_PERIOD);
-
         // Try to finish slash with invalid index
         vm.expectRevert(abi.encodeWithSignature("Panic(uint256)", 0x32)); // Array out-of-bounds
         vm.prank(OWNER);
@@ -426,8 +421,6 @@ contract SuccinctStakingMiscellaneousTests is SuccinctStakingTest {
 
         _stake(STAKER_1, ALICE_PROVER, stakeAmount);
         uint256 slashIndex = _requestSlash(ALICE_PROVER, stakeAmount / 2);
-
-        skip(SLASH_PERIOD);
 
         // Non-owner tries to finish slash
         vm.expectRevert(abi.encodeWithSignature("OwnableUnauthorizedAccount(address)", STAKER_1));
@@ -623,7 +616,6 @@ contract SuccinctStakingMiscellaneousTests is SuccinctStakingTest {
         SuccinctStaking(STAKING).finishUnstake(STAKER_1);
 
         // Complete the slash
-        skip(SLASH_PERIOD);
         _finishSlash(ALICE_PROVER, 0);
 
         // Now finish unstake - should receive slashed amount (50% less)
@@ -774,7 +766,6 @@ contract SuccinctStakingMiscellaneousTests is SuccinctStakingTest {
         SuccinctStaking(STAKING).finishUnstake(STAKER_1);
 
         // Complete slash
-        skip(SLASH_PERIOD);
         _finishSlash(ALICE_PROVER, 0);
 
         // Now both can unstake

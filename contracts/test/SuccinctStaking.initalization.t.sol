@@ -20,7 +20,7 @@ contract SuccinctStakingInitalizationTests is SuccinctStakingTest {
             MIN_STAKE_AMOUNT,
             MAX_UNSTAKE_REQUESTS,
             UNSTAKE_PERIOD,
-            SLASH_PERIOD,
+            SLASH_CANCELLATION_PERIOD,
             DISPENSE_RATE
         );
     }
@@ -37,7 +37,7 @@ contract SuccinctStakingInitalizationTests is SuccinctStakingTest {
             MIN_STAKE_AMOUNT,
             MAX_UNSTAKE_REQUESTS,
             UNSTAKE_PERIOD,
-            SLASH_PERIOD,
+            SLASH_CANCELLATION_PERIOD,
             DISPENSE_RATE
         );
     }
