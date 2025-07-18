@@ -64,8 +64,8 @@ contract SuccinctStaking is
     /// @dev A mapping from prover to their slash claims.
     mapping(address => SlashClaim[]) internal slashClaims;
 
-    /// @dev A mapping from prover to their active slash claim count.
-    mapping(address => uint256) internal activeSlashClaims;
+    /// @dev A mapping from prover to their unresolved slash claim count.
+    mapping(address => uint256) internal slashClaimCount;
 
     /// @dev A mapping from prover to their unstaking escrow pool.
     mapping(address => EscrowPool) internal escrowPools;
@@ -274,7 +274,7 @@ contract SuccinctStaking is
         if (unstakeClaims[msg.sender].length >= maxUnstakeRequests) revert TooManyUnstakeRequests();
 
         // Check that this prover is not in the process of being slashed.
-        if (activeSlashClaims[prover] > 0) revert ProverHasSlashRequest();
+        if (slashClaimCount[prover] > 0) revert ProverHasSlashRequest();
 
         // Get the amount of $stPROVE this staker currently has.
         uint256 stPROVEBalance = balanceOf(msg.sender);
@@ -322,7 +322,7 @@ contract SuccinctStaking is
         if (claims.length == 0) revert NoUnstakeRequests();
 
         // Check that this prover is not in the process of being slashed.
-        if (activeSlashClaims[prover] > 0) revert ProverHasSlashRequest();
+        if (slashClaimCount[prover] > 0) revert ProverHasSlashRequest();
 
         // Process the available unstake claims.
         PROVE += _finishUnstake(_staker, prover, claims);
@@ -358,9 +358,9 @@ contract SuccinctStaking is
             SlashClaim({iPROVE: _iPROVE, timestamp: block.timestamp, resolved: false})
         );
 
-        // Increment the active claim counter.
+        // Increment the unresolved claim counter.
         unchecked {
-            ++activeSlashClaims[_prover];
+            ++slashClaimCount[_prover];
         }
 
         emit SlashRequest(_prover, _iPROVE, index);
@@ -382,9 +382,9 @@ contract SuccinctStaking is
         // Mark the claim as resolved.
         claim.resolved = true;
 
-        // Decrement the active claim counter.
+        // Decrement the unresolved claim counter.
         unchecked {
-            --activeSlashClaims[_prover];
+            --slashClaimCount[_prover];
         }
 
         emit SlashCancel(_prover, claim.iPROVE, _index);
@@ -418,9 +418,9 @@ contract SuccinctStaking is
         // Mark the claim as resolved.
         claim.resolved = true;
 
-        // Decrement the active claim counter.
+        // Decrement the unresolved claim counter.
         unchecked {
-            --activeSlashClaims[_prover];
+            --slashClaimCount[_prover];
         }
 
         uint256 PROVEBurned = 0;
@@ -511,7 +511,7 @@ contract SuccinctStaking is
         if (_PROVE < minStakeAmount) revert StakeBelowMinimum();
 
         // Check that this prover is not in the process of being slashed.
-        if (activeSlashClaims[_prover] > 0) revert ProverHasSlashRequest();
+        if (slashClaimCount[_prover] > 0) revert ProverHasSlashRequest();
 
         // Ensure the staker is not already staked with a different prover.
         address existingProver = stakerToProver[_staker];
