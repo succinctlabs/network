@@ -262,8 +262,6 @@ interface ISuccinctStaking is IProverRegistry {
     function requestSlash(address prover, uint256 iPROVE) external returns (uint256);
 
     /// @notice Cancels a slash request. Only callable by the owner.
-    /// @dev The index may not match what was originally returned by `requestSlash()`, and
-    ///      should be re-calculated by calling `slashRequests(prover)` first.
     /// @param prover The address of the prover to slash.
     /// @param index The index of the slash request to cancel.
     function cancelSlash(address prover, uint256 index) external;
@@ -271,8 +269,6 @@ interface ISuccinctStaking is IProverRegistry {
     /// @notice Finishes the slashing process. Must have first called `requestSlash()` and waited
     ///         for the slash period to pass. Decreases the value of $stPROVE for all stakers of that
     ///         prover. Only callable by the owner.
-    /// @dev The index may not match what was originally returned by `requestSlash()`, and
-    ///      should be re-calculated by calling `slashRequests(prover)` first.
     /// @param prover The address of the prover to slash.
     /// @param index The index of the slash request to finish.
     /// @return The amount of $iPROVE slashed.
