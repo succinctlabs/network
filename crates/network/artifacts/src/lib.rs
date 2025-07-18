@@ -435,8 +435,6 @@ async fn download_https_file(uri: &str) -> Result<Bytes> {
     let client = reqwest::Client::new();
     let res = client
         .get(uri)
-        .connect_timeout(Duration::from_secs(10))
-        .read_timeout(Duration::from_secs(30))
         .timeout(Duration::from_secs(60))
         .send()
         .await
