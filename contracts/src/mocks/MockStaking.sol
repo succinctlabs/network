@@ -127,7 +127,9 @@ contract MockStaking is ProverRegistry, ISuccinctStaking {
 
     function requestSlash(address _prover, uint256 _iPROVE) external override returns (uint256) {
         uint256 index = slashClaims[_prover].length;
-        slashClaims[_prover].push(SlashClaim({iPROVE: _iPROVE, timestamp: block.timestamp}));
+        slashClaims[_prover].push(
+            SlashClaim({iPROVE: _iPROVE, timestamp: block.timestamp, resolved: false})
+        );
         return index;
     }
 

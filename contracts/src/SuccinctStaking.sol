@@ -64,6 +64,9 @@ contract SuccinctStaking is
     /// @dev A mapping from prover to their slash claims.
     mapping(address => SlashClaim[]) internal slashClaims;
 
+    /// @dev A mapping from prover to their unresolved slash claim count.
+    mapping(address => uint256) internal slashClaimCount;
+
     /// @dev A mapping from prover to their unstaking escrow pool.
     mapping(address => EscrowPool) internal escrowPools;
 
@@ -271,7 +274,7 @@ contract SuccinctStaking is
         if (unstakeClaims[msg.sender].length >= maxUnstakeRequests) revert TooManyUnstakeRequests();
 
         // Check that this prover is not in the process of being slashed.
-        if (slashClaims[prover].length > 0) revert ProverHasSlashRequest();
+        if (slashClaimCount[prover] > 0) revert ProverHasSlashRequest();
 
         // Get the amount of $stPROVE this staker currently has.
         uint256 stPROVEBalance = balanceOf(msg.sender);
@@ -319,7 +322,7 @@ contract SuccinctStaking is
         if (claims.length == 0) revert NoUnstakeRequests();
 
         // Check that this prover is not in the process of being slashed.
-        if (slashClaims[prover].length > 0) revert ProverHasSlashRequest();
+        if (slashClaimCount[prover] > 0) revert ProverHasSlashRequest();
 
         // Process the available unstake claims.
         PROVE += _finishUnstake(_staker, prover, claims);
@@ -351,7 +354,14 @@ contract SuccinctStaking is
 
         // Create the slash claim.
         index = slashClaims[_prover].length;
-        slashClaims[_prover].push(SlashClaim({iPROVE: _iPROVE, timestamp: block.timestamp}));
+        slashClaims[_prover].push(
+            SlashClaim({iPROVE: _iPROVE, timestamp: block.timestamp, resolved: false})
+        );
+
+        // Increment the unresolved claim counter.
+        unchecked {
+            ++slashClaimCount[_prover];
+        }
 
         emit SlashRequest(_prover, _iPROVE, index);
     }
@@ -363,16 +373,21 @@ contract SuccinctStaking is
         onlyOwner
         onlyForProver(_prover)
     {
-        // Get the amount of $iPROVE.
-        uint256 iPROVE = slashClaims[_prover][_index].iPROVE;
+        // Get the slash claim.
+        SlashClaim storage claim = slashClaims[_prover][_index];
 
-        // Delete the claim.
-        if (_index != slashClaims[_prover].length - 1) {
-            slashClaims[_prover][_index] = slashClaims[_prover][slashClaims[_prover].length - 1];
+        // Ensure the claim hasn't already been resolved.
+        if (claim.resolved) revert SlashAlreadyResolved();
+
+        // Mark the claim as resolved.
+        claim.resolved = true;
+
+        // Decrement the unresolved claim counter.
+        unchecked {
+            --slashClaimCount[_prover];
         }
-        slashClaims[_prover].pop();
 
-        emit SlashCancel(_prover, iPROVE, _index);
+        emit SlashCancel(_prover, claim.iPROVE, _index);
     }
 
     /// @inheritdoc ISuccinctStaking
@@ -386,6 +401,9 @@ contract SuccinctStaking is
         // Get the slash claim.
         SlashClaim storage claim = slashClaims[_prover][_index];
 
+        // Ensure the claim hasn't already been resolved.
+        if (claim.resolved) revert SlashAlreadyResolved();
+
         // Ensure that the time has passed since the claim was created.
         if (block.timestamp < claim.timestamp + slashPeriod) revert SlashNotReady();
 
@@ -397,11 +415,13 @@ contract SuccinctStaking is
         uint256 iPROVETotal = iPROVEBalance + pool.iPROVEEscrow;
         uint256 iPROVEToSlash = claim.iPROVE > iPROVETotal ? iPROVETotal : claim.iPROVE;
 
-        // Delete the claim.
-        if (_index != slashClaims[_prover].length - 1) {
-            slashClaims[_prover][_index] = slashClaims[_prover][slashClaims[_prover].length - 1];
+        // Mark the claim as resolved.
+        claim.resolved = true;
+
+        // Decrement the unresolved claim counter.
+        unchecked {
+            --slashClaimCount[_prover];
         }
-        slashClaims[_prover].pop();
 
         uint256 PROVEBurned = 0;
         iPROVEBurned = 0;
@@ -491,7 +511,7 @@ contract SuccinctStaking is
         if (_PROVE < minStakeAmount) revert StakeBelowMinimum();
 
         // Check that this prover is not in the process of being slashed.
-        if (slashClaims[_prover].length > 0) revert ProverHasSlashRequest();
+        if (slashClaimCount[_prover] > 0) revert ProverHasSlashRequest();
 
         // Ensure the staker is not already staked with a different prover.
         address existingProver = stakerToProver[_staker];
