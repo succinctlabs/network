@@ -21,6 +21,7 @@ contract MockStaking is ProverRegistry, ISuccinctStaking {
     mapping(address => mapping(address => uint256)) internal proverVaultBalances;
     mapping(address => UnstakeClaim[]) internal unstakeClaims;
     mapping(address => SlashClaim[]) internal slashClaims;
+    mapping(address => EscrowPool) internal escrowPools;
 
     constructor(
         address _governor,
@@ -66,6 +67,10 @@ contract MockStaking is ProverRegistry, ISuccinctStaking {
         return slashClaims[_prover];
     }
 
+    function escrowPool(address _prover) external view override returns (EscrowPool memory) {
+        return escrowPools[_prover];
+    }
+
     function unstakePending(address) external pure override returns (uint256) {
         return 0;
     }
@@ -99,9 +104,21 @@ contract MockStaking is ProverRegistry, ISuccinctStaking {
     }
 
     function requestUnstake(uint256 _stPROVE) external override {
+        address prover = stakerToProver[msg.sender];
+        EscrowPool storage pool = escrowPools[prover];
+        if (pool.slashFactor == 0) pool.slashFactor = 1e27;
+
         unstakeClaims[msg.sender].push(
-            UnstakeClaim({stPROVE: _stPROVE, iPROVESnapshot: _stPROVE, timestamp: block.timestamp})
+            UnstakeClaim({
+                stPROVE: _stPROVE,
+                iPROVEEscrow: _stPROVE,
+                slashFactor: pool.slashFactor,
+                timestamp: block.timestamp
+            })
         );
+
+        // Update escrow pool
+        pool.iPROVEEscrow += _stPROVE;
     }
 
     function finishUnstake(address) external pure override returns (uint256) {
