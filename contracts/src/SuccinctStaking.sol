@@ -324,6 +324,12 @@ contract SuccinctStaking is
         // Process the available unstake claims.
         PROVE += _finishUnstake(_staker, prover, claims);
 
+        // Reset the slash factor if all $iPROVE has been removed.
+        EscrowPool storage pool = escrowPools[prover];
+        if (pool.iPROVEEscrow == 0 && pool.slashFactor != SCALAR) {
+            pool.slashFactor = SCALAR;
+        }
+
         // If the staker has no remaining balance and no pending unstakes, remove the staker's
         // delegate. This allows them to choose a different prover if they stake again.
         if (balanceOf(_staker) == 0 && claims.length == 0) {
