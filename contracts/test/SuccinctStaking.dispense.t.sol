@@ -24,6 +24,10 @@ contract SuccinctStakingDispenseTests is SuccinctStakingTest {
         // Dispense
         _dispense(dispenseAmount);
 
+        // Check dispense state variables after dispense
+        assertEq(SuccinctStaking(STAKING).dispenseRate(), DISPENSE_RATE);
+        assertEq(SuccinctStaking(STAKING).dispenseDistributed(), dispenseAmount);
+
         // Verify rewards were distributed
         // balanceOf increases because there is more $PROVE underlying per $stPROVE
         assertEq(SuccinctStaking(STAKING).balanceOf(STAKER_1), stakeAmount);
@@ -56,6 +60,10 @@ contract SuccinctStakingDispenseTests is SuccinctStakingTest {
 
         // Verify rewards were distributed
         assertEq(IERC20(PROVE).balanceOf(I_PROVE), dispenseAmount);
+
+        // Check dispense state variables after dispense
+        assertEq(SuccinctStaking(STAKING).dispenseRate(), DISPENSE_RATE);
+        assertEq(SuccinctStaking(STAKING).dispenseDistributed(), dispenseAmount);
     }
 
     // Ensure dispense rate is properly enforced
@@ -89,6 +97,7 @@ contract SuccinctStakingDispenseTests is SuccinctStakingTest {
 
         // Check that maxDispense was updated correctly
         assertEq(SuccinctStaking(STAKING).maxDispense(), maxAmount - halfAmount);
+        assertEq(SuccinctStaking(STAKING).dispenseDistributed(), halfAmount);
 
         // Dispense remaining amount
         vm.prank(DISPENSER);
@@ -96,6 +105,7 @@ contract SuccinctStakingDispenseTests is SuccinctStakingTest {
 
         // Check that maxDispense is now 0
         assertEq(SuccinctStaking(STAKING).maxDispense(), 0);
+        assertEq(SuccinctStaking(STAKING).dispenseDistributed(), maxAmount);
 
         // Try to dispense again (should fail)
         vm.expectRevert(ISuccinctStaking.AmountExceedsAvailableDispense.selector);
@@ -126,6 +136,7 @@ contract SuccinctStakingDispenseTests is SuccinctStakingTest {
 
         // Check remaining available after first dispense
         assertEq(SuccinctStaking(STAKING).maxDispense(), firstAvailable - firstDispenseAmount);
+        assertEq(SuccinctStaking(STAKING).dispenseDistributed(), firstDispenseAmount);
 
         // Wait for more time to accumulate
         uint256 secondWaitTime = 5 days;
@@ -143,6 +154,10 @@ contract SuccinctStakingDispenseTests is SuccinctStakingTest {
 
         // Check available is now 0
         assertEq(SuccinctStaking(STAKING).maxDispense(), 0);
+        assertEq(
+            SuccinctStaking(STAKING).dispenseDistributed(),
+            firstDispenseAmount + expectedNewlyAvailable
+        );
     }
 
     // Dispensing exactly at the limit
@@ -165,6 +180,7 @@ contract SuccinctStakingDispenseTests is SuccinctStakingTest {
 
         // The available amount should now be 0
         assertEq(SuccinctStaking(STAKING).maxDispense(), 0);
+        assertEq(SuccinctStaking(STAKING).dispenseDistributed(), exactAmount);
 
         // Trying to dispense any amount now should fail
         vm.expectRevert(ISuccinctStaking.AmountExceedsAvailableDispense.selector);
@@ -196,6 +212,10 @@ contract SuccinctStakingDispenseTests is SuccinctStakingTest {
         vm.prank(OWNER);
         SuccinctStaking(STAKING).updateDispenseRate(newRate);
 
+        // Check dispense state variables after rate change
+        assertEq(SuccinctStaking(STAKING).dispenseRate(), newRate);
+        assertEq(SuccinctStaking(STAKING).dispenseRateTimestamp(), block.timestamp);
+
         // Wait for more time to accumulate with the new rate
         uint256 additionalWaitTime = 2 days;
         skip(additionalWaitTime);
@@ -209,6 +229,7 @@ contract SuccinctStakingDispenseTests is SuccinctStakingTest {
 
         // Available should now be 0
         assertEq(SuccinctStaking(STAKING).maxDispense(), 0);
+        assertEq(SuccinctStaking(STAKING).dispenseDistributed(), halfAmount + available);
     }
 
     // Dispense calculation with very large time periods
@@ -305,6 +326,10 @@ contract SuccinctStakingDispenseTests is SuccinctStakingTest {
         vm.prank(OWNER);
         SuccinctStaking(STAKING).updateDispenseRate(3);
 
+        // Check dispense state variables after rate change
+        assertEq(SuccinctStaking(STAKING).dispenseRate(), 3);
+        assertEq(SuccinctStaking(STAKING).dispenseRateTimestamp(), block.timestamp);
+
         // Skip 10 seconds (30 wei earned).
         skip(10);
 
@@ -319,6 +344,7 @@ contract SuccinctStakingDispenseTests is SuccinctStakingTest {
 
         // Should have 20 wei remaining available.
         assertEq(SuccinctStaking(STAKING).maxDispense(), 20);
+        assertEq(SuccinctStaking(STAKING).dispenseDistributed(), 10);
     }
 
     // Tests that rate changes preserve exact emission accounting.
@@ -326,6 +352,11 @@ contract SuccinctStakingDispenseTests is SuccinctStakingTest {
         // Rate 1: 10 wei/s for 100 seconds.
         vm.prank(OWNER);
         SuccinctStaking(STAKING).updateDispenseRate(10);
+
+        // Check dispense state variables after first rate change
+        assertEq(SuccinctStaking(STAKING).dispenseRate(), 10);
+        assertEq(SuccinctStaking(STAKING).dispenseRateTimestamp(), block.timestamp);
+
         skip(100);
 
         // Fund the staking contract.
@@ -335,9 +366,17 @@ contract SuccinctStakingDispenseTests is SuccinctStakingTest {
         vm.prank(DISPENSER);
         SuccinctStaking(STAKING).dispense(500);
 
+        // Check dispense state variables after dispense
+        assertEq(SuccinctStaking(STAKING).dispenseDistributed(), 500);
+
         // Rate 2: 5 wei/s for 200 seconds.
         vm.prank(OWNER);
         SuccinctStaking(STAKING).updateDispenseRate(5);
+
+        // Check dispense state variables after second rate change
+        assertEq(SuccinctStaking(STAKING).dispenseRate(), 5);
+        assertEq(SuccinctStaking(STAKING).dispenseRateTimestamp(), block.timestamp);
+
         skip(200);
 
         // Should have exactly 500 + 1000 = 1500 wei available.
@@ -403,6 +442,10 @@ contract SuccinctStakingDispenseTests is SuccinctStakingTest {
         vm.prank(OWNER);
         SuccinctStaking(STAKING).updateDispenseRate(rate);
 
+        // Check dispense state variables after rate change
+        assertEq(SuccinctStaking(STAKING).dispenseRate(), rate);
+        assertEq(SuccinctStaking(STAKING).dispenseRateTimestamp(), block.timestamp);
+
         // Skip time to accumulate exactly 70 wei.
         skip(10);
         assertEq(SuccinctStaking(STAKING).maxDispense(), 70);
@@ -426,6 +469,7 @@ contract SuccinctStakingDispenseTests is SuccinctStakingTest {
 
         // The total dispensed should be exactly 8 wei.
         assertEq(SuccinctStaking(STAKING).dispenseDistributed(), 8);
+        assertEq(SuccinctStaking(STAKING).dispenseRate(), rate);
     }
 
     // Tests that partial dispenses don't affect future emission rates.
@@ -433,6 +477,10 @@ contract SuccinctStakingDispenseTests is SuccinctStakingTest {
         uint256 rate = 100; // 100 wei/s
         vm.prank(OWNER);
         SuccinctStaking(STAKING).updateDispenseRate(rate);
+
+        // Check dispense state variables after rate change
+        assertEq(SuccinctStaking(STAKING).dispenseRate(), rate);
+        assertEq(SuccinctStaking(STAKING).dispenseRateTimestamp(), block.timestamp);
 
         // Wait 10 seconds (1000 wei earned).
         skip(10);
@@ -461,6 +509,10 @@ contract SuccinctStakingDispenseTests is SuccinctStakingTest {
         vm.prank(OWNER);
         SuccinctStaking(STAKING).updateDispenseRate(0);
 
+        // Check dispense state variables after rate change
+        assertEq(SuccinctStaking(STAKING).dispenseRate(), 0);
+        assertEq(SuccinctStaking(STAKING).dispenseRateTimestamp(), block.timestamp);
+
         // Skip time.
         skip(1 days);
 
@@ -484,6 +536,10 @@ contract SuccinctStakingDispenseTests is SuccinctStakingTest {
         // Initial rate.
         vm.prank(OWNER);
         SuccinctStaking(STAKING).updateDispenseRate(100);
+
+        // Check dispense state variables after first rate change
+        assertEq(SuccinctStaking(STAKING).dispenseRate(), 100);
+        assertEq(SuccinctStaking(STAKING).dispenseRateTimestamp(), block.timestamp);
 
         // Multiple rate changes in same block.
         vm.prank(OWNER);
@@ -519,6 +575,10 @@ contract SuccinctStakingDispenseTests is SuccinctStakingTest {
         vm.prank(OWNER);
         SuccinctStaking(STAKING).updateDispenseRate(highRate);
 
+        // Check dispense state variables after rate change
+        assertEq(SuccinctStaking(STAKING).dispenseRate(), highRate);
+        assertEq(SuccinctStaking(STAKING).dispenseRateTimestamp(), block.timestamp);
+
         // Skip 1 second.
         skip(1);
 
@@ -540,6 +600,7 @@ contract SuccinctStakingDispenseTests is SuccinctStakingTest {
 
         // Should have exactly 1e18 - 101 wei available.
         assertEq(SuccinctStaking(STAKING).maxDispense(), 1e18 - 101);
+        assertEq(SuccinctStaking(STAKING).dispenseDistributed(), 101);
     }
 
     // Reverts when the staking contract doesn't have enough $PROVE. Operationally,
@@ -576,6 +637,10 @@ contract SuccinctStakingDispenseTests is SuccinctStakingTest {
         // Owner can set rate
         vm.prank(OWNER);
         SuccinctStaking(STAKING).updateDispenseRate(newRate);
+
+        // Check dispense state variables after rate change
+        assertEq(SuccinctStaking(STAKING).dispenseRate(), newRate);
+        assertEq(SuccinctStaking(STAKING).dispenseRateTimestamp(), block.timestamp);
 
         // Wait some time
         uint256 waitTime = 1 days;
@@ -765,6 +830,10 @@ contract SuccinctStakingDispenseTests is SuccinctStakingTest {
         vm.prank(OWNER);
         SuccinctStaking(STAKING).updateDispenseRate(initialRate);
 
+        // Check dispense state variables after initial rate change
+        assertEq(SuccinctStaking(STAKING).dispenseRate(), initialRate);
+        assertEq(SuccinctStaking(STAKING).dispenseRateTimestamp(), block.timestamp);
+
         // Wait and dispense
         skip(waitTime);
         uint256 firstAvailable = SuccinctStaking(STAKING).maxDispense();
@@ -776,6 +845,10 @@ contract SuccinctStakingDispenseTests is SuccinctStakingTest {
         // Change rate
         vm.prank(OWNER);
         SuccinctStaking(STAKING).updateDispenseRate(newRate);
+
+        // Check dispense state variables after second rate change
+        assertEq(SuccinctStaking(STAKING).dispenseRate(), newRate);
+        assertEq(SuccinctStaking(STAKING).dispenseRateTimestamp(), block.timestamp);
 
         // Wait again
         skip(waitTime);
@@ -799,6 +872,10 @@ contract SuccinctStakingDispenseTests is SuccinctStakingTest {
         vm.prank(OWNER);
         SuccinctStaking(STAKING).updateDispenseRate(rate);
 
+        // Check dispense state variables after rate change
+        assertEq(SuccinctStaking(STAKING).dispenseRate(), rate);
+        assertEq(SuccinctStaking(STAKING).dispenseRateTimestamp(), block.timestamp);
+
         // Skip time.
         skip(timeSkip);
 
@@ -818,6 +895,7 @@ contract SuccinctStakingDispenseTests is SuccinctStakingTest {
 
             // Verify remaining.
             assertEq(SuccinctStaking(STAKING).maxDispense(), available - halfAmount);
+            assertEq(SuccinctStaking(STAKING).dispenseDistributed(), halfAmount);
         }
     }
 
@@ -830,6 +908,11 @@ contract SuccinctStakingDispenseTests is SuccinctStakingTest {
         // Set up normal dispense scenario.
         vm.prank(OWNER);
         SuccinctStaking(STAKING).updateDispenseRate(1000);
+
+        // Check dispense state variables after rate change
+        assertEq(SuccinctStaking(STAKING).dispenseRate(), 1000);
+        assertEq(SuccinctStaking(STAKING).dispenseRateTimestamp(), block.timestamp);
+
         skip(100);
 
         // Fund the contract.

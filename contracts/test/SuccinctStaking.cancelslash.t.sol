@@ -210,9 +210,4 @@ contract SuccinctStakingCancelSlashTests is SuccinctStakingTest {
         vm.prank(STAKER_1);
         SuccinctStaking(STAKING).cancelSlash(ALICE_PROVER, index2);
     }
-
-    function test_SlashCancellationPeriod_WhenStorageVariableIsSet() public {
-        // Verify the slash cancellation period is set correctly.
-        assertEq(SuccinctStaking(STAKING).slashCancellationPeriod(), SLASH_CANCELLATION_PERIOD);
-    }
 }

@@ -287,6 +287,10 @@ contract SuccinctStakingSetupTests is SuccinctStakingTest {
         assertEq(SuccinctStaking(STAKING).iProve(), I_PROVE);
         assertEq(SuccinctStaking(STAKING).unstakePeriod(), UNSTAKE_PERIOD);
         assertEq(SuccinctStaking(STAKING).slashCancellationPeriod(), SLASH_CANCELLATION_PERIOD);
+        assertEq(SuccinctStaking(STAKING).dispenseRate(), DISPENSE_RATE);
+        assertEq(SuccinctStaking(STAKING).dispenseEarned(), 0);
+        assertEq(SuccinctStaking(STAKING).dispenseDistributed(), 0);
+        assertEq(SuccinctStaking(STAKING).dispenseRateTimestamp(), block.timestamp);
         assertEq(MockVApp(VAPP).staking(), STAKING);
         assertEq(MockVApp(VAPP).prove(), PROVE);
         assertEq(IIntermediateSuccinct(I_PROVE).staking(), STAKING);
