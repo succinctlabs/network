@@ -129,7 +129,6 @@ contract SuccinctStaking is
 
         // Setup the dispense rate.
         _updateDispenseRate(_dispenseRate);
-        dispenseRateTimestamp = block.timestamp;
 
         // Approve the $iPROVE contract to transfer $PROVE from this contract during stake().
         IERC20(prove).approve(iProve, type(uint256).max);

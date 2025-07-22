@@ -149,7 +149,7 @@ interface ISuccinctStaking is IProverRegistry {
     /// @notice The timestamp when the dispense rate was last updated.
     function dispenseRateTimestamp() external view returns (uint256);
 
-    /// @notice The total amount of $PROVE earned through dispense emissions up to dispenseRateTimestamp.
+    /// @notice The total amount of $PROVE earned through dispense emissions from inception up to dispenseRateTimestamp.
     function dispenseEarned() external view returns (uint256);
 
     /// @notice The total amount of $PROVE distributed through the dispense mechanism.

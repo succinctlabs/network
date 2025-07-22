@@ -255,7 +255,7 @@ contract SuccinctStakingMiscellaneousTests is SuccinctStakingTest {
 
     // Test dispense with zero elapsed time
     function test_Misc_DispenseZeroTime() public {
-        // First dispense all available amount to reset lastDispenseTimestamp to current
+        // First dispense all available amount to ensure maxDispense() returns 0
         skip(1 days);
         uint256 initialAvailable = SuccinctStaking(STAKING).maxDispense();
         deal(PROVE, STAKING, initialAvailable);
