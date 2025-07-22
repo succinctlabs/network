@@ -152,7 +152,7 @@ When a requester submits an intent, the auctioneer immediately evaluates it agai
 
 ### Auction Mechanism
 
-The auctioneer executes a second price auction to determine the winning prover for each request. After collecting bids from eligible provers, the auctioneer determines the winner and signs off on the auction result. This cryptographic signature from the auctioneer is then used in the State Transition Function (STF) to validate that the auction was conducted properly and the correct prover was assigned.
+The auctioneer executes a reverse auction to determine the winning prover for each request; in a reverse auction, the lowest bidder wins the proof. After collecting bids from eligible provers, the auctioneer determines the winner and signs off on the auction result. This cryptographic signature from the auctioneer is then used in the State Transition Function (STF) to validate that the auction was conducted properly and the correct prover was assigned.
 
 ### Trust Model and Limitations
 
