@@ -809,14 +809,16 @@ contract SuccinctStakingDispenseTests is SuccinctStakingTest {
         uint256 available = SuccinctStaking(STAKING).maxDispense();
         assertEq(available, expected);
 
-        // Fund and dispense half.
-        uint256 halfAmount = available / 2;
-        deal(PROVE, STAKING, halfAmount);
-        vm.prank(DISPENSER);
-        SuccinctStaking(STAKING).dispense(halfAmount);
+        // Fund and dispense half (but at least 1 if available > 0).
+        uint256 halfAmount = available == 0 ? 0 : available / 2 == 0 ? 1 : available / 2;
+        if (halfAmount > 0) {
+            deal(PROVE, STAKING, halfAmount);
+            vm.prank(DISPENSER);
+            SuccinctStaking(STAKING).dispense(halfAmount);
 
-        // Verify remaining.
-        assertEq(SuccinctStaking(STAKING).maxDispense(), available - halfAmount);
+            // Verify remaining.
+            assertEq(SuccinctStaking(STAKING).maxDispense(), available - halfAmount);
+        }
     }
 
     // Tests reentrancy protection during dispense.
