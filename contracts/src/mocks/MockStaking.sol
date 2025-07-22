@@ -15,7 +15,9 @@ contract MockStaking is ProverRegistry, ISuccinctStaking {
     uint256 public unstakePeriod;
     uint256 public slashCancellationPeriod;
     uint256 public dispenseRate;
-    uint256 public lastDispenseTimestamp;
+    uint256 public dispenseRateTimestamp;
+    uint256 public dispenseEarned;
+    uint256 public dispenseDistributed;
 
     mapping(address => address) internal stakerToProver;
     mapping(address => mapping(address => uint256)) internal proverVaultBalances;
