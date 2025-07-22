@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.28;
 
-import {IERC20} from "../../lib/openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
 import {ISuccinctStaking} from "../interfaces/ISuccinctStaking.sol";
 import {ProverRegistry} from "../libraries/ProverRegistry.sol";
+import {IERC20} from "../../lib/openzeppelin-contracts/contracts/interfaces/IERC20.sol";
 import {SafeERC20} from "../../lib/openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol";
 
 contract MockStaking is ProverRegistry, ISuccinctStaking {
@@ -127,7 +127,9 @@ contract MockStaking is ProverRegistry, ISuccinctStaking {
 
     function requestSlash(address _prover, uint256 _iPROVE) external override returns (uint256) {
         uint256 index = slashClaims[_prover].length;
-        slashClaims[_prover].push(SlashClaim({iPROVE: _iPROVE, timestamp: block.timestamp}));
+        slashClaims[_prover].push(
+            SlashClaim({iPROVE: _iPROVE, timestamp: block.timestamp, resolved: false})
+        );
         return index;
     }
 

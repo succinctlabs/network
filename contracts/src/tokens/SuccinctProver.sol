@@ -4,7 +4,7 @@ pragma solidity ^0.8.28;
 import {IProver} from "../interfaces/IProver.sol";
 import {IGovernor} from "../../lib/openzeppelin-contracts/contracts/governance/IGovernor.sol";
 import {ERC20} from "../../lib/openzeppelin-contracts/contracts/token/ERC20/ERC20.sol";
-import {IERC20} from "../../lib/openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
+import {IERC20} from "../../lib/openzeppelin-contracts/contracts/interfaces/IERC20.sol";
 import {ERC20Votes} from
     "../../lib/openzeppelin-contracts/contracts/token/ERC20/extensions/ERC20Votes.sol";
 import {ERC4626} from

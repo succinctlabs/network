@@ -21,9 +21,11 @@ interface ISuccinctStaking is IProverRegistry {
     /// @param iPROVE The requested amount of $iPROVE to slash.
     /// @param timestamp The timestamp when the slash was requested. Used for comparing against
     ///        the `slashPeriod()` to determine if the claim can be finished.
+    /// @param resolved Whether the claim has been resolved (either cancelled or finished).
     struct SlashClaim {
         uint256 iPROVE;
         uint256 timestamp;
+        bool resolved;
     }
 
     /// @dev Represents the escrowed $iPROVE and slash factor for a prover. Escrowed $iPROVE is
@@ -125,6 +127,9 @@ interface ISuccinctStaking is IProverRegistry {
 
     /// @dev Thrown if the specified dispense amount exceeds the maximum dispense amount.
     error AmountExceedsAvailableDispense();
+
+    /// @dev Thrown if a slash claim has already been resolved.
+    error SlashAlreadyResolved();
 
     /// @notice The address of the contract that can dispense yield.
     function dispenser() external view returns (address);
@@ -257,8 +262,6 @@ interface ISuccinctStaking is IProverRegistry {
     function requestSlash(address prover, uint256 iPROVE) external returns (uint256);
 
     /// @notice Cancels a slash request. Only callable by the owner.
-    /// @dev The index may not match what was originally returned by `requestSlash()`, and
-    ///      should be re-calculated by calling `slashRequests(prover)` first.
     /// @param prover The address of the prover to slash.
     /// @param index The index of the slash request to cancel.
     function cancelSlash(address prover, uint256 index) external;
@@ -266,8 +269,6 @@ interface ISuccinctStaking is IProverRegistry {
     /// @notice Finishes the slashing process. Must have first called `requestSlash()` and waited
     ///         for the slash period to pass. Decreases the value of $stPROVE for all stakers of that
     ///         prover. Only callable by the owner.
-    /// @dev The index may not match what was originally returned by `requestSlash()`, and
-    ///      should be re-calculated by calling `slashRequests(prover)` first.
     /// @param prover The address of the prover to slash.
     /// @param index The index of the slash request to finish.
     /// @return The amount of $iPROVE slashed.
