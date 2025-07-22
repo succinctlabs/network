@@ -222,11 +222,12 @@ contract SuccinctStaking is
 
     /// @inheritdoc ISuccinctStaking
     function maxDispense() public view override returns (uint256) {
-        // Calculate total earned: historical accrual + current period earnings.
+        // The total earned is the historical accrual plus the current period earnings.
         uint256 totalEarned =
             dispenseEarned + (block.timestamp - dispenseRateTimestamp) * dispenseRate;
 
-        // Available to dispense is earned minus already dispensed.
+        // The maximum amount that can currently be dispensed is the total amount earned minus the
+        // amount already dispensed.
         return totalEarned - dispenseDistributed;
     }
 
@@ -652,7 +653,8 @@ contract SuccinctStaking is
         // Accrue all earnings up to this point at the old rate.
         dispenseEarned += (block.timestamp - dispenseRateTimestamp) * dispenseRate;
 
-        // Update the timestamp to mark when this new rate takes effect.
+        // Update the timestamp to mark this new rate taking effect. All time before this timestamp
+        // uses the old rate (already accrued above), and all time after uses the new rate.
         dispenseRateTimestamp = block.timestamp;
 
         emit DispenseRateUpdate(dispenseRate, _dispenseRate);

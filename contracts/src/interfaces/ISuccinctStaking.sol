@@ -203,7 +203,9 @@ interface ISuccinctStaking is IProverRegistry {
     function previewUnstake(address prover, uint256 stPROVE) external view returns (uint256);
 
     /// @notice The maximum amount of $PROVE that can be dispensed currently.
-    /// @return The maximum amount of $PROVE.
+    /// @dev Calculates the total earned minus total distributed. The total earned includes both
+    ///      historical earnings and current period earnings.
+    /// @return The maximum amount of $PROVE available to dispense.
     function maxDispense() external view returns (uint256);
 
     /// @notice Stake $PROVE to a prover. Must have approved $PROVE with this contract as the
@@ -239,14 +241,15 @@ interface ISuccinctStaking is IProverRegistry {
         bytes32 s
     ) external returns (uint256);
 
-    /// @notice Creates a request to unstake $stPROVE from the prover for the specified amount.
+    /// @notice Creates a request to unstake $stPROVE from the prover for the specified amount. Only
+    ///         callable by the staker.
     /// @dev The staker must have enough $stPROVE that is not already in the unstake request queue.
     ///      The $iPROVE value is snapshotted at request time to prevent earning rewards during
     ///      the unstaking period.
     /// @param stPROVE The amount of $stPROVE to unstake.
     function requestUnstake(uint256 stPROVE) external;
 
-    /// @notice Finishes the unstaking process for the specified address. Can be called by anyone.
+    /// @notice Finishes the unstaking process for the specified address. Callable by anyone.
     ///         Must have first called `requestUnstake()` and waited for the unstake period to pass.
     /// @dev For each claim, if any snapshotted $iPROVE is lower than the actual $iPROVE that was
     ///      received, then the difference is given back to the prover.
@@ -278,11 +281,13 @@ interface ISuccinctStaking is IProverRegistry {
     /// @return The amount of $iPROVE slashed.
     function finishSlash(address prover, uint256 index) external returns (uint256);
 
-    /// @notice Rewards all stakers ($iPROVE holders) with $PROVE. Only callable by the dispenser.
-    /// @dev The amount MUST be less than or equal to maxDispense() (if not type(uint256).max), and
-    ///      the amount MUST be less than or equal to the amount of $PROVE balance of this contract.
-    /// @param PROVE The amount of $PROVE to dispense. If this is `type(uint256).max`, dispense the
-    ///        maximum available amount.
+    /// @notice Distributes $PROVE rewards to all stakers by transferring to the iPROVE vault.
+    ///         Only callable by the dispenser.
+    /// @dev The transferred $PROVE increases the value of iPROVE shares, proportionally benefiting
+    ///      all stakers. The amount must not exceed maxDispense() unless type(uint256).max is
+    ///      passed, which dispenses the full available amount.
+    /// @param PROVE The amount of $PROVE to dispense. Pass `type(uint256).max` to dispense all
+    ///        available rewards.
     function dispense(uint256 PROVE) external;
 
     /// @notice Updates the dispenser. Only callable by the owner.
@@ -290,6 +295,8 @@ interface ISuccinctStaking is IProverRegistry {
     function setDispenser(address dispenser) external;
 
     /// @notice Updates the dispense rate. Only callable by the owner.
-    /// @param dispenseRate The new dispense rate.
+    /// @dev When called, this function first accrues all earnings at the old rate up to the
+    ///      current timestamp, then sets the new rate for future earnings.
+    /// @param dispenseRate The new dispense rate in $PROVE per second.
     function updateDispenseRate(uint256 dispenseRate) external;
 }
