@@ -18,6 +18,7 @@ import {IERC4626} from "../lib/openzeppelin-contracts/contracts/interfaces/IERC4
 // Sets up the SuccinctStaking protocol for testing and exposes some useful helper functions.
 contract SuccinctStakingTest is Test {
     // Constants
+    uint256 public constant SCALAR = 1e27;
     uint256 public constant MIN_STAKE_AMOUNT = 1e12;
     uint256 public constant STAKER_PROVE_AMOUNT = 100_000e18; // >= PROPOSAL_THRESHOLD for governance tests
     uint256 public constant REQUESTER_PROVE_AMOUNT = 1_000_000e18;
@@ -176,19 +177,19 @@ contract SuccinctStakingTest is Test {
         return SuccinctStaking(STAKING).finishUnstake(_staker);
     }
 
-    function _completeSlash(address _prover, uint256 _amount) internal {
+    function _completeSlash(address _prover, uint256 _amount) internal returns (uint256) {
         uint256 index = _requestSlash(_prover, _amount);
         skip(SLASH_PERIOD);
-        _finishSlash(_prover, index);
+        return _finishSlash(_prover, index);
     }
 
     function _requestSlash(address _prover, uint256 _amount) internal returns (uint256) {
         return MockVApp(VAPP).processSlash(_prover, _amount);
     }
 
-    function _finishSlash(address _prover, uint256 _index) internal {
+    function _finishSlash(address _prover, uint256 _index) internal returns (uint256) {
         vm.prank(OWNER);
-        SuccinctStaking(STAKING).finishSlash(_prover, _index);
+        return SuccinctStaking(STAKING).finishSlash(_prover, _index);
     }
 
     function _dispense(uint256 _amount) internal {
