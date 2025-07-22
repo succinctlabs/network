@@ -4,7 +4,7 @@ pragma solidity ^0.8.28;
 import {IProver} from "../interfaces/IProver.sol";
 import {ISuccinctStaking} from "../interfaces/ISuccinctStaking.sol";
 import {SafeERC20} from "../../lib/openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol";
-import {IERC20} from "../../lib/openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
+import {IERC20} from "../../lib/openzeppelin-contracts/contracts/interfaces/IERC20.sol";
 import {IERC20Permit} from
     "../../lib/openzeppelin-contracts/contracts/token/ERC20/extensions/IERC20Permit.sol";
 import {IERC4626} from "../../lib/openzeppelin-contracts/contracts/interfaces/IERC4626.sol";

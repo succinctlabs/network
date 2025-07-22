@@ -6,7 +6,7 @@ import {IIntermediateSuccinct} from "../interfaces/IIntermediateSuccinct.sol";
 import {ERC20} from "../../lib/openzeppelin-contracts/contracts/token/ERC20/ERC20.sol";
 import {ERC20Burnable} from
     "../../lib/openzeppelin-contracts/contracts/token/ERC20/extensions/ERC20Burnable.sol";
-import {IERC20} from "../../lib/openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
+import {IERC20} from "../../lib/openzeppelin-contracts/contracts/interfaces/IERC20.sol";
 import {ERC20Permit} from
     "../../lib/openzeppelin-contracts/contracts/token/ERC20/extensions/ERC20Permit.sol";
 import {ERC20Votes} from

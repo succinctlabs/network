@@ -6,6 +6,7 @@ import {SuccinctStaking} from "../src/SuccinctStaking.sol";
 import {SuccinctGovernor} from "../src/SuccinctGovernor.sol";
 import {SuccinctProver} from "../src/tokens/SuccinctProver.sol";
 import {IProver} from "../src/interfaces/IProver.sol";
+import {ISuccinctStaking} from "../src/interfaces/ISuccinctStaking.sol";
 import {IERC20} from "../lib/openzeppelin-contracts/contracts/interfaces/IERC20.sol";
 import {IVotes} from "../lib/openzeppelin-contracts/contracts/governance/utils/IVotes.sol";
 import {IGovernor} from "../lib/openzeppelin-contracts/contracts/governance/IGovernor.sol";
@@ -288,5 +289,125 @@ contract SuccinctGovernorTest is SuccinctStakingTest {
         assertEq(forVotes, 0);
         assertEq(againstVotes, 0);
         assertEq(abstainVotes, 0);
+    }
+
+    // Tests that slash indices remain stable when executing governance proposals and that
+    // governance can properly target specific slash requests even with concurrent finishing
+    // or slashing operations.
+    function test_Execute_WhenSlashNoIndexShift() public {
+        // Stake to both provers.
+        _stake(STAKER_1, ALICE_PROVER, STAKER_PROVE_AMOUNT);
+        _stake(STAKER_2, BOB_PROVER, STAKER_PROVE_AMOUNT);
+
+        // Request two slashes for ALICE_PROVER.
+        _requestSlash(ALICE_PROVER, STAKER_PROVE_AMOUNT);
+        _requestSlash(ALICE_PROVER, STAKER_PROVE_AMOUNT / 2);
+
+        vm.roll(block.number + 1);
+
+        // Bob makes a proposal to cancel the first slash for ALICE_PROVER.
+        address[] memory targets = new address[](1);
+        targets[0] = STAKING;
+        uint256[] memory values = new uint256[](1);
+        values[0] = 0;
+        bytes[] memory calldatas = new bytes[](1);
+        calldatas[0] = abi.encodeWithSelector(SuccinctStaking.cancelSlash.selector, ALICE_PROVER, 0);
+        string memory description =
+            string.concat("Cancel Slash for ", Strings.toString(uint160(ALICE_PROVER)));
+        bytes32 descriptionHash = keccak256(bytes(description));
+
+        // Bob proposes through her prover contract.
+        vm.prank(BOB);
+        uint256 proposalId =
+            SuccinctProver(BOB_PROVER).propose(targets, values, calldatas, description);
+
+        // Wait for the voting delay.
+        vm.roll(block.number + SuccinctGovernor(payable(GOVERNOR)).votingDelay() + 1);
+
+        // Proposal should be in Active state.
+        IGovernor.ProposalState state = SuccinctGovernor(payable(GOVERNOR)).state(proposalId);
+        assertEq(uint8(state), uint8(IGovernor.ProposalState.Active));
+
+        // Advance time so the first slash can be finished.
+        vm.warp(block.timestamp + SLASH_PERIOD + 1);
+
+        // Bob makes another proposal to finish the second slash for ALICE_PROVER.
+        address[] memory targets1 = new address[](1);
+        targets1[0] = STAKING;
+        uint256[] memory values1 = new uint256[](1);
+        values1[0] = 0;
+        bytes[] memory calldatas1 = new bytes[](1);
+        calldatas1[0] =
+            abi.encodeWithSelector(SuccinctStaking.finishSlash.selector, ALICE_PROVER, 1);
+        string memory description1 =
+            string.concat("Finish Slash for ", Strings.toString(uint160(ALICE_PROVER)));
+        bytes32 descriptionHash1 = keccak256(bytes(description1));
+
+        // Bob proposes through his prover contract.
+        vm.prank(BOB);
+        uint256 proposalId1 =
+            SuccinctProver(BOB_PROVER).propose(targets1, values1, calldatas1, description1);
+
+        // Wait for the voting delay.
+        vm.roll(block.number + SuccinctGovernor(payable(GOVERNOR)).votingDelay() + 1);
+
+        // Proposal should be in Active state.
+        IGovernor.ProposalState state1 = SuccinctGovernor(payable(GOVERNOR)).state(proposalId1);
+        assertEq(uint8(state1), uint8(IGovernor.ProposalState.Active));
+
+        // Bob votes FOR the first proposal (cancel the first slash).
+        vm.prank(BOB);
+        SuccinctProver(BOB_PROVER).castVote(proposalId, 1);
+
+        // Wait for the voting period.
+        vm.roll(block.number + SuccinctGovernor(payable(GOVERNOR)).votingPeriod() - 20);
+
+        // Bob votes FOR the second proposal.
+        vm.prank(BOB);
+        SuccinctProver(BOB_PROVER).castVote(proposalId1, 1);
+
+        vm.roll(block.number + SuccinctGovernor(payable(GOVERNOR)).votingPeriod() + 1);
+
+        // First proposal should be in Succeeded state.
+        state = SuccinctGovernor(payable(GOVERNOR)).state(proposalId);
+        assertEq(uint8(state), uint8(IGovernor.ProposalState.Succeeded));
+
+        // Alice has two slash requests before executing.
+        assertEq(SuccinctStaking(STAKING).slashRequests(ALICE_PROVER).length, 2);
+
+        // Execute the first proposal (cancel slash at index 0).
+        vm.prank(STAKER_1);
+        SuccinctGovernor(payable(GOVERNOR)).execute(targets, values, calldatas, descriptionHash);
+
+        // Alice still has two slash requests after execution (resolved flag used, not removed).
+        assertEq(SuccinctStaking(STAKING).slashRequests(ALICE_PROVER).length, 2);
+
+        // First proposal should be in Executed state.
+        state = SuccinctGovernor(payable(GOVERNOR)).state(proposalId);
+        assertEq(uint8(state), uint8(IGovernor.ProposalState.Executed));
+
+        // Wait for next block.
+        vm.roll(block.number + 1);
+
+        // Second proposal should be in Succeeded state.
+        state1 = SuccinctGovernor(payable(GOVERNOR)).state(proposalId1);
+        assertEq(uint8(state1), uint8(IGovernor.ProposalState.Succeeded));
+
+        // Execute the second proposal (finish the second slash).
+        vm.prank(STAKER_1);
+        SuccinctGovernor(payable(GOVERNOR)).execute(targets1, values1, calldatas1, descriptionHash1);
+
+        // Second proposal should be in Executed state.
+        state1 = SuccinctGovernor(payable(GOVERNOR)).state(proposalId1);
+        assertEq(uint8(state1), uint8(IGovernor.ProposalState.Executed));
+
+        // Both slash requests should still exist but be resolved.
+        assertEq(SuccinctStaking(STAKING).slashRequests(ALICE_PROVER).length, 2);
+
+        // Verify both requests are resolved.
+        ISuccinctStaking.SlashClaim[] memory requests =
+            SuccinctStaking(STAKING).slashRequests(ALICE_PROVER);
+        assertTrue(requests[0].resolved);
+        assertTrue(requests[1].resolved);
     }
 }
