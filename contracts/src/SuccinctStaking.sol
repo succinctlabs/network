@@ -482,10 +482,10 @@ contract SuccinctStaking is
         emit Slash(_prover, PROVEBurned, iPROVEBurned, _index);
 
         // Check if prover should be deactivated due to low price-per-share.
-        uint256 totalAssets = IERC4626(_prover).totalAssets();
-        uint256 totalSupply = IERC20(_prover).totalSupply();
-        if (totalSupply > 0) {
-            uint256 pricePerShare = Math.mulDiv(totalAssets, 1e18, totalSupply);
+        uint256 proverAssets = IERC20(iProve).balanceOf(_prover);
+        uint256 proverSupply = IERC20(_prover).totalSupply();
+        if (proverSupply > 0) {
+            uint256 pricePerShare = Math.mulDiv(proverAssets, 1e18, proverSupply);
             if (pricePerShare < MIN_PROVER_PRICE_PER_SHARE) {
                 inactiveProvers[_prover] = true;
                 emit ProverDeactivated(_prover);
