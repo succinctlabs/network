@@ -15,6 +15,12 @@ import {ISuccinctVApp} from "../interfaces/ISuccinctVApp.sol";
 ///      provers are only contracts with `type(SuccinctProver).creationCode`.
 
 abstract contract ProverRegistry is IProverRegistry {
+    /// @dev Minimum price-per-share threshold a prover can be at if slashed.
+    ///
+    ///      If slashing would drop the price-per-share below this threshold, the prover is
+    ///      deactivated (can no longer be staked to).
+    uint256 internal constant MIN_PROVER_PRICE_PER_SHARE = 1e9;
+
     /// @inheritdoc IProverRegistry
     address public override governor;
 
@@ -35,6 +41,9 @@ abstract contract ProverRegistry is IProverRegistry {
 
     /// @dev A mapping from prover vault to whether it exists.
     mapping(address => bool) internal provers;
+
+    /// @dev A mapping from prover vault to whether it is inactive.
+    mapping(address => bool) internal inactiveProvers;
 
     /// @dev This call must be sent by the VApp contract. This also acts as a check to ensure that the contract
     ///      has been initialized.
@@ -73,6 +82,11 @@ abstract contract ProverRegistry is IProverRegistry {
     /// @inheritdoc IProverRegistry
     function isProver(address _prover) public view override returns (bool) {
         return provers[_prover];
+    }
+
+    /// @inheritdoc IProverRegistry
+    function isInactiveProver(address _prover) public view override returns (bool) {
+        return inactiveProvers[_prover];
     }
 
     /// @inheritdoc IProverRegistry

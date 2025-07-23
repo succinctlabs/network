@@ -480,6 +480,17 @@ contract SuccinctStaking is
         }
 
         emit Slash(_prover, PROVEBurned, iPROVEBurned, _index);
+
+        // Check if prover should be deactivated due to low price-per-share.
+        uint256 totalAssets = IERC4626(_prover).totalAssets();
+        uint256 totalSupply = IERC20(_prover).totalSupply();
+        if (totalSupply > 0) {
+            uint256 pricePerShare = Math.mulDiv(totalAssets, 1e18, totalSupply);
+            if (pricePerShare < MIN_PROVER_PRICE_PER_SHARE) {
+                inactiveProvers[_prover] = true;
+                emit ProverDeactivated(_prover);
+            }
+        }
     }
 
     /// @inheritdoc ISuccinctStaking
@@ -534,6 +545,9 @@ contract SuccinctStaking is
 
         // Check that this prover is not in the process of being slashed.
         if (slashClaimCount[_prover] > 0) revert ProverHasSlashRequest();
+
+        // Check that this prover has not been deactivated.
+        if (inactiveProvers[_prover]) revert ProverInactive();
 
         // Ensure the staker is not already staked with a different prover.
         address existingProver = stakerToProver[_staker];
