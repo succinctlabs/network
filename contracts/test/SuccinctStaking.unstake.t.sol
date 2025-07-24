@@ -333,6 +333,110 @@ contract SuccinctStakingUnstakeTests is SuccinctStakingTest {
         assertEq(pool.iPROVEEscrow, 0, "Escrow should be cleared");
     }
 
+    // Tests that unstaking still works after a prover is fully slashed before
+    // requestUnstake is called.
+    function test_Unstake_WhenProverFullSlashBeforeEscrow() public {
+        uint256 stakeAmount = STAKER_PROVE_AMOUNT;
+        uint256 slashAmount = stakeAmount;
+
+        // Stake 1 stakes to Alice prover
+        _stake(STAKER_1, ALICE_PROVER, stakeAmount);
+
+        // Full slash to deactivate prover
+        _completeSlash(ALICE_PROVER, slashAmount);
+        assertTrue(SuccinctStaking(STAKING).isDeactivatedProver(ALICE_PROVER));
+
+        // Staker 1 requests unstakes from prover
+        _requestUnstake(STAKER_1, stakeAmount);
+
+        // Wait for unstake period
+        skip(UNSTAKE_PERIOD);
+
+        // Finishes unstake
+        uint256 proveReceived = _finishUnstake(STAKER_1);
+        assertEq(proveReceived, 0);
+        assertEq(IERC20(PROVE).balanceOf(STAKER_1), 0);
+    }
+
+    // Tests that unstaking still works after a prover is fully slashed after
+    // requestUnstake is called.
+    function test_Unstake_WhenProverFullSlashAfterEscrow() public {
+        uint256 stakeAmount = STAKER_PROVE_AMOUNT;
+        uint256 slashAmount = stakeAmount;
+
+        // Stake 1 stakes to Alice prover
+        _stake(STAKER_1, ALICE_PROVER, stakeAmount);
+
+        // Staker 1 requests unstakes from prover
+        _requestUnstake(STAKER_1, stakeAmount);
+
+        // Full slash, but because the iPROVE is already escrowed the prover won't become
+        // deactivated
+        _completeSlash(ALICE_PROVER, slashAmount);
+        assertFalse(SuccinctStaking(STAKING).isDeactivatedProver(ALICE_PROVER));
+
+        // Wait for unstake period
+        skip(UNSTAKE_PERIOD);
+
+        // Finishes unstake
+        uint256 proveReceived = _finishUnstake(STAKER_1);
+        assertEq(proveReceived, 0);
+        assertEq(IERC20(PROVE).balanceOf(STAKER_1), 0);
+    }
+
+    // Tests that unstaking still works after a prover is partially slashed before
+    // requestUnstake is called.
+    function test_Unstake_WhenProverPartialSlashBeforeEscrow() public {
+        uint256 stakeAmount = STAKER_PROVE_AMOUNT;
+        uint256 leftoverAssets = 1e9;
+        uint256 slashAmount = stakeAmount - leftoverAssets;
+
+        // Stake 1 stakes to Alice prover
+        _stake(STAKER_1, ALICE_PROVER, stakeAmount);
+
+        // Slash *almost* everything: leave 1 gwei PROVE (= 1e9 wei)
+        _completeSlash(ALICE_PROVER, slashAmount);
+        assertTrue(SuccinctStaking(STAKING).isDeactivatedProver(ALICE_PROVER));
+
+        // Staker 1 requests unstake from prover
+        _requestUnstake(STAKER_1, stakeAmount);
+
+        // Wait for unstake period
+        skip(UNSTAKE_PERIOD);
+
+        // Finish unstake
+        uint256 proveReceived = _finishUnstake(STAKER_1);
+        assertEq(proveReceived, leftoverAssets);
+        assertEq(IERC20(PROVE).balanceOf(STAKER_1), leftoverAssets);
+    }
+
+    // Tests that unstaking still works after a prover is partially slashed after
+    // requestUnstake is called.
+    function test_Unstake_WhenProverPartialSlashAfterEscrow() public {
+        uint256 stakeAmount = STAKER_PROVE_AMOUNT;
+        uint256 leftoverAssets = 1e9;
+        uint256 slashAmount = stakeAmount - leftoverAssets;
+
+        // Stake 1 stakes to Alice prover
+        _stake(STAKER_1, ALICE_PROVER, stakeAmount);
+
+        // Staker 1 requests unstake from prover
+        _requestUnstake(STAKER_1, stakeAmount);
+
+        // Slash *almost* everything: leave 1 gwei PROVE (= 1e9 wei), but because the iPROVE is
+        // already escrowed the prover won't become deactivated
+        _completeSlash(ALICE_PROVER, slashAmount);
+        assertFalse(SuccinctStaking(STAKING).isDeactivatedProver(ALICE_PROVER));
+
+        // Wait for unstake period
+        skip(UNSTAKE_PERIOD);
+
+        // Finish unstake
+        uint256 proveReceived = _finishUnstake(STAKER_1);
+        assertEq(proveReceived, leftoverAssets);
+        assertEq(IERC20(PROVE).balanceOf(STAKER_1), leftoverAssets);
+    }
+
     // Test multiple unstakes in the queue
     function test_Unstake_WhenMultipleUnstakes() public {
         uint256 totalStakeAmount = STAKER_PROVE_AMOUNT;

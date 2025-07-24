@@ -682,88 +682,187 @@ contract SuccinctStakingSlashTests is SuccinctStakingTest {
         assertEq(received, expectedRemaining, "Staker should receive remaining amount after slash");
     }
 
-    // Test slash factor zero reset - full burn then new stake arrives
-    function test_Slash_WhenFactorZeroReset() public {
+    // Test slash factor zero reset with prover deactivation
+    function test_Slash_WhenFactorZeroResetWithDeactivation() public {
         // Define all test values at the start
         uint256 stakeAmount = STAKER_PROVE_AMOUNT / 2;
 
         // User A stakes
         _stake(STAKER_1, ALICE_PROVER, stakeAmount);
 
-        // Verify initial state - check if escrow pool exists, or factor is not initialized yet
+        // Verify initial state
         ISuccinctStaking.EscrowPool memory initialPool =
             ISuccinctStaking(STAKING).escrowPool(ALICE_PROVER);
-        // Initially, slashFactor might be 0 (uninitialized) or 1e27 (initialized)
-        assertTrue(
-            initialPool.slashFactor == 0 || initialPool.slashFactor == 1e27,
-            "Initial slash factor should be 0 or 1e27"
-        );
-        assertEq(
-            SuccinctStaking(STAKING).staked(STAKER_1),
-            stakeAmount,
-            "Staker A should have full stake"
-        );
+        assertEq(SuccinctStaking(STAKING).staked(STAKER_1), stakeAmount);
+        assertFalse(SuccinctStaking(STAKING).isDeactivatedProver(ALICE_PROVER));
+        // Initially, slashFactor should be 0 (uninitialized) since no unstaking has occurred
+        assertEq(initialPool.slashFactor, 0);
 
-        // Full slash (100% burn, factor → 0)
+        // Full slash (100% burn, factor → 0, prover gets deactivated)
         uint256 fullSlashAmount = IERC4626(ALICE_PROVER).totalAssets();
         _completeSlash(ALICE_PROVER, fullSlashAmount);
 
-        // Verify factor is zero after full slash
+        // Verify factor is zero after full slash and prover is deactivated
         ISuccinctStaking.EscrowPool memory slashedPool =
             ISuccinctStaking(STAKING).escrowPool(ALICE_PROVER);
-        assertEq(slashedPool.slashFactor, 0, "Slash factor should be 0 after full slash");
-        assertEq(
-            SuccinctStaking(STAKING).staked(STAKER_1),
-            0,
-            "Staker A should have 0 staked after full slash"
-        );
-        assertEq(IERC20(I_PROVE).balanceOf(ALICE_PROVER), 0, "Prover vault should be empty");
+        assertEq(slashedPool.slashFactor, 0);
+        assertEq(SuccinctStaking(STAKING).staked(STAKER_1), 0);
+        assertEq(IERC20(I_PROVE).balanceOf(ALICE_PROVER), 0);
+        assertTrue(SuccinctStaking(STAKING).isDeactivatedProver(ALICE_PROVER));
 
-        // User B stakes fresh amount (factor remains at 0, no auto-reset)
-        _stake(STAKER_2, ALICE_PROVER, stakeAmount);
+        // User B tries to stake but should be blocked due to deactivation
+        vm.prank(STAKER_2);
+        IERC20(PROVE).approve(STAKING, stakeAmount);
 
-        // Verify factor stays at 0 after full slash (doesn't auto-reset)
-        ISuccinctStaking.EscrowPool memory resetPool =
-            ISuccinctStaking(STAKING).escrowPool(ALICE_PROVER);
-        assertEq(resetPool.slashFactor, 0, "Slash factor should remain 0 after full slash");
+        vm.expectRevert(abi.encodeWithSelector(IProverRegistry.ProverNotActive.selector));
+        vm.prank(STAKER_2);
+        SuccinctStaking(STAKING).stake(ALICE_PROVER, stakeAmount);
 
-        // When slash factor is 0, new stakes still have value in the vault
-        // The staked() function uses previewUnstake which doesn't consider slash factor
-        // However, if they try to unstake, they would get 0 due to slash factor
-        uint256 stakerBStake = SuccinctStaking(STAKING).staked(STAKER_2);
-        assertEq(
-            stakerBStake, stakeAmount, "New stakes still have vault value even after full slash"
-        );
-
-        // However, B's iPROVE is still in the vault
-        assertEq(
-            IERC20(I_PROVE).balanceOf(ALICE_PROVER),
-            stakeAmount,
-            "Prover vault should have B's iPROVE"
-        );
-
-        // B has stPROVE shares
-        uint256 staker2Balance = SuccinctStaking(STAKING).balanceOf(STAKER_2);
-        assertGt(staker2Balance, 0, "B should have some stPROVE shares");
-
-        // If B tries to unstake, they should get their staked amount back
-        // because the system treats slashFactor = 0 as SCALAR for new stakes
-        _completeUnstake(STAKER_2, staker2Balance);
-        assertEq(
-            IERC20(PROVE).balanceOf(STAKER_2),
-            STAKER_PROVE_AMOUNT,
-            "B should get their staked amount back"
-        );
+        // Verify B was not able to stake
+        assertEq(SuccinctStaking(STAKING).balanceOf(STAKER_2), 0);
+        assertEq(IERC20(PROVE).balanceOf(STAKER_2), STAKER_PROVE_AMOUNT);
 
         // Verify A still has nothing (was fully slashed)
         if (SuccinctStaking(STAKING).balanceOf(STAKER_1) > 0) {
             _completeUnstake(STAKER_1, SuccinctStaking(STAKING).balanceOf(STAKER_1));
         }
-        assertEq(
-            IERC20(PROVE).balanceOf(STAKER_1),
-            STAKER_PROVE_AMOUNT - stakeAmount,
-            "Staker A should still have initial balance minus staked amount"
-        );
+        assertEq(IERC20(PROVE).balanceOf(STAKER_1), STAKER_PROVE_AMOUNT - stakeAmount);
+    }
+
+    function test_Slash_WhenFullSlashDeactivatesProver() public {
+        uint256 stakeAmount = STAKER_PROVE_AMOUNT;
+
+        // Stake to Alice prover
+        _stake(STAKER_1, ALICE_PROVER, stakeAmount);
+
+        // Verify prover is not deactivated initially
+        assertFalse(SuccinctStaking(STAKING).isDeactivatedProver(ALICE_PROVER));
+
+        // Full slash - should burn all assets and deactivate prover
+        uint256 slashAmount = SuccinctStaking(STAKING).proverStaked(ALICE_PROVER);
+
+        _completeSlash(ALICE_PROVER, slashAmount);
+
+        // Verify prover is now deactivated
+        assertTrue(SuccinctStaking(STAKING).isDeactivatedProver(ALICE_PROVER));
+
+        // Verify assets are burned
+        assertEq(IERC20(I_PROVE).balanceOf(ALICE_PROVER), 0);
+
+        // Verify price-per-share is below threshold
+        uint256 pricePerShare = _getProverPricePerShare(ALICE_PROVER);
+        assertLt(pricePerShare, MIN_PROVER_PRICE_PER_SHARE);
+    }
+
+    function test_Slash_WhenStakeBlockedAfterDeactivation() public {
+        uint256 stakeAmount = STAKER_PROVE_AMOUNT;
+
+        // Stake to Alice prover
+        _stake(STAKER_1, ALICE_PROVER, stakeAmount);
+
+        // Full slash to deactivate prover
+        uint256 slashAmount = SuccinctStaking(STAKING).proverStaked(ALICE_PROVER);
+        _completeSlash(ALICE_PROVER, slashAmount);
+
+        // Verify prover is deactivated
+        assertTrue(SuccinctStaking(STAKING).isDeactivatedProver(ALICE_PROVER));
+
+        // Try to stake to deactivated prover - should revert
+        vm.prank(STAKER_2);
+        IERC20(PROVE).approve(STAKING, stakeAmount);
+
+        vm.expectRevert(abi.encodeWithSelector(IProverRegistry.ProverNotActive.selector));
+        vm.prank(STAKER_2);
+        SuccinctStaking(STAKING).stake(ALICE_PROVER, stakeAmount);
+
+        // Verify no new stake was added
+        assertEq(SuccinctStaking(STAKING).balanceOf(STAKER_2), 0);
+        assertEq(IERC20(PROVE).balanceOf(STAKER_2), STAKER_PROVE_AMOUNT);
+    }
+
+    // Tests that the prover eventually gets de-activated after many partial (high)
+    // slashes even if they aren't full balance slashes.
+    function test_Slash_WhenPartialSlashEventuallyDeactivates() public {
+        uint256 stakeAmount = STAKER_PROVE_AMOUNT;
+
+        // Stake to Alice prover
+        _stake(STAKER_1, ALICE_PROVER, stakeAmount);
+
+        // Verify prover is not deactivated initially
+        assertFalse(SuccinctStaking(STAKING).isDeactivatedProver(ALICE_PROVER));
+
+        // First partial slash - 50% (should not deactivate)
+        uint256 firstSlash = SuccinctStaking(STAKING).proverStaked(ALICE_PROVER) / 2;
+        _completeSlash(ALICE_PROVER, firstSlash);
+
+        // Verify prover is still active after 50% slash
+        assertFalse(SuccinctStaking(STAKING).isDeactivatedProver(ALICE_PROVER));
+
+        // Second stake to create share inflation scenario
+        _stake(STAKER_2, ALICE_PROVER, stakeAmount);
+
+        // Second partial slash - 99.999999999% of remaining stake
+        uint256 secondSlash =
+            (SuccinctStaking(STAKING).proverStaked(ALICE_PROVER) * 999999999999999999) / 1e18;
+        _completeSlash(ALICE_PROVER, secondSlash);
+
+        // Check if deactivated now - depends on accumulated price-per-share drop
+        assertTrue(SuccinctStaking(STAKING).isDeactivatedProver(ALICE_PROVER));
+
+        // Verify final price-per-share is below threshold
+        uint256 pricePerShare = _getProverPricePerShare(ALICE_PROVER);
+        assertLt(pricePerShare, MIN_PROVER_PRICE_PER_SHARE);
+    }
+
+    function test_Slash_WhenDeactivationEvent() public {
+        uint256 stakeAmount = STAKER_PROVE_AMOUNT;
+
+        // Stake to Alice prover
+        _stake(STAKER_1, ALICE_PROVER, stakeAmount);
+
+        // Create two slash requests - both full slashes to ensure deactivation
+        uint256 totalStaked = SuccinctStaking(STAKING).proverStaked(ALICE_PROVER);
+        uint256 firstSlashAmount = totalStaked; // Full slash to trigger deactivation
+        uint256 secondSlashAmount = totalStaked; // Another full slash on same prover
+
+        uint256 firstIndex = _requestSlash(ALICE_PROVER, firstSlashAmount);
+        uint256 secondIndex = _requestSlash(ALICE_PROVER, secondSlashAmount);
+
+        // Finish first slash - this should deactivate the prover
+        vm.recordLogs();
+        _finishSlash(ALICE_PROVER, firstIndex);
+        Vm.Log[] memory logsAfterFirst = vm.getRecordedLogs();
+
+        // Count ProverDeactivation events in first slash
+        uint256 deactivationEventsFirst = 0;
+        for (uint256 i = 0; i < logsAfterFirst.length; i++) {
+            if (logsAfterFirst[i].topics[0] == PROVER_DEACTIVATION_SIGNATURE) {
+                deactivationEventsFirst++;
+            }
+        }
+
+        // Should have exactly one deactivation event
+        assertEq(deactivationEventsFirst, 1);
+
+        // Verify prover is deactivated
+        assertTrue(SuccinctStaking(STAKING).isDeactivatedProver(ALICE_PROVER));
+
+        // Finish second slash - this should NOT emit another ProverDeactivation event
+        vm.recordLogs();
+        _finishSlash(ALICE_PROVER, secondIndex);
+        Vm.Log[] memory logsAfterSecond = vm.getRecordedLogs();
+
+        // Count ProverDeactivation events in second slash
+        uint256 deactivationEventsSecond = 0;
+        for (uint256 i = 0; i < logsAfterSecond.length; i++) {
+            if (logsAfterSecond[i].topics[0] == PROVER_DEACTIVATION_SIGNATURE) {
+                deactivationEventsSecond++;
+            }
+        }
+
+        // Should have zero deactivation events in second slash
+        assertEq(deactivationEventsSecond, 0);
+        assertTrue(SuccinctStaking(STAKING).isDeactivatedProver(ALICE_PROVER));
     }
 
     // Fuzz test for extremely small slash factors to check no underflow
@@ -1017,18 +1116,18 @@ contract SuccinctStakingSlashTests is SuccinctStakingTest {
         uint256 actualIPROVEBurned = SuccinctStaking(STAKING).finishSlash(ALICE_PROVER, slashIndex);
 
         // Get the emitted logs
-        Vm.Log[] memory logs = vm.getRecordedLogs();
+        Vm.Log[] memory slashLogs = vm.getRecordedLogs();
 
         // Find the Slash event log
         bool slashEventFound = false;
-        for (uint256 i = 0; i < logs.length; i++) {
-            if (logs[i].topics[0] == keccak256("Slash(address,uint256,uint256,uint256)")) {
+        for (uint256 i = 0; i < slashLogs.length; i++) {
+            if (slashLogs[i].topics[0] == SLASH_SIGNATURE) {
                 slashEventFound = true;
 
                 // Decode the event
-                address eventProver = address(uint160(uint256(logs[i].topics[1])));
+                address eventProver = address(uint160(uint256(slashLogs[i].topics[1])));
                 (uint256 eventPROVEBurned, uint256 eventIPROVEBurned, uint256 eventIndex) =
-                    abi.decode(logs[i].data, (uint256, uint256, uint256));
+                    abi.decode(slashLogs[i].data, (uint256, uint256, uint256));
 
                 // Verify event values
                 assertEq(eventProver, ALICE_PROVER, "Event prover should match");

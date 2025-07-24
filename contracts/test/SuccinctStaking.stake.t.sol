@@ -83,6 +83,25 @@ contract SuccinctStakingStakeTests is SuccinctStakingTest {
         SuccinctStaking(STAKING).stake(ALICE_PROVER, stakeAmount);
     }
 
+    // Not allowed to stake to a deactivated prover
+    function test_RevertStake_WhenProverDeactivated() public {
+        uint256 stakeAmount = STAKER_PROVE_AMOUNT;
+
+        // Staker 1 stakes to Alice prover
+        _stake(STAKER_1, ALICE_PROVER, stakeAmount);
+
+        // Full slash to deactivate prover
+        uint256 slashAmount = SuccinctStaking(STAKING).proverStaked(ALICE_PROVER);
+        _completeSlash(ALICE_PROVER, slashAmount);
+
+        // Staker 1 stakes to deactivated prover
+        vm.prank(STAKER_2);
+        IERC20(PROVE).approve(STAKING, stakeAmount);
+        vm.expectRevert(abi.encodeWithSelector(IProverRegistry.ProverNotActive.selector));
+        vm.prank(STAKER_2);
+        SuccinctStaking(STAKING).stake(ALICE_PROVER, stakeAmount);
+    }
+
     // Not allowed to stake to multiple provers at once
     function test_RevertStake_WhenStakedToADifferentProver() public {
         uint256 stakeAmount = STAKER_PROVE_AMOUNT / 2;

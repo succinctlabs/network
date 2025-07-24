@@ -7,6 +7,7 @@ import {IProverRegistry} from "../interfaces/IProverRegistry.sol";
 import {ISuccinctVApp} from "../interfaces/ISuccinctVApp.sol";
 import {Create2} from "../../lib/openzeppelin-contracts/contracts/utils/Create2.sol";
 import {IERC20} from "../../lib/openzeppelin-contracts/contracts/interfaces/IERC20.sol";
+import {IERC4626} from "../../lib/openzeppelin-contracts/contracts/interfaces/IERC4626.sol";
 import {Math} from "../../lib/openzeppelin-contracts/contracts/utils/math/Math.sol";
 
 /// @title ProverRegistry
@@ -167,9 +168,8 @@ abstract contract ProverRegistry is IProverRegistry {
         uint256 totalSupply = IERC20(_prover).totalSupply();
         if (totalSupply == 0) return;
 
-        // Calculate the prover's price-per-share.
-        uint256 totalAssets = IERC20(iProve).balanceOf(_prover);
-        uint256 pricePerShare = Math.mulDiv(totalAssets, 1e18, totalSupply);
+        // Use ERC4626 standard method to get price-per-share (assets per 1e18 shares).
+        uint256 pricePerShare = IERC4626(_prover).previewRedeem(1e18);
 
         // If the prover's price-per-share is below the minimum, deactivate it.
         if (pricePerShare < MIN_PROVER_PRICE_PER_SHARE) {
