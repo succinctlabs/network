@@ -1074,7 +1074,7 @@ contract SuccinctStakingSlashTests is SuccinctStakingTest {
     }
 
     // Test that Slash event emits correct values for tooling that relies on events
-    function test_Slash_EventAccuracy() public {
+    function test_Slash_Events() public {
         uint256 stakeAmount = STAKER_PROVE_AMOUNT;
 
         // Setup: Two stakers to create both vault and escrow balance

@@ -280,7 +280,7 @@ contract SuccinctStakingTest is Test {
     }
 
     /// @dev Helper to get price-per-share for a prover using ERC4626 standard method.
-    ///      Returns assets per 1e18 shares, equivalent to manual calculation but using library.
+    ///      Returns assets per 1e18 shares.
     function _getProverPricePerShare(address _prover) internal view returns (uint256) {
         uint256 totalSupply = IERC20(_prover).totalSupply();
         if (totalSupply == 0) return 0;
@@ -324,6 +324,8 @@ contract SuccinctStakingSetupTests is SuccinctStakingTest {
         assertEq(SuccinctStaking(STAKING).ownerOf(BOB_PROVER), BOB);
         assertEq(SuccinctStaking(STAKING).isProver(ALICE_PROVER), true);
         assertEq(SuccinctStaking(STAKING).isProver(BOB_PROVER), true);
+        assertEq(SuccinctStaking(STAKING).isDeactivatedProver(ALICE_PROVER), false);
+        assertEq(SuccinctStaking(STAKING).isDeactivatedProver(BOB_PROVER), false);
         assertEq(SuccinctStaking(STAKING).getProver(ALICE), ALICE_PROVER);
         assertEq(SuccinctStaking(STAKING).getProver(BOB), BOB_PROVER);
         assertEq(SuccinctStaking(STAKING).hasProver(ALICE), true);
