@@ -168,8 +168,9 @@ abstract contract ProverRegistry is IProverRegistry {
         uint256 totalSupply = IERC20(_prover).totalSupply();
         if (totalSupply == 0) return;
 
-        // Use ERC4626 standard method to get price-per-share (assets per 1e18 shares).
-        uint256 pricePerShare = IERC4626(_prover).previewRedeem(1e18);
+        // Calculate the prover's price-per-share.
+        uint256 totalAssets = IERC20(iProve).balanceOf(_prover);
+        uint256 pricePerShare = Math.mulDiv(totalAssets, 1e18, totalSupply);
 
         // If the prover's price-per-share is below the minimum, deactivate it.
         if (pricePerShare < MIN_PROVER_PRICE_PER_SHARE) {

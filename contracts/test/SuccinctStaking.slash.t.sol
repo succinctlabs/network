@@ -687,7 +687,7 @@ contract SuccinctStakingSlashTests is SuccinctStakingTest {
         // Define all test values at the start
         uint256 stakeAmount = STAKER_PROVE_AMOUNT / 2;
 
-        // User A stakes
+        // Staker 1 stakes
         _stake(STAKER_1, ALICE_PROVER, stakeAmount);
 
         // Verify initial state
@@ -710,7 +710,7 @@ contract SuccinctStakingSlashTests is SuccinctStakingTest {
         assertEq(IERC20(I_PROVE).balanceOf(ALICE_PROVER), 0);
         assertTrue(SuccinctStaking(STAKING).isDeactivatedProver(ALICE_PROVER));
 
-        // User B tries to stake but should be blocked due to deactivation
+        // Staker 2 tries to stake but should be blocked due to deactivation
         vm.prank(STAKER_2);
         IERC20(PROVE).approve(STAKING, stakeAmount);
 
@@ -718,11 +718,11 @@ contract SuccinctStakingSlashTests is SuccinctStakingTest {
         vm.prank(STAKER_2);
         SuccinctStaking(STAKING).stake(ALICE_PROVER, stakeAmount);
 
-        // Verify B was not able to stake
+        // Verify staker 2 was not able to stake
         assertEq(SuccinctStaking(STAKING).balanceOf(STAKER_2), 0);
         assertEq(IERC20(PROVE).balanceOf(STAKER_2), STAKER_PROVE_AMOUNT);
 
-        // Verify A still has nothing (was fully slashed)
+        // Verify staker 1 still has nothing (was fully slashed)
         if (SuccinctStaking(STAKING).balanceOf(STAKER_1) > 0) {
             _completeUnstake(STAKER_1, SuccinctStaking(STAKING).balanceOf(STAKER_1));
         }
