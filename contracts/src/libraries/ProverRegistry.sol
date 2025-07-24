@@ -18,7 +18,7 @@ abstract contract ProverRegistry is IProverRegistry {
     /// @dev Minimum price-per-share threshold a prover can be at if slashed.
     ///
     ///      If slashing would drop the price-per-share below this threshold, the prover is
-    ///      deactivated (can no longer be staked to).
+    ///      permanently deactivated and can no longer be staked to.
     uint256 internal constant MIN_PROVER_PRICE_PER_SHARE = 1e9;
 
     /// @inheritdoc IProverRegistry
@@ -153,8 +153,12 @@ abstract contract ProverRegistry is IProverRegistry {
 
     /// @dev Deactivates a prover if its price-per-share is below the minimum.
     ///
-    ///      Without deactivating provers with low price-per-share, there is potential for
-    ///      provers to be repeatedly slashed and staked to, which would TODO.
+    ///      Repeatedly slashing a prover and then staking to it reduces the prover's `totalAssets`
+    ///      without reducing its `totalSupply`.  This drives the price-per-share toward zero.
+    ///      After enough cycles, this exponential share inflation would cause an overflow.
+    ///
+    ///      By deactivating a prover as soon as its price-per-share falls below
+    ///      `MIN_PROVER_PRICE_PER_SHARE`, this overflow vector is eliminated.
     function _deactivateProverIfBelowMinPrice(address _prover) internal {
         // If the prover is already deactivated, skip.
         if (deactivatedProvers[_prover]) return;
