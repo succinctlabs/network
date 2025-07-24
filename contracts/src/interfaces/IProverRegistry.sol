@@ -26,7 +26,7 @@ interface IProverRegistry {
     /// @dev Thrown if the staker fee is greater than 100%.
     error InvalidStakerFeeBips();
 
-    /// @dev Thrown when attempting to stake to an inactive prover.
+    /// @dev Thrown when attempting to stake to a deactivated prover.
     error ProverNotActive();
 
     /// @notice The address of the governor contract.

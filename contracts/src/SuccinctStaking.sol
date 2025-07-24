@@ -483,7 +483,7 @@ contract SuccinctStaking is
 
         // If the slashing caused the price-per-share to drop below the minimum, deactivate the
         // prover.
-        _deactivateProverIfBelowMinPrice(_prover);
+        _deactivateProverIfPriceBelowMin(_prover);
     }
 
     /// @inheritdoc ISuccinctStaking

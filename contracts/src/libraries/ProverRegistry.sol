@@ -159,20 +159,23 @@ abstract contract ProverRegistry is IProverRegistry {
     ///
     ///      By deactivating a prover as soon as its price-per-share falls below
     ///      `MIN_PROVER_PRICE_PER_SHARE`, this overflow vector is eliminated.
-    function _deactivateProverIfBelowMinPrice(address _prover) internal {
+    function _deactivateProverIfPriceBelowMin(address _prover) internal {
         // If the prover is already deactivated, skip.
         if (deactivatedProvers[_prover]) return;
 
-        // If the prover's price-per-share is below the minimum, deactivate it.
-        uint256 proverAssets = IERC20(iProve).balanceOf(_prover);
-        uint256 proverSupply = IERC20(_prover).totalSupply();
-        if (proverSupply > 0) {
-            uint256 pricePerShare = Math.mulDiv(proverAssets, 1e18, proverSupply);
-            if (pricePerShare < MIN_PROVER_PRICE_PER_SHARE) {
-                deactivatedProvers[_prover] = true;
+        // If the prover has no shares, skip.
+        uint256 totalSupply = IERC20(_prover).totalSupply();
+        if (totalSupply == 0) return;
 
-                emit ProverDeactivation(_prover);
-            }
+        // Calculate the prover's price-per-share.
+        uint256 totalAssets = IERC20(iProve).balanceOf(_prover);
+        uint256 pricePerShare = Math.mulDiv(totalAssets, 1e18, totalSupply);
+
+        // If the prover's price-per-share is below the minimum, deactivate it.
+        if (pricePerShare < MIN_PROVER_PRICE_PER_SHARE) {
+            deactivatedProvers[_prover] = true;
+
+            emit ProverDeactivation(_prover);
         }
     }
 }
