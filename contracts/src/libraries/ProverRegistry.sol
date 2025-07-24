@@ -2,18 +2,18 @@
 pragma solidity ^0.8.28;
 
 import {SuccinctProver} from "../tokens/SuccinctProver.sol";
-import {Create2} from "../../lib/openzeppelin-contracts/contracts/utils/Create2.sol";
-import {IERC20} from "../../lib/openzeppelin-contracts/contracts/interfaces/IERC20.sol";
 import {IProver} from "../interfaces/IProver.sol";
 import {IProverRegistry} from "../interfaces/IProverRegistry.sol";
 import {ISuccinctVApp} from "../interfaces/ISuccinctVApp.sol";
+import {Create2} from "../../lib/openzeppelin-contracts/contracts/utils/Create2.sol";
+import {IERC20} from "../../lib/openzeppelin-contracts/contracts/interfaces/IERC20.sol";
+import {Math} from "../../lib/openzeppelin-contracts/contracts/utils/math/Math.sol";
 
 /// @title ProverRegistry
 /// @author Succinct Labs
 /// @notice This contract is used to manage provers.
 /// @dev Because provers are approved to spend $iPROVE, it is important that tracked
 ///      provers are only contracts with `type(SuccinctProver).creationCode`.
-
 abstract contract ProverRegistry is IProverRegistry {
     /// @dev Minimum price-per-share threshold a prover can be at if slashed.
     ///
@@ -42,8 +42,8 @@ abstract contract ProverRegistry is IProverRegistry {
     /// @dev A mapping from prover vault to whether it exists.
     mapping(address => bool) internal provers;
 
-    /// @dev A mapping from prover vault to whether it is inactive.
-    mapping(address => bool) internal inactiveProvers;
+    /// @dev A mapping from prover vault to whether it is deactivated.
+    mapping(address => bool) internal deactivatedProvers;
 
     /// @dev This call must be sent by the VApp contract. This also acts as a check to ensure that the contract
     ///      has been initialized.
@@ -85,8 +85,8 @@ abstract contract ProverRegistry is IProverRegistry {
     }
 
     /// @inheritdoc IProverRegistry
-    function isInactiveProver(address _prover) public view override returns (bool) {
-        return inactiveProvers[_prover];
+    function isDeactivatedProver(address _prover) public view override returns (bool) {
+        return deactivatedProvers[_prover];
     }
 
     /// @inheritdoc IProverRegistry
@@ -149,5 +149,26 @@ abstract contract ProverRegistry is IProverRegistry {
         IERC20(iProve).approve(prover, type(uint256).max);
 
         emit ProverDeploy(prover, _owner, _stakerFeeBips);
+    }
+
+    /// @dev Deactivates a prover if its price-per-share is below the minimum.
+    ///
+    ///      Without deactivating provers with low price-per-share, there is potential for
+    ///      provers to be repeatedly slashed and staked to, which would TODO.
+    function _deactivateProverIfBelowMinPrice(address _prover) internal {
+        // If the prover is already deactivated, skip.
+        if (deactivatedProvers[_prover]) return;
+
+        // If the prover's price-per-share is below the minimum, deactivate it.
+        uint256 proverAssets = IERC20(iProve).balanceOf(_prover);
+        uint256 proverSupply = IERC20(_prover).totalSupply();
+        if (proverSupply > 0) {
+            uint256 pricePerShare = Math.mulDiv(proverAssets, 1e18, proverSupply);
+            if (pricePerShare < MIN_PROVER_PRICE_PER_SHARE) {
+                deactivatedProvers[_prover] = true;
+
+                emit ProverDeactivation(_prover);
+            }
+        }
     }
 }

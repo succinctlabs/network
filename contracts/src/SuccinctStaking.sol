@@ -481,16 +481,9 @@ contract SuccinctStaking is
 
         emit Slash(_prover, PROVEBurned, iPROVEBurned, _index);
 
-        // Check if prover should be deactivated due to low price-per-share.
-        uint256 proverAssets = IERC20(iProve).balanceOf(_prover);
-        uint256 proverSupply = IERC20(_prover).totalSupply();
-        if (proverSupply > 0) {
-            uint256 pricePerShare = Math.mulDiv(proverAssets, 1e18, proverSupply);
-            if (pricePerShare < MIN_PROVER_PRICE_PER_SHARE) {
-                inactiveProvers[_prover] = true;
-                emit ProverDeactivated(_prover);
-            }
-        }
+        // If the slashing caused the price-per-share to drop below the minimum, deactivate the
+        // prover.
+        _deactivateProverIfBelowMinPrice(_prover);
     }
 
     /// @inheritdoc ISuccinctStaking
@@ -543,11 +536,11 @@ contract SuccinctStaking is
         // Ensure the staking amount is greater than the minimum stake amount.
         if (_PROVE < minStakeAmount) revert StakeBelowMinimum();
 
+        // Check that this prover is active.
+        if (deactivatedProvers[_prover]) revert ProverNotActive();
+
         // Check that this prover is not in the process of being slashed.
         if (slashClaimCount[_prover] > 0) revert ProverHasSlashRequest();
-
-        // Check that this prover has not been deactivated.
-        if (inactiveProvers[_prover]) revert ProverInactive();
 
         // Ensure the staker is not already staked with a different prover.
         address existingProver = stakerToProver[_staker];
@@ -655,7 +648,7 @@ contract SuccinctStaking is
         }
     }
 
-    /// @dev set the new dispenser
+    /// @dev Set the new dispenser.
     function _setDispenser(address _dispenser) internal {
         emit DispenserUpdate(dispenser, _dispenser);
 

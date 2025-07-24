@@ -5,8 +5,8 @@ interface IProverRegistry {
     /// @dev Emitted when a prover is deployed.
     event ProverDeploy(address indexed prover, address owner, uint256 stakerFeeBips);
 
-    /// @dev Emitted when a prover is deactivated due to low price-per-share.
-    event ProverDeactivated(address indexed prover);
+    /// @dev Emitted when a prover is deactivated.
+    event ProverDeactivation(address indexed prover);
 
     /// @dev Thrown creating a prover before the registry is initialized.
     error NotInitialized();
@@ -27,7 +27,7 @@ interface IProverRegistry {
     error InvalidStakerFeeBips();
 
     /// @dev Thrown when attempting to stake to an inactive prover.
-    error ProverInactive();
+    error ProverNotActive();
 
     /// @notice The address of the governor contract.
     function governor() external view returns (address);
@@ -50,14 +50,18 @@ interface IProverRegistry {
     function ownerOf(address prover) external view returns (address);
 
     /// @notice Check if a given address is a prover.
+    /// @dev This does not check if the prover is deactivated, use `isDeactivatedProver` to check
+    ///      if the prover is deactivated.
     /// @param prover The address of the prover.
     /// @return True if the address is a prover, false otherwise.
     function isProver(address prover) external view returns (bool);
 
-    /// @notice Check if a given prover is inactive due to low price-per-share.
+    /// @notice Check if a given prover is deactivated and cannot be staked to.
+    /// @dev A prover can be deactivated if it is slashed to the point where its price-per-share
+    ///      drops below the minimum.
     /// @param prover The address of the prover.
-    /// @return True if the prover is inactive, false otherwise.
-    function isInactiveProver(address prover) external view returns (bool);
+    /// @return True if the prover is deactivated, false otherwise.
+    function isDeactivatedProver(address prover) external view returns (bool);
 
     /// @notice Get the address of a prover for a given owner.
     /// @param owner The address of the owner.
