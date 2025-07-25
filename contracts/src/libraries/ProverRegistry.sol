@@ -76,22 +76,22 @@ abstract contract ProverRegistry is IProverRegistry {
     }
 
     /// @inheritdoc IProverRegistry
-    function ownerOf(address _prover) public view override returns (address) {
+    function ownerOf(address _prover) external view override returns (address) {
         return IProver(_prover).owner();
     }
 
     /// @inheritdoc IProverRegistry
-    function isProver(address _prover) public view override returns (bool) {
+    function isProver(address _prover) external view override returns (bool) {
         return provers[_prover];
     }
 
     /// @inheritdoc IProverRegistry
-    function isDeactivatedProver(address _prover) public view override returns (bool) {
+    function isDeactivatedProver(address _prover) external view override returns (bool) {
         return deactivatedProvers[_prover];
     }
 
     /// @inheritdoc IProverRegistry
-    function getProver(address _owner) public view override returns (address) {
+    function getProver(address _owner) external view override returns (address) {
         return ownerToProver[_owner];
     }
 
