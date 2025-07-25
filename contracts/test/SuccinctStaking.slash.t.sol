@@ -814,57 +814,6 @@ contract SuccinctStakingSlashTests is SuccinctStakingTest {
         assertLt(pricePerShare, MIN_PROVER_PRICE_PER_SHARE);
     }
 
-    function test_Slash_WhenDeactivationEvent() public {
-        uint256 stakeAmount = STAKER_PROVE_AMOUNT;
-
-        // Stake to Alice prover
-        _stake(STAKER_1, ALICE_PROVER, stakeAmount);
-
-        // Create two slash requests - both full slashes to ensure deactivation
-        uint256 totalStaked = SuccinctStaking(STAKING).proverStaked(ALICE_PROVER);
-        uint256 firstSlashAmount = totalStaked; // Full slash to trigger deactivation
-        uint256 secondSlashAmount = totalStaked; // Another full slash on same prover
-
-        uint256 firstIndex = _requestSlash(ALICE_PROVER, firstSlashAmount);
-        uint256 secondIndex = _requestSlash(ALICE_PROVER, secondSlashAmount);
-
-        // Finish first slash - this should deactivate the prover
-        vm.recordLogs();
-        _finishSlash(ALICE_PROVER, firstIndex);
-        Vm.Log[] memory logsAfterFirst = vm.getRecordedLogs();
-
-        // Count ProverDeactivation events in first slash
-        uint256 deactivationEventsFirst = 0;
-        for (uint256 i = 0; i < logsAfterFirst.length; i++) {
-            if (logsAfterFirst[i].topics[0] == PROVER_DEACTIVATION_SIGNATURE) {
-                deactivationEventsFirst++;
-            }
-        }
-
-        // Should have exactly one deactivation event
-        assertEq(deactivationEventsFirst, 1);
-
-        // Verify prover is deactivated
-        assertTrue(SuccinctStaking(STAKING).isDeactivatedProver(ALICE_PROVER));
-
-        // Finish second slash - this should NOT emit another ProverDeactivation event
-        vm.recordLogs();
-        _finishSlash(ALICE_PROVER, secondIndex);
-        Vm.Log[] memory logsAfterSecond = vm.getRecordedLogs();
-
-        // Count ProverDeactivation events in second slash
-        uint256 deactivationEventsSecond = 0;
-        for (uint256 i = 0; i < logsAfterSecond.length; i++) {
-            if (logsAfterSecond[i].topics[0] == PROVER_DEACTIVATION_SIGNATURE) {
-                deactivationEventsSecond++;
-            }
-        }
-
-        // Should have zero deactivation events in second slash
-        assertEq(deactivationEventsSecond, 0);
-        assertTrue(SuccinctStaking(STAKING).isDeactivatedProver(ALICE_PROVER));
-    }
-
     // Fuzz test for extremely small slash factors to check no underflow
     function testFuzz_Slash_ExtremelySmallFactor(uint256 _seed) public {
         vm.assume(_seed > 0);
@@ -1170,5 +1119,56 @@ contract SuccinctStakingSlashTests is SuccinctStakingTest {
             poolBefore.iPROVEEscrow - expectedEscrowBurn,
             "Escrow should be reduced by expected burn"
         );
+    }
+
+    function test_Slash_Events_WhenDeactivated() public {
+        uint256 stakeAmount = STAKER_PROVE_AMOUNT;
+
+        // Stake to Alice prover
+        _stake(STAKER_1, ALICE_PROVER, stakeAmount);
+
+        // Create two slash requests - both full slashes to ensure deactivation
+        uint256 totalStaked = SuccinctStaking(STAKING).proverStaked(ALICE_PROVER);
+        uint256 firstSlashAmount = totalStaked; // Full slash to trigger deactivation
+        uint256 secondSlashAmount = totalStaked; // Another full slash on same prover
+
+        uint256 firstIndex = _requestSlash(ALICE_PROVER, firstSlashAmount);
+        uint256 secondIndex = _requestSlash(ALICE_PROVER, secondSlashAmount);
+
+        // Finish first slash - this should deactivate the prover
+        vm.recordLogs();
+        _finishSlash(ALICE_PROVER, firstIndex);
+        Vm.Log[] memory slashLogs1 = vm.getRecordedLogs();
+
+        // Count ProverDeactivation events in first slash
+        uint256 deactivationEventsFirst = 0;
+        for (uint256 i = 0; i < slashLogs1.length; i++) {
+            if (slashLogs1[i].topics[0] == PROVER_DEACTIVATION_SIGNATURE) {
+                deactivationEventsFirst++;
+            }
+        }
+
+        // Should have exactly one deactivation event
+        assertEq(deactivationEventsFirst, 1);
+
+        // Verify prover is deactivated
+        assertTrue(SuccinctStaking(STAKING).isDeactivatedProver(ALICE_PROVER));
+
+        // Finish second slash - this should NOT emit another ProverDeactivation event
+        vm.recordLogs();
+        _finishSlash(ALICE_PROVER, secondIndex);
+        Vm.Log[] memory slashLogs2 = vm.getRecordedLogs();
+
+        // Count ProverDeactivation events in second slash
+        uint256 deactivationEventsSecond = 0;
+        for (uint256 i = 0; i < slashLogs2.length; i++) {
+            if (slashLogs2[i].topics[0] == PROVER_DEACTIVATION_SIGNATURE) {
+                deactivationEventsSecond++;
+            }
+        }
+
+        // Should have zero deactivation events in second slash
+        assertEq(deactivationEventsSecond, 0);
+        assertTrue(SuccinctStaking(STAKING).isDeactivatedProver(ALICE_PROVER));
     }
 }
