@@ -480,6 +480,10 @@ contract SuccinctStaking is
         }
 
         emit Slash(_prover, PROVEBurned, iPROVEBurned, _index);
+
+        // If the slashing caused the price-per-share to drop below the minimum, deactivate the
+        // prover.
+        _deactivateProverIfPriceBelowMin(_prover);
     }
 
     /// @inheritdoc ISuccinctStaking
@@ -531,6 +535,9 @@ contract SuccinctStaking is
 
         // Ensure the staking amount is greater than the minimum stake amount.
         if (_PROVE < minStakeAmount) revert StakeBelowMinimum();
+
+        // Check that this prover is active.
+        if (deactivatedProvers[_prover]) revert ProverNotActive();
 
         // Check that this prover is not in the process of being slashed.
         if (slashClaimCount[_prover] > 0) revert ProverHasSlashRequest();
@@ -641,7 +648,7 @@ contract SuccinctStaking is
         }
     }
 
-    /// @dev set the new dispenser
+    /// @dev Set the new dispenser.
     function _setDispenser(address _dispenser) internal {
         emit DispenserUpdate(dispenser, _dispenser);
 

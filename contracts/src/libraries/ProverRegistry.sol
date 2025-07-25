@@ -2,19 +2,26 @@
 pragma solidity ^0.8.28;
 
 import {SuccinctProver} from "../tokens/SuccinctProver.sol";
-import {Create2} from "../../lib/openzeppelin-contracts/contracts/utils/Create2.sol";
-import {IERC20} from "../../lib/openzeppelin-contracts/contracts/interfaces/IERC20.sol";
 import {IProver} from "../interfaces/IProver.sol";
 import {IProverRegistry} from "../interfaces/IProverRegistry.sol";
 import {ISuccinctVApp} from "../interfaces/ISuccinctVApp.sol";
+import {Create2} from "../../lib/openzeppelin-contracts/contracts/utils/Create2.sol";
+import {IERC20} from "../../lib/openzeppelin-contracts/contracts/interfaces/IERC20.sol";
+import {IERC4626} from "../../lib/openzeppelin-contracts/contracts/interfaces/IERC4626.sol";
+import {Math} from "../../lib/openzeppelin-contracts/contracts/utils/math/Math.sol";
 
 /// @title ProverRegistry
 /// @author Succinct Labs
 /// @notice This contract is used to manage provers.
 /// @dev Because provers are approved to spend $iPROVE, it is important that tracked
 ///      provers are only contracts with `type(SuccinctProver).creationCode`.
-
 abstract contract ProverRegistry is IProverRegistry {
+    /// @dev Minimum price-per-share threshold a prover can be at if slashed.
+    ///
+    ///      If slashing would drop the price-per-share below this threshold, the prover is
+    ///      permanently deactivated and can no longer be staked to.
+    uint256 internal constant MIN_PROVER_PRICE_PER_SHARE = 1e9;
+
     /// @inheritdoc IProverRegistry
     address public override governor;
 
@@ -35,6 +42,9 @@ abstract contract ProverRegistry is IProverRegistry {
 
     /// @dev A mapping from prover vault to whether it exists.
     mapping(address => bool) internal provers;
+
+    /// @dev A mapping from prover vault to whether it is deactivated.
+    mapping(address => bool) internal deactivatedProvers;
 
     /// @dev This call must be sent by the VApp contract. This also acts as a check to ensure that the contract
     ///      has been initialized.
@@ -66,17 +76,22 @@ abstract contract ProverRegistry is IProverRegistry {
     }
 
     /// @inheritdoc IProverRegistry
-    function ownerOf(address _prover) public view override returns (address) {
+    function ownerOf(address _prover) external view override returns (address) {
         return IProver(_prover).owner();
     }
 
     /// @inheritdoc IProverRegistry
-    function isProver(address _prover) public view override returns (bool) {
+    function isProver(address _prover) external view override returns (bool) {
         return provers[_prover];
     }
 
     /// @inheritdoc IProverRegistry
-    function getProver(address _owner) public view override returns (address) {
+    function isDeactivatedProver(address _prover) external view override returns (bool) {
+        return deactivatedProvers[_prover];
+    }
+
+    /// @inheritdoc IProverRegistry
+    function getProver(address _owner) external view override returns (address) {
         return ownerToProver[_owner];
     }
 
@@ -135,5 +150,33 @@ abstract contract ProverRegistry is IProverRegistry {
         IERC20(iProve).approve(prover, type(uint256).max);
 
         emit ProverDeploy(prover, _owner, _stakerFeeBips);
+    }
+
+    /// @dev Deactivates a prover if its price-per-share is below the minimum.
+    ///
+    ///      Repeatedly slashing a prover and then staking to it reduces the prover's `totalAssets`
+    ///      without reducing its `totalSupply`.  This drives the price-per-share toward zero.
+    ///      After enough cycles, this exponential share inflation would cause an overflow.
+    ///
+    ///      By deactivating a prover as soon as its price-per-share falls below
+    ///      `MIN_PROVER_PRICE_PER_SHARE`, this overflow vector is eliminated.
+    function _deactivateProverIfPriceBelowMin(address _prover) internal {
+        // If the prover is already deactivated, skip.
+        if (deactivatedProvers[_prover]) return;
+
+        // If the prover has no shares, skip.
+        uint256 totalSupply = IERC20(_prover).totalSupply();
+        if (totalSupply == 0) return;
+
+        // Calculate the prover's price-per-share.
+        uint256 totalAssets = IERC20(iProve).balanceOf(_prover);
+        uint256 pricePerShare = Math.mulDiv(totalAssets, 1e18, totalSupply);
+
+        // If the prover's price-per-share is below the minimum, deactivate it.
+        if (pricePerShare < MIN_PROVER_PRICE_PER_SHARE) {
+            deactivatedProvers[_prover] = true;
+
+            emit ProverDeactivation(_prover);
+        }
     }
 }

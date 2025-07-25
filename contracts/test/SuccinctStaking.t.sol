@@ -19,6 +19,7 @@ import {IERC4626} from "../lib/openzeppelin-contracts/contracts/interfaces/IERC4
 contract SuccinctStakingTest is Test {
     // Constants
     uint256 public constant SCALAR = 1e27;
+    uint256 public constant MIN_PROVER_PRICE_PER_SHARE = 1e9;
     uint256 public constant MIN_STAKE_AMOUNT = 1e12;
     uint256 public constant STAKER_PROVE_AMOUNT = 100_000e18; // >= PROPOSAL_THRESHOLD for governance tests
     uint256 public constant REQUESTER_PROVE_AMOUNT = 1_000_000e18;
@@ -277,6 +278,13 @@ contract SuccinctStakingTest is Test {
         (protocolFee, stakerReward, ownerReward) =
             FeeCalculator.calculateFeeSplit(_totalReward, PROTOCOL_FEE_BIPS, STAKER_FEE_BIPS);
     }
+
+    /// @dev Get price-per-share for a prover. Returns assets per 1e18 shares.
+    function _getProverPricePerShare(address _prover) internal view returns (uint256) {
+        uint256 totalSupply = IERC20(_prover).totalSupply();
+        if (totalSupply == 0) return 0;
+        return IERC4626(_prover).previewRedeem(1e18);
+    }
 }
 
 contract SuccinctStakingSetupTests is SuccinctStakingTest {
@@ -310,6 +318,8 @@ contract SuccinctStakingSetupTests is SuccinctStakingTest {
         assertEq(SuccinctStaking(STAKING).ownerOf(BOB_PROVER), BOB);
         assertEq(SuccinctStaking(STAKING).isProver(ALICE_PROVER), true);
         assertEq(SuccinctStaking(STAKING).isProver(BOB_PROVER), true);
+        assertEq(SuccinctStaking(STAKING).isDeactivatedProver(ALICE_PROVER), false);
+        assertEq(SuccinctStaking(STAKING).isDeactivatedProver(BOB_PROVER), false);
         assertEq(SuccinctStaking(STAKING).getProver(ALICE), ALICE_PROVER);
         assertEq(SuccinctStaking(STAKING).getProver(BOB), BOB_PROVER);
         assertEq(SuccinctStaking(STAKING).hasProver(ALICE), true);
