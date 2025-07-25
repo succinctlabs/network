@@ -279,18 +279,12 @@ contract SuccinctStakingTest is Test {
             FeeCalculator.calculateFeeSplit(_totalReward, PROTOCOL_FEE_BIPS, STAKER_FEE_BIPS);
     }
 
-    /// @dev Helper to get price-per-share for a prover using ERC4626 standard method.
-    ///      Returns assets per 1e18 shares.
+    /// @dev Get price-per-share for a prover. Returns assets per 1e18 shares.
     function _getProverPricePerShare(address _prover) internal view returns (uint256) {
         uint256 totalSupply = IERC20(_prover).totalSupply();
         if (totalSupply == 0) return 0;
         return IERC4626(_prover).previewRedeem(1e18);
     }
-
-    // Event signature constants for cleaner log parsing
-    bytes32 internal constant PROVER_DEACTIVATION_SIGNATURE =
-        keccak256("ProverDeactivation(address)");
-    bytes32 internal constant SLASH_SIGNATURE = keccak256("Slash(address,uint256,uint256,uint256)");
 }
 
 contract SuccinctStakingSetupTests is SuccinctStakingTest {

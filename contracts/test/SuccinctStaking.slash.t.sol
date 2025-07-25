@@ -13,6 +13,10 @@ import {Math} from "../lib/openzeppelin-contracts/contracts/utils/math/Math.sol"
 import {Vm} from "../lib/forge-std/src/Vm.sol";
 
 contract SuccinctStakingSlashTests is SuccinctStakingTest {
+    bytes32 internal constant PROVER_DEACTIVATION_SIGNATURE =
+        keccak256("ProverDeactivation(address)");
+    bytes32 internal constant SLASH_SIGNATURE = keccak256("Slash(address,uint256,uint256,uint256)");
+
     // Slash the full amount of a prover's stake
     function test_Slash_WhenFullAmount() public {
         uint256 stakeAmount = STAKER_PROVE_AMOUNT;
