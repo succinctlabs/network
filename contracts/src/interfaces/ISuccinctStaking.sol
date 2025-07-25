@@ -128,22 +128,39 @@ interface ISuccinctStaking is IProverRegistry {
     /// @dev Thrown if the specified dispense amount exceeds the maximum dispense amount.
     error AmountExceedsAvailableDispense();
 
-    /// @notice The address of the contract that can dispense yield.
+    /// @notice The dispenser that can dispense $PROVE to stakers.
+    /// @dev Does not actually hold any $PROVE themselves, simply has the ability to transfer
+    ///      $PROVE from the staking contract to the $iPROVE vault, bounded by `maxDispense`
+    ///      which itself is bound by `dispenseRate`. Mutable after deployment by owner.
     function dispenser() external view returns (address);
 
     /// @notice The minimum amount of $PROVE that a staker needs to stake.
+    /// @dev The actual `staked` amount may go below this value. Only used as one part in a
+    ///      multi-part deterrence against ERC4626 inflation attacks.
+    ///      Immutable after deployment.
     function minStakeAmount() external view returns (uint256);
 
-    /// @notice The maximum number of unstake requests that a staker can have at once.
+    /// @notice The maximum amount of unstake requests a staker can have at a time.
+    /// @dev Ensures that a staker cannot unintentionally self-DoS themselves by creating enough
+    ///      unstake requests to cause an out-of-gas error when calling `finishUnstake`.
+    ///      Immutable after deployment.
     function maxUnstakeRequests() external view returns (uint256);
 
-    /// @notice The minimum amount of time needed between `requestUnstake()` and `finishUnstake()`.
+    /// @notice The minimum delay (in seconds) for an unstake request be finished.
+    /// @dev Ensures that a staker cannot frontrun an upcoming prover slash by unstaking early.
+    ///      Should be greater than the longest length that a VApp `step` can be delayed by.
+    ///      Immutable after deployment.
     function unstakePeriod() external view returns (uint256);
 
-    /// @notice The minimum amount of time needed before a slash can be cancelled.
+    /// @notice The minimum delay (in seconds), plus governance parameters, for a slash request
+    ///         to be cancelled.
+    /// @dev Cancelling a slash requires `slashCancellationPeriod` + `votingDelay` +
+    ///      `votingPeriod` to ensure that governance has had sufficient time finish a slash if
+    ///      needed. Immutable after deployment.
     function slashCancellationPeriod() external view returns (uint256);
 
     /// @notice The maximum amount of $PROVE that can be dispensed per second.
+    /// @dev Mutable after deployment by owner.
     function dispenseRate() external view returns (uint256);
 
     /// @notice The timestamp when the dispense rate was last updated.

@@ -118,7 +118,9 @@ interface ISuccinctVApp {
     /// @notice The address of the $iPROVE token.
     function iProve() external view returns (address);
 
-    /// @notice The address of the network auctioneer.
+    /// @notice The auctioneer of the VApp.
+    /// @dev This is the only address that can call `step` function on the VApp.
+    ///      Mutable after deployment by owner.
     function auctioneer() external view returns (address);
 
     /// @notice The address of the staking contract.
@@ -134,7 +136,9 @@ interface ISuccinctVApp {
     /// @notice The block number of the last state update.
     function blockNumber() external view returns (uint64);
 
-    /// @notice The minimum amount for deposit/withdraw operations.
+    /// @notice The minimum amount of $PROVE needed to deposit.
+    /// @dev Since each deposit must be processed by the VApp, this prevents DoS from dust
+    ///      amounts. Mutable after deployment by owner.
     function minDepositAmount() external view returns (uint256);
 
     /// @notice The state root for the current block.
