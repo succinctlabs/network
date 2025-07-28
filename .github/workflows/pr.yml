@@ -30,8 +30,9 @@ jobs:
           submodules: recursive
 
       - name: Install Foundry
-        uses: foundry-rs/foundry-toolchain@v1
+        uses: foundry-rs/foundry-toolchain@v1.4.0
         with:
+          cache: false
           version: stable
 
       - name: Run Forge build
