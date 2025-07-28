@@ -49,7 +49,11 @@ jobs:
           FOUNDRY_PROFILE=deploy forge snapshot --no-match-test "Fuzz"
           if [[ -n "$(git status --porcelain)" ]]; then
             echo "::error ::Gas snapshot is out of date. Run 'FOUNDRY_PROFILE=deploy forge snapshot --no-match-test \"Fuzz\"' and commit the result.";
+            echo "Git status:"
             git status
+            echo ""
+            echo "Gas snapshot diff:"
+            git diff
             exit 1
           fi
 

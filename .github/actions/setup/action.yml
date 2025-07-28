@@ -31,7 +31,7 @@ runs:
           uses: arduino/setup-protoc@v3
 
         - name: rust-cache
-          uses: actions/cache@v3
+          uses: actions/cache@v4
           with:
               path: |
                   ~/.cargo/registry/index/
@@ -39,8 +39,8 @@ runs:
                   ~/.cargo/git/db/
                   target/
                   ~/.rustup/
-              key: rust-1.85.0-${{ hashFiles('**/Cargo.toml') }}
-              restore-keys: rust-1.85.0-
+              key: rust-1.85.0x-${{ hashFiles('**/Cargo.toml') }}
+              restore-keys: rust-1.85.0x-
 
         - name: Setup toolchain
           id: rustc-toolchain
