@@ -18,7 +18,7 @@ fn test_delegate_basic() {
     let prover_owner = test.signers[0].clone();
     let prover_address = test.signers[1].address();
     let delegate_address = test.signers[2].address();
-    let auctioneer = test.state.auctioneer;
+    let auctioneer = test.auctioneer.address();
 
     // Create prover first.
     let create_prover_tx =
@@ -85,7 +85,7 @@ fn test_delegate_multiple_delegations() {
     let delegate1 = test.signers[2].address();
     let delegate2 = test.signers[3].address();
     let delegate3 = test.signers[4].address();
-    let auctioneer = test.state.auctioneer;
+    let auctioneer = test.auctioneer.address();
 
     // Create prover first.
     let create_prover_tx =
@@ -442,7 +442,7 @@ fn test_delegate_exact_balance() {
     let prover_owner = test.signers[0].clone();
     let prover_address = test.signers[1].address();
     let delegate_address = test.signers[2].address();
-    let auctioneer = test.state.auctioneer;
+    let auctioneer = test.auctioneer.address();
 
     // Create prover first.
     let create_prover_tx =

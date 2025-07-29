@@ -101,13 +101,7 @@ impl VAppState<SparseStorage<Address, Account>, SparseStorage<RequestId, bool>> 
 impl<A: Storage<Address, Account>, R: Storage<RequestId, bool>> VAppState<A, R> {
     /// Creates a new [`VAppState`].
     #[must_use]
-    pub fn new(
-        domain: B256,
-        treasury: Address,
-        auctioneer: Address,
-        executor: Address,
-        verifier: Address,
-    ) -> Self {
+    pub fn new(domain: B256, treasury: Address) -> Self {
         Self {
             domain,
             tx_id: 1,
@@ -117,9 +111,6 @@ impl<A: Storage<Address, Account>, R: Storage<RequestId, bool>> VAppState<A, R> 
             accounts: A::new(),
             transactions: R::new(),
             treasury,
-            auctioneer,
-            executor,
-            verifier,
         }
     }
 
@@ -843,7 +834,7 @@ impl<A: Storage<Address, Account>, R: Storage<RequestId, bool>> VAppState<A, R> 
                             .hash_with_signer(fulfill_signer.as_slice())
                             .map_err(|_| VAppPanic::HashingBodyFailed)?;
                         let verifier = eth_sign_verify(&fulfillment_id, verify)?;
-                        if verifier != request.verifier {
+                        if verifier != address(request.verifier.as_slice())? {
                             return Err(VAppPanic::InvalidVerifierSignature);
                         }
                     }
