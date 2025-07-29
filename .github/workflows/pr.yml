@@ -33,7 +33,7 @@ jobs:
         uses: foundry-rs/foundry-toolchain@v1.4.0
         with:
           cache: false
-          version: v1.2.3-stable
+          version: v1.2.3
 
       - name: Run Forge build
         run: FOUNDRY_PROFILE=deploy forge build --sizes --root contracts
