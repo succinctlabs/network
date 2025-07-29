@@ -89,11 +89,11 @@ jobs:
         uses: actions-rs/cargo@v1
         with:
           command: test
-          toolchain: 1.85.0
+          toolchain: 1.86.0
           args: --release
         env:
           RUST_BACKTRACE: 1
-          RUSTUP_TOOLCHAIN: 1.85.0
+          RUSTUP_TOOLCHAIN: 1.86.0
 
   cargo-lint:
     name: Cargo Lint
