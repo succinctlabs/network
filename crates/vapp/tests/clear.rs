@@ -1150,7 +1150,7 @@ fn test_clear_various_fee_combinations() {
     assert_account_balance(&mut test, prover_address, U256::from(50_010_000));
 
     // Treasury gets base fee plus staker fee.
-    let treasury_address = test.state.treasury;
+    let treasury_address = signer("treasury").address();
     assert_account_balance(&mut test, treasury_address, U256::from(0));
 }
 
@@ -1423,9 +1423,9 @@ fn test_clear_invalid_execute_signature() {
         clear.execute.signature[0] ^= 0xFF;
     }
 
-    // Execute should fail with ExecutorMismatch because corrupted signature recovers wrong address.
+    // Execute should fail with InvalidSignature because corrupted signature cannot be verified.
     let result = test.state.execute::<MockVerifier>(&clear_tx);
-    assert!(matches!(result, Err(VAppPanic::ExecutorMismatch { .. })));
+    assert!(matches!(result, Err(VAppPanic::InvalidSignature { .. })));
 }
 
 #[test]

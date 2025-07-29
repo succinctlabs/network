@@ -71,11 +71,10 @@ pub fn timestamp() -> i64 {
 #[must_use]
 pub fn setup() -> VAppTestContext {
     let domain = *SPN_SEPOLIA_V1_DOMAIN;
-    let treasury = signer("treasury");
     let auctioneer = signer("auctioneer");
     let executor = signer("executor");
     let verifier = signer("verifier");
-    let state = VAppState::new(domain, treasury.address());
+    let state = VAppState::new(domain);
     VAppTestContext {
         state,
         auctioneer,

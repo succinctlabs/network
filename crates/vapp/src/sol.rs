@@ -100,7 +100,6 @@ sol! {
         uint64 onchainLogIndex;
         bytes32 accountsRoot;
         bytes32 transactionsRoot;
-        address treasury;
     }
 
     /// @notice The account data for Merkle tree leaves.
