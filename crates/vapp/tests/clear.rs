@@ -1762,12 +1762,14 @@ fn test_clear_auctioneer_mismatch_global() {
     let create_prover_tx = create_prover_tx(prover_address, prover_address, U256::ZERO, 1, 2, 2);
     test.state.execute::<MockVerifier>(&create_prover_tx).unwrap();
 
-    // For this test, we need to modify the request's auctioneer field.
-    let clear_tx = create_clear_tx(
+    // Create a clear transaction where the request specifies test.auctioneer
+    // but the settle is signed by a different signer.
+    let clear_tx = create_clear_tx_with_mismatched_auctioneer(
         &test.requester,
         &test.fulfiller,
         &test.fulfiller,
-        &signer("different_auctioneer"),
+        &test.auctioneer,                // Expected auctioneer in request
+        &signer("different_auctioneer"), // Wrong settle signer
         &test.executor,
         &test.verifier,
         1,
@@ -1801,14 +1803,14 @@ fn test_clear_executor_mismatch_request() {
     let create_prover_tx = create_prover_tx(prover_address, prover_address, U256::ZERO, 1, 2, 2);
     test.state.execute::<MockVerifier>(&create_prover_tx).unwrap();
 
-    // Create clear transaction where execute signer != request executor.
+    // Create clear transaction with correct executor in request but wrong execute signer.
     let wrong_executor = signer("wrong_executor");
-    let clear_tx = create_clear_tx(
+    let mut clear_tx = create_clear_tx(
         &test.requester,
         &test.fulfiller,
         &test.fulfiller,
         &test.auctioneer,
-        &wrong_executor, // Wrong executor as execute signer
+        &test.executor,
         &test.verifier,
         1,
         U256::from(50_000),
@@ -1821,13 +1823,20 @@ fn test_clear_executor_mismatch_request() {
         false,
     );
 
+    // Replace the execute signature with wrong signer.
+    if let VAppTransaction::Clear(ref mut clear) = clear_tx {
+        if let Some(ref execute_body) = clear.execute.body {
+            clear.execute.signature = proto_sign(&wrong_executor, execute_body).as_bytes().to_vec();
+        }
+    }
+
     // Execute should fail with ExecutorMismatch.
     let result = test.state.execute::<MockVerifier>(&clear_tx);
     assert!(matches!(result, Err(VAppPanic::ExecutorMismatch { .. })));
 }
 
 #[test]
-fn test_clear_executor_mismatch_global() {
+fn test_clear_executor_mismatch_request() {
     let mut test = setup();
 
     // Setup: Deposit funds for requester and create prover.
@@ -1841,13 +1850,15 @@ fn test_clear_executor_mismatch_global() {
     let create_prover_tx = create_prover_tx(prover_address, prover_address, U256::ZERO, 1, 2, 2);
     test.state.execute::<MockVerifier>(&create_prover_tx).unwrap();
 
-    // For this test, we need to modify the request's executor field.
-    let clear_tx = create_clear_tx(
+    // Create a clear transaction where the request specifies test.executor
+    // but the execute is signed by a different signer.
+    let different_executor = signer("different_executor");
+    let mut clear_tx = create_clear_tx(
         &test.requester,
         &test.fulfiller,
         &test.fulfiller,
         &test.auctioneer,
-        &signer("different_executor"),
+        &test.executor,
         &test.verifier,
         1,
         U256::from(50_000),
@@ -1859,6 +1870,14 @@ fn test_clear_executor_mismatch_global() {
         ExecutionStatus::Executed,
         false,
     );
+
+    // Replace the execute signature with different signer.
+    if let VAppTransaction::Clear(ref mut clear) = clear_tx {
+        if let Some(ref execute_body) = clear.execute.body {
+            clear.execute.signature =
+                proto_sign(&different_executor, execute_body).as_bytes().to_vec();
+        }
+    }
 
     // Execute should fail with ExecutorMismatch.
     let result = test.state.execute::<MockVerifier>(&clear_tx);
@@ -2194,14 +2213,14 @@ fn test_clear_verifier_address_mismatch() {
     // Create a wrong verifier signer.
     let wrong_verifier = signer("wrong_verifier");
 
-    // Create clear transaction with wrong verifier signing.
-    let clear_tx = create_clear_tx(
+    // Create clear transaction with correct verifier in request but wrong verifier signing.
+    let mut clear_tx = create_clear_tx(
         &test.requester,
         &test.fulfiller,
         &test.fulfiller,
         &test.auctioneer,
         &test.executor,
-        &wrong_verifier, // Wrong verifier
+        &test.verifier,
         1,
         U256::from(50_000),
         1,
@@ -2212,6 +2231,15 @@ fn test_clear_verifier_address_mismatch() {
         ExecutionStatus::Executed,
         true,
     );
+
+    // Replace the verifier signature with wrong signer.
+    if let VAppTransaction::Clear(ref mut clear) = clear_tx {
+        if let Some(ref fulfill) = clear.fulfill {
+            if let Some(ref fulfill_body) = fulfill.body {
+                clear.verify = Some(proto_sign(&wrong_verifier, fulfill_body).as_bytes().to_vec());
+            }
+        }
+    }
 
     // Execute should fail with InvalidVerifierSignature.
     let result = test.state.execute::<MockVerifier>(&clear_tx);
