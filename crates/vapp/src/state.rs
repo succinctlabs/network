@@ -729,7 +729,7 @@ impl<A: Storage<Address, Account>, R: Storage<RequestId, bool>> VAppState<A, R> 
 
                     // Parse the treasury address from the request.
                     let treasury = address(request.treasury.as_slice())?;
-                    
+
                     // Send the punishment to the treasury
                     self.accounts.entry(treasury)?.or_default().add_balance(punishment)?;
 
@@ -908,10 +908,7 @@ impl<A: Storage<Address, Account>, R: Storage<RequestId, bool>> VAppState<A, R> 
                 let (protocol_fee, prover_staker_fee, prover_owner_fee) =
                     fee(cost, protocol_fee_bips, staker_fee_bips)?;
 
-                info!(
-                    "├── Account({}): + {} $PROVE (Protocol Fee)",
-                    treasury, protocol_fee
-                );
+                info!("├── Account({}): + {} $PROVE (Protocol Fee)", treasury, protocol_fee);
                 self.accounts.entry(treasury)?.or_default().add_balance(protocol_fee)?;
 
                 info!(
