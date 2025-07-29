@@ -79,11 +79,13 @@ pub enum VAppPanic {
     )]
     ProverDelegatedSignerMismatch { prover: Address, delegated_signer: Address },
 
-    #[error("Auctioneer mismatch: request_auctioneer={request_auctioneer}, settle_signer={settle_signer}, auctioneer={auctioneer}")]
-    AuctioneerMismatch { request_auctioneer: Address, settle_signer: Address, auctioneer: Address },
+    #[error("Auctioneer mismatch: request_auctioneer={request_auctioneer}, settle_signer={settle_signer}")]
+    AuctioneerMismatch { request_auctioneer: Address, settle_signer: Address },
 
-    #[error("Executor mismatch: request_executor={request_executor}, execute_signer={execute_signer}, executor={executor}")]
-    ExecutorMismatch { request_executor: Address, execute_signer: Address, executor: Address },
+    #[error(
+        "Executor mismatch: request_executor={request_executor}, execute_signer={execute_signer}"
+    )]
+    ExecutorMismatch { request_executor: Address, execute_signer: Address },
 
     #[error("Address deserialization failed")]
     AddressDeserializationFailed,

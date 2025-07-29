@@ -101,9 +101,6 @@ sol! {
         bytes32 accountsRoot;
         bytes32 transactionsRoot;
         address treasury;
-        address auctioneer;
-        address executor;
-        address verifier;
     }
 
     /// @notice The account data for Merkle tree leaves.

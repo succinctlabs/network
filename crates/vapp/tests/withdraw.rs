@@ -9,7 +9,7 @@ use crate::common::*;
 fn test_withdraw_basic() {
     let mut test = setup();
     let account = test.requester.address();
-    let auctioneer = test.state.auctioneer;
+    let auctioneer = test.auctioneer.address();
 
     // Set up initial balance with deposit (101 PROVE = 101e18 wei).
     let initial_balance = U256::from(101) * U256::from(10).pow(U256::from(18));
@@ -36,7 +36,7 @@ fn test_withdraw_basic() {
 fn test_withdraw_partial() {
     let mut test = setup();
     let account = test.requester.address();
-    let auctioneer = test.state.auctioneer;
+    let auctioneer = test.auctioneer.address();
 
     // Set up initial balance with deposit (503 PROVE to cover 3 withdrawals with fees).
     let initial_balance = U256::from(503) * U256::from(10).pow(U256::from(18));
@@ -78,7 +78,7 @@ fn test_withdraw_partial() {
 fn test_withdraw_exact_balance() {
     let mut test = setup();
     let account = test.requester.address();
-    let auctioneer = test.state.auctioneer;
+    let auctioneer = test.auctioneer.address();
 
     // Set up initial balance with deposit (790 PROVE).
     let initial_balance = U256::from(790) * U256::from(10).pow(U256::from(18));
@@ -151,7 +151,7 @@ fn test_withdraw_prover_self_withdraw() {
     let mut test = setup();
     let prover_address = test.fulfiller.address();
     let prover_owner = test.requester.address();
-    let auctioneer = test.state.auctioneer;
+    let auctioneer = test.auctioneer.address();
 
     // Create a prover with owner different from prover address.
     let create_tx = create_prover_tx(prover_address, prover_owner, U256::from(500), 0, 1, 1);
@@ -189,7 +189,7 @@ fn test_withdraw_third_party_for_prover() {
     let prover_address = test.fulfiller.address();
     let prover_owner = test.requester.address();
     let third_party = test.signers[0].clone(); // Third party who will sign the withdraw
-    let auctioneer = test.state.auctioneer;
+    let auctioneer = test.auctioneer.address();
 
     // Create a prover with owner different from prover address.
     let create_tx = create_prover_tx(prover_address, prover_owner, U256::from(500), 0, 1, 1);

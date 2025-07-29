@@ -61,18 +61,6 @@ pub struct VAppState<A: Storage<Address, Account>, R: Storage<RequestId, bool>> 
     ///
     /// Fees earned by the protocol are sent to this address.
     pub treasury: Address,
-    /// The auctioneer address.
-    ///
-    /// This is a trusted party that matches requests to provers.
-    pub auctioneer: Address,
-    /// The executor address.
-    ///
-    /// This is a trusted party that executes the requests and provides auxiliary information.
-    pub executor: Address,
-    /// The verifier address.
-    ///
-    /// This is a trusted party that verifies the proof and provides auxiliary information.
-    pub verifier: Address,
 }
 
 impl VAppState<MerkleStorage<Address, Account>, MerkleStorage<RequestId, bool>> {
@@ -87,9 +75,6 @@ impl VAppState<MerkleStorage<Address, Account>, MerkleStorage<RequestId, bool>> 
             accountsRoot: self.accounts.root(),
             transactionsRoot: self.transactions.root(),
             treasury: self.treasury,
-            auctioneer: self.auctioneer,
-            executor: self.executor,
-            verifier: self.verifier,
         };
         H::hash(&state)
     }
@@ -108,9 +93,6 @@ impl VAppState<SparseStorage<Address, Account>, SparseStorage<RequestId, bool>> 
             accountsRoot: account_root,
             transactionsRoot: transactions_root,
             treasury: self.treasury,
-            auctioneer: self.auctioneer,
-            executor: self.executor,
-            verifier: self.verifier,
         };
         H::hash(&state)
     }
@@ -119,13 +101,7 @@ impl VAppState<SparseStorage<Address, Account>, SparseStorage<RequestId, bool>> 
 impl<A: Storage<Address, Account>, R: Storage<RequestId, bool>> VAppState<A, R> {
     /// Creates a new [`VAppState`].
     #[must_use]
-    pub fn new(
-        domain: B256,
-        treasury: Address,
-        auctioneer: Address,
-        executor: Address,
-        verifier: Address,
-    ) -> Self {
+    pub fn new(domain: B256, treasury: Address) -> Self {
         Self {
             domain,
             tx_id: 1,
@@ -135,9 +111,6 @@ impl<A: Storage<Address, Account>, R: Storage<RequestId, bool>> VAppState<A, R> 
             accounts: A::new(),
             transactions: R::new(),
             treasury,
-            auctioneer,
-            executor,
-            verifier,
         }
     }
 
@@ -705,22 +678,17 @@ impl<A: Storage<Address, Account>, R: Storage<RequestId, bool>> VAppState<A, R> 
 
                 // Validate that the request, settle, and auctioneer addresses match.
                 let request_auctioneer = address(request.auctioneer.as_slice())?;
-                if !(request_auctioneer == settle_signer && settle_signer == self.auctioneer) {
+                if request_auctioneer != settle_signer {
                     return Err(VAppPanic::AuctioneerMismatch {
                         request_auctioneer,
                         settle_signer,
-                        auctioneer: self.auctioneer,
                     });
                 }
 
                 // Validate that the request, execute, and executor addresses match.
                 let request_executor = address(request.executor.as_slice())?;
-                if !(request_executor == execute_signer && request_executor == self.executor) {
-                    return Err(VAppPanic::ExecutorMismatch {
-                        request_executor,
-                        execute_signer,
-                        executor: self.executor,
-                    });
+                if request_executor != execute_signer {
+                    return Err(VAppPanic::ExecutorMismatch { request_executor, execute_signer });
                 }
 
                 // Ensure that the bid price is less than the max price per pgu.
@@ -866,7 +834,7 @@ impl<A: Storage<Address, Account>, R: Storage<RequestId, bool>> VAppState<A, R> 
                             .hash_with_signer(fulfill_signer.as_slice())
                             .map_err(|_| VAppPanic::HashingBodyFailed)?;
                         let verifier = eth_sign_verify(&fulfillment_id, verify)?;
-                        if verifier != self.verifier {
+                        if verifier != address(request.verifier.as_slice())? {
                             return Err(VAppPanic::InvalidVerifierSignature);
                         }
                     }

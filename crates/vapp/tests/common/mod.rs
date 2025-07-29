@@ -75,13 +75,7 @@ pub fn setup() -> VAppTestContext {
     let auctioneer = signer("auctioneer");
     let executor = signer("executor");
     let verifier = signer("verifier");
-    let state = VAppState::new(
-        domain,
-        treasury.address(),
-        auctioneer.address(),
-        executor.address(),
-        verifier.address(),
-    );
+    let state = VAppState::new(domain, treasury.address());
     VAppTestContext {
         state,
         auctioneer,
