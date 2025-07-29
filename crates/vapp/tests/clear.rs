@@ -1836,7 +1836,7 @@ fn test_clear_executor_mismatch_request() {
 }
 
 #[test]
-fn test_clear_executor_mismatch_request() {
+fn test_clear_executor_mismatch_global() {
     let mut test = setup();
 
     // Setup: Deposit funds for requester and create prover.
