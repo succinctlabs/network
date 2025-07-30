@@ -48,7 +48,7 @@ contract SuccinctStakingTest is Test {
     address public BOB;
 
     // Contracts
-    address public FEE_VAULT;
+    address public TREASURY;
     address public STAKING;
     address public VAPP;
     address public PROVE;
@@ -76,7 +76,7 @@ contract SuccinctStakingTest is Test {
         BOB = makeAddr("BOB");
 
         // Deploy fee vault (just an EOA for testing)
-        FEE_VAULT = makeAddr("FEE_VAULT");
+        TREASURY = makeAddr("TREASURY");
 
         // Deploy Succinct Staking
         STAKING = address(new SuccinctStaking(OWNER));
@@ -88,7 +88,7 @@ contract SuccinctStakingTest is Test {
         I_PROVE = address(new IntermediateSuccinct(PROVE, STAKING));
 
         // Deploy VAPP
-        VAPP = address(new MockVApp(STAKING, PROVE, I_PROVE, FEE_VAULT, PROTOCOL_FEE_BIPS));
+        VAPP = address(new MockVApp(STAKING, PROVE, I_PROVE, TREASURY, PROTOCOL_FEE_BIPS));
 
         // Deploy SuccinctGovernor with iPROVE as the voting token
         GOVERNOR = address(

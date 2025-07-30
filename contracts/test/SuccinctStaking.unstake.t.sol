@@ -157,15 +157,15 @@ contract SuccinctStakingUnstakeTests is SuccinctStakingTest {
             (expectedStakerReward * stakeAmount2) / (stakeAmount1 + stakeAmount2);
 
         // Withdraw the rewards from VApp to make actual token transfers
-        _withdrawFromVApp(FEE_VAULT, expectedProtocolFee);
+        _withdrawFromVApp(TREASURY, expectedProtocolFee);
         _withdrawFromVApp(ALICE, expectedOwnerReward);
         _withdrawFromVApp(ALICE_PROVER, expectedStakerReward);
 
-        // Verify protocol fee was transferred to FEE_VAULT
+        // Verify protocol fee was transferred to TREASURY
         assertEq(
-            IERC20(PROVE).balanceOf(FEE_VAULT),
+            IERC20(PROVE).balanceOf(TREASURY),
             expectedProtocolFee,
-            "Protocol fee should be transferred to FEE_VAULT"
+            "Protocol fee should be transferred to TREASURY"
         );
 
         // Verify owner reward was transferred to prover owner (ALICE)
@@ -513,7 +513,7 @@ contract SuccinctStakingUnstakeTests is SuccinctStakingTest {
             _calculateFullRewardSplit(rewardAmount);
 
         // Withdraw the rewards to their respective recipients
-        _withdrawFromVApp(FEE_VAULT, protocolFee);
+        _withdrawFromVApp(TREASURY, protocolFee);
         _withdrawFromVApp(ALICE, ownerReward);
         _withdrawFromVApp(ALICE_PROVER, stakerReward);
 
@@ -541,7 +541,7 @@ contract SuccinctStakingUnstakeTests is SuccinctStakingTest {
         // Withdraw the second reward
         (uint256 protocolFee2, uint256 stakerReward2, uint256 ownerReward2) =
             _calculateFullRewardSplit(rewardAmount);
-        _withdrawFromVApp(FEE_VAULT, protocolFee2);
+        _withdrawFromVApp(TREASURY, protocolFee2);
         _withdrawFromVApp(ALICE, ownerReward2);
         _withdrawFromVApp(ALICE_PROVER, stakerReward2);
 
@@ -869,7 +869,7 @@ contract SuccinctStakingUnstakeTests is SuccinctStakingTest {
         // Withdraw rewards to increase prover assets.
         (uint256 protocolFee, uint256 stakerReward, uint256 ownerReward) =
             _calculateFullRewardSplit(STAKER_PROVE_AMOUNT / 2);
-        _withdrawFromVApp(FEE_VAULT, protocolFee);
+        _withdrawFromVApp(TREASURY, protocolFee);
         _withdrawFromVApp(ALICE, ownerReward);
         _withdrawFromVApp(ALICE_PROVER, stakerReward);
 
@@ -896,7 +896,7 @@ contract SuccinctStakingUnstakeTests is SuccinctStakingTest {
         MockVApp(VAPP).processFulfillment(ALICE_PROVER, STAKER_PROVE_AMOUNT / 4);
         (uint256 protocolFee2, uint256 stakerReward2, uint256 ownerReward2) =
             _calculateFullRewardSplit(STAKER_PROVE_AMOUNT / 4);
-        _withdrawFromVApp(FEE_VAULT, protocolFee2);
+        _withdrawFromVApp(TREASURY, protocolFee2);
         _withdrawFromVApp(ALICE, ownerReward2);
         _withdrawFromVApp(ALICE_PROVER, stakerReward2);
 

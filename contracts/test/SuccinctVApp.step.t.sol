@@ -17,6 +17,7 @@ contract SuccinctVAppStateTest is SuccinctVAppTest {
 
         vm.expectEmit(true, true, true, true);
         emit ISuccinctVApp.Block(1, fixture.oldRoot, fixture.newRoot);
+        vm.prank(AUCTIONEER);
         SuccinctVApp(VAPP).step(jsonFixture.publicValues, jsonFixture.proof);
 
         assertEq(SuccinctVApp(VAPP).blockNumber(), 1);
@@ -28,6 +29,7 @@ contract SuccinctVAppStateTest is SuccinctVAppTest {
     function test_Step_WhenValidTwice() public {
         mockCall(true);
 
+        vm.prank(AUCTIONEER);
         SuccinctVApp(VAPP).step(jsonFixture.publicValues, jsonFixture.proof);
 
         assertEq(SuccinctVApp(VAPP).blockNumber(), 1);
@@ -45,6 +47,7 @@ contract SuccinctVAppStateTest is SuccinctVAppTest {
 
         vm.expectEmit(true, true, true, true);
         emit ISuccinctVApp.Block(2, publicValues.oldRoot, publicValues.newRoot);
+        vm.prank(AUCTIONEER);
         SuccinctVApp(VAPP).step(abi.encode(publicValues), jsonFixture.proof);
 
         assertEq(SuccinctVApp(VAPP).blockNumber(), 2);
@@ -59,6 +62,7 @@ contract SuccinctVAppStateTest is SuccinctVAppTest {
 
         mockCall(false);
         vm.expectRevert();
+        vm.prank(AUCTIONEER);
         SuccinctVApp(VAPP).step(jsonFixture.publicValues, fakeProof);
     }
 
@@ -72,11 +76,13 @@ contract SuccinctVAppStateTest is SuccinctVAppTest {
 
         mockCall(true);
         vm.expectRevert(ISuccinctVApp.InvalidRoot.selector);
+        vm.prank(AUCTIONEER);
         SuccinctVApp(VAPP).step(abi.encode(publicValues), jsonFixture.proof);
     }
 
     function test_RevertStep_WhenInvalidOldRoot() public {
         mockCall(true);
+        vm.prank(AUCTIONEER);
         SuccinctVApp(VAPP).step(jsonFixture.publicValues, jsonFixture.proof);
         assertEq(SuccinctVApp(VAPP).blockNumber(), 1);
         assertEq(SuccinctVApp(VAPP).root(), fixture.newRoot);
@@ -89,6 +95,7 @@ contract SuccinctVAppStateTest is SuccinctVAppTest {
         });
 
         vm.expectRevert(ISuccinctVApp.InvalidOldRoot.selector);
+        vm.prank(AUCTIONEER);
         SuccinctVApp(VAPP).step(abi.encode(publicValues), jsonFixture.proof);
     }
 
@@ -104,6 +111,7 @@ contract SuccinctVAppStateTest is SuccinctVAppTest {
         });
 
         vm.expectRevert(ISuccinctVApp.InvalidTimestamp.selector);
+        vm.prank(AUCTIONEER);
         SuccinctVApp(VAPP).step(abi.encode(publicValues), jsonFixture.proof);
     }
 
@@ -119,6 +127,7 @@ contract SuccinctVAppStateTest is SuccinctVAppTest {
             timestamp: initialTime
         });
 
+        vm.prank(AUCTIONEER);
         SuccinctVApp(VAPP).step(abi.encode(initialPublicValues), jsonFixture.proof);
         assertEq(SuccinctVApp(VAPP).blockNumber(), 1);
 
@@ -134,6 +143,7 @@ contract SuccinctVAppStateTest is SuccinctVAppTest {
         });
 
         vm.expectRevert(ISuccinctVApp.TimestampInPast.selector);
+        vm.prank(AUCTIONEER);
         SuccinctVApp(VAPP).step(abi.encode(publicValues), jsonFixture.proof);
     }
 
@@ -152,6 +162,7 @@ contract SuccinctVAppStateTest is SuccinctVAppTest {
         });
 
         vm.expectRevert(ISuccinctVApp.TimestampTooOld.selector);
+        vm.prank(AUCTIONEER);
         SuccinctVApp(VAPP).step(abi.encode(publicValues), jsonFixture.proof);
     }
 
@@ -172,6 +183,7 @@ contract SuccinctVAppStateTest is SuccinctVAppTest {
         // This should succeed as it's exactly at the boundary.
         vm.expectEmit(true, true, true, true);
         emit ISuccinctVApp.Block(1, fixture.oldRoot, publicValues.newRoot);
+        vm.prank(AUCTIONEER);
         SuccinctVApp(VAPP).step(abi.encode(publicValues), jsonFixture.proof);
 
         assertEq(SuccinctVApp(VAPP).blockNumber(), 1);

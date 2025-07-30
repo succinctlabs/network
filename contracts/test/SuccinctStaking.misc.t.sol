@@ -35,7 +35,7 @@ contract SuccinctStakingMiscellaneousTests is SuccinctStakingTest {
         uint256 currentStaker2 = IERC20(PROVE).balanceOf(STAKER_2);
         uint256 currentStaking = IERC20(PROVE).balanceOf(STAKING);
         uint256 currentIPROVE = IERC20(PROVE).balanceOf(I_PROVE);
-        uint256 currentFeeVault = IERC20(PROVE).balanceOf(FEE_VAULT);
+        uint256 currentFeeVault = IERC20(PROVE).balanceOf(TREASURY);
         uint256 currentAlice = IERC20(PROVE).balanceOf(ALICE);
         uint256 currentBob = IERC20(PROVE).balanceOf(BOB);
 
@@ -887,7 +887,7 @@ contract SuccinctStakingMiscellaneousTests is SuccinctStakingTest {
             }
             totalBalance += IERC20(PROVE).balanceOf(STAKING); // Add staking contract balance
             totalBalance += IERC20(PROVE).balanceOf(I_PROVE); // Add vault balance
-            totalBalance += IERC20(PROVE).balanceOf(FEE_VAULT); // Add fee vault balance
+            totalBalance += IERC20(PROVE).balanceOf(TREASURY); // Add fee vault balance
             finalSupply = totalBalance;
         }
 

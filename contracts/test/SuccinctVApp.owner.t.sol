@@ -20,6 +20,7 @@ contract SuccinctVAppOwnerTest is SuccinctVAppTest {
         vm.expectEmit(true, true, true, true);
         emit ISuccinctVApp.Block(1, fixture.oldRoot, newRoot);
 
+        vm.prank(OWNER);
         SuccinctVApp(VAPP).fork(newVkey, newRoot);
     }
 
@@ -110,6 +111,7 @@ contract SuccinctVAppOwnerTest is SuccinctVAppTest {
 
         vm.expectEmit(true, true, true, true);
         emit ISuccinctVApp.MinDepositAmountUpdate(newMinAmount, newTransferBelowMinimum);
+        vm.prank(OWNER);
         SuccinctVApp(VAPP).updateMinDepositAmount(newTransferBelowMinimum);
 
         assertEq(SuccinctVApp(VAPP).minDepositAmount(), newTransferBelowMinimum);
@@ -117,6 +119,7 @@ contract SuccinctVAppOwnerTest is SuccinctVAppTest {
         // Set to zero to disable minimum check
         vm.expectEmit(true, true, true, true);
         emit ISuccinctVApp.MinDepositAmountUpdate(newTransferBelowMinimum, 0);
+        vm.prank(OWNER);
         SuccinctVApp(VAPP).updateMinDepositAmount(0);
 
         assertEq(SuccinctVApp(VAPP).minDepositAmount(), 0);
