@@ -20,12 +20,12 @@ contract SuccinctStakingTest is Test {
     // Constants
     uint256 public constant SCALAR = 1e27;
     uint256 public constant MIN_PROVER_PRICE_PER_SHARE = 1e9;
-    uint256 public constant MIN_STAKE_AMOUNT = 1e12;
-    uint256 public constant STAKER_PROVE_AMOUNT = 100_000e18; // >= PROPOSAL_THRESHOLD for governance tests
+    uint256 public constant MIN_STAKE_AMOUNT = 1e16;
+    uint256 public constant STAKER_PROVE_AMOUNT = 1000000e18; // >= PROPOSAL_THRESHOLD for governance tests
     uint256 public constant REQUESTER_PROVE_AMOUNT = 1_000_000e18;
     uint256 public constant DISPENSE_AMOUNT = 10_000_000e18;
-    uint256 public constant DISPENSE_RATE = 1268391679; // ~4% yearly
-    uint256 public constant MAX_UNSTAKE_REQUESTS = 100;
+    uint256 public constant DISPENSE_RATE = 63419583967529173; // 0.063 PROVE/s (20% APY assuming 10M staked)
+    uint256 public constant MAX_UNSTAKE_REQUESTS = 10;
     uint256 public constant UNSTAKE_PERIOD = 21 days;
     uint256 public constant SLASH_CANCELLATION_PERIOD = 7 days;
     uint256 public constant STAKER_FEE_BIPS = 1000; // 10%
@@ -33,8 +33,8 @@ contract SuccinctStakingTest is Test {
     uint256 public constant PROTOCOL_FEE_BIPS = 30; // 0.3%
     uint48 public constant VOTING_DELAY = 7200;
     uint32 public constant VOTING_PERIOD = 100800;
-    uint256 public constant PROPOSAL_THRESHOLD = 100_000e18;
-    uint256 public constant QUORUM_FRACTION = 4;
+    uint256 public constant PROPOSAL_THRESHOLD = 1000000e18;
+    uint256 public constant QUORUM_FRACTION = 20;
 
     // EOAs
     address public OWNER;

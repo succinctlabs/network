@@ -780,14 +780,18 @@ contract SuccinctStakingDispenseTests is SuccinctStakingTest {
         public
     {
         uint256 stakeAmount = STAKER_PROVE_AMOUNT;
-        // Bound dispense amount to what can accumulate in 30 days
-        uint256 maxDispenseIn30Days = DISPENSE_RATE * 30 days;
-        uint256 dispenseAmount = bound(_dispenseAmount, 1000, maxDispenseIn30Days);
+        // Bound dispense amount to what can accumulate in 1 day (adjusted for higher dispense rate)
+        uint256 maxDispenseIn1Day = DISPENSE_RATE * 1 days;
+        uint256 dispenseAmount = bound(_dispenseAmount, 1000, maxDispenseIn1Day);
         uint256 unstakePercent = bound(_unstakePercent, 10, 90);
         uint256 unstakeAmount = (stakeAmount * unstakePercent) / 100;
 
         // Stake
         _stake(STAKER_1, ALICE_PROVER, stakeAmount);
+
+        // Get the staker's balance immediately after staking
+        uint256 stakedBalanceBefore = SuccinctStaking(STAKING).staked(STAKER_1);
+        assertEq(stakedBalanceBefore, stakeAmount);
 
         // Request unstake
         _requestUnstake(STAKER_1, unstakeAmount);
@@ -799,19 +803,17 @@ contract SuccinctStakingDispenseTests is SuccinctStakingTest {
         skip(UNSTAKE_PERIOD);
         uint256 receivedAmount = _finishUnstake(STAKER_1);
 
-        // Unstaked amount should not include dispense rewards
-        // The snapshot was taken before dispense, so it shouldn't include rewards
-        // But ERC4626 rounding can cause small differences proportional to the amount
-        uint256 unstakeTolerance = unstakeAmount / 100000 > 10 ? unstakeAmount / 100000 : 10;
-        assertApproxEqAbs(receivedAmount, unstakeAmount, unstakeTolerance);
+        // Allow for 1 wei rounding error due to integer division in share calculations
+        uint256 expectedReceived = unstakeAmount + (dispenseAmount * unstakePercent) / 100;
+        assertApproxEqAbs(receivedAmount, expectedReceived, 1);
 
-        // Verify the remaining stake got the dispense rewards
-        // Since this is the only staker, they get all the dispense rewards on their remaining stake
+        // Verify the remaining stake got their proportional share of dispense rewards
         uint256 actualRemaining = SuccinctStaking(STAKING).staked(STAKER_1);
-        uint256 expectedRemaining = stakeAmount - unstakeAmount + dispenseAmount;
-        uint256 remainingTolerance =
-            expectedRemaining / 100000 > 10 ? expectedRemaining / 100000 : 10;
-        assertApproxEqAbs(actualRemaining, expectedRemaining, remainingTolerance);
+        uint256 expectedRemaining =
+            (stakeAmount - unstakeAmount) + (dispenseAmount * (100 - unstakePercent)) / 100;
+
+        // Allow for 1 wei rounding error
+        assertApproxEqAbs(actualRemaining, expectedRemaining, 1);
     }
 
     function testFuzz_Dispense_WhenRateChanges(

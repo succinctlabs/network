@@ -34,8 +34,8 @@ contract SuccinctVAppTest is Test, FixtureLoader {
     uint256 constant MIN_DEPOSIT_AMOUNT = 1e16; // 0.01 $PROVE
     uint48 constant VOTING_DELAY = 7200;
     uint32 constant VOTING_PERIOD = 100800;
-    uint256 constant PROPOSAL_THRESHOLD = 100_000e18;
-    uint256 constant QUORUM_FRACTION = 4;
+    uint256 constant PROPOSAL_THRESHOLD = 1000000e18;
+    uint256 constant QUORUM_FRACTION = 20;
 
     // Fixtures
     ProofFixtureJson public jsonFixture;
