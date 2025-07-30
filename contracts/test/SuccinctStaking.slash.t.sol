@@ -358,7 +358,7 @@ contract SuccinctStakingSlashTests is SuccinctStakingTest {
         assertEq(IERC20(I_PROVE).balanceOf(ALICE_PROVER), 0);
 
         // Record balances before reward
-        uint256 feeVaultBalanceBefore = MockVApp(VAPP).balances(FEE_VAULT);
+        uint256 feeVaultBalanceBefore = MockVApp(VAPP).balances(TREASURY);
         uint256 proverBalanceBefore = MockVApp(VAPP).balances(ALICE_PROVER);
         uint256 aliceBalanceBefore = MockVApp(VAPP).balances(ALICE);
 
@@ -371,9 +371,9 @@ contract SuccinctStakingSlashTests is SuccinctStakingTest {
 
         // Verify the reward was processed correctly in MockVApp balances
         assertEq(
-            MockVApp(VAPP).balances(FEE_VAULT),
+            MockVApp(VAPP).balances(TREASURY),
             feeVaultBalanceBefore + expectedProtocolFee,
-            "Protocol fee should be added to FEE_VAULT balance"
+            "Protocol fee should be added to TREASURY balance"
         );
         assertEq(
             MockVApp(VAPP).balances(ALICE_PROVER),

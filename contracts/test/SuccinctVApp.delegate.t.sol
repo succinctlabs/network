@@ -50,6 +50,7 @@ contract SuccinctVAppDelegateTest is SuccinctVAppTest {
         mockCall(true);
         vm.expectEmit(true, true, true, true);
         emit ISuccinctVApp.Block(1, publicValues1.oldRoot, publicValues1.newRoot);
+        vm.prank(AUCTIONEER);
         SuccinctVApp(VAPP).step(abi.encode(publicValues1), jsonFixture.proof);
 
         // Verify receipt status updated

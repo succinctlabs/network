@@ -28,7 +28,7 @@ contract SuccinctStakingFulfillmentTests is SuccinctStakingTest {
             bobBalance: IERC20(PROVE).balanceOf(BOB),
             staker1Staked: SuccinctStaking(STAKING).staked(STAKER_1),
             staker2Staked: SuccinctStaking(STAKING).staked(STAKER_2),
-            feeVaultBalance: IERC20(PROVE).balanceOf(FEE_VAULT),
+            feeVaultBalance: IERC20(PROVE).balanceOf(TREASURY),
             vappBalance: IERC20(PROVE).balanceOf(VAPP)
         });
     }
@@ -51,7 +51,7 @@ contract SuccinctStakingFulfillmentTests is SuccinctStakingTest {
 
         // Simulate withdrawals from VApp to make actual token transfers
         // Withdraw actual balances instead of expected amounts to avoid rounding issues
-        uint256 actualProtocolFee = _withdrawFullBalanceFromVApp(FEE_VAULT);
+        uint256 actualProtocolFee = _withdrawFullBalanceFromVApp(TREASURY);
         uint256 actualOwnerReward = _withdrawFullBalanceFromVApp(ALICE);
         uint256 actualStakerReward = _withdrawFullBalanceFromVApp(ALICE_PROVER);
 
@@ -63,8 +63,8 @@ contract SuccinctStakingFulfillmentTests is SuccinctStakingTest {
         // Check that Alice (prover owner) received her portion of the reward
         assertEq(IERC20(PROVE).balanceOf(ALICE), before.aliceBalance + actualOwnerReward);
 
-        // Check that protocol fee was transferred to FEE_VAULT
-        assertEq(IERC20(PROVE).balanceOf(FEE_VAULT), before.feeVaultBalance + actualProtocolFee);
+        // Check that protocol fee was transferred to TREASURY
+        assertEq(IERC20(PROVE).balanceOf(TREASURY), before.feeVaultBalance + actualProtocolFee);
 
         // Staker should have the reward, but should still be staked
         assertEq(IERC20(PROVE).balanceOf(STAKER_1), 0);
@@ -94,7 +94,7 @@ contract SuccinctStakingFulfillmentTests is SuccinctStakingTest {
         MockVApp(VAPP).processFulfillment(ALICE_PROVER, rewardAmount);
 
         // Simulate withdrawals from VApp to make actual token transfers
-        _withdrawFromVApp(FEE_VAULT, expectedProtocolFee);
+        _withdrawFromVApp(TREASURY, expectedProtocolFee);
         _withdrawFromVApp(ALICE, expectedOwnerReward);
         _withdrawFromVApp(ALICE_PROVER, expectedStakerReward);
 
@@ -107,8 +107,8 @@ contract SuccinctStakingFulfillmentTests is SuccinctStakingTest {
         // Check that Alice (prover owner) received her portion of the reward
         assertEq(IERC20(PROVE).balanceOf(ALICE), before.aliceBalance + expectedOwnerReward);
 
-        // Check that protocol fee was transferred to FEE_VAULT
-        assertEq(IERC20(PROVE).balanceOf(FEE_VAULT), before.feeVaultBalance + expectedProtocolFee);
+        // Check that protocol fee was transferred to TREASURY
+        assertEq(IERC20(PROVE).balanceOf(TREASURY), before.feeVaultBalance + expectedProtocolFee);
 
         // Complete unstake process
         _completeUnstake(STAKER_1, stakeAmount);
@@ -140,7 +140,7 @@ contract SuccinctStakingFulfillmentTests is SuccinctStakingTest {
         MockVApp(VAPP).processFulfillment(ALICE_PROVER, rewardAmount);
 
         // Simulate withdrawals from VApp to make actual token transfers
-        _withdrawFromVApp(FEE_VAULT, expectedProtocolFee);
+        _withdrawFromVApp(TREASURY, expectedProtocolFee);
         _withdrawFromVApp(ALICE, expectedOwnerReward);
         _withdrawFromVApp(ALICE_PROVER, expectedStakerReward);
 
@@ -153,8 +153,8 @@ contract SuccinctStakingFulfillmentTests is SuccinctStakingTest {
         // Check that Alice (prover owner) received her portion of the reward
         assertEq(IERC20(PROVE).balanceOf(ALICE), before.aliceBalance + expectedOwnerReward);
 
-        // Check that protocol fee was transferred to FEE_VAULT
-        assertEq(IERC20(PROVE).balanceOf(FEE_VAULT), before.feeVaultBalance + expectedProtocolFee);
+        // Check that protocol fee was transferred to TREASURY
+        assertEq(IERC20(PROVE).balanceOf(TREASURY), before.feeVaultBalance + expectedProtocolFee);
 
         // Complete partial unstake process
         _completeUnstake(STAKER_1, unstakeAmount);
@@ -191,7 +191,7 @@ contract SuccinctStakingFulfillmentTests is SuccinctStakingTest {
         MockVApp(VAPP).processFulfillment(ALICE_PROVER, rewardAmount);
 
         // Simulate withdrawals from VApp to make actual token transfers
-        _withdrawFromVApp(FEE_VAULT, expectedProtocolFee);
+        _withdrawFromVApp(TREASURY, expectedProtocolFee);
         _withdrawFromVApp(ALICE, expectedOwnerReward);
         _withdrawFromVApp(ALICE_PROVER, expectedStakerReward);
 
@@ -205,8 +205,8 @@ contract SuccinctStakingFulfillmentTests is SuccinctStakingTest {
         // Check that Alice (prover owner) received her portion of the reward
         assertEq(IERC20(PROVE).balanceOf(ALICE), before.aliceBalance + expectedOwnerReward);
 
-        // Check that protocol fee was transferred to FEE_VAULT
-        assertEq(IERC20(PROVE).balanceOf(FEE_VAULT), before.feeVaultBalance + expectedProtocolFee);
+        // Check that protocol fee was transferred to TREASURY
+        assertEq(IERC20(PROVE).balanceOf(TREASURY), before.feeVaultBalance + expectedProtocolFee);
 
         // Complete unstake process for both stakers
         _completeUnstake(STAKER_1, stakeAmount1);
@@ -241,7 +241,7 @@ contract SuccinctStakingFulfillmentTests is SuccinctStakingTest {
         MockVApp(VAPP).processFulfillment(ALICE_PROVER, rewardAmount);
 
         // Simulate withdrawals from VApp to make actual token transfers
-        _withdrawFromVApp(FEE_VAULT, expectedProtocolFee);
+        _withdrawFromVApp(TREASURY, expectedProtocolFee);
         _withdrawFromVApp(ALICE, expectedOwnerReward);
         _withdrawFromVApp(ALICE_PROVER, expectedStakerReward);
 
@@ -254,9 +254,9 @@ contract SuccinctStakingFulfillmentTests is SuccinctStakingTest {
         // Check that Alice (prover owner) received her portion of the reward
         assertEq(IERC20(PROVE).balanceOf(ALICE), beforeReward.aliceBalance + expectedOwnerReward);
 
-        // Check that protocol fee was transferred to FEE_VAULT
+        // Check that protocol fee was transferred to TREASURY
         assertEq(
-            IERC20(PROVE).balanceOf(FEE_VAULT), beforeReward.feeVaultBalance + expectedProtocolFee
+            IERC20(PROVE).balanceOf(TREASURY), beforeReward.feeVaultBalance + expectedProtocolFee
         );
 
         // Staker 2 to Alice prover
@@ -300,15 +300,15 @@ contract SuccinctStakingFulfillmentTests is SuccinctStakingTest {
         MockVApp(VAPP).processFulfillment(ALICE_PROVER, rewardAmount);
 
         // Simulate withdrawals from VApp to make actual token transfers
-        _withdrawFromVApp(FEE_VAULT, expectedProtocolFee);
+        _withdrawFromVApp(TREASURY, expectedProtocolFee);
         _withdrawFromVApp(ALICE, expectedOwnerReward);
         _withdrawFromVApp(ALICE_PROVER, expectedStakerReward);
 
         // Check that Alice (prover owner) received her portion of the reward
         assertEq(IERC20(PROVE).balanceOf(ALICE), before.aliceBalance + expectedOwnerReward);
 
-        // Check that protocol fee was transferred to FEE_VAULT
-        assertEq(IERC20(PROVE).balanceOf(FEE_VAULT), before.feeVaultBalance + expectedProtocolFee);
+        // Check that protocol fee was transferred to TREASURY
+        assertEq(IERC20(PROVE).balanceOf(TREASURY), before.feeVaultBalance + expectedProtocolFee);
 
         // Unstake
         uint256 staked1 = SuccinctStaking(STAKING).balanceOf(STAKER_1);
@@ -359,7 +359,7 @@ contract SuccinctStakingFulfillmentTests is SuccinctStakingTest {
         MockVApp(VAPP).processFulfillment(BOB_PROVER, rewardAmount2);
 
         // Simulate withdrawals from VApp to make actual token transfers
-        _withdrawFromVApp(FEE_VAULT, expectedProtocolFee1 + expectedProtocolFee2);
+        _withdrawFromVApp(TREASURY, expectedProtocolFee1 + expectedProtocolFee2);
         _withdrawFromVApp(ALICE, expectedOwnerReward1);
         _withdrawFromVApp(BOB, expectedOwnerReward2);
         _withdrawFromVApp(ALICE_PROVER, expectedStakerReward1);
@@ -379,9 +379,9 @@ contract SuccinctStakingFulfillmentTests is SuccinctStakingTest {
         assertEq(IERC20(PROVE).balanceOf(ALICE), before.aliceBalance + expectedOwnerReward1);
         assertEq(IERC20(PROVE).balanceOf(BOB), before.bobBalance + expectedOwnerReward2);
 
-        // Check that protocol fees were transferred to FEE_VAULT
+        // Check that protocol fees were transferred to TREASURY
         assertEq(
-            IERC20(PROVE).balanceOf(FEE_VAULT),
+            IERC20(PROVE).balanceOf(TREASURY),
             before.feeVaultBalance + expectedProtocolFee1 + expectedProtocolFee2
         );
 
@@ -430,7 +430,7 @@ contract SuccinctStakingFulfillmentTests is SuccinctStakingTest {
             _calculateFullRewardSplit(rewardAmount);
 
         // Withdraw rewards only if amounts are non-zero
-        if (protocolFee > 0) _withdrawFromVApp(FEE_VAULT, protocolFee);
+        if (protocolFee > 0) _withdrawFromVApp(TREASURY, protocolFee);
         if (ownerReward > 0) _withdrawFromVApp(ALICE, ownerReward);
         if (stakerReward > 0) _withdrawFromVApp(ALICE_PROVER, stakerReward);
 
@@ -461,7 +461,7 @@ contract SuccinctStakingFulfillmentTests is SuccinctStakingTest {
         // Calculate and withdraw
         (uint256 protocolFee, uint256 stakerReward, uint256 ownerReward) =
             _calculateFullRewardSplit(rewardAmount);
-        _withdrawFromVApp(FEE_VAULT, protocolFee);
+        _withdrawFromVApp(TREASURY, protocolFee);
         _withdrawFromVApp(ALICE, ownerReward);
         _withdrawFromVApp(ALICE_PROVER, stakerReward);
 
@@ -499,7 +499,7 @@ contract SuccinctStakingFulfillmentTests is SuccinctStakingTest {
         // Calculate and withdraw
         (uint256 protocolFee, uint256 stakerReward, uint256 ownerReward) =
             _calculateFullRewardSplit(rewardAmount);
-        _withdrawFromVApp(FEE_VAULT, protocolFee);
+        _withdrawFromVApp(TREASURY, protocolFee);
         _withdrawFromVApp(ALICE, ownerReward);
         _withdrawFromVApp(ALICE_PROVER, stakerReward);
 
@@ -547,7 +547,7 @@ contract SuccinctStakingFulfillmentTests is SuccinctStakingTest {
         uint256 expectedOwnerReward = afterProtocolFee - expectedStakerReward;
 
         // Withdraw and verify (only withdraw if amounts are non-zero)
-        if (expectedProtocolFee > 0) _withdrawFromVApp(FEE_VAULT, expectedProtocolFee);
+        if (expectedProtocolFee > 0) _withdrawFromVApp(TREASURY, expectedProtocolFee);
         if (expectedOwnerReward > 0) _withdrawFromVApp(customProverOwner, expectedOwnerReward);
         if (expectedStakerReward > 0) _withdrawFromVApp(customProver, expectedStakerReward);
 

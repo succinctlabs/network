@@ -56,7 +56,7 @@ contract SuccinctVAppTest is Test, FixtureLoader {
 
     // Contracts
     address public VERIFIER;
-    address public FEE_VAULT;
+    address public TREASURY;
     address public PROVE;
     address public I_PROVE;
     address public VAPP;
@@ -86,14 +86,9 @@ contract SuccinctVAppTest is Test, FixtureLoader {
         VKEY = jsonFixture.vkey;
         GENESIS_STATE_ROOT = fixture.oldRoot;
 
-        // Create owner
-
-        // TODO: Fix these
-        // OWNER = makeAddr("OWNER");
-        // AUCTIONEER = makeAddr("AUCTIONEER");
-
-        OWNER = address(this);
-        AUCTIONEER = address(this);
+        // Create EOAs
+        OWNER = makeAddr("OWNER");
+        AUCTIONEER = makeAddr("AUCTIONEER");
         DISPENSER = makeAddr("DISPENSER");
         ALICE = makeAddr("ALICE");
         BOB = makeAddr("BOB");
@@ -106,8 +101,8 @@ contract SuccinctVAppTest is Test, FixtureLoader {
         // Deploy verifier
         VERIFIER = address(new MockVerifier());
 
-        // Deploy fee vault (just an EOA for testing)
-        FEE_VAULT = makeAddr("FEE_VAULT");
+        // Deploy treasury
+        TREASURY = makeAddr("TREASURY");
 
         // Deploy tokens
         PROVE = address(new MockERC20("Succinct", "PROVE", 18));

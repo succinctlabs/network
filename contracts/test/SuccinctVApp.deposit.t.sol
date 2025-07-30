@@ -64,6 +64,7 @@ contract SuccinctVAppDepositTest is SuccinctVAppTest {
         vm.expectEmit(true, true, true, true);
         emit ISuccinctVApp.Block(1, publicValues.oldRoot, publicValues.newRoot);
 
+        vm.prank(AUCTIONEER);
         SuccinctVApp(VAPP).step(abi.encode(publicValues), jsonFixture.proof);
 
         // Verify receipt status updated
@@ -84,6 +85,7 @@ contract SuccinctVAppDepositTest is SuccinctVAppTest {
         bytes memory data = abi.encode(DepositAction({account: REQUESTER_1, amount: amount}));
         vm.expectEmit(true, true, true, true);
         emit ISuccinctVApp.TransactionPending(1, TransactionVariant.Deposit, data);
+        vm.prank(REQUESTER_1);
         SuccinctVApp(VAPP).permitAndDeposit(REQUESTER_1, amount, block.timestamp + 1 days, v, r, s);
 
         assertEq(MockERC20(PROVE).balanceOf(REQUESTER_1), 0);
@@ -113,6 +115,7 @@ contract SuccinctVAppDepositTest is SuccinctVAppTest {
         vm.expectEmit(true, true, true, true);
         emit ISuccinctVApp.Block(1, publicValues.oldRoot, publicValues.newRoot);
 
+        vm.prank(AUCTIONEER);
         SuccinctVApp(VAPP).step(abi.encode(publicValues), jsonFixture.proof);
 
         // Verify receipt status updated

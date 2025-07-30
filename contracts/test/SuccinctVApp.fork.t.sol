@@ -19,6 +19,7 @@ contract SuccinctVAppForkTest is SuccinctVAppTest {
         vm.expectEmit(true, true, true, true);
         emit ISuccinctVApp.Block(1, fixture.oldRoot, newRoot);
 
+        vm.prank(OWNER);
         (uint64 newblock, bytes32 returnedOldRoot, bytes32 returnedNewRoot) =
             SuccinctVApp(VAPP).fork(newVkey, newRoot);
 
@@ -41,6 +42,7 @@ contract SuccinctVAppForkTest is SuccinctVAppTest {
             timestamp: uint64(block.timestamp)
         });
 
+        vm.prank(AUCTIONEER);
         SuccinctVApp(VAPP).step(abi.encode(publicValues1), jsonFixture.proof);
 
         assertEq(SuccinctVApp(VAPP).blockNumber(), 1);
@@ -58,6 +60,7 @@ contract SuccinctVAppForkTest is SuccinctVAppTest {
         vm.expectEmit(true, true, true, true);
         emit ISuccinctVApp.Block(2, oldRoot, newRoot);
 
+        vm.prank(OWNER);
         (uint64 newBlock, bytes32 returnedOldRoot, bytes32 returnedNewRoot) =
             SuccinctVApp(VAPP).fork(newVkey, newRoot);
 
