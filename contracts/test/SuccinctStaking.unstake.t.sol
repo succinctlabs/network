@@ -1562,15 +1562,15 @@ contract SuccinctStakingUnstakeTests is SuccinctStakingTest {
     }
 
     // Various request counts and slash scenarios have correct balance changes.
-    function testFuzz_UnstakePending_CorrectnessWith20Requests(uint256 _seed) public {
+    function testFuzz_UnstakePending_CorrectnessWithMaxRequests(uint256 _seed) public {
         vm.assume(_seed > 0);
 
         uint256 stakeAmount = STAKER_PROVE_AMOUNT * 2;
         deal(PROVE, STAKER_1, stakeAmount);
         _stake(STAKER_1, ALICE_PROVER, stakeAmount);
 
-        // Create variable number of requests (1-20)
-        uint256 numRequests = (_seed % 20) + 1;
+        // Create variable number of requests (1-MAX_UNSTAKE_REQUESTS)
+        uint256 numRequests = (_seed % MAX_UNSTAKE_REQUESTS) + 1;
         // Use smaller divisor to ensure we have enough balance even with slashing
         uint256 baseRequestAmount = stakeAmount / (numRequests * 3); // More conservative
 
