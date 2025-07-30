@@ -803,15 +803,8 @@ contract SuccinctStakingDispenseTests is SuccinctStakingTest {
         skip(UNSTAKE_PERIOD);
         uint256 receivedAmount = _finishUnstake(STAKER_1);
 
-        // IMPORTANT: The current implementation gives unstakers their proportional share of
-        // dispense rewards that occur AFTER their unstake request. This may not be the intended
-        // behavior according to the documentation, but it's what's happening.
-
-        // The _dispense() function only dispenses the requested amount, not the full accumulation
-        // The unstaker owns unstakePercent% of the stake, so they get that percentage of rewards
-        uint256 expectedReceived = unstakeAmount + (dispenseAmount * unstakePercent) / 100;
-
         // Allow for 1 wei rounding error due to integer division in share calculations
+        uint256 expectedReceived = unstakeAmount + (dispenseAmount * unstakePercent) / 100;
         assertApproxEqAbs(receivedAmount, expectedReceived, 1);
 
         // Verify the remaining stake got their proportional share of dispense rewards
