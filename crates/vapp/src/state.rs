@@ -57,10 +57,6 @@ pub struct VAppState<A: Storage<Address, Account>, R: Storage<RequestId, bool>> 
     ///
     /// Keeps track of which request IDs have been processed to avoid replay attacks.
     pub transactions: R,
-    /// The treasury address.
-    ///
-    /// Fees earned by the protocol are sent to this address.
-    pub treasury: Address,
 }
 
 impl VAppState<MerkleStorage<Address, Account>, MerkleStorage<RequestId, bool>> {
@@ -74,7 +70,6 @@ impl VAppState<MerkleStorage<Address, Account>, MerkleStorage<RequestId, bool>> 
             onchainLogIndex: self.onchain_log_index,
             accountsRoot: self.accounts.root(),
             transactionsRoot: self.transactions.root(),
-            treasury: self.treasury,
         };
         H::hash(&state)
     }
@@ -92,7 +87,6 @@ impl VAppState<SparseStorage<Address, Account>, SparseStorage<RequestId, bool>> 
             onchainLogIndex: self.onchain_log_index,
             accountsRoot: account_root,
             transactionsRoot: transactions_root,
-            treasury: self.treasury,
         };
         H::hash(&state)
     }
@@ -101,7 +95,7 @@ impl VAppState<SparseStorage<Address, Account>, SparseStorage<RequestId, bool>> 
 impl<A: Storage<Address, Account>, R: Storage<RequestId, bool>> VAppState<A, R> {
     /// Creates a new [`VAppState`].
     #[must_use]
-    pub fn new(domain: B256, treasury: Address) -> Self {
+    pub fn new(domain: B256) -> Self {
         Self {
             domain,
             tx_id: 1,
@@ -110,7 +104,6 @@ impl<A: Storage<Address, Account>, R: Storage<RequestId, bool>> VAppState<A, R> 
             onchain_log_index: 0,
             accounts: A::new(),
             transactions: R::new(),
-            treasury,
         }
     }
 
@@ -734,8 +727,11 @@ impl<A: Storage<Address, Account>, R: Storage<RequestId, bool>> VAppState<A, R> 
                     // Deduct the punishment from the requester.
                     self.accounts.entry(request_signer)?.or_default().deduct_balance(punishment)?;
 
+                    // Parse the treasury address from the request.
+                    let treasury = address(request.treasury.as_slice())?;
+
                     // Send the punishment to the treasury
-                    self.accounts.entry(self.treasury)?.or_default().add_balance(punishment)?;
+                    self.accounts.entry(treasury)?.or_default().add_balance(punishment)?;
 
                     // Set the transaction as processed.
                     self.transactions.insert(request_id, true)?;
@@ -898,7 +894,7 @@ impl<A: Storage<Address, Account>, R: Storage<RequestId, bool>> VAppState<A, R> 
                 self.accounts.entry(request_signer)?.or_default().deduct_balance(cost)?;
 
                 // Get the protocol fee.
-                let protocol_address = self.treasury;
+                let treasury = address(request.treasury.as_slice())?;
                 let protocol_fee_bips = PROTOCOL_FEE_BIPS;
 
                 // Get the staker fee from the prover account.
@@ -912,11 +908,8 @@ impl<A: Storage<Address, Account>, R: Storage<RequestId, bool>> VAppState<A, R> 
                 let (protocol_fee, prover_staker_fee, prover_owner_fee) =
                     fee(cost, protocol_fee_bips, staker_fee_bips)?;
 
-                info!(
-                    "├── Account({}): + {} $PROVE (Protocol Fee)",
-                    protocol_address, protocol_fee
-                );
-                self.accounts.entry(protocol_address)?.or_default().add_balance(protocol_fee)?;
+                info!("├── Account({}): + {} $PROVE (Protocol Fee)", treasury, protocol_fee);
+                self.accounts.entry(treasury)?.or_default().add_balance(protocol_fee)?;
 
                 info!(
                     "├── Account({}): + {} $PROVE (Staker Reward)",

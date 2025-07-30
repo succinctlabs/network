@@ -384,7 +384,11 @@ async fn fail_request<C: NodeContext>(ctx: &C, request_id: Vec<u8>) -> Result<()
                     .nonce;
 
                 // Create and submit the fail request.
-                let body = FailFulfillmentRequestBody { nonce, request_id: request_id.clone() };
+                let body = FailFulfillmentRequestBody {
+                    nonce,
+                    request_id: request_id.clone(),
+                    error: None,
+                };
                 let fail_request = FailFulfillmentRequest {
                     format: MessageFormat::Binary.into(),
                     signature: body.sign(&ctx.signer()).into(),

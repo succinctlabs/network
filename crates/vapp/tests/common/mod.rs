@@ -71,11 +71,10 @@ pub fn timestamp() -> i64 {
 #[must_use]
 pub fn setup() -> VAppTestContext {
     let domain = *SPN_SEPOLIA_V1_DOMAIN;
-    let treasury = signer("treasury");
     let auctioneer = signer("auctioneer");
     let executor = signer("executor");
     let verifier = signer("verifier");
-    let state = VAppState::new(domain, treasury.address());
+    let state = VAppState::new(domain);
     VAppTestContext {
         state,
         auctioneer,
@@ -591,6 +590,7 @@ pub fn create_clear_tx_with_options(
         base_fee: base_fee.unwrap_or("0").to_string(),
         max_price_per_pgu: max_price_per_pgu.unwrap_or("100000").to_string(),
         variant: TransactionVariant::RequestVariant as i32,
+        treasury: signer("treasury").address().to_vec(),
     };
 
     // Compute the request ID from the request body and signer.
@@ -901,6 +901,7 @@ pub fn create_clear_tx_with_public_values_hash(
         base_fee: "0".to_string(),
         max_price_per_pgu: "100000".to_string(),
         variant: TransactionVariant::RequestVariant as i32,
+        treasury: signer("treasury").address().to_vec(),
     };
 
     // Compute the request ID from the request body and signer.
