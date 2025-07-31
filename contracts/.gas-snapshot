@@ -1,5 +1,5 @@
 SuccinctGovernorTest:test_Cancel_WhenValid() (gas: 448124)
-SuccinctGovernorTest:test_Execute_WhenSlashNoIndexShift() (gas: 1208694)
+SuccinctGovernorTest:test_Execute_WhenSlashNoIndexShift() (gas: 1209428)
 SuccinctGovernorTest:test_Propose_WhenValid() (gas: 553589)
 SuccinctGovernorTest:test_RevertCancel_WhenNotProverOwner() (gas: 437851)
 SuccinctGovernorTest:test_RevertCastVote_WhenNotProverOwner() (gas: 445491)
