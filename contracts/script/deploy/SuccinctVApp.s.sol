@@ -3,16 +3,11 @@ pragma solidity ^0.8.28;
 
 import {BaseScript} from "../utils/Base.s.sol";
 import {SuccinctVApp} from "../../src/SuccinctVApp.sol";
-import {FixtureLoader, ProofFixtureJson, Fixture} from "../../test/utils/FixtureLoader.sol";
 import {ERC1967Proxy} from
     "../../lib/openzeppelin-contracts/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 
-contract SuccinctVAppScript is BaseScript, FixtureLoader {
+contract SuccinctVAppScript is BaseScript {
     string internal constant KEY = "VAPP";
-
-    // Get from the corresponding chain deployment here:
-    // https://github.com/succinctlabs/sp1-contracts/tree/main/contracts/deployments
-    address internal SP1_VERIFIER_GATEWAY_GROTH16 = 0x397A5f7f3dBd538f23DE225B51f532c34448dA9B;
 
     function run() external broadcaster {
         // Read config
@@ -22,31 +17,36 @@ contract SuccinctVAppScript is BaseScript, FixtureLoader {
         address I_PROVE = readAddress("I_PROVE");
         address AUCTIONEER = readAddress("AUCTIONEER");
         address STAKING = readAddress("STAKING");
-        address VERIFIER = SP1_VERIFIER_GATEWAY_GROTH16;
+        address VERIFIER = readAddress("VERIFIER");
         uint256 MIN_DEPOSIT_AMOUNT = readUint256("MIN_DEPOSIT_AMOUNT");
+        bytes32 VKEY = readBytes32("VKEY");
+        bytes32 GENESIS_STATE_ROOT = readBytes32("GENESIS_STATE_ROOT");
 
-        // Load fixture
-        ProofFixtureJson memory fixture = loadFixture(vm, Fixture.Groth16);
-        bytes32 VKEY = fixture.vkey;
+        // Encode the initialize function call data
+        bytes memory initData = abi.encodeCall(
+            SuccinctVApp.initialize,
+            (
+                OWNER,
+                PROVE,
+                I_PROVE,
+                AUCTIONEER,
+                STAKING,
+                VERIFIER,
+                MIN_DEPOSIT_AMOUNT,
+                VKEY,
+                GENESIS_STATE_ROOT
+            )
+        );
 
         // Deploy contract
-        address vappImpl = address(new SuccinctVApp{salt: salt}());
-        address VAPP =
-            address(SuccinctVApp(payable(address(new ERC1967Proxy{salt: salt}(vappImpl, "")))));
-        SuccinctVApp(VAPP).initialize(
-            OWNER,
-            PROVE,
-            I_PROVE,
-            AUCTIONEER,
-            STAKING,
-            VERIFIER,
-            MIN_DEPOSIT_AMOUNT,
-            VKEY,
-            bytes32(uint256(0))
+        address VAPP_IMPL = address(new SuccinctVApp{salt: salt}());
+        address VAPP = address(
+            SuccinctVApp(payable(address(new ERC1967Proxy{salt: salt}(VAPP_IMPL, initData))))
         );
 
         // Write address
         writeAddress(KEY, VAPP);
+        writeAddress(string.concat(KEY, "_IMPL"), VAPP_IMPL);
     }
 
     function upgrade() external broadcaster {
@@ -55,9 +55,10 @@ contract SuccinctVAppScript is BaseScript, FixtureLoader {
         address PROXY = readAddress(KEY);
 
         // Deploy contract
-        address vappImpl = address(new SuccinctVApp{salt: salt}());
-        SuccinctVApp(payable(PROXY)).upgradeToAndCall(vappImpl, "");
+        address VAPP_IMPL = address(new SuccinctVApp{salt: salt}());
+        SuccinctVApp(payable(PROXY)).upgradeToAndCall(VAPP_IMPL, "");
 
-        // Proxy adress is still the same
+        // Proxy adress is still the same, only update the implementation
+        writeAddress(string.concat(KEY, "_IMPL"), VAPP_IMPL);
     }
 }

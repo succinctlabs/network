@@ -62,6 +62,17 @@ Then add a `{CHAIN_ID}.json` file in the [deployments](./deployments) directory 
 CHAIN_ID=$(cast chain-id --rpc-url $ETH_RPC_URL); mkdir -p ./deployments && [ -f "./deployments/${CHAIN_ID}.json" ] || echo '{}' > "./deployments/${CHAIN_ID}.json"
 ```
 
+Then you should add the `VKEY` and `GENESIS_STATE_ROOT` to the `{CHAIN_ID}.json` file:
+
+```json
+{
+  "VKEY": "0x004988f252500633b4d3d369b3726d5bdacfbe35236b36eb2d487af3742c905e",
+  "GENESIS_STATE_ROOT": "0xc88159adb4da01a67b90803d48a35fbf7f457572b61377e5d4b090c89488b838"
+}
+```
+
+Ensure these match the actual vkey and genesis state root for the Rust vApp program.
+
 Note: the production version of these contracts were deployed using foundry [v1.3.0](https://github.com/foundry-rs/foundry/releases/tag/v1.3.0).
 
 ### Bulk deployment
@@ -82,10 +93,12 @@ Instead of deploying all contracts at once, it's recommended to deploy each cont
 
 #### Pre-deployed contracts
 
-Fill out `{CHAIN_ID}.json` with any pre-deployed contracts. For example:
+Fill out `{CHAIN_ID}.json` with any pre-deployed contracts. For example, if there is an existing `PROVE` and `VERIFIER` those keys would be filled:
 
 ```json
 {
+  "VKEY": "0x004988f252500633b4d3d369b3726d5bdacfbe35236b36eb2d487af3742c905e",
+  "GENESIS_STATE_ROOT": "0xc88159adb4da01a67b90803d48a35fbf7f457572b61377e5d4b090c89488b838",
   "PROVE": "0x6BEF15D938d4E72056AC92Ea4bDD0D76B1C4ad29",
   "VERIFIER": "0x397A5f7f3dBd538f23DE225B51f532c34448dA9B"
 }
@@ -99,7 +112,7 @@ Deploy the SuccinctStaking contract:
 FOUNDRY_PROFILE=deploy forge script SuccinctStakingScript --private-key $PRIVATE_KEY --broadcast --rpc-url $ETH_RPC_URL --verify --verifier etherscan --etherscan-api-key $ETHERSCAN_API_KEY
 ```
 
-Note DOES NOT initalize the contract - this will be done in a later step once references to other contracts are available.
+This DOES NOT initalize the contract - this will be done in a later step once references to other contracts are available.
 
 Deploy the $iPROVE contract (assumes $PROVE is already deployed):
 
@@ -113,23 +126,24 @@ Deploy the SuccinctGovernor contract:
 FOUNDRY_PROFILE=deploy forge script SuccinctGovernorScript --private-key $PRIVATE_KEY --broadcast --rpc-url $ETH_RPC_URL --verify --verifier etherscan --etherscan-api-key $ETHERSCAN_API_KEY
 ```
 
-Deploy the SuccinctVApp contract (assumes verifier is already deployed):
+Deploy the SuccinctVApp implementation and proxy contracts (assumes verifier is already deployed):
 
 ```sh
 FOUNDRY_PROFILE=deploy forge script SuccinctVAppScript --private-key $PRIVATE_KEY --broadcast --rpc-url $ETH_RPC_URL --verify --verifier etherscan --etherscan-api-key $ETHERSCAN_API_KEY
 ```
+
 If the SP1VerifierGateway is not already deployed, follow steps in [sp1-contracts](https://github.com/succinctlabs/sp1-contracts) to deploy it and fill out the address in your `{CHAIN_ID}.json` file.
 
 Initalize the SuccinctStaking contract:
 
 ```sh
-FOUNDRY_PROFILE=deploy forge script SuccinctVAppScript --sig "initialize()" --private-key $PRIVATE_KEY --broadcast --rpc-url $ETH_RPC_URL
+FOUNDRY_PROFILE=deploy forge script SuccinctStakingScript --sig "initialize()" --private-key $PRIVATE_KEY --broadcast --rpc-url $ETH_RPC_URL
 ```
 
 Run the integrity check:
 
 ```sh
-TODO this should do `setUp` checks and make sure no vApp upgrades occured.
+FOUNDRY_PROFILE=deploy forge script PostDeploymentScript --rpc-url $ETH_RPC_URL
 ```
 
 If that passes without reverting, the contracts have been successfully deployed and initalized. The addresses are in the `{CHAIN_ID}.json` file.
@@ -154,7 +168,7 @@ Copy the output into the "Contract Code" field.
 
 Then enter the compiler settings from the [foundry.toml](./foundry.toml) file's `[profile.deploy]` section.
 
-If any constructor arguements were used, use `cast abi-encode` with the appropriate signature to encode them, for example:
+If any constructor arguements were used but not shown in the "Constructor Arguments" field, use `cast abi-encode` with the appropriate signature to encode them, for example:
 
 ```sh
 cast abi-encode "constructor(address)" 0xbD74E9B0Dcb0317E26505CA93757c29d564B533B
