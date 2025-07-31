@@ -170,13 +170,23 @@ interface ISuccinctVApp {
             bytes memory data
         );
 
-    /// @notice Deposit funds into the vApp, must have already approved the contract as a spender.
+    /// @notice Deposit $PROVE into the prover network, must have already approved the contract as
+    ///         a spender. The depositing account is credited with the $PROVE. Do not deposit with a
+    ///         multisig or contract account, as funds will be unrecoverable on the prover network.
+    /// @dev Because the prover network does not support contracts, only secp256k1 ECDSA EOAs can
+    ///      interact with this balance. Therefor only EOAs should call this function, and funds
+    ///      should only ever be transferred between EOAs on the prover network.
     /// @param amount The amount of $PROVE to deposit.
     /// @return receipt The receipt for the deposit.
     function deposit(uint256 amount) external returns (uint64 receipt);
 
-    /// @notice Approve and deposit $PROVE in a single call using a permit signature.
+    /// @notice Approve and deposit $PROVE in a single call using a permit signature. The depositing
+    ///         account is credited with the $PROVE. Do not deposit with a multisig or contract
+    ///         account, as funds will be unrecoverable on the prover network.
     /// @dev Assumes $PROVE implements permit (https://eips.ethereum.org/EIPS/eip-2612).
+    ///      Because the prover network does not support contracts, only secp256k1 ECDSA EOAs can
+    ///      interact with this balance. Therefor only EOAs should call this function, and funds
+    ///      should only ever be transferred between EOAs on the prover network.
     /// @param from The address to spend the $PROVE from. Must correspond to the signer of the permit
     /// signature.
     /// @param amount The amount of $PROVE to spend for the deposit.
