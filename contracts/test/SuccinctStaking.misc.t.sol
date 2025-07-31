@@ -10,7 +10,6 @@ import {IERC20} from "../lib/openzeppelin-contracts/contracts/interfaces/IERC20.
 import {IERC4626} from "../lib/openzeppelin-contracts/contracts/interfaces/IERC4626.sol";
 import {ERC20Permit} from
     "../lib/openzeppelin-contracts/contracts/token/ERC20/extensions/ERC20Permit.sol";
-import {Math} from "../lib/openzeppelin-contracts/contracts/utils/math/Math.sol";
 
 // Possible combinations of functionality not covered in functionality-specific test files.
 contract SuccinctStakingMiscellaneousTests is SuccinctStakingTest {
