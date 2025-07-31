@@ -1,15 +1,13 @@
 // SPDX‑License‑Identifier: MIT
 pragma solidity ^0.8.28;
 
+import {Test} from "../../lib/forge-std/src/Test.sol";
 import {BaseScript} from "../utils/Base.s.sol";
-
 import {SuccinctVApp} from "../../src/SuccinctVApp.sol";
 import {SuccinctStaking} from "../../src/SuccinctStaking.sol";
 import {SuccinctGovernor} from "../../src/SuccinctGovernor.sol";
 import {IIntermediateSuccinct} from "../../src/tokens/IntermediateSuccinct.sol";
 import {IERC4626} from "../../lib/openzeppelin-contracts/contracts/interfaces/IERC4626.sol";
-
-import "forge-std/Test.sol";
 
 /// @notice Reverts if any deployment invariant is violated or the contracts are
 ///         not in the expected state after deployment.
