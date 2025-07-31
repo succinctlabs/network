@@ -62,122 +62,102 @@ Then add a `{CHAIN_ID}.json` file in the [deployments](./deployments) directory 
 CHAIN_ID=$(cast chain-id --rpc-url $ETH_RPC_URL); mkdir -p ./deployments && [ -f "./deployments/${CHAIN_ID}.json" ] || echo '{}' > "./deployments/${CHAIN_ID}.json"
 ```
 
-### Run the scripts
+Note: the production version of these contracts were deployed using foundry [v1.3.0](https://github.com/foundry-rs/foundry/releases/tag/v1.3.0).
 
-Deploy all contracts:
+### Bulk deployment
+
+This should generally only be used for testing.
+
+Deploy all contracts at once:
 
 ```sh
 FOUNDRY_PROFILE=deploy forge script AllScript --private-key $PRIVATE_KEY --broadcast --rpc-url $ETH_RPC_URL
 ```
 
-Then mint some $PROVE tokens (assuming you made the $OWNER the same as the $PRIVATE_KEY address):
-
-```sh
-FOUNDRY_PROFILE=deploy forge script MintScript --private-key $PRIVATE_KEY --broadcast --rpc-url $ETH_RPC_URL
-```
-
-Then create a prover and stake:
-
-```sh
-FOUNDRY_PROFILE=deploy forge script CreateProverAndStakeScript --private-key $PRIVATE_KEY --broadcast --rpc-url $ETH_RPC_URL
-```
-
 You can append `--verify --verifier etherscan --etherscan-api-key $ETHERSCAN_API_KEY` to the above commands to verify the contracts on Etherscan.
 
-## Other Operations
+### Individual deployment
 
-To run cast commands, you need to set the environment variables to the addresses of the contracts you deployed, by looking at the [deployments](./deployments) directory.
+Instead of deploying all contracts at once, it's recommended to deploy each contract individually for production deployments.
 
-```sh
-CHAIN_ID=$(cast chain-id --rpc-url "$ETH_RPC_URL") && export $(jq -r 'to_entries|map("\(.key)=\(.value)")|.[]' ./deployments/${CHAIN_ID}.json) >/dev/null
+#### Pre-deployed contracts
+
+Fill out `{CHAIN_ID}.json` with any pre-deployed contracts. For example:
+
+```json
+{
+  "PROVE": "0x6BEF15D938d4E72056AC92Ea4bDD0D76B1C4ad29",
+  "VERIFIER": "0x397A5f7f3dBd538f23DE225B51f532c34448dA9B"
+}
 ```
 
-### Deposit
+#### Deploy each contract
+
+Deploy the SuccinctStaking contract:
 
 ```sh
-cast send $PROVE "approve(address,uint256)" $VAPP 10000000e18 --private-key $PRIVATE_KEY --rpc-url $ETH_RPC_URL
+FOUNDRY_PROFILE=deploy forge script SuccinctStakingScript --private-key $PRIVATE_KEY --broadcast --rpc-url $ETH_RPC_URL --verify --verifier etherscan --etherscan-api-key $ETHERSCAN_API_KEY
 ```
+
+Note DOES NOT initalize the contract - this will be done in a later step once references to other contracts are available.
+
+Deploy the $iPROVE contract (assumes $PROVE is already deployed):
 
 ```sh
-cast send $VAPP "deposit(uint256)" 10000000e18 --private-key $PRIVATE_KEY --rpc-url $ETH_RPC_URL
+FOUNDRY_PROFILE=deploy forge script IntermediateSuccinctScript --private-key $PRIVATE_KEY --broadcast --rpc-url $ETH_RPC_URL --verify --verifier etherscan --etherscan-api-key $ETHERSCAN_API_KEY
 ```
 
-### Withdraw
+Deploy the SuccinctGovernor contract:
 
 ```sh
-cast send $VAPP "requestWithdraw(address,uint256)" $(cast wallet address --private-key $PRIVATE_KEY) 100e18 --private-key $PRIVATE_KEY --rpc-url $ETH_RPC_URL
+FOUNDRY_PROFILE=deploy forge script SuccinctGovernorScript --private-key $PRIVATE_KEY --broadcast --rpc-url $ETH_RPC_URL --verify --verifier etherscan --etherscan-api-key $ETHERSCAN_API_KEY
 ```
 
-You need to wait for the withdrawal to be processed before you can finish it:
+Deploy the SuccinctVApp contract (assumes verifier is already deployed):
 
 ```sh
-if [ $(cast call $VAPP "claimableWithdrawal(address)" $(cast wallet address --private-key $PRIVATE_KEY) --rpc-url $ETH_RPC_URL) -gt 0 ]; then
- cast send $VAPP "finishWithdraw()" --private-key $PRIVATE_KEY --rpc-url $ETH_RPC_URL
-fi
+FOUNDRY_PROFILE=deploy forge script SuccinctVAppScript --private-key $PRIVATE_KEY --broadcast --rpc-url $ETH_RPC_URL --verify --verifier etherscan --etherscan-api-key $ETHERSCAN_API_KEY
 ```
+If the SP1VerifierGateway is not already deployed, follow steps in [sp1-contracts](https://github.com/succinctlabs/sp1-contracts) to deploy it and fill out the address in your `{CHAIN_ID}.json` file.
 
-### Create a Prover
+Initalize the SuccinctStaking contract:
 
 ```sh
-cast send $STAKING "createProver()" $(cast wallet address --private-key $PRIVATE_KEY) --private-key $PRIVATE_KEY --rpc-url $ETH_RPC_URL
+FOUNDRY_PROFILE=deploy forge script SuccinctVAppScript --sig "initialize()" --private-key $PRIVATE_KEY --broadcast --rpc-url $ETH_RPC_URL
 ```
 
-### Stake
+Run the integrity check:
 
 ```sh
-cast send $PROVE "approve(address,uint256)" $STAKING 10000e18 --private-key $PRIVATE_KEY --rpc-url $ETH_RPC_URL
+TODO this should do `setUp` checks and make sure no vApp upgrades occured.
 ```
+
+If that passes without reverting, the contracts have been successfully deployed and initalized. The addresses are in the `{CHAIN_ID}.json` file.
+
+## Verification
+
+If any of the contracts failed to verify on Etherscan, you can manually verify them by copying the the flatten source code and uploading it to Etherscan.
+
+To do this, go to the address on Etherscan and click "Verify Contract". Choose:
+
+* Compiler: "Solidity (Single File)"
+* Compiler Version: "0.8.28"
+* License: "MIT"
+
+Then flatten the contract you're verifying, for example the SuccinctStaking contract:
 
 ```sh
-cast send $STAKING "stake(address,uint256)" $PROVER 9990e18 --private-key $PRIVATE_KEY --rpc-url $ETH_RPC_URL
+forge flatten src/SuccinctStaking.sol
 ```
 
-### Unstake
+Copy the output into the "Contract Code" field.
+
+Then enter the compiler settings from the [foundry.toml](./foundry.toml) file's `[profile.deploy]` section.
+
+If any constructor arguements were used, use `cast abi-encode` with the appropriate signature to encode them, for example:
 
 ```sh
-cast send $STAKING "requestUnstake(uint256)" 2000e18 --private-key $PRIVATE_KEY --rpc-url $ETH_RPC_URL
+cast abi-encode "constructor(address)" 0xbD74E9B0Dcb0317E26505CA93757c29d564B533B
 ```
 
-```sh
-cast send $STAKING "finishUnstake()" --private-key $PRIVATE_KEY --rpc-url $ETH_RPC_URL
-```
-
-### Dispense
-
-Figure out the maximum amount of $PROVE that can be dispensed:
-
-```sh
-export DISPENSE_AMOUNT=$(cast call $STAKING "maxDispense()" --rpc-url $ETH_RPC_URL)
-```
-
-Send some $PROVE to the $STAKING contract (assumes your balance is enough):
-
-```sh
-cast send $PROVE "transfer(address,uint256)" $STAKING $DISPENSE_AMOUNT --private-key $PRIVATE_KEY --rpc-url $ETH_RPC_URL
-```
-
-Dispense it:
-
-```sh
-cast send $STAKING "dispense(uint256)" $DISPENSE_AMOUNT --private-key $PRIVATE_KEY --rpc-url $ETH_RPC_URL
-```
-
-OR just simply dispense the maximum amount:
-
-```sh
-cast send $STAKING "dispense(uint256)" $(cast max-uint) --private-key $PRIVATE_KEY --rpc-url $ETH_RPC_URL
-```
-
-### Check stake balances
-
-Staker:
-
-```sh
-cast to-dec $(cast call $STAKING "staked(address)" $(cast wallet address --private-key $PRIVATE_KEY) --rpc-url $ETH_RPC_URL)
-```
-
-Prover:
-
-```sh
-cast to-dec $(cast call $STAKING "proverStaked(address)" $PROVER --rpc-url $ETH_RPC_URL)
-```
+strip the `0x` prefix from this output and paste it into the "Constructor Arguments" field.

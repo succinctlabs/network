@@ -1,4 +1,4 @@
-# Design
+# Contract Design
 
 This document describes the Succinct Prover Network contracts in detail.
 
