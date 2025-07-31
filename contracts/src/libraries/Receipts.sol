@@ -3,10 +3,8 @@ pragma solidity ^0.8.28;
 
 import {
     TransactionVariant,
-    TransactionStatus,
     Transaction,
     DepositAction,
-    WithdrawAction,
     CreateProverAction,
     Receipt
 } from "./PublicValues.sol";

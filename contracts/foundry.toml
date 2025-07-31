@@ -9,8 +9,9 @@ fs_permissions = [
 	{ access = "read-write", path = "./deployments" },
 ]
 
-[profile.lint]
-exclude_lints = ["mixed-case-variable", "mixed-case-function", "screaming-snake-case-immutable"]
+[lint]
+lint_on_build = false
+exclude_lints = ["mixed-case-variable", "mixed-case-function", "screaming-snake-case-immutable", "unwrapped-modifier-logic"]
 
 [profile.deploy]
 optimizer = true

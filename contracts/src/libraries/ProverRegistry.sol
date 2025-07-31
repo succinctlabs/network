@@ -7,7 +7,6 @@ import {IProverRegistry} from "../interfaces/IProverRegistry.sol";
 import {ISuccinctVApp} from "../interfaces/ISuccinctVApp.sol";
 import {Create2} from "../../lib/openzeppelin-contracts/contracts/utils/Create2.sol";
 import {IERC20} from "../../lib/openzeppelin-contracts/contracts/interfaces/IERC20.sol";
-import {IERC4626} from "../../lib/openzeppelin-contracts/contracts/interfaces/IERC4626.sol";
 import {Math} from "../../lib/openzeppelin-contracts/contracts/utils/math/Math.sol";
 
 /// @title ProverRegistry
