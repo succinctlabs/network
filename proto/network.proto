@@ -97,8 +97,6 @@ service ProverNetwork {
   // Get the balance logs that meet the filter criteria.
   rpc GetFilteredBalanceLogs(types.GetFilteredBalanceLogsRequest)
       returns (types.GetFilteredBalanceLogsResponse) {}
-  // Add credit to an account.
-  rpc AddCredit(types.AddCreditRequest) returns (types.AddCreditResponse) {}
   // Get the latest processed block in the bridge.
   rpc GetLatestBridgeBlock(types.GetLatestBridgeBlockRequest)
       returns (types.GetLatestBridgeBlockResponse) {}
@@ -106,37 +104,16 @@ service ProverNetwork {
   rpc GetGasPriceEstimate(types.GetGasPriceEstimateRequest) returns (types.GetGasPriceEstimateResponse) {}
   // Get the details of a transaction.
   rpc GetTransactionDetails(types.GetTransactionDetailsRequest) returns (types.GetTransactionDetailsResponse) {}
-  // Add a charge to an account.
-  rpc AddReservedCharge(types.AddReservedChargeRequest) returns (types.AddReservedChargeResponse) {}
-  // Get prorated billing summary by month for a specified payer.
-  rpc GetBillingSummary(types.GetBillingSummaryRequest) returns (types.GetBillingSummaryResponse) {}
-  // Update the charge type price for a reservation.
-  rpc UpdatePrice(types.UpdatePriceRequest) returns (types.UpdatePriceResponse) {}
-  // Get filtered and paginated clusters/fulfillers with prices.
-  rpc GetFilteredClusters(types.GetFilteredClustersRequest) returns (types.GetFilteredClustersResponse) {}
-  // Get usage summary by month for a specified payer.
-  rpc GetUsageSummary(types.GetUsageSummaryRequest) returns (types.GetUsageSummaryResponse) {}
   // Transfer $PROVE from one account to another.
   rpc Transfer(types.TransferRequest) returns (types.TransferResponse) {}
+  // Get transfer parameters.
+  rpc GetTransferParams(types.GetTransferParamsRequest)
+      returns (types.GetTransferParamsResponse) {}
   // Get withdraw parameters.
   rpc GetWithdrawParams(types.GetWithdrawParamsRequest)
       returns (types.GetWithdrawParamsResponse) {}
   // Withdraw $PROVE from an account.
   rpc Withdraw(types.WithdrawRequest) returns (types.WithdrawResponse) {}
-
-  /*
-   * Reservations
-   *
-   * These methods are for managing reservations.
-   */
-
-  // Get the reservations that meet the filter criteria.
-  rpc GetFilteredReservations(types.GetFilteredReservationsRequest)
-      returns (types.GetFilteredReservationsResponse) {}
-  // Add a reservation for a requester.
-  rpc AddReservation(types.AddReservationRequest) returns (types.AddReservationResponse) {}
-  // Remove a reservation for a requester.
-  rpc RemoveReservation(types.RemoveReservationRequest) returns (types.RemoveReservationResponse) {}
 
   /*
    * Auction
@@ -152,162 +129,26 @@ service ProverNetwork {
   rpc Settle(types.SettleRequest) returns (types.SettleResponse) {}
   // Get the provers that have historically had reliable uptime.
   rpc GetProversByUptime(types.GetProversByUptimeRequest) returns (types.GetProversByUptimeResponse) {}
-
+  // Get settleable proof requests that have passed auction period and have bids.
+  rpc GetFilteredSettleableRequests(types.GetFilteredSettleableRequestsRequest)
+      returns (types.GetFilteredSettleableRequestsResponse) {}
+  // Get suspendable provers that have recently failed proofs.
+  rpc GetFilteredSuspendableProvers(types.GetFilteredSuspendableProversRequest)
+      returns (types.GetFilteredSuspendableProversResponse) {}
+  // Suspend a prover.
+  rpc SuspendProver(types.SuspendProverRequest)
+      returns (types.SuspendProverResponse) {}
 
   /*
-   * Leaderboard
+   * Frontend
    *
-   * These methods are for managing the leaderboard.
+   * These methods are for managing the frontend.
    */
 
   // Sign in with Ethereum
   rpc SignIn(types.SignInRequest) returns (types.SignInResponse) {}
-  // Get the accounts that meet the filter criteria.
-  rpc GetOnboardedAccountsCount(types.GetOnboardedAccountsCountRequest) returns (types.GetOnboardedAccountsCountResponse) {}
-  // Get the accounts that have joined the leaderboard.
-  rpc GetFilteredOnboardedAccounts(types.GetFilteredOnboardedAccountsRequest) returns (types.GetFilteredOnboardedAccountsResponse) {}
-  // Get the leaderboard.
-  rpc GetLeaderboard(types.GetLeaderboardRequest) returns (types.GetLeaderboardResponse) {}
-  // Get the leaderboard stats for a given account.
-  rpc GetLeaderboardStats(types.GetLeaderboardStatsRequest) returns (types.GetLeaderboardStatsResponse) {}
-  // Get codes.
-  rpc GetCodes(types.GetCodesRequest) returns (types.GetCodesResponse) {}
-  // Redeem a code.
-  rpc RedeemCode(types.RedeemCodeRequest) returns (types.RedeemCodeResponse) {}
   // Connect a Twitter account.
   rpc ConnectTwitter(types.ConnectTwitterRequest) returns (types.ConnectTwitterResponse) {}
-  // Complete onboarding.
-  rpc CompleteOnboarding(types.CompleteOnboardingRequest) returns (types.CompleteOnboardingResponse) {}
-  // Set if a user should display their Twitter handle.
-  rpc SetUseTwitterHandle(types.SetUseTwitterHandleRequest) returns (types.SetUseTwitterHandleResponse) {}
-  // Set if a user should display their Twitter profile picture.
-  rpc SetUseTwitterImage(types.SetUseTwitterImageRequest) returns (types.SetUseTwitterImageResponse) {}
-  // Request a random proof.
-  rpc RequestRandomProof(types.RequestRandomProofRequest) returns (types.RequestRandomProofResponse) {}
-  // Submit answers for the captcha game.
-  rpc SubmitCaptchaGame(types.SubmitCaptchaGameRequest) returns (types.SubmitCaptchaGameResponse) {}
-  // Redeem stars.
-  rpc RedeemStars(types.RedeemStarsRequest) returns (types.RedeemStarsResponse) {}
-  // Get flappy leaderboard.
-  rpc GetFlappyLeaderboard(types.GetFlappyLeaderboardRequest)
-      returns (types.GetFlappyLeaderboardResponse) {}
-  // Set the turbo game high score.
-  rpc SetTurboHighScore(types.SetTurboHighScoreRequest) returns (types.SetTurboHighScoreResponse) {}
-  // Submit answers for the quiz game.
-  rpc SubmitQuizGame(types.SubmitQuizGameRequest) returns (types.SubmitQuizGameResponse) {}
-  // Get the turbo game leaderboard.
-  rpc GetTurboLeaderboard(types.GetTurboLeaderboardRequest)
-      returns (types.GetTurboLeaderboardResponse) {}
-  // Submit ETH block metadata.
-  rpc SubmitEthBlockMetadata(types.SubmitEthBlockMetadataRequest)
-      returns (types.SubmitEthBlockMetadataResponse) {}
-  // Get ETH block requests that meet the filter criteria.
-  rpc GetFilteredEthBlockRequests(types.GetFilteredEthBlockRequestsRequest)
-      returns (types.GetFilteredEthBlockRequestsResponse) {}
-  // Set the 2048 game high score.
-  rpc Set2048HighScore(types.Set2048HighScoreRequest)
-      returns (types.Set2048HighScoreResponse) {}
-  // Set the volleyball game high score.
-  rpc SetVolleyballHighScore(types.SetVolleyballHighScoreRequest)
-      returns (types.SetVolleyballHighScoreResponse) {}
-  // Get ETH block proof requests metrics.
-  rpc GetEthBlockRequestMetrics(types.GetEthBlockRequestMetricsRequest)
-      returns (types.GetEthBlockRequestMetricsResponse) {}
-  // Set the turbo time trial high score.
-  rpc SetTurboTimeTrialHighScore(types.SetTurboTimeTrialHighScoreRequest)
-      returns (types.SetTurboTimeTrialHighScoreResponse) {}
-  // Set the coin craze high score.
-  rpc SetCoinCrazeHighScore(types.SetCoinCrazeHighScoreRequest)
-      returns (types.SetCoinCrazeHighScoreResponse) {}
-  // Set the lean high score.
-  rpc SetLeanHighScore(types.SetLeanHighScoreRequest)
-      returns (types.SetLeanHighScoreResponse) {}
-  // Set the flow high score.
-  rpc SetFlowHighScore(types.SetFlowHighScoreRequest)
-      returns (types.SetFlowHighScoreResponse) {}
-  // Set the rollup high score.
-  rpc SetRollupHighScore(types.SetRollupHighScoreRequest)
-      returns (types.SetRollupHighScoreResponse) {}
-  // Get the pending stars for an account.
-  rpc GetPendingStars(types.GetPendingStarsRequest)
-      returns (types.GetPendingStarsResponse) {}
-
-  /*
-   * Gpu
-   *
-   * These methods are for managing the prover gpus.
-   */
-
-   // Check if address or social identity is whitelisted.
-   rpc GetWhitelistStatus(types.GetWhitelistStatusRequest)
-      returns (types.GetWhitelistStatusResponse) {}
-   // Claim a gpu.
-   rpc ClaimGpu(types.ClaimGpuRequest)
-      returns (types.ClaimGpuResponse) {}
-   // Set the gpu variant.
-   rpc SetGpuVariant(types.SetGpuVariantRequest)
-      returns (types.SetGpuVariantResponse) {}
-   // Link a whitelisted twitter account.
-   rpc LinkWhitelistedTwitter(types.LinkWhitelistedTwitterRequest)
-      returns (types.LinkWhitelistedTwitterResponse) {}
-  // Retrieve the proving key for your account. Must have claimed a gpu and self-delegated to
-  // yourself.
-  rpc RetrieveProvingKey(types.RetrieveProvingKeyRequest)
-      returns (types.RetrieveProvingKeyResponse) {}
-   // Link a whitelisted github account.
-   rpc LinkWhitelistedGithub(types.LinkWhitelistedGithubRequest)
-      returns (types.LinkWhitelistedGithubResponse) {}
-   // Link a whitelisted discord account.
-   rpc LinkWhitelistedDiscord(types.LinkWhitelistedDiscordRequest)
-      returns (types.LinkWhitelistedDiscordResponse) {}
-  // Get prover leaderboard.
-  rpc GetProverLeaderboard(types.GetProverLeaderboardRequest)
-      returns (types.GetProverLeaderboardResponse) {}
-  // Get filtered gpus.
-  rpc GetFilteredGpus(types.GetFilteredGpusRequest)
-      returns (types.GetFilteredGpusResponse) {}
-   // Set the gpu coordinates.
-   rpc SetGpuCoordinates(types.SetGpuCoordinatesRequest)
-      returns (types.SetGpuCoordinatesResponse) {}
-  // Get points.
-  rpc GetPoints(types.GetPointsRequest)
-      returns (types.GetPointsResponse) {}
-  // Process clicks.
-  rpc ProcessClicks(types.ProcessClicksRequest)
-      returns (types.ProcessClicksResponse) {}
-  // Purchase upgrade.
-  rpc PurchaseUpgrade(types.PurchaseUpgradeRequest)
-      returns (types.PurchaseUpgradeResponse) {}
-  // Place a bet.
-  rpc Bet(types.BetRequest)
-      returns (types.BetResponse) {}
-  // Get the status of a proof contest.
-  rpc GetContestDetails(types.GetContestDetailsRequest)
-      returns (types.GetContestDetailsResponse) {}
-  // Get latest contest id.
-  rpc GetLatestContest(types.GetLatestContestRequest)
-      returns (types.GetLatestContestResponse) {}
-  // Get contest bettors.
-  rpc GetContestBettors(types.GetContestBettorsRequest)
-      returns (types.GetContestBettorsResponse) {}
-  // Get gpu metrics.
-  rpc GetGpuMetrics(types.GetGpuMetricsRequest)
-      returns (types.GetGpuMetricsResponse) {}
-  // Get filtered prover activity.
-  rpc GetFilteredProverActivity(types.GetFilteredProverActivityRequest)
-      returns (types.GetFilteredProverActivityResponse) {}
-  // Get prover metrics.
-  rpc GetProverMetrics(types.GetProverMetricsRequest)
-      returns (types.GetProverMetricsResponse) {}
-  // Get filtered bet history.
-  rpc GetFilteredBetHistory(types.GetFilteredBetHistoryRequest)
-      returns (types.GetFilteredBetHistoryResponse) {}
-  // Get gpu team stats.
-  rpc GetGpuTeamStats(types.GetGpuTeamStatsRequest)
-      returns (types.GetGpuTeamStatsResponse) {}
-  // Get the config values.
-  rpc GetConfigValues(types.GetConfigValuesRequest)
-      returns (types.GetConfigValuesResponse) {}
 
   /*
    * Provers
@@ -323,8 +164,12 @@ service ProverNetwork {
   rpc GetProverStatsDetail(types.GetProverStatsDetailRequest) returns (types.GetProverStatsDetailResponse) {}
   // Get search results for provers
   rpc GetProverSearchResults(types.GetProverSearchResultsRequest) returns (types.GetProverSearchResultsResponse) {}
+  // Search provers by name or address with staking information
+  rpc GetStakingProverSearch(types.GetStakingProverSearchRequest) returns (types.GetStakingProverSearchResponse) {}
   // Get paginated auction history
   rpc GetFilteredBidHistory(types.GetFilteredBidHistoryRequest) returns (types.GetFilteredBidHistoryResponse) {}
+  // Get filtered bid history for a prover with pagination
+  rpc GetFilteredProverBidHistory(types.GetFilteredProverBidHistoryRequest) returns (types.GetFilteredProverBidHistoryResponse) {}
 
   /*
    *
@@ -334,17 +179,6 @@ service ProverNetwork {
    // Check if the user is whitelisted to use the TEE service.
    rpc GetTEEWhitelistStatus(types.GetTEEWhitelistStatusRequest)
       returns (types.GetTEEWhitelistStatusResponse) {}
-
-  /*
-   * Settlement
-   *
-   * These methods are for settling orders to L1.
-   */
-   rpc GetSettlementRequest(types.GetSettlementRequestRequest)
-      returns (types.GetSettlementRequestResponse) {}
-   rpc GetFilteredSettlementRequests(types.GetFilteredSettlementRequestsRequest)
-      returns (types.GetFilteredSettlementRequestsResponse) {}
-
 
   /*
    * Staking
