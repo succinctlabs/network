@@ -28,7 +28,7 @@ done
 # Build the STF program.
 echo "Building STF program..."
 cd programs/vapp/stf
-cargo prove build --elf-name spn-vapp-stf $USE_DOCKER --tag v5.0.5 --output-directory ../../../elf
+cargo prove build --elf-name spn-vapp-stf $USE_DOCKER --tag v5.1.0 --output-directory ../../../elf
 cd ../../..
 echo "Done!"
 echo ""
@@ -36,7 +36,7 @@ echo ""
 # Build the aggregation program.
 echo "Building aggregation program..."
 cd programs/vapp/aggregation
-cargo prove build --elf-name spn-vapp-aggregation $USE_DOCKER --tag v5.0.5 --output-directory ../../../elf
+cargo prove build --elf-name spn-vapp-aggregation $USE_DOCKER --tag v5.1.0 --output-directory ../../../elf
 cd ../../..
 echo "Done!"
 echo ""
