@@ -58,4 +58,4 @@ runs:
         - name: "Install SP1 toolchain"
           shell: bash
           run: |
-              sp1up
+              sp1up --branch dev
