@@ -25,7 +25,8 @@ contract AllScript is BaseScript, FixtureLoader {
         address PROVE = address(new Succinct{salt: salt}(OWNER));
         address I_PROVE = address(new IntermediateSuccinct{salt: salt}(PROVE, STAKING));
         address GOVERNOR = _deployGovernor(salt, I_PROVE);
-        (address VERIFIER, address VAPP) = _deployVAppAsProxy(salt, OWNER, PROVE, I_PROVE, STAKING);
+        (address VERIFIER, address VAPP, address VAPP_IMPL) =
+            _deployVAppAsProxy(salt, OWNER, PROVE, I_PROVE, STAKING);
 
         // Initialize staking contract
         _initializeStaking(STAKING, GOVERNOR, VAPP, PROVE, I_PROVE);
@@ -34,6 +35,7 @@ contract AllScript is BaseScript, FixtureLoader {
         writeAddress("STAKING", STAKING);
         writeAddress("VERIFIER", VERIFIER);
         writeAddress("VAPP", VAPP);
+        writeAddress("VAPP_IMPL", VAPP_IMPL);
         writeAddress("PROVE", PROVE);
         writeAddress("I_PROVE", I_PROVE);
         writeAddress("GOVERNOR", GOVERNOR);
@@ -60,14 +62,13 @@ contract AllScript is BaseScript, FixtureLoader {
         address PROVE,
         address I_PROVE,
         address STAKING
-    ) internal returns (address, address) {
+    ) internal returns (address, address, address) {
         // Read config
         address AUCTIONEER = readAddress("AUCTIONEER");
-        address VERIFIER = vm.envOr("VERIFIER", address(0));
+        address VERIFIER = readAddress("VERIFIER");
         uint256 MIN_DEPOSIT_AMOUNT = readUint256("MIN_DEPOSIT_AMOUNT");
-        bytes32 VKEY = bytes32(0x00e76fb5ef418452b5e97124585bafbaeb300468cc863e052341ec81b8daa5d8);
-        bytes32 GENESIS_STATE_ROOT =
-            bytes32(0xde6c5941bbaeab97cabda7eaba5e6dd8b5dfb58cb2fb43238a7e707c6b2c587f);
+        bytes32 VKEY = readBytes32("VKEY");
+        bytes32 GENESIS_STATE_ROOT = readBytes32("GENESIS_STATE_ROOT");
 
         // If the verifier is not provided, deploy the SP1VerifierGateway and add v5.0.0 Groth16 SP1Verifier to it
         if (VERIFIER == address(0)) {
@@ -76,23 +77,29 @@ contract AllScript is BaseScript, FixtureLoader {
             SP1VerifierGateway(VERIFIER).addRoute(groth16);
         }
 
-        // Deploy contract
-        address vappImpl = address(new SuccinctVApp{salt: salt}());
-        address VAPP =
-            address(SuccinctVApp(payable(address(new ERC1967Proxy{salt: salt}(vappImpl, "")))));
-        SuccinctVApp(VAPP).initialize(
-            OWNER,
-            PROVE,
-            I_PROVE,
-            AUCTIONEER,
-            STAKING,
-            VERIFIER,
-            MIN_DEPOSIT_AMOUNT,
-            VKEY,
-            GENESIS_STATE_ROOT
+        // Encode the initialize function call data
+        bytes memory initData = abi.encodeCall(
+            SuccinctVApp.initialize,
+            (
+                OWNER,
+                PROVE,
+                I_PROVE,
+                AUCTIONEER,
+                STAKING,
+                VERIFIER,
+                MIN_DEPOSIT_AMOUNT,
+                VKEY,
+                GENESIS_STATE_ROOT
+            )
         );
 
-        return (VERIFIER, VAPP);
+        // Deploy contract
+        address VAPP_IMPL = address(new SuccinctVApp{salt: salt}());
+        address VAPP = address(
+            SuccinctVApp(payable(address(new ERC1967Proxy{salt: salt}(VAPP_IMPL, initData))))
+        );
+
+        return (VERIFIER, VAPP, VAPP_IMPL);
     }
 
     /// @dev This is a stack-too-deep workaround.
