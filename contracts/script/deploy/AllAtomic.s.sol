@@ -67,7 +67,15 @@ contract AtomicDeployer {
     uint256 public slashCancellationPeriod;
     bytes32 public genesisStateRoot;
 
+    address public deployerOwner;
+
     constructor() {
+        deployerOwner = msg.sender;
+    }
+
+    modifier onlyOwner() {
+        require(msg.sender == deployerOwner);
+        _;
     }
 
     function setParams1(
@@ -77,7 +85,7 @@ contract AtomicDeployer {
         uint32 _votingPeriod,
         uint256 _proposalThreshold,
         uint256 _quorumFraction
-    ) external {
+    ) external onlyOwner {
         stakingImpl = _stakingImpl;
         prove = _prove;
         votingDelay = _votingDelay;
@@ -93,7 +101,7 @@ contract AtomicDeployer {
         address _verifier,
         uint256 _minDepositAmount,
         bytes32 _vkey
-    ) external {
+    ) external onlyOwner {
         vappImpl = _vappImpl;
         owner = _owner;
         auctioneer = _auctioneer;
@@ -109,7 +117,7 @@ contract AtomicDeployer {
         uint256 _unstakePeriod,
         uint256 _slashCancellationPeriod,
         bytes32 _genesisStateRoot
-    ) external {
+    ) external onlyOwner {
         dispenser = _dispenser;
         minStakeAmount = _minStakeAmount;
         maxUnstakeRequests = _maxUnstakeRequests;
@@ -118,7 +126,7 @@ contract AtomicDeployer {
         genesisStateRoot = _genesisStateRoot;
     }
 
-    function deploy(bytes32 salt) external returns (address, address, address, address) {
+    function deploy(bytes32 salt) external onlyOwner returns (address, address, address, address) {
         address STAKING;
         {
             STAKING = address(
