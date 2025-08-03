@@ -289,11 +289,8 @@ contract SuccinctStaking is
         // Get the amount of $stPROVE this staker currently has.
         uint256 stPROVEBalance = balanceOf(msg.sender);
 
-        // Get the amount $stPROVE this staker has in pending unstake claims.
-        uint256 stPROVEClaim = _getUnstakeClaimBalance(msg.sender);
-
         // Check that this staker has enough $stPROVE to unstake this amount.
-        if (stPROVEBalance < stPROVEClaim + _stPROVE) revert InsufficientStakeBalance();
+        if (stPROVEBalance < _stPROVE) revert InsufficientStakeBalance();
 
         // Escrow the $iPROVE.
         uint256 iPROVEEscrow = _escrowUnstakeRequest(msg.sender, prover, _stPROVE);
@@ -311,7 +308,6 @@ contract SuccinctStaking is
         // Record the unstake request.
         unstakeClaims[msg.sender].push(
             UnstakeClaim({
-                stPROVE: _stPROVE,
                 iPROVEEscrow: iPROVEEscrow,
                 slashFactor: pool.slashFactor,
                 timestamp: block.timestamp
@@ -614,7 +610,7 @@ contract SuccinctStaking is
             PROVE = IERC4626(iProve).redeem(iPROVEScaled, _staker, address(this));
         }
 
-        emit Unstake(_staker, _prover, PROVE, iPROVEScaled, _claim.stPROVE);
+        emit Unstake(_staker, _prover, PROVE, iPROVEScaled);
     }
 
     /// @dev Iterate over the unstake claims, processing each one that has passed the unstake
@@ -638,13 +634,6 @@ contract SuccinctStaking is
             } else {
                 i++;
             }
-        }
-    }
-
-    /// @dev Get the $stPROVE sum of all unstake claims for a staker.
-    function _getUnstakeClaimBalance(address _staker) internal view returns (uint256 stPROVE) {
-        for (uint256 i = 0; i < unstakeClaims[_staker].length; i++) {
-            stPROVE += unstakeClaims[_staker][i].stPROVE;
         }
     }
 
