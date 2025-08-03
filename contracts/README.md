@@ -82,7 +82,7 @@ This should generally only be used for testing.
 Deploy all contracts at once:
 
 ```sh
-FOUNDRY_PROFILE=deploy forge script AllScript --private-key $PRIVATE_KEY --broadcast --rpc-url $ETH_RPC_URL
+FOUNDRY_PROFILE=deploy forge script AllScript --broadcast --rpc-url $ETH_RPC_URL --private-key $PRIVATE_KEY --ledger --mnemonic-indexes 0 --sender 0xBaB2c2aF5b91695e65955DA60d63aD1b2aE81126
 ```
 
 You can append `--verify --verifier etherscan --etherscan-api-key $ETHERSCAN_API_KEY` to the above commands to verify the contracts on Etherscan.
@@ -106,12 +106,10 @@ Fill out `{CHAIN_ID}.json` with any pre-deployed contracts. For example, if ther
 
 #### Deploy each contract
 
-The broadcast flag is intentially removed from these scripts so that the predicted addresses are written to the `{CHAIN_ID}.json` file without actually deploying them. This is so that `initialize` functions can be atomically called to avoid [frontrunning attacks](https://dedaub.com/blog/the-cpimp-attack-an-insanely-far-reaching-vulnerability-successfully-mitigated/) on the `initialize` function.
-
 Deploy the SuccinctStaking contract:
 
 ```sh
-FOUNDRY_PROFILE=deploy forge script SuccinctStakingScript --private-key $PRIVATE_KEY --rpc-url $ETH_RPC_URL --verify --verifier etherscan --etherscan-api-key $ETHERSCAN_API_KEY
+FOUNDRY_PROFILE=deploy forge script SuccinctStakingScript --broadcast --rpc-url $ETH_RPC_URL --verify --verifier etherscan --etherscan-api-key $ETHERSCAN_API_KEY --ledger --mnemonic-indexes 0 --sender 0xBaB2c2aF5b91695e65955DA60d63aD1b2aE81126
 ```
 
 This DOES NOT initalize the contract - this will be done in a later step once references to other contracts are available.
@@ -119,24 +117,34 @@ This DOES NOT initalize the contract - this will be done in a later step once re
 Deploy the $iPROVE contract (assumes $PROVE is already deployed):
 
 ```sh
-FOUNDRY_PROFILE=deploy forge script IntermediateSuccinctScript --private-key $PRIVATE_KEY --rpc-url $ETH_RPC_URL --verify --verifier etherscan --etherscan-api-key $ETHERSCAN_API_KEY
+FOUNDRY_PROFILE=deploy forge script IntermediateSuccinctScript --broadcast --rpc-url $ETH_RPC_URL --verify --verifier etherscan --etherscan-api-key $ETHERSCAN_API_KEY --ledger --mnemonic-indexes 0 --sender 0xBaB2c2aF5b91695e65955DA60d63aD1b2aE81126
 ```
 
 Deploy the SuccinctGovernor contract:
 
 ```sh
-FOUNDRY_PROFILE=deploy forge script SuccinctGovernorScript --private-key $PRIVATE_KEY --rpc-url $ETH_RPC_URL --verify --verifier etherscan --etherscan-api-key $ETHERSCAN_API_KEY
+FOUNDRY_PROFILE=deploy forge script SuccinctGovernorScript --broadcast --rpc-url $ETH_RPC_URL --verify --verifier etherscan --etherscan-api-key $ETHERSCAN_API_KEY --ledger --mnemonic-indexes 0 --sender 0xBaB2c2aF5b91695e65955DA60d63aD1b2aE81126
 ```
 
 Deploy the SuccinctVApp implementation and proxy contracts (assumes verifier is already deployed):
 
 ```sh
-FOUNDRY_PROFILE=deploy forge script SuccinctVAppScript --private-key $PRIVATE_KEY --rpc-url $ETH_RPC_URL --verify --verifier etherscan --etherscan-api-key $ETHERSCAN_API_KEY
+FOUNDRY_PROFILE=deploy forge script SuccinctVAppScript --broadcast --rpc-url $ETH_RPC_URL --verify --verifier etherscan --etherscan-api-key $ETHERSCAN_API_KEY --ledger --mnemonic-indexes 0 --sender 0xBaB2c2aF5b91695e65955DA60d63aD1b2aE81126
 ```
 
 If the SP1VerifierGateway is not already deployed, follow steps in [sp1-contracts](https://github.com/succinctlabs/sp1-contracts) to deploy it and fill out the address in your `{CHAIN_ID}.json` file.
 
-At this point, you should have all the predicted addresses in your `{CHAIN_ID}.json` file. You should now re-run these with the `--broadcast` flag to actually deploy the contracts.
+Initalize the SuccinctStaking contract:
+
+```sh
+FOUNDRY_PROFILE=deploy forge script SuccinctStakingScript --sig "initialize()" --broadcast --rpc-url $ETH_RPC_URL --ledger --mnemonic-indexes 0 --sender 0xBaB2c2aF5b91695e65955DA60d63aD1b2aE81126
+```
+
+Create a prover:
+
+```sh
+FOUNDRY_PROFILE=deploy forge script CreateProverAndStakeScript --broadcast --rpc-url $ETH_RPC_URL --ledger --mnemonic-indexes 0 --sender 0xBaB2c2aF5b91695e65955DA60d63aD1b2aE81126
+```
 
 Run the integrity check:
 
