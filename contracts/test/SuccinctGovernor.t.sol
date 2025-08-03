@@ -410,4 +410,96 @@ contract SuccinctGovernorTest is SuccinctStakingTest {
         assertTrue(requests[0].resolved);
         assertTrue(requests[1].resolved);
     }
+
+    // Test governance proposal lifecycle using time-based delays and periods.
+    function test_Propose_WithTimeBasedGovernance() public {
+        // The parameter to be updated.
+        uint256 newDispenseRate = DISPENSE_RATE * 2;
+
+        // Staker stakes to Alice's prover.
+        _stake(STAKER_1, ALICE_PROVER, STAKER_PROVE_AMOUNT);
+
+        // It takes a block for voting power to update.
+        vm.roll(block.number + 1);
+
+        // Alice makes a proposal through her prover contract.
+        address[] memory targets = new address[](1);
+        targets[0] = STAKING;
+        uint256[] memory values = new uint256[](1);
+        values[0] = 0;
+        bytes[] memory calldatas = new bytes[](1);
+        calldatas[0] =
+            abi.encodeWithSelector(SuccinctStaking.updateDispenseRate.selector, newDispenseRate);
+        string memory description =
+            string.concat("Time-based: Update dispense rate to ", Strings.toString(newDispenseRate));
+        bytes32 descriptionHash = keccak256(bytes(description));
+
+        // Record the initial timestamp.
+        uint256 proposalTimestamp = block.timestamp;
+
+        // Alice proposes through her prover contract.
+        vm.prank(ALICE);
+        uint256 proposalId =
+            SuccinctProver(ALICE_PROVER).propose(targets, values, calldatas, description);
+
+        // Proposal should be in Pending state.
+        IGovernor.ProposalState state = SuccinctGovernor(payable(GOVERNOR)).state(proposalId);
+        assertEq(uint8(state), uint8(IGovernor.ProposalState.Pending));
+
+        // Get the voting delay in seconds.
+        uint256 votingDelay = SuccinctGovernor(payable(GOVERNOR)).votingDelay();
+
+        // Advance time just before voting delay expires.
+        vm.warp(proposalTimestamp + votingDelay - 1);
+
+        // Proposal should still be in Pending state.
+        state = SuccinctGovernor(payable(GOVERNOR)).state(proposalId);
+        assertEq(uint8(state), uint8(IGovernor.ProposalState.Pending));
+
+        // Advance time to exactly when voting starts.
+        vm.warp(proposalTimestamp + votingDelay + 1);
+
+        // Proposal should now be in Active state.
+        state = SuccinctGovernor(payable(GOVERNOR)).state(proposalId);
+        assertEq(uint8(state), uint8(IGovernor.ProposalState.Active));
+
+        // Alice votes FOR the proposal.
+        vm.prank(ALICE);
+        SuccinctProver(ALICE_PROVER).castVote(proposalId, 1);
+
+        // Check the votes were recorded.
+        (uint256 againstVotes, uint256 forVotes, uint256 abstainVotes) =
+            SuccinctGovernor(payable(GOVERNOR)).proposalVotes(proposalId);
+        assertEq(forVotes, IERC20(I_PROVE).balanceOf(ALICE_PROVER));
+        assertEq(againstVotes, 0);
+        assertEq(abstainVotes, 0);
+
+        // Get the voting period in seconds.
+        uint256 votingPeriod = SuccinctGovernor(payable(GOVERNOR)).votingPeriod();
+
+        // Advance time just before voting period expires.
+        vm.warp(proposalTimestamp + votingDelay + votingPeriod - 1);
+
+        // Proposal should still be in Active state.
+        state = SuccinctGovernor(payable(GOVERNOR)).state(proposalId);
+        assertEq(uint8(state), uint8(IGovernor.ProposalState.Active));
+
+        // Advance time to after voting period expires.
+        vm.warp(proposalTimestamp + votingDelay + votingPeriod + 1);
+
+        // Proposal should be in Succeeded state.
+        state = SuccinctGovernor(payable(GOVERNOR)).state(proposalId);
+        assertEq(uint8(state), uint8(IGovernor.ProposalState.Succeeded));
+
+        // Execute the proposal.
+        vm.prank(STAKER_1);
+        SuccinctGovernor(payable(GOVERNOR)).execute(targets, values, calldatas, descriptionHash);
+
+        // Proposal should be in Executed state.
+        state = SuccinctGovernor(payable(GOVERNOR)).state(proposalId);
+        assertEq(uint8(state), uint8(IGovernor.ProposalState.Executed));
+
+        // Verify the dispense rate was updated.
+        assertEq(SuccinctStaking(STAKING).dispenseRate(), newDispenseRate);
+    }
 }

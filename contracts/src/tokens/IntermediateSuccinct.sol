@@ -99,6 +99,17 @@ contract IntermediateSuccinct is ERC4626, ERC20Permit, ERC20Votes, IIntermediate
         super._spendAllowance(_owner, _spender, _amount);
     }
 
+    // The following functions are for overriding the clock and clock mode for IERC6372. This
+    // allows governance to be based on time instead of block number.
+
+    function clock() public view override returns (uint48) {
+        return uint48(block.timestamp);
+    }
+
+    function CLOCK_MODE() public pure override returns (string memory) {
+        return "mode=timestamp";
+    }
+
     // The following functions are overrides required by Solidity.
 
     function nonces(address _owner) public view override(ERC20Permit, Nonces) returns (uint256) {
