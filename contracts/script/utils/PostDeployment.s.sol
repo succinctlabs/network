@@ -21,12 +21,14 @@ contract PostDeploymentScript is BaseScript, Test {
         address VAPP = readAddress("VAPP");
         address VAPP_IMPL = readAddress("VAPP_IMPL");
         address STAKING = readAddress("STAKING");
+        address STAKING_IMPL = readAddress("STAKING_IMPL");
         address PROVE = readAddress("PROVE");
         address I_PROVE = readAddress("I_PROVE");
         address GOVERNOR = readAddress("GOVERNOR");
 
         _checkVAppImpl(VAPP, VAPP_IMPL);
         _checkVApp(VAPP, STAKING, PROVE, I_PROVE);
+        _checkStakingImpl(STAKING, STAKING_IMPL);
         _checkStaking(STAKING, VAPP, PROVE, I_PROVE);
         _checkGovernor(GOVERNOR, I_PROVE);
         _checkIProve(I_PROVE, STAKING, PROVE);
@@ -67,6 +69,16 @@ contract PostDeploymentScript is BaseScript, Test {
         assertEq(vapp.finalizedOnchainTxId(), 0);
         assertEq(vapp.root(), GENESIS);
         assertEq(vapp.timestamp(), 0);
+    }
+
+    function _checkStakingImpl(address _staking, address _stakingImpl) internal view {
+        bytes32 implRaw = vm.load(_staking, _IMPL_SLOT);
+        address currentImpl = address(uint160(uint256(implRaw)));
+        assertEq(
+            currentImpl,
+            _stakingImpl,
+            "staking implementation address mismatch (may have been upgraded)"
+        );
     }
 
     function _checkStaking(address _staking, address _vapp, address _prove, address _iProve)
