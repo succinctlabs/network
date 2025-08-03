@@ -60,12 +60,12 @@ contract AtomicDeployer {
     address public verifier;
     uint256 public minDepositAmount;
     bytes32 public vkey;
-    bytes32 public genesisStateRoot;
     address public dispenser;
     uint256 public minStakeAmount;
     uint256 public maxUnstakeRequests;
     uint256 public unstakePeriod;
     uint256 public slashCancellationPeriod;
+    bytes32 public genesisStateRoot;
 
     constructor() {
     }
@@ -107,13 +107,15 @@ contract AtomicDeployer {
         uint256 _minStakeAmount,
         uint256 _maxUnstakeRequests,
         uint256 _unstakePeriod,
-        uint256 _slashCancellationPeriod
+        uint256 _slashCancellationPeriod,
+        bytes32 _genesisStateRoot
     ) external {
         dispenser = _dispenser;
         minStakeAmount = _minStakeAmount;
         maxUnstakeRequests = _maxUnstakeRequests;
         unstakePeriod = _unstakePeriod;
         slashCancellationPeriod = _slashCancellationPeriod;
+        genesisStateRoot = _genesisStateRoot;
     }
 
     function deploy(bytes32 salt) external returns (address, address, address, address) {
@@ -222,18 +224,19 @@ contract AllAtomicScript is BaseScript, FixtureLoader {
                 );
             }
             {
-                bytes32 GENESIS_STATE_ROOT = readBytes32("GENESIS_STATE_ROOT");
                 address DISPENSER = readAddress("DISPENSER");
                 uint256 MIN_STAKE_AMOUNT = readUint256("MIN_STAKE_AMOUNT");
                 uint256 MAX_UNSTAKE_REQUESTS = readUint256("MAX_UNSTAKE_REQUESTS");
                 uint256 UNSTAKE_PERIOD = readUint256("UNSTAKE_PERIOD");
                 uint256 SLASH_CANCELLATION_PERIOD = readUint256("SLASH_CANCELLATION_PERIOD");
+                bytes32 GENESIS_STATE_ROOT = readBytes32("GENESIS_STATE_ROOT");
                 deployer.setParams3(
                     DISPENSER,
                     MIN_STAKE_AMOUNT,
                     MAX_UNSTAKE_REQUESTS,
                     UNSTAKE_PERIOD,
-                    SLASH_CANCELLATION_PERIOD
+                    SLASH_CANCELLATION_PERIOD,
+                    GENESIS_STATE_ROOT
                 );
             }
             (address STAKING, address VAPP, address I_PROVE, address GOVERNOR) = deployer.deploy(salt);
@@ -270,11 +273,7 @@ contract AllAtomicScript is BaseScript, FixtureLoader {
         address OWNER
     ) internal returns (address, address) {
         // Read config
-        address AUCTIONEER = readAddress("AUCTIONEER");
         address VERIFIER = readAddress("VERIFIER");
-        uint256 MIN_DEPOSIT_AMOUNT = readUint256("MIN_DEPOSIT_AMOUNT");
-        bytes32 VKEY = readBytes32("VKEY");
-        bytes32 GENESIS_STATE_ROOT = readBytes32("GENESIS_STATE_ROOT");
 
         // If the verifier is not provided, deploy the SP1VerifierGateway and add v5.0.0 Groth16 SP1Verifier to it
         if (VERIFIER == address(0)) {
