@@ -78,11 +78,6 @@ abstract contract ProverRegistry is IProverRegistry {
     }
 
     /// @inheritdoc IProverRegistry
-    function ownerOf(address _prover) external view override returns (address) {
-        return IProver(_prover).owner();
-    }
-
-    /// @inheritdoc IProverRegistry
     function isProver(address _prover) external view override returns (bool) {
         return provers[_prover];
     }
@@ -98,17 +93,12 @@ abstract contract ProverRegistry is IProverRegistry {
     }
 
     /// @inheritdoc IProverRegistry
-    function hasProver(address _owner) public view override returns (bool) {
-        return ownerToProver[_owner] != address(0);
-    }
-
-    /// @inheritdoc IProverRegistry
     function createProver(uint256 _stakerFeeBips) external override returns (address) {
         if (_stakerFeeBips > 10000) {
             revert InvalidStakerFeeBips();
         }
 
-        if (hasProver(msg.sender)) {
+        if (ownerToProver[msg.sender] != address(0)) {
             revert ProverAlreadyExists();
         }
 

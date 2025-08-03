@@ -114,15 +114,15 @@ contract SuccinctStaking is
         uint256 _slashCancellationPeriod
     ) external initializer {
         // Ensure that parameters critical for functionality are non-zero.
-        if (
-            _owner == address(0) || _governor == address(0) || _vApp == address(0)
-                || _prove == address(0) || _intermediateProve == address(0) || _dispenser == address(0)
-        ) {
-            revert ZeroAddress();
-        }
-        if (_maxUnstakeRequests == 0 || _unstakePeriod == 0 || _slashCancellationPeriod == 0) {
-            revert ZeroAmount();
-        }
+        _requireNonZeroAddress(_owner);
+        _requireNonZeroAddress(_governor);
+        _requireNonZeroAddress(_vApp);
+        _requireNonZeroAddress(_prove);
+        _requireNonZeroAddress(_intermediateProve);
+        _requireNonZeroAddress(_dispenser);
+        _requireNonZeroNumber(_maxUnstakeRequests);
+        _requireNonZeroNumber(_unstakePeriod);
+        _requireNonZeroNumber(_slashCancellationPeriod);
 
         // Setup the initial state.
         __UUPSUpgradeable_init();
@@ -279,7 +279,7 @@ contract SuccinctStaking is
     /// @inheritdoc ISuccinctStaking
     function requestUnstake(uint256 _stPROVE) external override stakingOperation {
         // Ensure unstaking a non-zero amount.
-        if (_stPROVE == 0) revert ZeroAmount();
+        _requireNonZeroNumber(_stPROVE);
 
         // Get the prover that the staker is staked with.
         address prover = stakerToProver[msg.sender];
@@ -289,7 +289,7 @@ contract SuccinctStaking is
         if (unstakeClaims[msg.sender].length >= maxUnstakeRequests) revert TooManyUnstakeRequests();
 
         // Check that this prover is not in the process of being slashed.
-        if (slashClaimCount[prover] > 0) revert ProverHasSlashRequest();
+        _requireProverWithoutSlashRequests(prover);
 
         // Get the amount of $stPROVE this staker currently has.
         uint256 stPROVEBalance = balanceOf(msg.sender);
@@ -333,7 +333,7 @@ contract SuccinctStaking is
         if (claims.length == 0) revert NoUnstakeRequests();
 
         // Check that this prover is not in the process of being slashed.
-        if (slashClaimCount[prover] > 0) revert ProverHasSlashRequest();
+        _requireProverWithoutSlashRequests(prover);
 
         // Process the available unstake claims.
         PROVE += _finishUnstake(_staker, prover, claims);
@@ -367,7 +367,7 @@ contract SuccinctStaking is
         returns (uint256 index)
     {
         // Ensure slashing a non-zero amount.
-        if (_iPROVE == 0) revert ZeroAmount();
+        _requireNonZeroNumber(_iPROVE);
 
         // Create the slash claim.
         index = slashClaims[_prover].length;
@@ -496,7 +496,7 @@ contract SuccinctStaking is
         uint256 amount = _PROVE == type(uint256).max ? available : _PROVE;
 
         // Ensure dispensing a non-zero amount.
-        if (amount == 0) revert ZeroAmount();
+        _requireNonZeroNumber(amount);
 
         // If caller passed a specific number, make sure it doesn't exceed available.
         if (amount > available) revert AmountExceedsAvailableDispense();
@@ -532,7 +532,7 @@ contract SuccinctStaking is
         returns (uint256 stPROVE)
     {
         // Ensure staking a non-zero amount.
-        if (_PROVE == 0) revert ZeroAmount();
+        _requireNonZeroNumber(_PROVE);
 
         // Ensure the staking amount is greater than the minimum stake amount.
         if (_PROVE < minStakeAmount) revert StakeBelowMinimum();
@@ -541,7 +541,7 @@ contract SuccinctStaking is
         if (deactivatedProvers[_prover]) revert ProverNotActive();
 
         // Check that this prover is not in the process of being slashed.
-        if (slashClaimCount[_prover] > 0) revert ProverHasSlashRequest();
+        _requireProverWithoutSlashRequests(_prover);
 
         // Ensure the staker is not already staked with a different prover.
         address existingProver = stakerToProver[_staker];
@@ -661,6 +661,21 @@ contract SuccinctStaking is
         emit DispenseRateUpdate(dispenseRate, _dispenseRate);
 
         dispenseRate = _dispenseRate;
+    }
+
+    /// @dev Thrown if a zero address is passed.
+    function _requireNonZeroAddress(address _address) internal pure {
+        if (_address == address(0)) revert ZeroAddress();
+    }
+
+    /// @dev Thrown if a zero number is passed.
+    function _requireNonZeroNumber(uint256 _number) internal pure {
+        if (_number == 0) revert ZeroAmount();
+    }
+
+    /// @dev Validates that a prover has no pending slash requests.
+    function _requireProverWithoutSlashRequests(address _prover) private view {
+        if (slashClaimCount[_prover] > 0) revert ProverHasSlashRequest();
     }
 
     /// @dev Authorizes an ERC1967 proxy upgrade to a new implementation contract.

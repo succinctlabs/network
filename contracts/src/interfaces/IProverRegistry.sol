@@ -44,11 +44,6 @@ interface IProverRegistry {
     /// @notice The number of provers in the registry.
     function proverCount() external view returns (uint256);
 
-    /// @notice The owner of a given prover.
-    /// @param prover The address of the prover.
-    /// @return The address of the owner.
-    function ownerOf(address prover) external view returns (address);
-
     /// @notice Check if a given address is a prover.
     /// @dev This does not check if the prover is deactivated, use `isDeactivatedProver` to check
     ///      if the prover is deactivated.
@@ -67,11 +62,6 @@ interface IProverRegistry {
     /// @param owner The address of the owner.
     /// @return The address of the prover.
     function getProver(address owner) external view returns (address);
-
-    /// @notice Check if a given address is the owner of a prover.
-    /// @param owner The address of the owner.
-    /// @return True if the address is the owner of a prover, false otherwise.
-    function hasProver(address owner) external view returns (bool);
 
     /// @notice Create a new prover.
     /// @dev The caller becomes the owner of the new prover. Only one prover can be created per
