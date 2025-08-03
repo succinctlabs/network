@@ -712,6 +712,23 @@ contract SuccinctStakingUnstakeTests is SuccinctStakingTest {
         assertEq(pool.iPROVEEscrow, 0, "Escrow should be cleared");
     }
 
+    // Test that you can add more unstake claims as long as you have the $stPROVE balance
+    function test_Unstake_WhenMultipleRequestsSomeToFull() public {
+        uint256 stakeAmount = STAKER_PROVE_AMOUNT;
+        uint256 unstakeAmount1 = stakeAmount * 8 / 10;
+        uint256 unstakeAmount2 = stakeAmount - unstakeAmount1;
+
+        // Stake all tokens
+        _permitAndStake(STAKER_1, STAKER_1_PK, ALICE_PROVER, stakeAmount);
+
+        // First partial unstake for some subset of the stake
+        _requestUnstake(STAKER_1, unstakeAmount1);
+
+        // Second request for the remaining stake
+        vm.prank(STAKER_1);
+        SuccinctStaking(STAKING).requestUnstake(unstakeAmount2);
+    }
+
     function test_RevertUnstake_WhenAmountExceedsBalance() public {
         uint256 stakeAmount = STAKER_PROVE_AMOUNT / 2; // Only stake half of the tokens
         uint256 unstakeAmount = STAKER_PROVE_AMOUNT; // Try to unstake more than staked
