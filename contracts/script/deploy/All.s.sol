@@ -19,14 +19,13 @@ contract AllScript is BaseScript, FixtureLoader {
         // Read config
         bytes32 salt = readBytes32("CREATE2_SALT");
         address OWNER = readAddress("OWNER");
+        address PROVE = readAddress("PROVE");
 
         // Deploy contracts
         (address STAKING, address STAKING_IMPL) = _deployStakingAsProxy(salt);
-        address PROVE = address(new Succinct{salt: salt}(OWNER));
         address I_PROVE = address(new IntermediateSuccinct{salt: salt}(PROVE, STAKING));
         address GOVERNOR = _deployGovernor(salt, I_PROVE);
-        (address VERIFIER, address VAPP, address VAPP_IMPL) =
-            _deployVAppAsProxy(salt, OWNER, PROVE, I_PROVE, STAKING);
+        (address VAPP, address VAPP_IMPL) = _deployVAppAsProxy(salt, OWNER, PROVE, I_PROVE, STAKING);
 
         // Initialize staking contract
         _initializeStaking(OWNER, STAKING, GOVERNOR, VAPP, PROVE, I_PROVE);
@@ -34,10 +33,8 @@ contract AllScript is BaseScript, FixtureLoader {
         // Write addresses
         writeAddress("STAKING", STAKING);
         writeAddress("STAKING_IMPL", STAKING_IMPL);
-        writeAddress("VERIFIER", VERIFIER);
         writeAddress("VAPP", VAPP);
         writeAddress("VAPP_IMPL", VAPP_IMPL);
-        writeAddress("PROVE", PROVE);
         writeAddress("I_PROVE", I_PROVE);
         writeAddress("GOVERNOR", GOVERNOR);
     }
@@ -63,20 +60,13 @@ contract AllScript is BaseScript, FixtureLoader {
         address PROVE,
         address I_PROVE,
         address STAKING
-    ) internal returns (address, address, address) {
+    ) internal returns (address, address) {
         // Read config
         address AUCTIONEER = readAddress("AUCTIONEER");
         address VERIFIER = readAddress("VERIFIER");
         uint256 MIN_DEPOSIT_AMOUNT = readUint256("MIN_DEPOSIT_AMOUNT");
         bytes32 VKEY = readBytes32("VKEY");
         bytes32 GENESIS_STATE_ROOT = readBytes32("GENESIS_STATE_ROOT");
-
-        // If the verifier is not provided, deploy the SP1VerifierGateway and add v5.0.0 Groth16 SP1Verifier to it
-        if (VERIFIER == address(0)) {
-            VERIFIER = address(new SP1VerifierGateway{salt: salt}(OWNER));
-            address groth16 = address(new SP1Verifier{salt: salt}());
-            SP1VerifierGateway(VERIFIER).addRoute(groth16);
-        }
 
         // Encode the initialize function call data
         bytes memory initData = abi.encodeCall(
@@ -100,7 +90,7 @@ contract AllScript is BaseScript, FixtureLoader {
             SuccinctVApp(payable(address(new ERC1967Proxy{salt: salt}(VAPP_IMPL, initData))))
         );
 
-        return (VERIFIER, VAPP, VAPP_IMPL);
+        return (VAPP, VAPP_IMPL);
     }
 
     /// @dev Deploys the staking contract as a proxy but does not initialize it.

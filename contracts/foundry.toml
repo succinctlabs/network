@@ -16,14 +16,10 @@ exclude_lints = ["mixed-case-variable", "mixed-case-function", "screaming-snake-
 [profile.deploy]
 optimizer = true
 optimizer_runs = 100
-bytecode_hash = "none"
-cbor_metadata = false
 
 [profile.fuzz]
 optimizer = true
 optimizer_runs = 100
-bytecode_hash = "none"
-cbor_metadata = false
 runs = 10000
 seed = "0x1234"
 
