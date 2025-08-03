@@ -45,6 +45,9 @@ abstract contract ProverRegistry is IProverRegistry {
     /// @dev A mapping from prover vault to whether it is deactivated.
     mapping(address => bool) internal deactivatedProvers;
 
+    /// @dev This empty reserved space to add new variables without shifting down storage.
+    uint256[10] private __gap;
+
     /// @dev This call must be sent by the VApp contract. This also acts as a check to ensure that the contract
     ///      has been initialized.
     modifier onlyVApp() {

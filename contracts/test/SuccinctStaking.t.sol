@@ -14,6 +14,7 @@ import {IERC20} from "../lib/openzeppelin-contracts/contracts/interfaces/IERC20.
 import {IERC20Permit} from
     "../lib/openzeppelin-contracts/contracts/token/ERC20/extensions/IERC20Permit.sol";
 import {IERC4626} from "../lib/openzeppelin-contracts/contracts/interfaces/IERC4626.sol";
+import {ERC1967Proxy} from "../lib/openzeppelin-contracts/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 
 // Sets up the SuccinctStaking protocol for testing and exposes some useful helper functions.
 contract SuccinctStakingTest is Test {
@@ -79,7 +80,8 @@ contract SuccinctStakingTest is Test {
         TREASURY = makeAddr("TREASURY");
 
         // Deploy Succinct Staking
-        STAKING = address(new SuccinctStaking(OWNER));
+        address STAKING_IMPL = address(new SuccinctStaking());
+        STAKING = address(new ERC1967Proxy(STAKING_IMPL, ""));
 
         // Deploy PROVE
         PROVE = address(new Succinct(OWNER));
@@ -100,6 +102,7 @@ contract SuccinctStakingTest is Test {
         // Initialize Succinct Staking
         vm.prank(OWNER);
         SuccinctStaking(STAKING).initialize(
+            OWNER,
             GOVERNOR,
             VAPP,
             PROVE,
@@ -108,9 +111,12 @@ contract SuccinctStakingTest is Test {
             MIN_STAKE_AMOUNT,
             MAX_UNSTAKE_REQUESTS,
             UNSTAKE_PERIOD,
-            SLASH_CANCELLATION_PERIOD,
-            DISPENSE_RATE
+            SLASH_CANCELLATION_PERIOD
         );
+
+        // Update the dispense rate
+        vm.prank(OWNER);
+        SuccinctStaking(STAKING).updateDispenseRate(DISPENSE_RATE);
 
         // Mint some $PROVE for the staking contract
         deal(PROVE, STAKING, DISPENSE_AMOUNT);

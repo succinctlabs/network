@@ -21,7 +21,7 @@ contract AllScript is BaseScript, FixtureLoader {
         address OWNER = readAddress("OWNER");
 
         // Deploy contracts
-        address STAKING = address(new SuccinctStaking{salt: salt}(OWNER));
+        (address STAKING, address STAKING_IMPL) = _deployStakingAsProxy(salt);
         address PROVE = address(new Succinct{salt: salt}(OWNER));
         address I_PROVE = address(new IntermediateSuccinct{salt: salt}(PROVE, STAKING));
         address GOVERNOR = _deployGovernor(salt, I_PROVE);
@@ -29,10 +29,11 @@ contract AllScript is BaseScript, FixtureLoader {
             _deployVAppAsProxy(salt, OWNER, PROVE, I_PROVE, STAKING);
 
         // Initialize staking contract
-        _initializeStaking(STAKING, GOVERNOR, VAPP, PROVE, I_PROVE);
+        _initializeStaking(OWNER, STAKING, GOVERNOR, VAPP, PROVE, I_PROVE);
 
         // Write addresses
         writeAddress("STAKING", STAKING);
+        writeAddress("STAKING_IMPL", STAKING_IMPL);
         writeAddress("VERIFIER", VERIFIER);
         writeAddress("VAPP", VAPP);
         writeAddress("VAPP_IMPL", VAPP_IMPL);
@@ -102,8 +103,18 @@ contract AllScript is BaseScript, FixtureLoader {
         return (VERIFIER, VAPP, VAPP_IMPL);
     }
 
+    /// @dev Deploys the staking contract as a proxy but does not initialize it.
+    function _deployStakingAsProxy(bytes32 salt) internal returns (address, address) {
+        address STAKING_IMPL = address(new SuccinctStaking{salt: salt}());
+        address STAKING = address(
+            SuccinctStaking(payable(address(new ERC1967Proxy{salt: salt}(STAKING_IMPL, ""))))
+        );
+        return (STAKING, STAKING_IMPL);
+    }
+
     /// @dev This is a stack-too-deep workaround.
     function _initializeStaking(
+        address OWNER,
         address STAKING,
         address GOVERNOR,
         address VAPP,
@@ -115,9 +126,9 @@ contract AllScript is BaseScript, FixtureLoader {
         uint256 MAX_UNSTAKE_REQUESTS = readUint256("MAX_UNSTAKE_REQUESTS");
         uint256 UNSTAKE_PERIOD = readUint256("UNSTAKE_PERIOD");
         uint256 SLASH_CANCELLATION_PERIOD = readUint256("SLASH_CANCELLATION_PERIOD");
-        uint256 DISPENSE_RATE = readUint256("DISPENSE_RATE");
 
         SuccinctStaking(STAKING).initialize(
+            OWNER,
             GOVERNOR,
             VAPP,
             PROVE,
@@ -126,8 +137,7 @@ contract AllScript is BaseScript, FixtureLoader {
             MIN_STAKE_AMOUNT,
             MAX_UNSTAKE_REQUESTS,
             UNSTAKE_PERIOD,
-            SLASH_CANCELLATION_PERIOD,
-            DISPENSE_RATE
+            SLASH_CANCELLATION_PERIOD
         );
     }
 }
