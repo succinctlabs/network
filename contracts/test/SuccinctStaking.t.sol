@@ -79,7 +79,7 @@ contract SuccinctStakingTest is Test {
         TREASURY = makeAddr("TREASURY");
 
         // Deploy Succinct Staking
-        STAKING = address(new SuccinctStaking(OWNER));
+        STAKING = address(new SuccinctStaking());
 
         // Deploy PROVE
         PROVE = address(new Succinct(OWNER));
@@ -100,6 +100,7 @@ contract SuccinctStakingTest is Test {
         // Initialize Succinct Staking
         vm.prank(OWNER);
         SuccinctStaking(STAKING).initialize(
+            OWNER,
             GOVERNOR,
             VAPP,
             PROVE,

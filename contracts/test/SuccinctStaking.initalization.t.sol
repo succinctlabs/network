@@ -8,10 +8,11 @@ import {Initializable} from "../lib/openzeppelin-contracts/contracts/proxy/utils
 
 contract SuccinctStakingInitalizationTests is SuccinctStakingTest {
     function test_RevertInitialize_WhenNotOwner() public {
-        address staking2 = address(new SuccinctStaking(makeAddr("NOT_OWNER")));
+        address staking2 = address(new SuccinctStaking());
         vm.expectRevert(abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, OWNER));
         vm.prank(OWNER);
         SuccinctStaking(staking2).initialize(
+            OWNER,
             GOVERNOR,
             VAPP,
             PROVE,
@@ -29,6 +30,7 @@ contract SuccinctStakingInitalizationTests is SuccinctStakingTest {
         vm.expectRevert(abi.encodeWithSelector(Initializable.InvalidInitialization.selector));
         vm.prank(OWNER);
         SuccinctStaking(STAKING).initialize(
+            OWNER,
             GOVERNOR,
             VAPP,
             PROVE,

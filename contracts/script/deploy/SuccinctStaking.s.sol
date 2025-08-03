@@ -3,9 +3,65 @@ pragma solidity ^0.8.28;
 
 import {BaseScript} from "../utils/Base.s.sol";
 import {SuccinctStaking} from "../../src/SuccinctStaking.sol";
+import {ERC1967Proxy} from
+    "../../lib/openzeppelin-contracts/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 
 contract SuccinctStakingScript is BaseScript {
     string internal constant KEY = "STAKING";
+
+    //     function run() external broadcaster {
+    //         // Read config
+    //         bytes32 salt = readBytes32("CREATE2_SALT");
+    //         address OWNER = readAddress("OWNER");
+    //         address PROVE = readAddress("PROVE");
+    //         address I_PROVE = readAddress("I_PROVE");
+    //         address AUCTIONEER = readAddress("AUCTIONEER");
+    //         address STAKING = readAddress("STAKING");
+    //         address VERIFIER = readAddress("VERIFIER");
+    //         uint256 MIN_DEPOSIT_AMOUNT = readUint256("MIN_DEPOSIT_AMOUNT");
+    //         bytes32 VKEY = readBytes32("VKEY");
+    //         bytes32 GENESIS_STATE_ROOT = readBytes32("GENESIS_STATE_ROOT");
+
+    //         // Encode the initialize function call data
+    //         bytes memory initData = abi.encodeCall(
+    //             SuccinctVApp.initialize,
+    //             (
+    //                 OWNER,
+    //                 PROVE,
+    //                 I_PROVE,
+    //                 AUCTIONEER,
+    //                 STAKING,
+    //                 VERIFIER,
+    //                 MIN_DEPOSIT_AMOUNT,
+    //                 VKEY,
+    //                 GENESIS_STATE_ROOT
+    //             )
+    //         );
+
+    //         // Deploy contract
+    //         address VAPP_IMPL = address(new SuccinctVApp{salt: salt}());
+    //         address VAPP = address(
+    //             SuccinctVApp(payable(address(new ERC1967Proxy{salt: salt}(VAPP_IMPL, initData))))
+    //         );
+
+    //         // Write address
+    //         writeAddress(KEY, VAPP);
+    //         writeAddress(string.concat(KEY, "_IMPL"), VAPP_IMPL);
+    //     }
+
+    //     function upgrade() external broadcaster {
+    //         // Read config
+    //         bytes32 salt = readBytes32("CREATE2_SALT");
+    //         address PROXY = readAddress(KEY);
+
+    //         // Deploy contract
+    //         address VAPP_IMPL = address(new SuccinctVApp{salt: salt}());
+    //         SuccinctVApp(payable(PROXY)).upgradeToAndCall(VAPP_IMPL, "");
+
+    //         // Proxy adress is still the same, only update the implementation
+    //         writeAddress(string.concat(KEY, "_IMPL"), VAPP_IMPL);
+    //     }
+    // }
 
     function run() external broadcaster {
         // Read config
@@ -13,37 +69,13 @@ contract SuccinctStakingScript is BaseScript {
         address OWNER = readAddress("OWNER");
 
         // Deploy contract
-        SuccinctStaking deployed = new SuccinctStaking{salt: salt}(OWNER);
+        address STAKING_IMPL = address(new SuccinctStaking{salt: salt}());
+        address STAKING = address(
+            SuccinctStaking(payable(address(new ERC1967Proxy{salt: salt}(STAKING_IMPL, ""))))
+        );
 
         // Write address
-        writeAddress(KEY, address(deployed));
-    }
-
-    /// @dev Only run this once all of the other contracts are deployed. Script must be ran with OWNER's private key.
-    function initialize() external broadcaster {
-        address STAKING = readAddress(KEY);
-        address GOVERNOR = readAddress("GOVERNOR");
-        address VAPP = readAddress("VAPP");
-        address PROVE = readAddress("PROVE");
-        address I_PROVE = readAddress("I_PROVE");
-        address DISPENSER = readAddress("DISPENSER");
-        uint256 MIN_STAKE_AMOUNT = readUint256("MIN_STAKE_AMOUNT");
-        uint256 MAX_UNSTAKE_REQUESTS = readUint256("MAX_UNSTAKE_REQUESTS");
-        uint256 UNSTAKE_PERIOD = readUint256("UNSTAKE_PERIOD");
-        uint256 SLASH_CANCELLATION_PERIOD = readUint256("SLASH_CANCELLATION_PERIOD");
-        uint256 DISPENSE_RATE = readUint256("DISPENSE_RATE");
-
-        SuccinctStaking(STAKING).initialize(
-            GOVERNOR,
-            VAPP,
-            PROVE,
-            I_PROVE,
-            DISPENSER,
-            MIN_STAKE_AMOUNT,
-            MAX_UNSTAKE_REQUESTS,
-            UNSTAKE_PERIOD,
-            SLASH_CANCELLATION_PERIOD,
-            DISPENSE_RATE
-        );
+        writeAddress(KEY, STAKING);
+        writeAddress(string.concat(KEY, "_IMPL"), STAKING_IMPL);
     }
 }

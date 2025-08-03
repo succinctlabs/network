@@ -7,23 +7,28 @@ import {ISuccinctStaking} from "./interfaces/ISuccinctStaking.sol";
 import {IIntermediateSuccinct} from "./interfaces/IIntermediateSuccinct.sol";
 import {IProver} from "./interfaces/IProver.sol";
 import {SuccinctGovernor} from "./SuccinctGovernor.sol";
-import {Initializable} from "../lib/openzeppelin-contracts/contracts/proxy/utils/Initializable.sol";
-import {Ownable} from "../lib/openzeppelin-contracts/contracts/access/Ownable.sol";
+import {Initializable} from
+    "../lib/openzeppelin-contracts-upgradeable/contracts/proxy/utils/Initializable.sol";
+import {OwnableUpgradeable} from
+    "../lib/openzeppelin-contracts-upgradeable/contracts/access/OwnableUpgradeable.sol";
 import {IERC20} from "../lib/openzeppelin-contracts/contracts/interfaces/IERC20.sol";
 import {IERC20Permit} from
     "../lib/openzeppelin-contracts/contracts/token/ERC20/extensions/IERC20Permit.sol";
 import {IERC4626} from "../lib/openzeppelin-contracts/contracts/interfaces/IERC4626.sol";
 import {SafeERC20} from "../lib/openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol";
 import {Math} from "../lib/openzeppelin-contracts/contracts/utils/math/Math.sol";
+import {UUPSUpgradeable} from
+    "../lib/openzeppelin-contracts/contracts/proxy/utils/UUPSUpgradeable.sol";
 
 /// @title SuccinctStaking
 /// @author Succinct Labs
 /// @notice Manages staking, unstaking, dispensing, and slashing for the Succinct Prover Network.
 contract SuccinctStaking is
     Initializable,
-    Ownable,
+    OwnableUpgradeable,
     ProverRegistry,
     StakedSuccinct,
+    UUPSUpgradeable,
     ISuccinctStaking
 {
     using SafeERC20 for IERC20;
@@ -89,14 +94,15 @@ contract SuccinctStaking is
                               INITIALIZER
     //////////////////////////////////////////////////////////////*/
 
-    /// @dev Only the owner is set in the constructor. This is done because other contracts
-    ///      (e.g. SuccinctVApp) need a reference to this contract, and this contract needs a
-    ///      reference to it. So we deploy this first, then initialize it later.
-    constructor(address _owner) Ownable(_owner) {}
+    /// @custom:oz-upgrades-unsafe-allow constructor
+    constructor() {
+        _disableInitializers();
+    }
 
     /// @dev We don't do this in the constructor because we must deploy this contract
     ///      first.
     function initialize(
+        address _owner,
         address _governor,
         address _vApp,
         address _prove,
@@ -107,11 +113,12 @@ contract SuccinctStaking is
         uint256 _unstakePeriod,
         uint256 _slashCancellationPeriod,
         uint256 _dispenseRate
-    ) external onlyOwner initializer {
+    ) external initializer {
         // Ensure that parameters critical for functionality are non-zero.
         if (
-            _governor == address(0) || _vApp == address(0) || _prove == address(0)
-                || _intermediateProve == address(0) || _dispenser == address(0)
+            _owner == address(0) || _governor == address(0) || _vApp == address(0)
+                || _prove == address(0) || _intermediateProve == address(0)
+                || _dispenser == address(0)
         ) {
             revert ZeroAddress();
         }
@@ -120,6 +127,8 @@ contract SuccinctStaking is
         }
 
         // Setup the initial state.
+        __Ownable_init(_owner);
+        __StakedSuccinct_init();
         __ProverRegistry_init(_governor, _vApp, _prove, _intermediateProve);
         dispenser = _dispenser;
         minStakeAmount = _minStakeAmount;
@@ -657,4 +666,7 @@ contract SuccinctStaking is
 
         dispenseRate = _dispenseRate;
     }
+
+    /// @dev Authorizes an ERC1967 proxy upgrade to a new implementation contract.
+    function _authorizeUpgrade(address _newImplementation) internal override onlyOwner {}
 }
