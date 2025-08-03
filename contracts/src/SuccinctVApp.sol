@@ -130,6 +130,7 @@ contract SuccinctVApp is
         }
 
         // Set the state variables.
+        __UUPSUpgradeable_init();
         __Ownable_init(_owner);
         vkey = _vkey;
         prove = _prove;

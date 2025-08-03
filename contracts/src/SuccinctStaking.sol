@@ -18,7 +18,7 @@ import {IERC4626} from "../lib/openzeppelin-contracts/contracts/interfaces/IERC4
 import {SafeERC20} from "../lib/openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol";
 import {Math} from "../lib/openzeppelin-contracts/contracts/utils/math/Math.sol";
 import {UUPSUpgradeable} from
-    "../lib/openzeppelin-contracts/contracts/proxy/utils/UUPSUpgradeable.sol";
+    "../lib/openzeppelin-contracts-upgradeable/contracts/proxy/utils/UUPSUpgradeable.sol";
 
 /// @title SuccinctStaking
 /// @author Succinct Labs
@@ -125,6 +125,7 @@ contract SuccinctStaking is
         }
 
         // Setup the initial state.
+        __UUPSUpgradeable_init();
         __Ownable_init(_owner);
         __StakedSuccinct_init();
         __ProverRegistry_init(_governor, _vApp, _prove, _intermediateProve);
