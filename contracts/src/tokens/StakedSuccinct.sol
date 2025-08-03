@@ -19,6 +19,9 @@ abstract contract StakedSuccinct is ERC20Upgradeable {
     /// @dev Only true if in the process of staking or unstaking.
     bool internal transient isStakingOperation;
 
+    /// @dev This empty reserved space to add new variables without shifting down storage.
+    uint256[10] private __gap;
+
     modifier stakingOperation() {
         isStakingOperation = true;
         _;
