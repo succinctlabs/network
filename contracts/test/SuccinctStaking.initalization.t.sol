@@ -3,15 +3,13 @@ pragma solidity ^0.8.28;
 
 import {SuccinctStakingTest} from "./SuccinctStaking.t.sol";
 import {SuccinctStaking} from "../src/SuccinctStaking.sol";
-import {Ownable} from "../lib/openzeppelin-contracts/contracts/access/Ownable.sol";
 import {Initializable} from "../lib/openzeppelin-contracts/contracts/proxy/utils/Initializable.sol";
 
 contract SuccinctStakingInitalizationTests is SuccinctStakingTest {
-    function test_RevertInitialize_WhenNotOwner() public {
-        address staking2 = address(new SuccinctStaking());
-        vm.expectRevert(abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, OWNER));
-        vm.prank(OWNER);
-        SuccinctStaking(staking2).initialize(
+    function test_RevertInitialize_WhenNotProxy() public {
+        address stakingImpl = address(new SuccinctStaking());
+        vm.expectRevert(abi.encodeWithSelector(Initializable.InvalidInitialization.selector));
+        SuccinctStaking(stakingImpl).initialize(
             OWNER,
             GOVERNOR,
             VAPP,
@@ -21,8 +19,7 @@ contract SuccinctStakingInitalizationTests is SuccinctStakingTest {
             MIN_STAKE_AMOUNT,
             MAX_UNSTAKE_REQUESTS,
             UNSTAKE_PERIOD,
-            SLASH_CANCELLATION_PERIOD,
-            DISPENSE_RATE
+            SLASH_CANCELLATION_PERIOD
         );
     }
 
@@ -39,8 +36,7 @@ contract SuccinctStakingInitalizationTests is SuccinctStakingTest {
             MIN_STAKE_AMOUNT,
             MAX_UNSTAKE_REQUESTS,
             UNSTAKE_PERIOD,
-            SLASH_CANCELLATION_PERIOD,
-            DISPENSE_RATE
+            SLASH_CANCELLATION_PERIOD
         );
     }
 }

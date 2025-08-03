@@ -111,14 +111,12 @@ contract SuccinctStaking is
         uint256 _minStakeAmount,
         uint256 _maxUnstakeRequests,
         uint256 _unstakePeriod,
-        uint256 _slashCancellationPeriod,
-        uint256 _dispenseRate
+        uint256 _slashCancellationPeriod
     ) external initializer {
         // Ensure that parameters critical for functionality are non-zero.
         if (
             _owner == address(0) || _governor == address(0) || _vApp == address(0)
-                || _prove == address(0) || _intermediateProve == address(0)
-                || _dispenser == address(0)
+                || _prove == address(0) || _intermediateProve == address(0) || _dispenser == address(0)
         ) {
             revert ZeroAddress();
         }
@@ -135,9 +133,6 @@ contract SuccinctStaking is
         maxUnstakeRequests = _maxUnstakeRequests;
         unstakePeriod = _unstakePeriod;
         slashCancellationPeriod = _slashCancellationPeriod;
-
-        // Setup the dispense rate.
-        _updateDispenseRate(_dispenseRate);
 
         // Approve the $iPROVE contract to transfer $PROVE from this contract during stake().
         IERC20(prove).approve(iProve, type(uint256).max);
