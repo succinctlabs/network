@@ -1671,14 +1671,15 @@ contract SuccinctStakingUnstakeTests is SuccinctStakingTest {
         // Stake the tokens
         _stake(STAKER_1, ALICE_PROVER, stakeAmount);
 
-        // The share balance we must decompose
-        uint256 remainingShares = IERC20(STAKING).balanceOf(STAKER_1);
+        // Get the stPROVE balance before unstake
+        uint256 stPROVEOriginalBalance = IERC20(STAKING).balanceOf(STAKER_1);
 
         // Create a random partition of `remainingShares` that:
         // 1. has length numRequests
         // 2. each part >= MIN_STAKE_AMOUNT
         // 3. parts sum == remainingShares
         uint256[] memory parts = new uint256[](numRequests);
+        uint256 remainingShares = stPROVEOriginalBalance;
 
         for (uint256 i = 0; i < numRequests - 1; i++) {
             // Pseudo-random slice in range [MIN, remaining - MIN*(left-1)]
@@ -1701,19 +1702,100 @@ contract SuccinctStakingUnstakeTests is SuccinctStakingTest {
         }
 
         // Perform the unstake requests
-        uint256 runningSum;
+        uint256 requestedUnstakeSum;
         for (uint256 i = 0; i < numRequests; i++) {
-            runningSum += parts[i];
+            requestedUnstakeSum += parts[i];
             _requestUnstake(STAKER_1, parts[i]);
 
-            // Balance after each request must equal stake - runningSum
-            assertEq(IERC20(STAKING).balanceOf(STAKER_1), stakeAmount - runningSum);
+            // stPROVE balance after each request must equal original stPROVE balance - requested unstake sum
+            assertEq(
+                IERC20(STAKING).balanceOf(STAKER_1), stPROVEOriginalBalance - requestedUnstakeSum
+            );
         }
 
         // After all unstake requests, stPROVE balance should be zero
-        assertEq(IERC20(STAKING).balanceOf(STAKER_1), 0, "all shares burned");
+        assertEq(IERC20(STAKING).balanceOf(STAKER_1), 0);
 
-        // Pending unstake should equal the full stake amount
+        // After all unstake requests, pending unstake should equal the full stake amount
+        assertEq(SuccinctStaking(STAKING).unstakePending(STAKER_1), stakeAmount);
+
+        // Finish the unstake and get the full stake amount back
+        skip(UNSTAKE_PERIOD);
+        uint256 received = _finishUnstake(STAKER_1);
+        assertEq(received, stakeAmount);
+    }
+
+    // Tests that any number of unstake requests (up to MAX_UNSTAKE_REQUESTS) can be made as long
+    // as they sum to the staked amount, with time periods between each unstake.
+    function testFuzz_Unstake_MultipleRequestsSumToFullWithTimeBetween(
+        uint256 _seed,
+        uint8 _numRequests,
+        uint256 _stakeAmount,
+        uint256 _maxTimeBetweenRequests
+    ) public {
+        // Constrain test parameters
+        uint256 maxUnstakeRequests = SuccinctStaking(STAKING).maxUnstakeRequests();
+        uint256 numRequests = bound(uint256(_numRequests), 1, maxUnstakeRequests);
+        uint256 stakeAmount = bound(_stakeAmount, MIN_STAKE_AMOUNT * numRequests, 1_000_000e18);
+        uint256 maxTimeBetweenRequests =
+            bound(_maxTimeBetweenRequests, 1, uint256(type(uint32).max));
+
+        // Stake the tokens
+        _stake(STAKER_1, ALICE_PROVER, stakeAmount);
+
+        // Get the stPROVE balance before unstake
+        uint256 stPROVEOriginalBalance = IERC20(STAKING).balanceOf(STAKER_1);
+
+        // Create a random partition of `remainingShares` that:
+        // 1. has length numRequests
+        // 2. each part >= MIN_STAKE_AMOUNT
+        // 3. parts sum == remainingShares
+        uint256[] memory parts = new uint256[](numRequests);
+        uint256 remainingShares = stPROVEOriginalBalance;
+
+        for (uint256 i = 0; i < numRequests - 1; i++) {
+            // Pseudo-random slice in range [MIN, remaining - MIN*(left-1)]
+            uint256 minPart = MIN_STAKE_AMOUNT;
+            uint256 maxPart = remainingShares - minPart * (numRequests - 1 - i);
+            uint256 sliceRaw = uint256(keccak256(abi.encode(_seed, i)));
+            uint256 sliceSize = minPart + (sliceRaw % (maxPart - minPart + 1));
+
+            parts[i] = sliceSize;
+            remainingShares -= sliceSize;
+        }
+        // Last piece is whatever is left
+        parts[numRequests - 1] = remainingShares;
+
+        // Randomize the order of unstake requests
+        uint256 shuffleKey = uint256(keccak256(abi.encode(_seed, "shuffle")));
+        for (uint256 i = 0; i < numRequests; i++) {
+            uint256 j = (shuffleKey >> (i * 8)) % numRequests;
+            (parts[i], parts[j]) = (parts[j], parts[i]);
+        }
+
+        // Perform the unstake requests
+        uint256 requestedUnstakeSum;
+        for (uint256 i = 0; i < numRequests; i++) {
+            requestedUnstakeSum += parts[i];
+            _requestUnstake(STAKER_1, parts[i]);
+
+            // stPROVE balance after each request must equal original stPROVE balance - requested unstake sum
+            assertEq(
+                IERC20(STAKING).balanceOf(STAKER_1), stPROVEOriginalBalance - requestedUnstakeSum
+            );
+
+            // Skip random time between requests (except after the last one)
+            if (i < numRequests - 1) {
+                uint256 timeToSkip =
+                    uint256(keccak256(abi.encode(_seed, "timeSkip", i))) % maxTimeBetweenRequests;
+                skip(timeToSkip);
+            }
+        }
+
+        // After all unstake requests, stPROVE balance should be zero
+        assertEq(IERC20(STAKING).balanceOf(STAKER_1), 0);
+
+        // After all unstake requests, pending unstake should equal the full stake amount
         assertEq(SuccinctStaking(STAKING).unstakePending(STAKER_1), stakeAmount);
 
         // Finish the unstake and get the full stake amount back
