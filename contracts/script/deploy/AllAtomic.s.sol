@@ -42,26 +42,74 @@ struct AtomicDeployerParams {
 }
 
 contract AtomicDeployer {
+     // Staking proxy param
+    address public stakingImpl;
+
+    // IntermediateSuccinct param
+    address public prove;
+
+    // Governor params
+    uint48 public votingDelay;
+    uint32 public votingPeriod;
+    uint256 public proposalThreshold;
+    uint256 public quorumFraction;
+
+    address public vappImpl;
+    address public owner;
+    address public auctioneer;
+    address public verifier;
+    uint256 public minDepositAmount;
+    bytes32 public vkey;
+    bytes32 public genesisStateRoot;
+    address public dispenser;
+    uint256 public minStakeAmount;
+    uint256 public maxUnstakeRequests;
+    uint256 public unstakePeriod;
+    uint256 public slashCancellationPeriod;
+    bytes32 public salt;
+
     constructor() {
     }
 
-    function deploy(AtomicDeployerParams calldata params) external returns (address, address, address, address) {
+    function setParams(AtomicDeployerParams calldata params) external {
+        stakingImpl = params.stakingImpl;
+        prove = params.prove;
+        votingDelay = params.votingDelay;
+        votingPeriod = params.votingPeriod;
+        proposalThreshold = params.proposalThreshold;
+        quorumFraction = params.quorumFraction;
+        vappImpl = params.vappImpl;
+        owner = params.owner;
+        auctioneer = params.auctioneer;
+        verifier = params.verifier;
+        minDepositAmount = params.minDepositAmount;
+        vkey = params.vkey;
+        genesisStateRoot = params.genesisStateRoot;
+        dispenser = params.dispenser;
+        minStakeAmount = params.minStakeAmount;
+        maxUnstakeRequests = params.maxUnstakeRequests;
+        unstakePeriod = params.unstakePeriod;
+        slashCancellationPeriod = params.slashCancellationPeriod;
+        salt = params.salt;
+    }
+
+    function deploy() external returns (address, address, address, address) {
         address STAKING;
         {
             STAKING = address(
-                SuccinctStaking(payable(address(new ERC1967Proxy{salt: params.salt}(params.stakingImpl, ""))))
+                SuccinctStaking(payable(address(new ERC1967Proxy{salt: salt}(stakingImpl, ""))))
             );
         }
 
         address I_PROVE;
         {
-            I_PROVE = address(new IntermediateSuccinct{salt: params.salt}(params.prove, STAKING));
+            I_PROVE = address(new IntermediateSuccinct{salt: salt}(prove, STAKING));
         }
 
         address GOVERNOR;
         {
-            GOVERNOR = address(new SuccinctGovernor{salt: params.salt}(
-                I_PROVE, params.votingDelay, params.votingPeriod, params.proposalThreshold, params.quorumFraction
+            GOVERNOR = address(new SuccinctGovernor{salt: salt}(
+                I_PROVE, votingDelay, votingPeriod, proposalThreshold, quorumFraction
             ));
         }
 
@@ -71,36 +119,36 @@ contract AtomicDeployer {
             bytes memory vappInitData;
             {
                 vappInitData = abi.encodeCall(
-                    SuccinctVApp.initialize,
-                    (
-                        params.owner,
-                        params.prove,
-                        I_PROVE,
-                        params.auctioneer,
-                        STAKING,
-                        params.verifier,
-                        params.minDepositAmount,
-                        params.vkey,
-                        params.genesisStateRoot
-                    )
-                );
+                SuccinctVApp.initialize,
+                (
+                    owner,
+                    prove,
+                    I_PROVE,
+                    auctioneer,
+                    STAKING,
+                    verifier,
+                    minDepositAmount,
+                    vkey,
+                    genesisStateRoot
+                )
+            );
             }
             VAPP = address(
-                SuccinctVApp(payable(address(new ERC1967Proxy{salt: params.salt}(params.vappImpl, vappInitData))))
+                SuccinctVApp(payable(address(new ERC1967Proxy{salt: salt}(vappImpl, vappInitData))))
             );
         }
 
         SuccinctStaking(STAKING).initialize(
-            params.owner,
+            owner,
             GOVERNOR,
             VAPP,
-            params.prove,
+            prove,
             I_PROVE,
-            params.dispenser,
-            params.minStakeAmount,
-            params.maxUnstakeRequests,
-            params.unstakePeriod,
-            params.slashCancellationPeriod
+            dispenser,
+            minStakeAmount,
+            maxUnstakeRequests,
+            unstakePeriod,
+            slashCancellationPeriod
         );
 
         return (STAKING, VAPP, I_PROVE, GOVERNOR);
@@ -135,7 +183,8 @@ contract AllAtomicScript is BaseScript, FixtureLoader {
             uint32 VOTING_PERIOD = readUint32("VOTING_PERIOD");
             uint256 PROPOSAL_THRESHOLD = readUint256("PROPOSAL_THRESHOLD");
             uint256 QUORUM_FRACTION = readUint256("QUORUM_FRACTION");
-            AtomicDeployerParams memory params = AtomicDeployerParams(
+            AtomicDeployer deployer = new AtomicDeployer();
+            deployer.setParams(AtomicDeployerParams(
                 {
                     stakingImpl: STAKING_IMPL,
                     prove: PROVE,
@@ -157,10 +206,8 @@ contract AllAtomicScript is BaseScript, FixtureLoader {
                     slashCancellationPeriod: SLASH_CANCELLATION_PERIOD,
                     salt: salt
                 }
-            );
-            (address STAKING, address VAPP, address I_PROVE, address GOVERNOR) = AtomicDeployer(payable(address(new ERC1967Proxy{salt: salt}(STAKING_IMPL, "")))).deploy(
-                params
-            );
+            ));
+            (address STAKING, address VAPP, address I_PROVE, address GOVERNOR) = deployer.deploy();
             writeAddress("STAKING", STAKING);
             writeAddress("VAPP", VAPP);
             writeAddress("I_PROVE", I_PROVE);
