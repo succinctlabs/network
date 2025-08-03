@@ -308,7 +308,6 @@ contract SuccinctStaking is
         // Record the unstake request.
         unstakeClaims[msg.sender].push(
             UnstakeClaim({
-                stPROVE: _stPROVE,
                 iPROVEEscrow: iPROVEEscrow,
                 slashFactor: pool.slashFactor,
                 timestamp: block.timestamp
@@ -611,7 +610,7 @@ contract SuccinctStaking is
             PROVE = IERC4626(iProve).redeem(iPROVEScaled, _staker, address(this));
         }
 
-        emit Unstake(_staker, _prover, PROVE, iPROVEScaled, _claim.stPROVE);
+        emit Unstake(_staker, _prover, PROVE, iPROVEScaled);
     }
 
     /// @dev Iterate over the unstake claims, processing each one that has passed the unstake

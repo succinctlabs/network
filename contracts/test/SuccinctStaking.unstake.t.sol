@@ -36,6 +36,8 @@ contract SuccinctStakingUnstakeTests is SuccinctStakingTest {
         assertEq(poolBefore.slashFactor, 0, "Slash factor should be 0 before init");
 
         // Step 1: Submit unstake request
+        vm.expectEmit(true, true, true, true);
+        emit ISuccinctStaking.UnstakeRequest(STAKER_1, ALICE_PROVER, stakeAmount, stakeAmount);
         _requestUnstake(STAKER_1, stakeAmount);
 
         // After request unstake: stPROVE burned, iPROVE escrowed
@@ -65,7 +67,7 @@ contract SuccinctStakingUnstakeTests is SuccinctStakingTest {
         skip(UNSTAKE_PERIOD);
 
         vm.expectEmit(true, true, true, true);
-        emit ISuccinctStaking.Unstake(STAKER_1, ALICE_PROVER, stakeAmount, stakeAmount, stakeAmount);
+        emit ISuccinctStaking.Unstake(STAKER_1, ALICE_PROVER, stakeAmount, stakeAmount);
         vm.expectEmit(true, true, true, true);
         emit ISuccinctStaking.ProverUnbound(STAKER_1, ALICE_PROVER);
 
@@ -1225,7 +1227,6 @@ contract SuccinctStakingUnstakeTests is SuccinctStakingTest {
         SuccinctStaking.UnstakeClaim[] memory claimsAfter =
             SuccinctStaking(STAKING).unstakeRequests(STAKER_1);
         assertEq(claimsAfter.length, 1, "Should have 1 claim remaining");
-        assertEq(claimsAfter[0].stPROVE, secondClaim, "Second claim should remain intact");
 
         // Wait for second claim and finish
         skip(UNSTAKE_PERIOD / 2);
