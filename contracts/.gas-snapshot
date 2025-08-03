@@ -46,7 +46,7 @@ SuccinctStakingFulfillmentTests:test_Reward_WhenTwoStakersTwoProversOneRewarded(
 SuccinctStakingFulfillmentTests:test_Reward_WhenUnstaked() (gas: 783040)
 SuccinctStakingFulfillmentTests:test_Reward_WhenValid() (gas: 597704)
 SuccinctStakingInitalizationTests:test_RevertInitialize_WhenAlreadyInitialized() (gas: 30152)
-SuccinctStakingInitalizationTests:test_RevertInitialize_WhenNotProxy() (gas: 5167968)
+SuccinctStakingInitalizationTests:test_RevertInitialize_WhenNotProxy() (gas: 5171188)
 SuccinctStakingMiscellaneousTests:test_Misc_BelowMinimumStake() (gas: 149209)
 SuccinctStakingMiscellaneousTests:test_Misc_CannotAvoidSlashingByUnstaking() (gas: 788951)
 SuccinctStakingMiscellaneousTests:test_Misc_CannotSwitchProvers() (gas: 464131)
