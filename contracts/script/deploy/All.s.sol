@@ -125,7 +125,6 @@ contract AllScript is BaseScript, FixtureLoader {
         uint256 MAX_UNSTAKE_REQUESTS = readUint256("MAX_UNSTAKE_REQUESTS");
         uint256 UNSTAKE_PERIOD = readUint256("UNSTAKE_PERIOD");
         uint256 SLASH_CANCELLATION_PERIOD = readUint256("SLASH_CANCELLATION_PERIOD");
-        uint256 DISPENSE_RATE = readUint256("DISPENSE_RATE");
 
         SuccinctStaking(STAKING).initialize(
             OWNER,
@@ -137,8 +136,7 @@ contract AllScript is BaseScript, FixtureLoader {
             MIN_STAKE_AMOUNT,
             MAX_UNSTAKE_REQUESTS,
             UNSTAKE_PERIOD,
-            SLASH_CANCELLATION_PERIOD,
-            DISPENSE_RATE
+            SLASH_CANCELLATION_PERIOD
         );
     }
 }
