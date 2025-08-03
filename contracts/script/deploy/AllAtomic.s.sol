@@ -168,15 +168,14 @@ contract AllAtomicScript is BaseScript, FixtureLoader {
         // Read config
         bytes32 salt = readBytes32("CREATE2_SALT");
         address OWNER = readAddress("OWNER");
-
-        address STAKING_IMPL = address(new SuccinctStaking{salt: salt}());
-
-        // Deploy contracts
         address PROVE = readAddress("PROVE");
         address VERIFIER = readAddress("VERIFIER");
 
+        // Deploy implementation contracts
+        address STAKING_IMPL = address(new SuccinctStaking{salt: salt}());
         address VAPP_IMPL = address(new SuccinctVApp{salt: salt}());
-        
+
+        // Atomically deploy the rest of the contracts
         {
             AtomicDeployer deployer = new AtomicDeployer();
             {
@@ -227,8 +226,6 @@ contract AllAtomicScript is BaseScript, FixtureLoader {
 
         // Write addresses
         writeAddress("STAKING_IMPL", STAKING_IMPL);
-        writeAddress("VERIFIER", VERIFIER);
         writeAddress("VAPP_IMPL", VAPP_IMPL);
-        writeAddress("PROVE", PROVE);
     }
 }
