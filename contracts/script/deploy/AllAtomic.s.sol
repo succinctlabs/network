@@ -98,11 +98,11 @@ contract AtomicDeployer {
         genesisStateRoot = _genesisStateRoot;
     }
 
-    function deploy(
-        bytes32 salt,
-        bytes calldata iproveCode,
-        bytes calldata governorCode
-    ) external onlyOwner returns (address, address, address, address) {
+    function deploy(bytes32 salt, bytes calldata iproveCode, bytes calldata governorCode)
+        external
+        onlyOwner
+        returns (address, address, address, address)
+    {
         address STAKING;
         {
             STAKING = address(new ERC1967Proxy{salt: salt}(stakingImpl, ""));
@@ -116,9 +116,7 @@ contract AtomicDeployer {
 
             assembly {
                 I_PROVE := create2(0, add(initCode, 0x20), mload(initCode), salt)
-                if iszero(extcodesize(I_PROVE)) {
-                    revert(0, 0)
-                }
+                if iszero(extcodesize(I_PROVE)) { revert(0, 0) }
             }
         }
 
@@ -129,16 +127,13 @@ contract AtomicDeployer {
             //         I_PROVE, votingDelay, votingPeriod, proposalThreshold, quorumFraction
             //     )
             // );
-            bytes memory args = abi.encode(
-                I_PROVE, votingDelay, votingPeriod, proposalThreshold, quorumFraction
-            );
+            bytes memory args =
+                abi.encode(I_PROVE, votingDelay, votingPeriod, proposalThreshold, quorumFraction);
             bytes memory initCode = abi.encodePacked(governorCode, args);
 
             assembly {
                 GOVERNOR := create2(0, add(initCode, 0x20), mload(initCode), salt)
-                if iszero(extcodesize(GOVERNOR)) {
-                    revert(0, 0)
-                }
+                if iszero(extcodesize(GOVERNOR)) { revert(0, 0) }
             }
         }
 
@@ -236,8 +231,9 @@ contract AllAtomicScript is BaseScript, FixtureLoader {
                     GENESIS_STATE_ROOT
                 );
             }
-            (address STAKING, address VAPP, address I_PROVE, address GOVERNOR) =
-                deployer.deploy(salt, type(IntermediateSuccinct).creationCode, type(SuccinctGovernor).creationCode);
+            (address STAKING, address VAPP, address I_PROVE, address GOVERNOR) = deployer.deploy(
+                salt, type(IntermediateSuccinct).creationCode, type(SuccinctGovernor).creationCode
+            );
             writeAddress("STAKING", STAKING);
             writeAddress("VAPP", VAPP);
             writeAddress("I_PROVE", I_PROVE);

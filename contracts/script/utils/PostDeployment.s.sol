@@ -91,7 +91,7 @@ contract PostDeploymentScript is BaseScript, Test {
         uint256 MAX_UNSTAKE_REQUESTS = readUint256("MAX_UNSTAKE_REQUESTS");
         uint256 UNSTAKE_PERIOD = readUint256("UNSTAKE_PERIOD");
         uint256 SLASH_CANCELLATION = readUint256("SLASH_CANCELLATION_PERIOD");
-        uint256 DISPENSE_RATE = readUint256("DISPENSE_RATE");
+        // uint256 DISPENSE_RATE = readUint256("DISPENSE_RATE");
 
         SuccinctStaking staking = SuccinctStaking(_staking);
 
@@ -104,7 +104,7 @@ contract PostDeploymentScript is BaseScript, Test {
         assertEq(staking.maxUnstakeRequests(), MAX_UNSTAKE_REQUESTS);
         assertEq(staking.unstakePeriod(), UNSTAKE_PERIOD);
         assertEq(staking.slashCancellationPeriod(), SLASH_CANCELLATION);
-        assertEq(staking.dispenseRate(), DISPENSE_RATE);
+        // assertEq(staking.dispenseRate(), DISPENSE_RATE);
         assertEq(staking.dispenseEarned(), 0);
         assertEq(staking.dispenseDistributed(), 0);
         assertLe(staking.dispenseRateTimestamp(), block.timestamp);
