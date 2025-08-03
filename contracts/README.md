@@ -106,10 +106,12 @@ Fill out `{CHAIN_ID}.json` with any pre-deployed contracts. For example, if ther
 
 #### Deploy each contract
 
+The broadcast flag is intentially removed from these scripts so that the predicted addresses are written to the `{CHAIN_ID}.json` file without actually deploying them. This is so that `initialize` functions can be atomically called to avoid [frontrunning attacks](https://dedaub.com/blog/the-cpimp-attack-an-insanely-far-reaching-vulnerability-successfully-mitigated/) on the `initialize` function.
+
 Deploy the SuccinctStaking contract:
 
 ```sh
-FOUNDRY_PROFILE=deploy forge script SuccinctStakingScript --private-key $PRIVATE_KEY --broadcast --rpc-url $ETH_RPC_URL --verify --verifier etherscan --etherscan-api-key $ETHERSCAN_API_KEY
+FOUNDRY_PROFILE=deploy forge script SuccinctStakingScript --private-key $PRIVATE_KEY --rpc-url $ETH_RPC_URL --verify --verifier etherscan --etherscan-api-key $ETHERSCAN_API_KEY
 ```
 
 This DOES NOT initalize the contract - this will be done in a later step once references to other contracts are available.
@@ -117,28 +119,24 @@ This DOES NOT initalize the contract - this will be done in a later step once re
 Deploy the $iPROVE contract (assumes $PROVE is already deployed):
 
 ```sh
-FOUNDRY_PROFILE=deploy forge script IntermediateSuccinctScript --private-key $PRIVATE_KEY --broadcast --rpc-url $ETH_RPC_URL --verify --verifier etherscan --etherscan-api-key $ETHERSCAN_API_KEY
+FOUNDRY_PROFILE=deploy forge script IntermediateSuccinctScript --private-key $PRIVATE_KEY --rpc-url $ETH_RPC_URL --verify --verifier etherscan --etherscan-api-key $ETHERSCAN_API_KEY
 ```
 
 Deploy the SuccinctGovernor contract:
 
 ```sh
-FOUNDRY_PROFILE=deploy forge script SuccinctGovernorScript --private-key $PRIVATE_KEY --broadcast --rpc-url $ETH_RPC_URL --verify --verifier etherscan --etherscan-api-key $ETHERSCAN_API_KEY
+FOUNDRY_PROFILE=deploy forge script SuccinctGovernorScript --private-key $PRIVATE_KEY --rpc-url $ETH_RPC_URL --verify --verifier etherscan --etherscan-api-key $ETHERSCAN_API_KEY
 ```
 
 Deploy the SuccinctVApp implementation and proxy contracts (assumes verifier is already deployed):
 
 ```sh
-FOUNDRY_PROFILE=deploy forge script SuccinctVAppScript --private-key $PRIVATE_KEY --broadcast --rpc-url $ETH_RPC_URL --verify --verifier etherscan --etherscan-api-key $ETHERSCAN_API_KEY
+FOUNDRY_PROFILE=deploy forge script SuccinctVAppScript --private-key $PRIVATE_KEY --rpc-url $ETH_RPC_URL --verify --verifier etherscan --etherscan-api-key $ETHERSCAN_API_KEY
 ```
 
 If the SP1VerifierGateway is not already deployed, follow steps in [sp1-contracts](https://github.com/succinctlabs/sp1-contracts) to deploy it and fill out the address in your `{CHAIN_ID}.json` file.
 
-Initalize the SuccinctStaking contract:
-
-```sh
-FOUNDRY_PROFILE=deploy forge script SuccinctStakingScript --sig "initialize()" --private-key $PRIVATE_KEY --broadcast --rpc-url $ETH_RPC_URL
-```
+At this point, you should have all the predicted addresses in your `{CHAIN_ID}.json` file. You should now re-run these with the `--broadcast` flag to actually deploy the contracts.
 
 Run the integrity check:
 

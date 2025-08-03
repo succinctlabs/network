@@ -12,21 +12,6 @@ contract SuccinctStakingScript is BaseScript {
     function run() external broadcaster {
         // Read config
         bytes32 salt = readBytes32("CREATE2_SALT");
-
-        // Deploy contract
-        address STAKING_IMPL = address(new SuccinctStaking{salt: salt}());
-        address STAKING = address(
-            SuccinctStaking(payable(address(new ERC1967Proxy{salt: salt}(STAKING_IMPL, ""))))
-        );
-
-        // Write address
-        writeAddress(KEY, STAKING);
-        writeAddress(string.concat(KEY, "_IMPL"), STAKING_IMPL);
-    }
-
-    /// @dev Only run this once all of the other contracts are deployed. Script must be ran with OWNER's private key.
-    function initialize() external broadcaster {
-        address STAKING = readAddress(KEY);
         address OWNER = readAddress("OWNER");
         address GOVERNOR = readAddress("GOVERNOR");
         address VAPP = readAddress("VAPP");
@@ -38,17 +23,31 @@ contract SuccinctStakingScript is BaseScript {
         uint256 UNSTAKE_PERIOD = readUint256("UNSTAKE_PERIOD");
         uint256 SLASH_CANCELLATION_PERIOD = readUint256("SLASH_CANCELLATION_PERIOD");
 
-        SuccinctStaking(STAKING).initialize(
-            OWNER,
-            GOVERNOR,
-            VAPP,
-            PROVE,
-            I_PROVE,
-            DISPENSER,
-            MIN_STAKE_AMOUNT,
-            MAX_UNSTAKE_REQUESTS,
-            UNSTAKE_PERIOD,
-            SLASH_CANCELLATION_PERIOD
+        // Encode the initialize function call data
+        bytes memory initData = abi.encodeCall(
+            SuccinctStaking.initialize,
+            (
+                OWNER,
+                GOVERNOR,
+                VAPP,
+                PROVE,
+                I_PROVE,
+                DISPENSER,
+                MIN_STAKE_AMOUNT,
+                MAX_UNSTAKE_REQUESTS,
+                UNSTAKE_PERIOD,
+                SLASH_CANCELLATION_PERIOD
+            )
         );
+
+        // Deploy contract
+        address STAKING_IMPL = address(new SuccinctStaking{salt: salt}());
+        address STAKING = address(
+            SuccinctStaking(payable(address(new ERC1967Proxy{salt: salt}(STAKING_IMPL, initData))))
+        );
+
+        // Write address
+        writeAddress(KEY, STAKING);
+        writeAddress(string.concat(KEY, "_IMPL"), STAKING_IMPL);
     }
 }

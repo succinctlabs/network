@@ -21,7 +21,7 @@ contract AllScript is BaseScript, FixtureLoader {
         address OWNER = readAddress("OWNER");
 
         // Deploy contracts
-        address STAKING = _deployStakingAsProxy(salt);
+        (address STAKING, address STAKING_IMPL) = _deployStakingAsProxy(salt);
         address PROVE = address(new Succinct{salt: salt}(OWNER));
         address I_PROVE = address(new IntermediateSuccinct{salt: salt}(PROVE, STAKING));
         address GOVERNOR = _deployGovernor(salt, I_PROVE);
@@ -33,6 +33,7 @@ contract AllScript is BaseScript, FixtureLoader {
 
         // Write addresses
         writeAddress("STAKING", STAKING);
+        writeAddress("STAKING_IMPL", STAKING_IMPL);
         writeAddress("VERIFIER", VERIFIER);
         writeAddress("VAPP", VAPP);
         writeAddress("VAPP_IMPL", VAPP_IMPL);
@@ -103,12 +104,12 @@ contract AllScript is BaseScript, FixtureLoader {
     }
 
     /// @dev Deploys the staking contract as a proxy but does not initialize it.
-    function _deployStakingAsProxy(bytes32 salt) internal returns (address) {
+    function _deployStakingAsProxy(bytes32 salt) internal returns (address, address) {
         address STAKING_IMPL = address(new SuccinctStaking{salt: salt}());
         address STAKING = address(
             SuccinctStaking(payable(address(new ERC1967Proxy{salt: salt}(STAKING_IMPL, ""))))
         );
-        return STAKING;
+        return (STAKING, STAKING_IMPL);
     }
 
     /// @dev This is a stack-too-deep workaround.
