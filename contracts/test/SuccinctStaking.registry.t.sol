@@ -82,7 +82,7 @@ contract SuccinctStakingRegistryTests is SuccinctStakingTest {
         vm.assume(_staker != address(0));
         vm.assume(_proverOwner != _staker);
         // Ensure these addresses don't already have provers
-        vm.assume(!SuccinctStaking(STAKING).hasProver(_proverOwner));
+        vm.assume(SuccinctStaking(STAKING).getProver(_proverOwner) == address(0));
         vm.assume(_staker != ALICE && _staker != BOB); // These already have provers from setup
 
         uint256 stakeAmount = bound(_stakeAmount, MIN_STAKE_AMOUNT, STAKER_PROVE_AMOUNT);

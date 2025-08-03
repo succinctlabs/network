@@ -15,11 +15,6 @@ contract CreateProverAndStakeScript is BaseScript {
         uint256 STAKER_FEE_BIPS = 1000; // 10%
         uint256 STAKE_AMOUNT = 10_000e18;
 
-        // Ensure not already a prover owner
-        if (SuccinctStaking(STAKING).hasProver(msg.sender)) {
-            revert("Already a prover owner");
-        }
-
         // Ensure not already staked
         if (SuccinctStaking(STAKING).balanceOf(msg.sender) > 0) {
             revert("Already staked");

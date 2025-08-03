@@ -320,15 +320,11 @@ contract SuccinctStakingSetupTests is SuccinctStakingTest {
         assertEq(ERC20(ALICE_PROVER).symbol(), "PROVER-1");
         assertEq(ERC20(BOB_PROVER).symbol(), "PROVER-2");
         assertEq(SuccinctStaking(STAKING).proverCount(), 2);
-        assertEq(SuccinctStaking(STAKING).ownerOf(ALICE_PROVER), ALICE);
-        assertEq(SuccinctStaking(STAKING).ownerOf(BOB_PROVER), BOB);
         assertEq(SuccinctStaking(STAKING).isProver(ALICE_PROVER), true);
         assertEq(SuccinctStaking(STAKING).isProver(BOB_PROVER), true);
         assertEq(SuccinctStaking(STAKING).isDeactivatedProver(ALICE_PROVER), false);
         assertEq(SuccinctStaking(STAKING).isDeactivatedProver(BOB_PROVER), false);
         assertEq(SuccinctStaking(STAKING).getProver(ALICE), ALICE_PROVER);
         assertEq(SuccinctStaking(STAKING).getProver(BOB), BOB_PROVER);
-        assertEq(SuccinctStaking(STAKING).hasProver(ALICE), true);
-        assertEq(SuccinctStaking(STAKING).hasProver(BOB), true);
     }
 }

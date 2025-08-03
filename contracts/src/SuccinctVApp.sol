@@ -12,6 +12,7 @@ import {
     WithdrawAction,
     CreateProverAction
 } from "./libraries/PublicValues.sol";
+import {IProver} from "./interfaces/IProver.sol";
 import {ISuccinctVApp} from "./interfaces/ISuccinctVApp.sol";
 import {ISuccinctStaking} from "./interfaces/ISuccinctStaking.sol";
 import {ISP1Verifier} from "../lib/sp1-contracts/contracts/src/ISP1Verifier.sol";
@@ -201,7 +202,7 @@ contract SuccinctVApp is
     {
         // Validate.
         if (_owner == address(0)) revert ZeroAddress();
-        if (_owner != ISuccinctStaking(staking).ownerOf(_prover)) {
+        if (_owner != IProver(_prover).owner()) {
             revert ProverNotOwned();
         }
 
