@@ -66,34 +66,57 @@ contract AtomicDeployer {
     uint256 public maxUnstakeRequests;
     uint256 public unstakePeriod;
     uint256 public slashCancellationPeriod;
-    bytes32 public salt;
 
     constructor() {
     }
 
-    function setParams(AtomicDeployerParams calldata params) external {
-        stakingImpl = params.stakingImpl;
-        prove = params.prove;
-        votingDelay = params.votingDelay;
-        votingPeriod = params.votingPeriod;
-        proposalThreshold = params.proposalThreshold;
-        quorumFraction = params.quorumFraction;
-        vappImpl = params.vappImpl;
-        owner = params.owner;
-        auctioneer = params.auctioneer;
-        verifier = params.verifier;
-        minDepositAmount = params.minDepositAmount;
-        vkey = params.vkey;
-        genesisStateRoot = params.genesisStateRoot;
-        dispenser = params.dispenser;
-        minStakeAmount = params.minStakeAmount;
-        maxUnstakeRequests = params.maxUnstakeRequests;
-        unstakePeriod = params.unstakePeriod;
-        slashCancellationPeriod = params.slashCancellationPeriod;
-        salt = params.salt;
+    function setParams1(
+        address _stakingImpl,
+        address _prove,
+        uint48 _votingDelay,
+        uint32 _votingPeriod,
+        uint256 _proposalThreshold,
+        uint256 _quorumFraction
+    ) external {
+        stakingImpl = _stakingImpl;
+        prove = _prove;
+        votingDelay = _votingDelay;
+        votingPeriod = _votingPeriod;
+        proposalThreshold = _proposalThreshold;
+        quorumFraction = _quorumFraction;
     }
 
-    function deploy() external returns (address, address, address, address) {
+    function setParams2(
+        address _vappImpl,
+        address _owner,
+        address _auctioneer,
+        address _verifier,
+        uint256 _minDepositAmount,
+        bytes32 _vkey
+    ) external {
+        vappImpl = _vappImpl;
+        owner = _owner;
+        auctioneer = _auctioneer;
+        verifier = _verifier;
+        minDepositAmount = _minDepositAmount;
+        vkey = _vkey;
+    }
+
+    function setParams3(
+        address _dispenser,
+        uint256 _minStakeAmount,
+        uint256 _maxUnstakeRequests,
+        uint256 _unstakePeriod,
+        uint256 _slashCancellationPeriod
+    ) external {
+        dispenser = _dispenser;
+        minStakeAmount = _minStakeAmount;
+        maxUnstakeRequests = _maxUnstakeRequests;
+        unstakePeriod = _unstakePeriod;
+        slashCancellationPeriod = _slashCancellationPeriod;
+    }
+
+    function deploy(bytes32 salt) external returns (address, address, address, address) {
         address STAKING;
         {
             STAKING = address(
@@ -167,47 +190,53 @@ contract AllAtomicScript is BaseScript, FixtureLoader {
         // Deploy contracts
         address PROVE = address(new Succinct{salt: salt}(OWNER));
         (address VERIFIER, address VAPP_IMPL) =
-            _deployVAppImpl(salt, OWNER, PROVE);
+            _deployVAppImpl(salt, OWNER);
 
         {
-            address AUCTIONEER = readAddress("AUCTIONEER");
-            uint256 MIN_DEPOSIT_AMOUNT = readUint256("MIN_DEPOSIT_AMOUNT");
-            bytes32 VKEY = readBytes32("VKEY");
-            bytes32 GENESIS_STATE_ROOT = readBytes32("GENESIS_STATE_ROOT");
-            address DISPENSER = readAddress("DISPENSER");
-            uint256 MIN_STAKE_AMOUNT = readUint256("MIN_STAKE_AMOUNT");
-            uint256 MAX_UNSTAKE_REQUESTS = readUint256("MAX_UNSTAKE_REQUESTS");
-            uint256 UNSTAKE_PERIOD = readUint256("UNSTAKE_PERIOD");
-            uint256 SLASH_CANCELLATION_PERIOD = readUint256("SLASH_CANCELLATION_PERIOD");
-            uint48 VOTING_DELAY = readUint48("VOTING_DELAY");
-            uint32 VOTING_PERIOD = readUint32("VOTING_PERIOD");
-            uint256 PROPOSAL_THRESHOLD = readUint256("PROPOSAL_THRESHOLD");
-            uint256 QUORUM_FRACTION = readUint256("QUORUM_FRACTION");
             AtomicDeployer deployer = new AtomicDeployer();
-            deployer.setParams(AtomicDeployerParams(
-                {
-                    stakingImpl: STAKING_IMPL,
-                    prove: PROVE,
-                    votingDelay: VOTING_DELAY,
-                    votingPeriod: VOTING_PERIOD,
-                    proposalThreshold: PROPOSAL_THRESHOLD,
-                    quorumFraction: QUORUM_FRACTION,
-                    vappImpl: VAPP_IMPL,
-                    owner: OWNER,
-                    auctioneer: AUCTIONEER,
-                    verifier: VERIFIER,
-                    minDepositAmount: MIN_DEPOSIT_AMOUNT,
-                    vkey: VKEY,
-                    genesisStateRoot: GENESIS_STATE_ROOT,
-                    dispenser: DISPENSER,
-                    minStakeAmount: MIN_STAKE_AMOUNT,
-                    maxUnstakeRequests: MAX_UNSTAKE_REQUESTS,
-                    unstakePeriod: UNSTAKE_PERIOD,
-                    slashCancellationPeriod: SLASH_CANCELLATION_PERIOD,
-                    salt: salt
-                }
-            ));
-            (address STAKING, address VAPP, address I_PROVE, address GOVERNOR) = deployer.deploy();
+            {
+                uint48 VOTING_DELAY = readUint48("VOTING_DELAY");
+                uint32 VOTING_PERIOD = readUint32("VOTING_PERIOD");
+                uint256 PROPOSAL_THRESHOLD = readUint256("PROPOSAL_THRESHOLD");
+                uint256 QUORUM_FRACTION = readUint256("QUORUM_FRACTION");
+                deployer.setParams1(
+                    STAKING_IMPL,
+                    PROVE,
+                    VOTING_DELAY,
+                    VOTING_PERIOD,
+                    PROPOSAL_THRESHOLD,
+                    QUORUM_FRACTION
+                );
+            }
+            {
+                address AUCTIONEER = readAddress("AUCTIONEER");
+                uint256 MIN_DEPOSIT_AMOUNT = readUint256("MIN_DEPOSIT_AMOUNT");
+                bytes32 VKEY = readBytes32("VKEY");
+                deployer.setParams2(
+                    VAPP_IMPL,
+                    OWNER,
+                    AUCTIONEER,
+                    VERIFIER,
+                    MIN_DEPOSIT_AMOUNT,
+                    VKEY
+                );
+            }
+            {
+                bytes32 GENESIS_STATE_ROOT = readBytes32("GENESIS_STATE_ROOT");
+                address DISPENSER = readAddress("DISPENSER");
+                uint256 MIN_STAKE_AMOUNT = readUint256("MIN_STAKE_AMOUNT");
+                uint256 MAX_UNSTAKE_REQUESTS = readUint256("MAX_UNSTAKE_REQUESTS");
+                uint256 UNSTAKE_PERIOD = readUint256("UNSTAKE_PERIOD");
+                uint256 SLASH_CANCELLATION_PERIOD = readUint256("SLASH_CANCELLATION_PERIOD");
+                deployer.setParams3(
+                    DISPENSER,
+                    MIN_STAKE_AMOUNT,
+                    MAX_UNSTAKE_REQUESTS,
+                    UNSTAKE_PERIOD,
+                    SLASH_CANCELLATION_PERIOD
+                );
+            }
+            (address STAKING, address VAPP, address I_PROVE, address GOVERNOR) = deployer.deploy(salt);
             writeAddress("STAKING", STAKING);
             writeAddress("VAPP", VAPP);
             writeAddress("I_PROVE", I_PROVE);
@@ -238,8 +267,7 @@ contract AllAtomicScript is BaseScript, FixtureLoader {
     /// @dev This is a stack-too-deep workaround.
     function _deployVAppImpl(
         bytes32 salt,
-        address OWNER,
-        address PROVE
+        address OWNER
     ) internal returns (address, address) {
         // Read config
         address AUCTIONEER = readAddress("AUCTIONEER");
