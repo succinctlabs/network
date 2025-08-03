@@ -13,36 +13,8 @@ import {ERC1967Proxy} from
 import {SP1VerifierGateway} from "../../lib/sp1-contracts/contracts/src/SP1VerifierGateway.sol";
 import {SP1Verifier} from "../../lib/sp1-contracts/contracts/src/v5.0.0/SP1VerifierGroth16.sol";
 
-struct AtomicDeployerParams {
-    // Staking proxy param
-    address stakingImpl;
-
-    // IntermediateSuccinct param
-    address prove;
-
-    // Governor params
-    uint48 votingDelay;
-    uint32 votingPeriod;
-    uint256 proposalThreshold;
-    uint256 quorumFraction;
-
-    address vappImpl;
-    address owner;
-    address auctioneer;
-    address verifier;
-    uint256 minDepositAmount;
-    bytes32 vkey;
-    bytes32 genesisStateRoot;
-    address dispenser;
-    uint256 minStakeAmount;
-    uint256 maxUnstakeRequests;
-    uint256 unstakePeriod;
-    uint256 slashCancellationPeriod;
-    bytes32 salt;
-}
-
 contract AtomicDeployer {
-     // Staking proxy param
+    // Staking proxy param
     address public stakingImpl;
 
     // IntermediateSuccinct param
@@ -141,9 +113,11 @@ contract AtomicDeployer {
 
         address GOVERNOR;
         {
-            GOVERNOR = address(new SuccinctGovernor{salt: salt}(
-                I_PROVE, votingDelay, votingPeriod, proposalThreshold, quorumFraction
-            ));
+            GOVERNOR = address(
+                new SuccinctGovernor{salt: salt}(
+                    I_PROVE, votingDelay, votingPeriod, proposalThreshold, quorumFraction
+                )
+            );
         }
 
         address VAPP;
@@ -152,19 +126,19 @@ contract AtomicDeployer {
             bytes memory vappInitData;
             {
                 vappInitData = abi.encodeCall(
-                SuccinctVApp.initialize,
-                (
-                    owner,
-                    prove,
-                    I_PROVE,
-                    auctioneer,
-                    STAKING,
-                    verifier,
-                    minDepositAmount,
-                    vkey,
-                    genesisStateRoot
-                )
-            );
+                    SuccinctVApp.initialize,
+                    (
+                        owner,
+                        prove,
+                        I_PROVE,
+                        auctioneer,
+                        STAKING,
+                        verifier,
+                        minDepositAmount,
+                        vkey,
+                        genesisStateRoot
+                    )
+                );
             }
             VAPP = address(
                 SuccinctVApp(payable(address(new ERC1967Proxy{salt: salt}(vappImpl, vappInitData))))
@@ -198,10 +172,11 @@ contract AllAtomicScript is BaseScript, FixtureLoader {
         address STAKING_IMPL = address(new SuccinctStaking{salt: salt}());
 
         // Deploy contracts
-        address PROVE = address(new Succinct{salt: salt}(OWNER));
-        (address VERIFIER, address VAPP_IMPL) =
-            _deployVAppImpl(salt, OWNER);
+        address PROVE = readAddress("PROVE");
+        address VERIFIER = readAddress("VERIFIER");
 
+        address VAPP_IMPL = address(new SuccinctVApp{salt: salt}());
+        
         {
             AtomicDeployer deployer = new AtomicDeployer();
             {
@@ -223,12 +198,7 @@ contract AllAtomicScript is BaseScript, FixtureLoader {
                 uint256 MIN_DEPOSIT_AMOUNT = readUint256("MIN_DEPOSIT_AMOUNT");
                 bytes32 VKEY = readBytes32("VKEY");
                 deployer.setParams2(
-                    VAPP_IMPL,
-                    OWNER,
-                    AUCTIONEER,
-                    VERIFIER,
-                    MIN_DEPOSIT_AMOUNT,
-                    VKEY
+                    VAPP_IMPL, OWNER, AUCTIONEER, VERIFIER, MIN_DEPOSIT_AMOUNT, VKEY
                 );
             }
             {
@@ -247,7 +217,8 @@ contract AllAtomicScript is BaseScript, FixtureLoader {
                     GENESIS_STATE_ROOT
                 );
             }
-            (address STAKING, address VAPP, address I_PROVE, address GOVERNOR) = deployer.deploy(salt);
+            (address STAKING, address VAPP, address I_PROVE, address GOVERNOR) =
+                deployer.deploy(salt);
             writeAddress("STAKING", STAKING);
             writeAddress("VAPP", VAPP);
             writeAddress("I_PROVE", I_PROVE);
@@ -259,78 +230,5 @@ contract AllAtomicScript is BaseScript, FixtureLoader {
         writeAddress("VERIFIER", VERIFIER);
         writeAddress("VAPP_IMPL", VAPP_IMPL);
         writeAddress("PROVE", PROVE);
-    }
-
-    /// @dev This is a stack-too-deep workaround.
-    function _deployGovernor(bytes32 salt, address I_PROVE) internal returns (address) {
-        uint48 VOTING_DELAY = readUint48("VOTING_DELAY");
-        uint32 VOTING_PERIOD = readUint32("VOTING_PERIOD");
-        uint256 PROPOSAL_THRESHOLD = readUint256("PROPOSAL_THRESHOLD");
-        uint256 QUORUM_FRACTION = readUint256("QUORUM_FRACTION");
-
-        return address(
-            new SuccinctGovernor{salt: salt}(
-                I_PROVE, VOTING_DELAY, VOTING_PERIOD, PROPOSAL_THRESHOLD, QUORUM_FRACTION
-            )
-        );
-    }
-
-    /// @dev This is a stack-too-deep workaround.
-    function _deployVAppImpl(
-        bytes32 salt,
-        address OWNER
-    ) internal returns (address, address) {
-        // Read config
-        address VERIFIER = readAddress("VERIFIER");
-
-        // If the verifier is not provided, deploy the SP1VerifierGateway and add v5.0.0 Groth16 SP1Verifier to it
-        if (VERIFIER == address(0)) {
-            VERIFIER = address(new SP1VerifierGateway{salt: salt}(OWNER));
-            address groth16 = address(new SP1Verifier{salt: salt}());
-            SP1VerifierGateway(VERIFIER).addRoute(groth16);
-        }
-
-        // Deploy contract
-        address VAPP_IMPL = address(new SuccinctVApp{salt: salt}());
-
-        return (VERIFIER, VAPP_IMPL);
-    }
-
-    /// @dev Deploys the staking contract as a proxy but does not initialize it.
-    function _deployStakingAsProxy(bytes32 salt) internal returns (address, address) {
-        address STAKING_IMPL = address(new SuccinctStaking{salt: salt}());
-        address STAKING = address(
-            SuccinctStaking(payable(address(new ERC1967Proxy{salt: salt}(STAKING_IMPL, ""))))
-        );
-        return (STAKING, STAKING_IMPL);
-    }
-
-    /// @dev This is a stack-too-deep workaround.
-    function _initializeStaking(
-        address OWNER,
-        address STAKING,
-        address GOVERNOR,
-        address VAPP,
-        address PROVE,
-        address I_PROVE
-    ) internal {
-        address DISPENSER = readAddress("DISPENSER");
-        uint256 MIN_STAKE_AMOUNT = readUint256("MIN_STAKE_AMOUNT");
-        uint256 MAX_UNSTAKE_REQUESTS = readUint256("MAX_UNSTAKE_REQUESTS");
-        uint256 UNSTAKE_PERIOD = readUint256("UNSTAKE_PERIOD");
-        uint256 SLASH_CANCELLATION_PERIOD = readUint256("SLASH_CANCELLATION_PERIOD");
-
-        SuccinctStaking(STAKING).initialize(
-            OWNER,
-            GOVERNOR,
-            VAPP,
-            PROVE,
-            I_PROVE,
-            DISPENSER,
-            MIN_STAKE_AMOUNT,
-            MAX_UNSTAKE_REQUESTS,
-            UNSTAKE_PERIOD,
-            SLASH_CANCELLATION_PERIOD
-        );
     }
 }
