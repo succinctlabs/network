@@ -11,9 +11,7 @@ contract CreateProverAndStakeScript is BaseScript {
     function run() external broadcaster {
         // Read config
         address STAKING = readAddress("STAKING");
-        address PROVE = readAddress("PROVE");
         uint256 STAKER_FEE_BIPS = 1000; // 10%
-        uint256 STAKE_AMOUNT = 10_000e18;
 
         // Ensure not already a prover owner
         if (SuccinctStaking(STAKING).hasProver(msg.sender)) {
@@ -29,12 +27,12 @@ contract CreateProverAndStakeScript is BaseScript {
         address prover = SuccinctStaking(STAKING).createProver(STAKER_FEE_BIPS);
 
         // Check if needs to approve PROVE
-        if (IERC20(PROVE).allowance(msg.sender, STAKING) < STAKE_AMOUNT) {
-            IERC20(PROVE).approve(STAKING, STAKE_AMOUNT);
-        }
+        // if (IERC20(PROVE).allowance(msg.sender, STAKING) < STAKE_AMOUNT) {
+        //     IERC20(PROVE).approve(STAKING, STAKE_AMOUNT);
+        // }
 
-        // Stake
-        SuccinctStaking(STAKING).stake(prover, STAKE_AMOUNT);
+        // // Stake
+        // SuccinctStaking(STAKING).stake(prover, STAKE_AMOUNT);
 
         // Write address
         writeAddress(KEY, prover);

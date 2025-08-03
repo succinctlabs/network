@@ -63,7 +63,7 @@ contract PostDeploymentScript is BaseScript, Test {
         assertEq(vapp.verifier(), VERIFIER);
         assertEq(vapp.minDepositAmount(), MIN_DEPOSIT);
         assertEq(vapp.blockNumber(), 0);
-        assertEq(vapp.currentOnchainTxId(), 0);
+        assertEq(vapp.currentOnchainTxId(), 1);
         assertEq(vapp.finalizedOnchainTxId(), 0);
         assertEq(vapp.root(), GENESIS);
         assertEq(vapp.timestamp(), 0);
@@ -96,7 +96,7 @@ contract PostDeploymentScript is BaseScript, Test {
         assertEq(staking.dispenseEarned(), 0);
         assertEq(staking.dispenseDistributed(), 0);
         assertLe(staking.dispenseRateTimestamp(), block.timestamp);
-        assertEq(staking.proverCount(), 0);
+        assertEq(staking.proverCount(), 1);
         assertEq(staking.totalSupply(), 0);
     }
 

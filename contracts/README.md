@@ -67,7 +67,7 @@ Then you should add the `VKEY` and `GENESIS_STATE_ROOT` to the `{CHAIN_ID}.json`
 ```json
 {
   "VKEY": "0x00379594d327723819f32e812d869de681100f77f766869b8d672072ab73e27c",
-  "GENESIS_STATE_ROOT": "0x2e0d7ea0c88e868939c612bae663102c86e77b33efa43835a3afcd0e4410acb2"
+  "GENESIS_STATE_ROOT": "0xc88159adb4da01a67b90803d48a35fbf7f457572b61377e5d4b090c89488b838"
 }
 ```
 
@@ -82,7 +82,7 @@ This should generally only be used for testing.
 Deploy all contracts at once:
 
 ```sh
-FOUNDRY_PROFILE=deploy forge script AllScript --private-key $PRIVATE_KEY --broadcast --rpc-url $ETH_RPC_URL
+FOUNDRY_PROFILE=deploy forge script AllScript --broadcast --rpc-url $ETH_RPC_URL
 ```
 
 You can append `--verify --verifier etherscan --etherscan-api-key $ETHERSCAN_API_KEY` to the above commands to verify the contracts on Etherscan.
@@ -98,7 +98,7 @@ Fill out `{CHAIN_ID}.json` with any pre-deployed contracts. For example, if ther
 ```json
 {
   "VKEY": "0x00379594d327723819f32e812d869de681100f77f766869b8d672072ab73e27c",
-  "GENESIS_STATE_ROOT": "0x2e0d7ea0c88e868939c612bae663102c86e77b33efa43835a3afcd0e4410acb2",
+  "GENESIS_STATE_ROOT": "0x7f1150ec996e291947d4a9a30a49155b5f042042f841f25db4d41da04cef63f4",
   "PROVE": "0x6BEF15D938d4E72056AC92Ea4bDD0D76B1C4ad29",
   "VERIFIER": "0x397A5f7f3dBd538f23DE225B51f532c34448dA9B"
 }
@@ -109,7 +109,7 @@ Fill out `{CHAIN_ID}.json` with any pre-deployed contracts. For example, if ther
 Deploy the SuccinctStaking contract:
 
 ```sh
-FOUNDRY_PROFILE=deploy forge script SuccinctStakingScript --private-key $PRIVATE_KEY --broadcast --rpc-url $ETH_RPC_URL --verify --verifier etherscan --etherscan-api-key $ETHERSCAN_API_KEY
+FOUNDRY_PROFILE=deploy forge script SuccinctStakingScript --broadcast --rpc-url $ETH_RPC_URL --verify --verifier etherscan --etherscan-api-key $ETHERSCAN_API_KEY --ledger --mnemonic-indexes 0 --sender 0xBaB2c2aF5b91695e65955DA60d63aD1b2aE81126
 ```
 
 This DOES NOT initalize the contract - this will be done in a later step once references to other contracts are available.
@@ -117,19 +117,19 @@ This DOES NOT initalize the contract - this will be done in a later step once re
 Deploy the $iPROVE contract (assumes $PROVE is already deployed):
 
 ```sh
-FOUNDRY_PROFILE=deploy forge script IntermediateSuccinctScript --private-key $PRIVATE_KEY --broadcast --rpc-url $ETH_RPC_URL --verify --verifier etherscan --etherscan-api-key $ETHERSCAN_API_KEY
+FOUNDRY_PROFILE=deploy forge script IntermediateSuccinctScript --broadcast --rpc-url $ETH_RPC_URL --verify --verifier etherscan --etherscan-api-key $ETHERSCAN_API_KEY --ledger --mnemonic-indexes 0 --sender 0xBaB2c2aF5b91695e65955DA60d63aD1b2aE81126
 ```
 
 Deploy the SuccinctGovernor contract:
 
 ```sh
-FOUNDRY_PROFILE=deploy forge script SuccinctGovernorScript --private-key $PRIVATE_KEY --broadcast --rpc-url $ETH_RPC_URL --verify --verifier etherscan --etherscan-api-key $ETHERSCAN_API_KEY
+FOUNDRY_PROFILE=deploy forge script SuccinctGovernorScript --broadcast --rpc-url $ETH_RPC_URL --verify --verifier etherscan --etherscan-api-key $ETHERSCAN_API_KEY --ledger --mnemonic-indexes 0 --sender 0xBaB2c2aF5b91695e65955DA60d63aD1b2aE81126
 ```
 
 Deploy the SuccinctVApp implementation and proxy contracts (assumes verifier is already deployed):
 
 ```sh
-FOUNDRY_PROFILE=deploy forge script SuccinctVAppScript --private-key $PRIVATE_KEY --broadcast --rpc-url $ETH_RPC_URL --verify --verifier etherscan --etherscan-api-key $ETHERSCAN_API_KEY
+FOUNDRY_PROFILE=deploy forge script SuccinctVAppScript --broadcast --rpc-url $ETH_RPC_URL --verify --verifier etherscan --etherscan-api-key $ETHERSCAN_API_KEY --ledger --mnemonic-indexes 0 --sender 0xBaB2c2aF5b91695e65955DA60d63aD1b2aE81126
 ```
 
 If the SP1VerifierGateway is not already deployed, follow steps in [sp1-contracts](https://github.com/succinctlabs/sp1-contracts) to deploy it and fill out the address in your `{CHAIN_ID}.json` file.
@@ -137,7 +137,13 @@ If the SP1VerifierGateway is not already deployed, follow steps in [sp1-contract
 Initalize the SuccinctStaking contract:
 
 ```sh
-FOUNDRY_PROFILE=deploy forge script SuccinctStakingScript --sig "initialize()" --private-key $PRIVATE_KEY --broadcast --rpc-url $ETH_RPC_URL
+FOUNDRY_PROFILE=deploy forge script SuccinctStakingScript --sig "initialize()" --broadcast --rpc-url $ETH_RPC_URL --ledger --mnemonic-indexes 0 --sender 0xBaB2c2aF5b91695e65955DA60d63aD1b2aE81126
+```
+
+Create a prover:
+
+```sh
+FOUNDRY_PROFILE=deploy forge script CreateProverAndStakeScript --broadcast --rpc-url $ETH_RPC_URL --ledger --mnemonic-indexes 0 --sender 0xBaB2c2aF5b91695e65955DA60d63aD1b2aE81126
 ```
 
 Run the integrity check:
