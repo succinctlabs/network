@@ -98,26 +98,48 @@ contract AtomicDeployer {
         genesisStateRoot = _genesisStateRoot;
     }
 
-    function deploy(bytes32 salt) external onlyOwner returns (address, address, address, address) {
+    function deploy(
+        bytes32 salt,
+        bytes calldata iproveCode,
+        bytes calldata governorCode
+    ) external onlyOwner returns (address, address, address, address) {
         address STAKING;
         {
-            STAKING = address(
-                SuccinctStaking(payable(address(new ERC1967Proxy{salt: salt}(stakingImpl, ""))))
-            );
+            STAKING = address(new ERC1967Proxy{salt: salt}(stakingImpl, ""));
         }
 
         address I_PROVE;
         {
-            I_PROVE = address(new IntermediateSuccinct{salt: salt}(prove, STAKING));
+            // I_PROVE = address(new IntermediateSuccinct{salt: salt}(prove, STAKING));
+            bytes memory args = abi.encode(prove, STAKING);
+            bytes memory initCode = abi.encodePacked(iproveCode, args);
+
+            assembly {
+                I_PROVE := create2(0, add(initCode, 0x20), mload(initCode), salt)
+                if iszero(extcodesize(I_PROVE)) {
+                    revert(0, 0)
+                }
+            }
         }
 
         address GOVERNOR;
         {
-            GOVERNOR = address(
-                new SuccinctGovernor{salt: salt}(
-                    I_PROVE, votingDelay, votingPeriod, proposalThreshold, quorumFraction
-                )
+            // GOVERNOR = address(
+            //     new SuccinctGovernor{salt: salt}(
+            //         I_PROVE, votingDelay, votingPeriod, proposalThreshold, quorumFraction
+            //     )
+            // );
+            bytes memory args = abi.encode(
+                I_PROVE, votingDelay, votingPeriod, proposalThreshold, quorumFraction
             );
+            bytes memory initCode = abi.encodePacked(governorCode, args);
+
+            assembly {
+                GOVERNOR := create2(0, add(initCode, 0x20), mload(initCode), salt)
+                if iszero(extcodesize(GOVERNOR)) {
+                    revert(0, 0)
+                }
+            }
         }
 
         address VAPP;
@@ -140,9 +162,7 @@ contract AtomicDeployer {
                     )
                 );
             }
-            VAPP = address(
-                SuccinctVApp(payable(address(new ERC1967Proxy{salt: salt}(vappImpl, vappInitData))))
-            );
+            VAPP = address(new ERC1967Proxy{salt: salt}(vappImpl, vappInitData));
         }
 
         SuccinctStaking(STAKING).initialize(
@@ -217,7 +237,7 @@ contract AllAtomicScript is BaseScript, FixtureLoader {
                 );
             }
             (address STAKING, address VAPP, address I_PROVE, address GOVERNOR) =
-                deployer.deploy(salt);
+                deployer.deploy(salt, type(IntermediateSuccinct).creationCode, type(SuccinctGovernor).creationCode);
             writeAddress("STAKING", STAKING);
             writeAddress("VAPP", VAPP);
             writeAddress("I_PROVE", I_PROVE);
