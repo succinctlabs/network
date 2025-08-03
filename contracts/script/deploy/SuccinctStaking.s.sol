@@ -15,12 +15,12 @@ contract SuccinctStakingScript is BaseScript {
 
         // Deploy contract
         address STAKING_IMPL = address(new SuccinctStaking{salt: salt}());
-        address STAKING = address(
-            SuccinctStaking(payable(address(new ERC1967Proxy{salt: salt}(STAKING_IMPL, ""))))
-        );
+        // address STAKING = address(
+        //     SuccinctStaking(payable(address(new ERC1967Proxy{salt: salt}(STAKING_IMPL, ""))))
+        // );
 
         // Write address
-        writeAddress(KEY, STAKING);
+        // writeAddress(KEY, STAKING);
         writeAddress(string.concat(KEY, "_IMPL"), STAKING_IMPL);
     }
 
