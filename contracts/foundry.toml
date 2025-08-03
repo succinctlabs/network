@@ -15,7 +15,7 @@ exclude_lints = ["mixed-case-variable", "mixed-case-function", "screaming-snake-
 
 [profile.deploy]
 optimizer = true
-optimizer_runs = 200
+optimizer_runs = 9999
 
 [profile.fuzz]
 optimizer = true
