@@ -36,6 +36,7 @@ contract SuccinctGovernorTest is SuccinctStakingTest {
         _stake(STAKER_1, ALICE_PROVER, STAKER_PROVE_AMOUNT);
 
         // It takes a block for voting power to update.
+        vm.warp(block.timestamp + 1);
         vm.roll(block.number + 1);
 
         // Check Alice's prover's voting power after staking.
@@ -64,7 +65,8 @@ contract SuccinctGovernorTest is SuccinctStakingTest {
         assertEq(uint8(state), uint8(IGovernor.ProposalState.Pending));
 
         // Wait for the voting delay.
-        vm.roll(block.number + SuccinctGovernor(payable(GOVERNOR)).votingDelay() + 1);
+        vm.warp(block.timestamp + SuccinctGovernor(payable(GOVERNOR)).votingDelay() + 1);
+        vm.roll(block.number + 1);
 
         // Proposal should be in Active state.
         state = SuccinctGovernor(payable(GOVERNOR)).state(proposalId);
@@ -89,7 +91,8 @@ contract SuccinctGovernorTest is SuccinctStakingTest {
         assertEq(abstainVotes, 0);
 
         // Wait for the voting period.
-        vm.roll(block.number + SuccinctGovernor(payable(GOVERNOR)).votingPeriod() + 1);
+        vm.warp(block.timestamp + SuccinctGovernor(payable(GOVERNOR)).votingPeriod() + 1);
+        vm.roll(block.number + 1);
 
         // Proposal should be in Succeeded state (not Queued, since this governor doesn't have a timelock).
         state = SuccinctGovernor(payable(GOVERNOR)).state(proposalId);
@@ -116,6 +119,7 @@ contract SuccinctGovernorTest is SuccinctStakingTest {
         _stake(STAKER_1, ALICE_PROVER, STAKER_PROVE_AMOUNT);
 
         // It takes a block for voting power to update.
+        vm.warp(block.timestamp + 1);
         vm.roll(block.number + 1);
 
         // Alice makes a proposal through her prover contract.
@@ -174,6 +178,7 @@ contract SuccinctGovernorTest is SuccinctStakingTest {
         _stake(STAKER_1, ALICE_PROVER, STAKER_PROVE_AMOUNT);
 
         // It takes a block for voting power to update.
+        vm.warp(block.timestamp + 1);
         vm.roll(block.number + 1);
 
         // Alice makes a proposal through her prover contract.
@@ -215,6 +220,7 @@ contract SuccinctGovernorTest is SuccinctStakingTest {
         _stake(STAKER_1, ALICE_PROVER, STAKER_PROVE_AMOUNT);
 
         // It takes a block for voting power to update.
+        vm.warp(block.timestamp + 1);
         vm.roll(block.number + 1);
 
         // Alice makes a proposal through her prover contract.
@@ -253,6 +259,7 @@ contract SuccinctGovernorTest is SuccinctStakingTest {
         _stake(STAKER_1, ALICE_PROVER, STAKER_PROVE_AMOUNT);
 
         // It takes a block for voting power to update.
+        vm.warp(block.timestamp + 1);
         vm.roll(block.number + 1);
 
         // Alice makes a proposal through her prover contract.
@@ -272,7 +279,8 @@ contract SuccinctGovernorTest is SuccinctStakingTest {
             SuccinctProver(ALICE_PROVER).propose(targets, values, calldatas, description);
 
         // Wait for the voting delay.
-        vm.roll(block.number + SuccinctGovernor(payable(GOVERNOR)).votingDelay() + 1);
+        vm.warp(block.timestamp + SuccinctGovernor(payable(GOVERNOR)).votingDelay() + 1);
+        vm.roll(block.number + 1);
 
         // Proposal should be in Active state.
         IGovernor.ProposalState state = SuccinctGovernor(payable(GOVERNOR)).state(proposalId);
@@ -303,6 +311,7 @@ contract SuccinctGovernorTest is SuccinctStakingTest {
         _requestSlash(ALICE_PROVER, STAKER_PROVE_AMOUNT);
         _requestSlash(ALICE_PROVER, STAKER_PROVE_AMOUNT / 2);
 
+        vm.warp(block.timestamp + 1);
         vm.roll(block.number + 1);
 
         // Bob makes a proposal to cancel the first slash for ALICE_PROVER.
@@ -322,7 +331,8 @@ contract SuccinctGovernorTest is SuccinctStakingTest {
             SuccinctProver(BOB_PROVER).propose(targets, values, calldatas, description);
 
         // Wait for the voting delay.
-        vm.roll(block.number + SuccinctGovernor(payable(GOVERNOR)).votingDelay() + 1);
+        vm.warp(block.timestamp + SuccinctGovernor(payable(GOVERNOR)).votingDelay() + 1);
+        vm.roll(block.number + 1);
 
         // Proposal should be in Active state.
         IGovernor.ProposalState state = SuccinctGovernor(payable(GOVERNOR)).state(proposalId);
@@ -346,7 +356,8 @@ contract SuccinctGovernorTest is SuccinctStakingTest {
             SuccinctProver(BOB_PROVER).propose(targets1, values1, calldatas1, description1);
 
         // Wait for the voting delay.
-        vm.roll(block.number + SuccinctGovernor(payable(GOVERNOR)).votingDelay() + 1);
+        vm.warp(block.timestamp + SuccinctGovernor(payable(GOVERNOR)).votingDelay() + 1);
+        vm.roll(block.number + 1);
 
         // Proposal should be in Active state.
         IGovernor.ProposalState state1 = SuccinctGovernor(payable(GOVERNOR)).state(proposalId1);
@@ -357,13 +368,15 @@ contract SuccinctGovernorTest is SuccinctStakingTest {
         SuccinctProver(BOB_PROVER).castVote(proposalId, 1);
 
         // Wait for the voting period.
-        vm.roll(block.number + SuccinctGovernor(payable(GOVERNOR)).votingPeriod() - 20);
+        vm.warp(block.timestamp + SuccinctGovernor(payable(GOVERNOR)).votingPeriod() - 20);
+        vm.roll(block.number + 1);
 
         // Bob votes FOR the second proposal.
         vm.prank(BOB);
         SuccinctProver(BOB_PROVER).castVote(proposalId1, 1);
 
-        vm.roll(block.number + SuccinctGovernor(payable(GOVERNOR)).votingPeriod() + 1);
+        vm.warp(block.timestamp + 20 + 1);
+        vm.roll(block.number + 1);
 
         // First proposal should be in Succeeded state.
         state = SuccinctGovernor(payable(GOVERNOR)).state(proposalId);
@@ -387,6 +400,7 @@ contract SuccinctGovernorTest is SuccinctStakingTest {
         assertEq(uint8(state), uint8(IGovernor.ProposalState.Executed));
 
         // Wait for next block.
+        vm.warp(block.timestamp + 1);
         vm.roll(block.number + 1);
 
         // Second proposal should be in Succeeded state.

@@ -124,6 +124,8 @@ contract PostDeploymentScript is BaseScript, Test {
         assertEq(governor.votingPeriod(), VOTE_PERIOD);
         assertEq(governor.proposalThreshold(), PROP_THRESH);
         assertEq(governor.quorumNumerator(), QUORUM);
+        assertGt(governor.clock(), 0);
+        assertEq(governor.CLOCK_MODE(), "mode=timestamp");
     }
 
     function _checkIProve(address _iProve, address _staking, address _prove) internal view {
