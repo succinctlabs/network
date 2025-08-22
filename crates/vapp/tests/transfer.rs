@@ -381,7 +381,7 @@ fn test_transfer_invalid_to_address() {
         nonce: 1,
         to: vec![0x12, 0x34], // Invalid - too short
         amount: U256::from(100).to_string(),
-        domain: spn_utils::SPN_SEPOLIA_V1_DOMAIN.to_vec(),
+        domain: spn_utils::SPN_MAINNET_V1_DOMAIN.to_vec(),
         variant: TransactionVariant::TransferVariant as i32,
         auctioneer: auctioneer.to_vec(),
         fee: fee.to_string(),

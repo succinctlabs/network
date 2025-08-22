@@ -20,7 +20,7 @@ use spn_network_types::{
     GetProofRequestDetailsRequest, MessageFormat, ProofMode, Signable, TransactionVariant,
 };
 use spn_rpc::{fetch_owner, RetryableRpc};
-use spn_utils::{time_now, SPN_SEPOLIA_V1_DOMAIN};
+use spn_utils::{time_now, SPN_MAINNET_V1_DOMAIN};
 use sysinfo::{CpuExt, System, SystemExt};
 use tokio::sync::Mutex;
 use tonic::{async_trait, transport::Channel};
@@ -233,7 +233,7 @@ impl<C: NodeContext> NodeBidder<C> for SerialBidder {
                             .context("failed to decode request_id")?,
                         amount: self.bid.to_string(),
                         prover: self.prover.to_vec(),
-                        domain: SPN_SEPOLIA_V1_DOMAIN.to_vec(),
+                        domain: SPN_MAINNET_V1_DOMAIN.to_vec(),
                         variant: TransactionVariant::BidVariant as i32,
                     };
                     let bid_request = BidRequest {
@@ -727,7 +727,7 @@ impl<C: NodeContext> NodeProver<C> for SerialProver {
                                                 request_id: request.request_id.clone(),
                                                 proof: proof_bytes.clone(),
                                                 reserved_metadata: None,
-                                                domain: SPN_SEPOLIA_V1_DOMAIN.to_vec(),
+                                                domain: SPN_MAINNET_V1_DOMAIN.to_vec(),
                                                 variant: TransactionVariant::FulfillVariant as i32,
                                             };
                                             let fulfill_request = FulfillProofRequest {

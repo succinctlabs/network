@@ -284,7 +284,7 @@ fn test_delegate_invalid_prover_address() {
         nonce: 1,
         delegate: delegate_address.to_vec(),
         prover: vec![0x12, 0x34], // Invalid - too short
-        domain: spn_utils::SPN_SEPOLIA_V1_DOMAIN.to_vec(),
+        domain: spn_utils::SPN_MAINNET_V1_DOMAIN.to_vec(),
         variant: TransactionVariant::DelegateVariant as i32,
         auctioneer: crate::common::signer("auctioneer").address().to_vec(),
         fee: "1000000000000000000".to_string(), // 1 PROVE default fee
@@ -326,7 +326,7 @@ fn test_delegate_invalid_delegate_address() {
         nonce: 1,
         delegate: vec![0x56, 0x78], // Invalid - too short
         prover: prover_address.to_vec(),
-        domain: spn_utils::SPN_SEPOLIA_V1_DOMAIN.to_vec(),
+        domain: spn_utils::SPN_MAINNET_V1_DOMAIN.to_vec(),
         variant: TransactionVariant::DelegateVariant as i32,
         auctioneer: crate::common::signer("auctioneer").address().to_vec(),
         fee: "1000000000000000000".to_string(), // 1 PROVE default fee
@@ -412,7 +412,7 @@ fn test_delegate_invalid_transaction_variant() {
         nonce: 1,
         delegate: delegate_address.to_vec(),
         prover: prover_address.to_vec(),
-        domain: spn_utils::SPN_SEPOLIA_V1_DOMAIN.to_vec(),
+        domain: spn_utils::SPN_MAINNET_V1_DOMAIN.to_vec(),
         variant: TransactionVariant::TransferVariant as i32, // Invalid variant - should be DelegateVariant
         auctioneer: crate::common::signer("auctioneer").address().to_vec(),
         fee: "1000000000000000000".to_string(), // 1 PROVE default fee
