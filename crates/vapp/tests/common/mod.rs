@@ -11,7 +11,7 @@ use spn_network_types::{
     RequestProofRequest, RequestProofRequestBody, SetDelegationRequest, SetDelegationRequestBody,
     SettleRequest, SettleRequestBody, TransactionVariant, WithdrawRequest, WithdrawRequestBody,
 };
-use spn_utils::SPN_SEPOLIA_V1_DOMAIN;
+use spn_utils::SPN_MAINNET_V1_DOMAIN;
 use spn_vapp_core::{
     merkle::MerkleStorage,
     receipts::VAppReceipt,
@@ -70,7 +70,7 @@ pub fn timestamp() -> i64 {
 /// Creates a new state with a local domain and 10 test signers.
 #[must_use]
 pub fn setup() -> VAppTestContext {
-    let domain = *SPN_SEPOLIA_V1_DOMAIN;
+    let domain = *SPN_MAINNET_V1_DOMAIN;
     let auctioneer = signer("auctioneer");
     let executor = signer("executor");
     let verifier = signer("verifier");
@@ -142,7 +142,7 @@ pub fn withdraw_tx(
         nonce,
         account: account.to_vec(),
         amount: amount.to_string(),
-        domain: spn_utils::SPN_SEPOLIA_V1_DOMAIN.to_vec(),
+        domain: spn_utils::SPN_MAINNET_V1_DOMAIN.to_vec(),
         variant: TransactionVariant::WithdrawVariant as i32,
         auctioneer: crate::common::signer("auctioneer").address().to_vec(),
         fee: "1000000000000000000".to_string(), // 1 PROVE default fee
@@ -168,7 +168,7 @@ pub fn delegate_tx(
         nonce,
         delegate: delegate_address.to_vec(),
         prover: prover_address.to_vec(),
-        domain: spn_utils::SPN_SEPOLIA_V1_DOMAIN.to_vec(),
+        domain: spn_utils::SPN_MAINNET_V1_DOMAIN.to_vec(),
         variant: TransactionVariant::DelegateVariant as i32,
         auctioneer: crate::common::signer("auctioneer").address().to_vec(),
         fee: "1000000000000000000".to_string(), // 1 PROVE default fee
@@ -198,7 +198,7 @@ pub fn transfer_tx(
         nonce,
         to: to.to_vec(),
         amount: amount.to_string(),
-        domain: spn_utils::SPN_SEPOLIA_V1_DOMAIN.to_vec(),
+        domain: spn_utils::SPN_MAINNET_V1_DOMAIN.to_vec(),
         variant: TransactionVariant::TransferVariant as i32,
         auctioneer: auctioneer.to_vec(),
         fee: fee.to_string(),
@@ -274,7 +274,7 @@ pub fn transfer_tx_invalid_amount(
         nonce,
         to: to.to_vec(),
         amount: invalid_amount.to_string(),
-        domain: spn_utils::SPN_SEPOLIA_V1_DOMAIN.to_vec(),
+        domain: spn_utils::SPN_MAINNET_V1_DOMAIN.to_vec(),
         variant: TransactionVariant::TransferVariant as i32,
         auctioneer: auctioneer.to_vec(),
         fee: fee.to_string(),
@@ -305,7 +305,7 @@ pub fn transfer_tx_invalid_fee(
         nonce,
         to: to.to_vec(),
         amount: amount.to_string(),
-        domain: spn_utils::SPN_SEPOLIA_V1_DOMAIN.to_vec(),
+        domain: spn_utils::SPN_MAINNET_V1_DOMAIN.to_vec(),
         variant: TransactionVariant::TransferVariant as i32,
         auctioneer: auctioneer.to_vec(),
         fee: invalid_fee.to_string(),
@@ -336,7 +336,7 @@ pub fn transfer_tx_invalid_auctioneer(
         nonce,
         to: to.to_vec(),
         amount: amount.to_string(),
-        domain: spn_utils::SPN_SEPOLIA_V1_DOMAIN.to_vec(),
+        domain: spn_utils::SPN_MAINNET_V1_DOMAIN.to_vec(),
         variant: TransactionVariant::TransferVariant as i32,
         auctioneer: invalid_auctioneer,
         fee: fee.to_string(),
@@ -582,7 +582,7 @@ pub fn create_clear_tx_with_options(
         gas_limit: 10000,
         min_auction_period: 0,
         whitelist: whitelist.unwrap_or_default(),
-        domain: SPN_SEPOLIA_V1_DOMAIN.to_vec(),
+        domain: SPN_MAINNET_V1_DOMAIN.to_vec(),
         auctioneer: auctioneer_signer.address().to_vec(),
         executor: executor_signer.address().to_vec(),
         verifier: verifier_signer.address().to_vec(),
@@ -610,7 +610,7 @@ pub fn create_clear_tx_with_options(
         nonce: bid_nonce,
         request_id: request_id.to_vec(),
         amount: bid_amount.to_string(),
-        domain: SPN_SEPOLIA_V1_DOMAIN.to_vec(),
+        domain: SPN_MAINNET_V1_DOMAIN.to_vec(),
         prover: bidder_signer.address().to_vec(),
         variant: TransactionVariant::BidVariant as i32,
     };
@@ -627,7 +627,7 @@ pub fn create_clear_tx_with_options(
         nonce: settle_nonce,
         request_id: request_id.to_vec(),
         winner: bidder_signer.address().to_vec(),
-        domain: SPN_SEPOLIA_V1_DOMAIN.to_vec(),
+        domain: SPN_MAINNET_V1_DOMAIN.to_vec(),
         variant: TransactionVariant::SettleVariant as i32,
     };
 
@@ -646,7 +646,7 @@ pub fn create_clear_tx_with_options(
         public_values_hash: Some([0; 32].to_vec()), // Dummy public values hash
         cycles: Some(1000),
         pgus: Some(1000),
-        domain: SPN_SEPOLIA_V1_DOMAIN.to_vec(),
+        domain: SPN_MAINNET_V1_DOMAIN.to_vec(),
         punishment: None,
         failure_cause: None,
         variant: TransactionVariant::ExecuteVariant as i32,
@@ -682,7 +682,7 @@ pub fn create_clear_tx_with_options(
                 252, 76, 87, 38, 216, 68, 14, 33, 176, 17,
             ],
             reserved_metadata: None,
-            domain: SPN_SEPOLIA_V1_DOMAIN.to_vec(),
+            domain: SPN_MAINNET_V1_DOMAIN.to_vec(),
             variant: TransactionVariant::FulfillVariant as i32,
         };
 
@@ -893,7 +893,7 @@ pub fn create_clear_tx_with_public_values_hash(
         gas_limit: 10000,
         min_auction_period: 0,
         whitelist: vec![],
-        domain: SPN_SEPOLIA_V1_DOMAIN.to_vec(),
+        domain: SPN_MAINNET_V1_DOMAIN.to_vec(),
         auctioneer: settle_signer.address().to_vec(),
         executor: executor_signer.address().to_vec(),
         verifier: verifier_signer.address().to_vec(),
@@ -921,7 +921,7 @@ pub fn create_clear_tx_with_public_values_hash(
         nonce: bid_nonce,
         request_id: request_id.to_vec(),
         amount: bid_amount.to_string(),
-        domain: SPN_SEPOLIA_V1_DOMAIN.to_vec(),
+        domain: SPN_MAINNET_V1_DOMAIN.to_vec(),
         prover: bidder_signer.address().to_vec(),
         variant: TransactionVariant::BidVariant as i32,
     };
@@ -938,7 +938,7 @@ pub fn create_clear_tx_with_public_values_hash(
         nonce: settle_nonce,
         request_id: request_id.to_vec(),
         winner: bidder_signer.address().to_vec(),
-        domain: SPN_SEPOLIA_V1_DOMAIN.to_vec(),
+        domain: SPN_MAINNET_V1_DOMAIN.to_vec(),
         variant: TransactionVariant::SettleVariant as i32,
     };
 
@@ -957,7 +957,7 @@ pub fn create_clear_tx_with_public_values_hash(
         public_values_hash: Some(public_values_hash),
         cycles: Some(1000),
         pgus: Some(1000),
-        domain: SPN_SEPOLIA_V1_DOMAIN.to_vec(),
+        domain: SPN_MAINNET_V1_DOMAIN.to_vec(),
         punishment: None,
         failure_cause: None,
         variant: TransactionVariant::ExecuteVariant as i32,
@@ -974,7 +974,7 @@ pub fn create_clear_tx_with_public_values_hash(
     let fulfill_body = FulfillProofRequestBody {
         nonce: fulfill_nonce,
         request_id: request_id.to_vec(),
-        domain: SPN_SEPOLIA_V1_DOMAIN.to_vec(),
+        domain: SPN_MAINNET_V1_DOMAIN.to_vec(),
         proof: vec![0u8; 100],
         reserved_metadata: None,
         variant: TransactionVariant::FulfillVariant as i32,
