@@ -28,7 +28,7 @@ use spn_network_types::prover_network_client::ProverNetworkClient;
 pub const SP1_NETWORK_VERSION: &str = const_str::concat!("sp1-", SP1_CIRCUIT_VERSION);
 
 /// The base URL for viewing requests on the network.
-pub const EXPLORER_REQUEST_BASE_URL: &str = "https://testnet.succinct.xyz/explorer/request";
+pub const EXPLORER_REQUEST_BASE_URL: &str = "https://explorer.succinct.xyz/request";
 
 /// A node on the Succinct Prover Network.
 ///
