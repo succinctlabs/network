@@ -101,8 +101,9 @@ impl<C: NodeContext> NodeBidder<C> for SerialBidder {
         const SERIAL_BIDDER_TAG: &str = "\x1b[34m[SerialBidder]\x1b[0m";
 
         // Fetch the owner.
-        let owner = fetch_owner(ctx.network(), ctx.signer().address().as_ref()).await?;
-        info!(owner = %hex::encode(&owner), "{SERIAL_BIDDER_TAG} Fetched owner.");
+        let signer = ctx.signer().address().to_vec();
+        let owner = fetch_owner(ctx.network(), &signer).await?;
+        info!(owner = %hex::encode(&owner), signer = %hex::encode(&signer), "{SERIAL_BIDDER_TAG} Fetched owner.");
 
         // Fetch for assigned requests.
         let assigned_requests = ctx
@@ -524,8 +525,9 @@ impl<C: NodeContext> NodeProver<C> for SerialProver {
         self.ensure_unexecutable_check_task_running(ctx);
 
         // Fetch the owner.
-        let owner = fetch_owner(ctx.network(), ctx.signer().address().as_ref()).await?;
-        info!(owner = %hex::encode(&owner), "{SERIAL_PROVER_TAG} Fetched owner.");
+        let signer = ctx.signer().address().to_vec();
+        let owner = fetch_owner(ctx.network(), &signer).await?;
+        info!(owner = %hex::encode(&owner), signer = %hex::encode(&signer), "{SERIAL_PROVER_TAG} Fetched owner.");
 
         // Fetch for assigned requests.
         let requests = ctx
