@@ -67,7 +67,7 @@ contract SuccinctVAppTest is Test, FixtureLoader {
     bytes32 public VKEY;
     bytes32 public GENESIS_STATE_ROOT;
 
-    function setUp() public {
+    function setUp() public virtual {
         // Load fixtures from JSON file
         jsonFixture = loadFixture(vm, Fixture.Groth16);
 

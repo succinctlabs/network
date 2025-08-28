@@ -223,7 +223,12 @@ interface ISuccinctVApp {
     /// @param account The address of the account to claim the reward for.
     /// @param amount The amount of the reward.
     /// @param merkleProof The merkle proof for the reward.
-    function rewardClaim(uint256 index, address account, uint256 amount, bytes32[] calldata merkleProof) external;
+    function rewardClaim(
+        uint256 index,
+        address account,
+        uint256 amount,
+        bytes32[] calldata merkleProof
+    ) external;
 
     /// @notice Register a newly created prover. Only callable by the staking contract.
     /// @param prover The address of the prover.

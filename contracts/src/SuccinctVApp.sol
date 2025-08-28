@@ -211,12 +211,12 @@ contract SuccinctVApp is
     }
 
     /// @inheritdoc ISuccinctVApp
-    function rewardClaim(uint256 _index, address _account, uint256 _amount, bytes32[] calldata _merkleProof)
-        public
-        virtual
-        override
-        whenNotPaused
-    {
+    function rewardClaim(
+        uint256 _index,
+        address _account,
+        uint256 _amount,
+        bytes32[] calldata _merkleProof
+    ) public virtual override whenNotPaused {
         // Ensure the index has not been marked as claimed.
         if (isClaimed(_index)) revert RewardAlreadyClaimed();
 
@@ -384,7 +384,8 @@ contract SuccinctVApp is
     function _setClaimed(uint256 _index) private {
         uint256 claimedWordIndex = _index / 256;
         uint256 claimedBitIndex = _index % 256;
-        rewardsClaimedBitMap[claimedWordIndex] = rewardsClaimedBitMap[claimedWordIndex] | (1 << claimedBitIndex);
+        rewardsClaimedBitMap[claimedWordIndex] =
+            rewardsClaimedBitMap[claimedWordIndex] | (1 << claimedBitIndex);
     }
 
     /// @dev Creates a receipt for an action.
