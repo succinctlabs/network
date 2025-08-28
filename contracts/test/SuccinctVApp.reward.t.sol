@@ -6,6 +6,7 @@ import {SuccinctVApp} from "../src/SuccinctVApp.sol";
 import {ISuccinctVApp} from "../src/interfaces/ISuccinctVApp.sol";
 import {Merkle} from "../lib/murky/src/Merkle.sol";
 import {MockERC20} from "./utils/MockERC20.sol";
+import {MockStaking} from "../src/mocks/MockStaking.sol";
 import {PausableUpgradeable} from
     "../lib/openzeppelin-contracts-upgradeable/contracts/utils/PausableUpgradeable.sol";
 
@@ -16,6 +17,9 @@ contract SuccinctVAppRewardsTest is SuccinctVAppTest {
     bytes32[] public rewardLeaves;
     bytes32 public rewardsMerkleRoot;
     Merkle public merkle;
+    
+    // Prover for testing prover rewards.
+    address public testProver;
 
     // Storage slot for rewardsRoot in SuccinctVApp (slot 11 based on contract layout).
     uint256 constant REWARDS_ROOT_SLOT = 11;
@@ -26,13 +30,17 @@ contract SuccinctVAppRewardsTest is SuccinctVAppTest {
     function setUp() public override {
         super.setUp();
 
-        // Set up test rewards data.
+        // Create a test prover.
+        vm.prank(ALICE);
+        testProver = MockStaking(STAKING).createProver(ALICE, STAKER_FEE_BIPS);
+
+        // Set up test rewards data (including a prover).
         rewardAccounts = [
             makeAddr("REWARD_1"),
             makeAddr("REWARD_2"),
             makeAddr("REWARD_3"),
             makeAddr("REWARD_4"),
-            makeAddr("REWARD_5")
+            testProver // Include the prover in rewards
         ];
         rewardAmounts = [1 ether, 2 ether, 3 ether, 4 ether, 5 ether];
 
@@ -91,7 +99,14 @@ contract SuccinctVAppRewardsTest is SuccinctVAppTest {
             SuccinctVApp(VAPP).rewardClaim(i, claimer, amount, proof);
 
             // Check post-claim state.
-            assertEq(MockERC20(PROVE).balanceOf(claimer), amount);
+            if (claimer == testProver) {
+                // For provers, PROVE is converted to iPROVE and sent to prover vault.
+                assertEq(MockERC20(I_PROVE).balanceOf(claimer), amount);
+                assertEq(MockERC20(PROVE).balanceOf(claimer), 0);
+            } else {
+                // For regular accounts, PROVE is sent directly.
+                assertEq(MockERC20(PROVE).balanceOf(claimer), amount);
+            }
             vappBalBefore -= amount;
             assertEq(MockERC20(PROVE).balanceOf(VAPP), vappBalBefore);
             assertEq(SuccinctVApp(VAPP).isClaimed(i), true);
@@ -173,18 +188,23 @@ contract SuccinctVAppRewardsTest is SuccinctVAppTest {
         // Set the rewards root.
         _setRewardsRoot(rewardsMerkleRoot);
 
+        // Test regular account (not a prover).
+        uint256 regularAccountIndex = 0;
+        address regularAccount = rewardAccounts[regularAccountIndex];
+        uint256 amount = rewardAmounts[regularAccountIndex];
+
         // Check initial balances.
         uint256 initialVAppBalance = MockERC20(PROVE).balanceOf(VAPP);
-        uint256 initialClaimerBalance = MockERC20(PROVE).balanceOf(rewardAccounts[0]);
+        uint256 initialClaimerBalance = MockERC20(PROVE).balanceOf(regularAccount);
         assertEq(initialClaimerBalance, 0);
 
         // Claim reward.
-        bytes32[] memory proof = merkle.getProof(rewardLeaves, 0);
-        SuccinctVApp(VAPP).rewardClaim(0, rewardAccounts[0], rewardAmounts[0], proof);
+        bytes32[] memory proof = merkle.getProof(rewardLeaves, regularAccountIndex);
+        SuccinctVApp(VAPP).rewardClaim(regularAccountIndex, regularAccount, amount, proof);
 
         // Verify transfer occurred.
-        assertEq(MockERC20(PROVE).balanceOf(rewardAccounts[0]), rewardAmounts[0]);
-        assertEq(MockERC20(PROVE).balanceOf(VAPP), initialVAppBalance - rewardAmounts[0]);
+        assertEq(MockERC20(PROVE).balanceOf(regularAccount), amount);
+        assertEq(MockERC20(PROVE).balanceOf(VAPP), initialVAppBalance - amount);
     }
 
     function test_RewardClaim_DifferentCaller() public {
@@ -261,5 +281,59 @@ contract SuccinctVAppRewardsTest is SuccinctVAppTest {
         // Verify correct balances.
         uint256 expectedRemainingBalance = 100 ether - totalClaimed;
         assertEq(MockERC20(PROVE).balanceOf(VAPP), expectedRemainingBalance);
+    }
+
+    function test_RewardClaim_ToProverVault() public {
+        // Set the rewards root.
+        _setRewardsRoot(rewardsMerkleRoot);
+
+        // Get the prover index (last one in our array).
+        uint256 proverIndex = rewardAccounts.length - 1;
+        address proverVault = rewardAccounts[proverIndex];
+        uint256 amount = rewardAmounts[proverIndex];
+        
+        // Verify it's recognized as a prover.
+        assertEq(proverVault, testProver);
+
+        // Check initial balances.
+        uint256 initialVAppBalance = MockERC20(PROVE).balanceOf(VAPP);
+        uint256 initialProverPROVEBalance = MockERC20(PROVE).balanceOf(proverVault);
+        uint256 initialProveriPROVEBalance = MockERC20(I_PROVE).balanceOf(proverVault);
+        assertEq(initialProverPROVEBalance, 0);
+        assertEq(initialProveriPROVEBalance, 0);
+
+        // Claim reward for prover.
+        bytes32[] memory proof = merkle.getProof(rewardLeaves, proverIndex);
+        vm.expectEmit(true, true, true, true, VAPP);
+        emit RewardClaimed(proverIndex, proverVault, amount);
+        SuccinctVApp(VAPP).rewardClaim(proverIndex, proverVault, amount, proof);
+
+        // Verify the prover received iPROVE instead of PROVE.
+        assertEq(MockERC20(PROVE).balanceOf(proverVault), 0);
+        assertEq(MockERC20(I_PROVE).balanceOf(proverVault), amount);
+        assertEq(MockERC20(PROVE).balanceOf(VAPP), initialVAppBalance - amount);
+        assertEq(SuccinctVApp(VAPP).isClaimed(proverIndex), true);
+    }
+
+    function test_RewardClaim_MixedAccountTypes() public {
+        // Set the rewards root.
+        _setRewardsRoot(rewardsMerkleRoot);
+
+        // Claim for regular account (index 0).
+        bytes32[] memory proof0 = merkle.getProof(rewardLeaves, 0);
+        SuccinctVApp(VAPP).rewardClaim(0, rewardAccounts[0], rewardAmounts[0], proof0);
+        
+        // Verify regular account received PROVE.
+        assertEq(MockERC20(PROVE).balanceOf(rewardAccounts[0]), rewardAmounts[0]);
+        assertEq(MockERC20(I_PROVE).balanceOf(rewardAccounts[0]), 0);
+
+        // Claim for prover (last index).
+        uint256 proverIndex = rewardAccounts.length - 1;
+        bytes32[] memory proofProver = merkle.getProof(rewardLeaves, proverIndex);
+        SuccinctVApp(VAPP).rewardClaim(proverIndex, testProver, rewardAmounts[proverIndex], proofProver);
+        
+        // Verify prover received iPROVE.
+        assertEq(MockERC20(PROVE).balanceOf(testProver), 0);
+        assertEq(MockERC20(I_PROVE).balanceOf(testProver), rewardAmounts[proverIndex]);
     }
 }

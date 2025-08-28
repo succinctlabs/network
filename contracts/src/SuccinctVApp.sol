@@ -220,13 +220,27 @@ contract SuccinctVApp is
         // Ensure the index has not been marked as claimed.
         if (isClaimed(_index)) revert RewardAlreadyClaimed();
 
+        // Mark the index as claimed.
+        _setClaimed(_index);
+
         // Verify the merkle proof.
         bytes32 node = keccak256(abi.encodePacked(_index, _account, _amount));
         if (!MerkleProof.verify(_merkleProof, rewardsRoot, node)) revert InvalidProof();
 
-        // Mark the index as claimed and transfer the token.
-        _setClaimed(_index);
-        IERC20(prove).safeTransfer(_account, _amount);
+        // Transfer the token.
+        //
+        // If the `_account` is a prover vault, we need to first deposit it to get $iPROVE and then
+        // transfer the $iPROVE to the prover vault. This splits the $PROVE amount amongst all
+        // of the prover stakers.
+        //
+        // Otherwise if the `_account` is not a prover vault, we can just transfer the $PROVE directly.
+        if (ISuccinctStaking(staking).isProver(_account)) {
+            // Deposit $PROVE to mint $iPROVE, sending it to the prover vault.
+            IERC4626(iProve).deposit(_amount, _account);
+        } else {
+            // Transfer the $PROVE from this contract to the `_account` address.
+            IERC20(prove).safeTransfer(_account, _amount);
+        }
 
         // Emit the event.
         emit RewardClaimed(_index, _account, _amount);
