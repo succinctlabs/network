@@ -44,6 +44,9 @@ interface ISuccinctVApp {
     /// @notice Emitted when the minimum deposit was updated.
     event MinDepositAmountUpdate(uint256 oldMinDepositAmount, uint256 newMinDepositAmount);
 
+    /// @notice Emitted when a reward is claimed.
+    event RewardClaimed(uint256 indexed index, address indexed account, uint256 amount);
+
     /// @dev Thrown when the caller is not the auctioneer.
     error NotAuctioneer();
 
@@ -109,6 +112,9 @@ interface ISuccinctVApp {
     /// @dev Thrown when a transaction variant is invalid.
     error TransactionVariantInvalid();
 
+    /// @dev Thrown when a reward is already claimed.
+    error RewardAlreadyClaimed();
+
     /// @notice The verification key for the vApp program.
     function vkey() external view returns (bytes32);
 
@@ -159,6 +165,9 @@ interface ISuccinctVApp {
     /// @notice Timestamp for each block.
     function timestamps(uint64 block) external view returns (uint64);
 
+    /// @notice The current rewards merkle tree root.
+    function rewardsRoot() external view returns (bytes32);
+
     /// @notice Transactions for pending actions.
     function transactions(uint64 onchainTx)
         external
@@ -169,6 +178,11 @@ interface ISuccinctVApp {
             uint64 timestamp,
             bytes memory data
         );
+
+    /// @notice Checks if a reward has been claimed.
+    /// @param index The index of the reward.
+    /// @return True if the reward has been claimed, false otherwise.
+    function isClaimed(uint256 index) external view returns (bool);
 
     /// @notice Deposit $PROVE into the prover network, must have already approved the contract as
     ///         a spender. The depositing account is credited with the $PROVE. Do not deposit with a
@@ -203,6 +217,13 @@ interface ISuccinctVApp {
         bytes32 r,
         bytes32 s
     ) external returns (uint64 receipt);
+
+    /// @notice Claim a reward from the rewards merkle root.
+    /// @param index The index of the reward.
+    /// @param account The address of the account to claim the reward for.
+    /// @param amount The amount of the reward.
+    /// @param merkleProof The merkle proof for the reward.
+    function rewardClaim(uint256 index, address account, uint256 amount, bytes32[] calldata merkleProof) external;
 
     /// @notice Register a newly created prover. Only callable by the staking contract.
     /// @param prover The address of the prover.

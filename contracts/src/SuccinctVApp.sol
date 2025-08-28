@@ -29,6 +29,8 @@ import {IERC20} from "../lib/openzeppelin-contracts/contracts/interfaces/IERC20.
 import {IERC4626} from "../lib/openzeppelin-contracts/contracts/interfaces/IERC4626.sol";
 import {PausableUpgradeable} from
     "../lib/openzeppelin-contracts-upgradeable/contracts/utils/PausableUpgradeable.sol";
+import {MerkleProof} from
+    "../lib/openzeppelin-contracts/contracts/utils/cryptography/MerkleProof.sol";
 
 /// @title SuccinctVApp
 /// @author Succinct Labs
@@ -81,6 +83,12 @@ contract SuccinctVApp is
 
     /// @inheritdoc ISuccinctVApp
     mapping(uint64 => Transaction) public override transactions;
+
+    /// @inheritdoc ISuccinctVApp
+    bytes32 public override rewardsRoot;
+
+    /// @dev This is a packed array of booleans for tracking claimed rewards.
+    mapping(uint256 => uint256) private rewardsClaimedBitMap;
 
     /*//////////////////////////////////////////////////////////////
                                 MODIFIER
@@ -166,6 +174,15 @@ contract SuccinctVApp is
         return timestamps[blockNumber];
     }
 
+    /// @inheritdoc ISuccinctVApp
+    function isClaimed(uint256 _index) public view override returns (bool) {
+        uint256 claimedWordIndex = _index / 256;
+        uint256 claimedBitIndex = _index % 256;
+        uint256 claimedWord = rewardsClaimedBitMap[claimedWordIndex];
+        uint256 mask = (1 << claimedBitIndex);
+        return claimedWord & mask == mask;
+    }
+
     /*//////////////////////////////////////////////////////////////
                                  CORE
     //////////////////////////////////////////////////////////////*/
@@ -191,6 +208,28 @@ contract SuccinctVApp is
         }
 
         return _deposit(_from, _amount);
+    }
+
+    /// @inheritdoc ISuccinctVApp
+    function rewardClaim(uint256 _index, address _account, uint256 _amount, bytes32[] calldata _merkleProof)
+        public
+        virtual
+        override
+        whenNotPaused
+    {
+        // Ensure the index has not been marked as claimed.
+        if (isClaimed(_index)) revert RewardAlreadyClaimed();
+
+        // Verify the merkle proof.
+        bytes32 node = keccak256(abi.encodePacked(_index, _account, _amount));
+        if (!MerkleProof.verify(_merkleProof, rewardsRoot, node)) revert InvalidProof();
+
+        // Mark the index as claimed and transfer the token.
+        _setClaimed(_index);
+        IERC20(prove).safeTransfer(_account, _amount);
+
+        // Emit the event.
+        emit RewardClaimed(_index, _account, _amount);
     }
 
     /// @inheritdoc ISuccinctVApp
@@ -339,6 +378,13 @@ contract SuccinctVApp is
         IERC20(prove).safeTransferFrom(_from, address(this), _amount);
 
         emit Deposit(_from, _amount);
+    }
+
+    /// @dev Marks a reward index as claimed.
+    function _setClaimed(uint256 _index) private {
+        uint256 claimedWordIndex = _index / 256;
+        uint256 claimedBitIndex = _index % 256;
+        rewardsClaimedBitMap[claimedWordIndex] = rewardsClaimedBitMap[claimedWordIndex] | (1 << claimedBitIndex);
     }
 
     /// @dev Creates a receipt for an action.
