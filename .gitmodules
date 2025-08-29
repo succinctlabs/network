@@ -17,3 +17,4 @@
 [submodule "contracts/lib/murky"]
 	path = contracts/lib/murky
 	url = https://github.com/dmfxyz/murky
+	tag = v0.1.0
