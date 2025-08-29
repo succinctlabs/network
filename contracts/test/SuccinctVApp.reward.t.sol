@@ -21,8 +21,8 @@ contract SuccinctVAppRewardsTest is SuccinctVAppTest {
     // Prover for testing prover rewards.
     address public testProver;
 
-    // Storage slot for rewardsRoot in SuccinctVApp (slot 11 based on contract layout).
-    uint256 constant REWARDS_ROOT_SLOT = 11;
+    // Test deadline (1 hour from now)
+    uint256 public testDeadline;
 
     function setUp() public override {
         super.setUp();
@@ -50,276 +50,410 @@ contract SuccinctVAppRewardsTest is SuccinctVAppTest {
 
         // Fund the VApp with $PROVE for rewards.
         MockERC20(PROVE).mint(VAPP, 100e18);
+
+        // Set test deadline to 1 hour from now.
+        testDeadline = block.timestamp + 1 hours;
     }
 
-    function _setRewardsRoot(bytes32 _root) internal {
-        // Use vm.store to directly set the rewardsRoot in storage.
-        vm.store(VAPP, bytes32(REWARDS_ROOT_SLOT), _root);
-    }
-
-    // Initial state should have no root and all indexes should be unclaimed.
+    // Initial state should have no root and deadline should be 0.
     function test_Rewards_WhenInitialState() public view {
         // Rewards root should be empty initially.
-        assertEq(SuccinctVApp(VAPP).rewardsRoot(), bytes32(0));
+        assertEq(SuccinctVApp(VAPP).rewardRoot(), bytes32(0));
+        assertEq(SuccinctVApp(VAPP).rewardDeadline(), 0);
 
-        // All indexes should be unclaimed.
+        // Check that isClaimed returns false for any index with zero root.
         for (uint256 i = 0; i < rewardAccounts.length; i++) {
-            assertEq(SuccinctVApp(VAPP).isClaimed(i), false);
+            assertEq(SuccinctVApp(VAPP).isClaimed(bytes32(0), i), false);
         }
     }
 
-    // // A valid proof should be able to claim a reward.
-    // function test_RewardClaim_WhenValid() public {
-    //     // Set the rewards root.
-    //     _setRewardsRoot(rewardsMerkleRoot);
+    // A valid proof should be able to claim a reward.
+    function test_RewardClaim_WhenValid() public {
+        // Set the rewards root as auctioneer.
+        vm.prank(AUCTIONEER);
+        vm.expectEmit(true, true, true, true, VAPP);
+        emit ISuccinctVApp.RewardRootSet(rewardsMerkleRoot, testDeadline);
+        SuccinctVApp(VAPP).setRewardRoot(rewardsMerkleRoot, testDeadline);
 
-    //     // Verify the root was set correctly.
-    //     assertEq(
-    //         SuccinctVApp(VAPP).rewardsRoot(), rewardsMerkleRoot, "Rewards root not set correctly"
-    //     );
+        // Verify the root and deadline were set correctly.
+        assertEq(
+            SuccinctVApp(VAPP).rewardRoot(), rewardsMerkleRoot, "Rewards root not set correctly"
+        );
+        assertEq(
+            SuccinctVApp(VAPP).rewardDeadline(), testDeadline, "Rewards deadline not set correctly"
+        );
 
-    //     uint256 vappBalBefore = MockERC20(PROVE).balanceOf(VAPP);
+        uint256 vappBalBefore = MockERC20(PROVE).balanceOf(VAPP);
 
-    //     for (uint256 i = 0; i < rewardAccounts.length; i++) {
-    //         // Setup.
-    //         address claimer = rewardAccounts[i];
-    //         uint256 amount = rewardAmounts[i];
-    //         bytes32[] memory proof = merkle.getProof(rewardLeaves, i);
-    //         uint256 preClaimerBalance = MockERC20(PROVE).balanceOf(claimer);
-    //         bool preIsClaimedState = SuccinctVApp(VAPP).isClaimed(i);
+        for (uint256 i = 0; i < rewardAccounts.length; i++) {
+            // Setup.
+            address claimer = rewardAccounts[i];
+            uint256 amount = rewardAmounts[i];
+            bytes32[] memory proof = merkle.getProof(rewardLeaves, i);
+            uint256 preClaimerBalance = MockERC20(PROVE).balanceOf(claimer);
+            bool preIsClaimedState = SuccinctVApp(VAPP).isClaimed(rewardsMerkleRoot, i);
 
-    //         // Check pre-claim state.
-    //         assertEq(preClaimerBalance, 0);
-    //         assertEq(preIsClaimedState, false);
+            // Check pre-claim state.
+            assertEq(preClaimerBalance, 0);
+            assertEq(preIsClaimedState, false);
 
-    //         // Claim.
-    //         vm.expectEmit(true, true, true, true, VAPP);
-    //         emit ISuccinctVApp.RewardClaimed(i, claimer, amount);
-    //         SuccinctVApp(VAPP).rewardClaim(i, claimer, amount, proof);
+            // Claim.
+            vm.expectEmit(true, true, true, true, VAPP);
+            emit ISuccinctVApp.RewardClaimed(rewardsMerkleRoot, i, claimer, amount);
+            SuccinctVApp(VAPP).rewardClaim(i, claimer, amount, proof);
 
-    //         // Check post-claim state.
-    //         if (claimer == testProver) {
-    //             // For provers, PROVE is converted to iPROVE and sent to prover vault.
-    //             assertEq(MockERC20(I_PROVE).balanceOf(claimer), amount);
-    //             assertEq(MockERC20(PROVE).balanceOf(claimer), 0);
-    //         } else {
-    //             // For regular accounts, PROVE is sent directly.
-    //             assertEq(MockERC20(PROVE).balanceOf(claimer), amount);
-    //         }
-    //         vappBalBefore -= amount;
-    //         assertEq(MockERC20(PROVE).balanceOf(VAPP), vappBalBefore);
-    //         assertEq(SuccinctVApp(VAPP).isClaimed(i), true);
-    //     }
-    // }
+            // Check post-claim state.
+            if (claimer == testProver) {
+                // For provers, PROVE is converted to iPROVE and sent to prover vault.
+                assertEq(MockERC20(I_PROVE).balanceOf(claimer), amount);
+                assertEq(MockERC20(PROVE).balanceOf(claimer), 0);
+            } else {
+                // For regular accounts, PROVE is sent directly.
+                assertEq(MockERC20(PROVE).balanceOf(claimer), amount);
+            }
+            vappBalBefore -= amount;
+            assertEq(MockERC20(PROVE).balanceOf(VAPP), vappBalBefore);
+            assertEq(SuccinctVApp(VAPP).isClaimed(rewardsMerkleRoot, i), true);
+        }
+    }
 
-    // // Not allowed to re-claim a reward.
-    // function test_RevertRewardClaim_WhenAlreadyClaimed() public {
-    //     // Set the rewards root.
-    //     _setRewardsRoot(rewardsMerkleRoot);
+    // Not allowed to re-claim a reward.
+    function test_RevertRewardClaim_WhenAlreadyClaimed() public {
+        // Set the rewards root as auctioneer.
+        vm.prank(AUCTIONEER);
+        SuccinctVApp(VAPP).setRewardRoot(rewardsMerkleRoot, testDeadline);
 
-    //     // Claim all rewards.
-    //     for (uint256 i = 0; i < rewardAccounts.length; i++) {
-    //         bytes32[] memory proof = merkle.getProof(rewardLeaves, i);
-    //         SuccinctVApp(VAPP).rewardClaim(i, rewardAccounts[i], rewardAmounts[i], proof);
-    //     }
+        // Claim all rewards.
+        for (uint256 i = 0; i < rewardAccounts.length; i++) {
+            bytes32[] memory proof = merkle.getProof(rewardLeaves, i);
+            SuccinctVApp(VAPP).rewardClaim(i, rewardAccounts[i], rewardAmounts[i], proof);
+        }
 
-    //     // Attempt to claim again.
-    //     for (uint256 i = 0; i < rewardAccounts.length; i++) {
-    //         bytes32[] memory proof = merkle.getProof(rewardLeaves, i);
-    //         vm.expectRevert(ISuccinctVApp.RewardAlreadyClaimed.selector);
-    //         SuccinctVApp(VAPP).rewardClaim(i, rewardAccounts[i], rewardAmounts[i], proof);
-    //     }
-    // }
+        // Attempt to claim again.
+        for (uint256 i = 0; i < rewardAccounts.length; i++) {
+            bytes32[] memory proof = merkle.getProof(rewardLeaves, i);
+            vm.expectRevert(ISuccinctVApp.RewardAlreadyClaimed.selector);
+            SuccinctVApp(VAPP).rewardClaim(i, rewardAccounts[i], rewardAmounts[i], proof);
+        }
+    }
 
-    // // Not allowed to claim with an invalid proof.
-    // function test_RevertRewardClaim_WhenInvalidProof() public {
-    //     // Set the rewards root.
-    //     _setRewardsRoot(rewardsMerkleRoot);
+    // Not allowed to claim with an invalid proof.
+    function test_RevertRewardClaim_WhenInvalidProof() public {
+        // Set the rewards root as auctioneer.
+        vm.prank(AUCTIONEER);
+        SuccinctVApp(VAPP).setRewardRoot(rewardsMerkleRoot, testDeadline);
 
-    //     // Setup.
-    //     uint256 index = 0;
-    //     uint256 invalidIndex = 1;
-    //     address claimer = rewardAccounts[index];
-    //     uint256 amount = rewardAmounts[index];
-    //     bytes32[] memory invalidProof = merkle.getProof(rewardLeaves, invalidIndex);
+        // Setup.
+        uint256 index = 0;
+        uint256 invalidIndex = 1;
+        address claimer = rewardAccounts[index];
+        uint256 amount = rewardAmounts[index];
+        bytes32[] memory invalidProof = merkle.getProof(rewardLeaves, invalidIndex);
 
-    //     // Attempt to claim with an invalid proof.
-    //     vm.expectRevert(ISuccinctVApp.InvalidProof.selector);
-    //     SuccinctVApp(VAPP).rewardClaim(index, claimer, amount, invalidProof);
-    // }
+        // Attempt to claim with an invalid proof.
+        vm.expectRevert(ISuccinctVApp.InvalidProof.selector);
+        SuccinctVApp(VAPP).rewardClaim(index, claimer, amount, invalidProof);
+    }
 
-    // // Not allowed to claim when paused.
-    // function test_RevertRewardClaim_WhenPaused() public {
-    //     // Pause the contract.
-    //     vm.prank(OWNER);
-    //     SuccinctVApp(VAPP).pause();
+    // Not allowed to claim when paused.
+    function test_RevertRewardClaim_WhenPaused() public {
+        // Set the rewards root as auctioneer.
+        vm.prank(AUCTIONEER);
+        SuccinctVApp(VAPP).setRewardRoot(rewardsMerkleRoot, testDeadline);
 
-    //     // Setup test data.
-    //     uint256 index = 0;
-    //     address claimer = rewardAccounts[index];
-    //     uint256 amount = rewardAmounts[index];
-    //     bytes32[] memory proof = merkle.getProof(rewardLeaves, index);
+        // Pause the contract.
+        vm.prank(OWNER);
+        SuccinctVApp(VAPP).pause();
 
-    //     // Attempt to claim when paused.
-    //     vm.expectRevert(abi.encodeWithSelector(PausableUpgradeable.EnforcedPause.selector));
-    //     SuccinctVApp(VAPP).rewardClaim(index, claimer, amount, proof);
-    // }
+        // Setup test data.
+        uint256 index = 0;
+        address claimer = rewardAccounts[index];
+        uint256 amount = rewardAmounts[index];
+        bytes32[] memory proof = merkle.getProof(rewardLeaves, index);
 
-    // // isClaimed should correctly track claimed rewards.
-    // function test_IsClaimed_BitMapLogic() public {
-    //     // Set the rewards root.
-    //     _setRewardsRoot(rewardsMerkleRoot);
+        // Attempt to claim when paused.
+        vm.expectRevert(abi.encodeWithSelector(PausableUpgradeable.EnforcedPause.selector));
+        SuccinctVApp(VAPP).rewardClaim(index, claimer, amount, proof);
+    }
 
-    //     // Test the bitmap logic for various indexes.
-    //     assertEq(SuccinctVApp(VAPP).isClaimed(0), false);
-    //     assertEq(SuccinctVApp(VAPP).isClaimed(255), false);
-    //     assertEq(SuccinctVApp(VAPP).isClaimed(256), false);
-    //     assertEq(SuccinctVApp(VAPP).isClaimed(512), false);
+    // isClaimed should correctly track claimed rewards.
+    function test_IsClaimed_BitMapLogic() public {
+        // Set the rewards root as auctioneer.
+        vm.prank(AUCTIONEER);
+        SuccinctVApp(VAPP).setRewardRoot(rewardsMerkleRoot, testDeadline);
 
-    //     // Claim index 0.
-    //     bytes32[] memory proof = merkle.getProof(rewardLeaves, 0);
-    //     SuccinctVApp(VAPP).rewardClaim(0, rewardAccounts[0], rewardAmounts[0], proof);
-    //     assertEq(SuccinctVApp(VAPP).isClaimed(0), true);
-    //     assertEq(SuccinctVApp(VAPP).isClaimed(1), false);
-    // }
+        // Test the bitmap logic for various indexes.
+        assertEq(SuccinctVApp(VAPP).isClaimed(rewardsMerkleRoot, 0), false);
+        assertEq(SuccinctVApp(VAPP).isClaimed(rewardsMerkleRoot, 255), false);
+        assertEq(SuccinctVApp(VAPP).isClaimed(rewardsMerkleRoot, 256), false);
+        assertEq(SuccinctVApp(VAPP).isClaimed(rewardsMerkleRoot, 512), false);
 
-    // // Anyone is allowed to claim a reward for an account as long it's valid.
-    // function test_RewardClaim_WhenDifferentCaller() public {
-    //     // Set the rewards root.
-    //     _setRewardsRoot(rewardsMerkleRoot);
+        // Claim index 0.
+        bytes32[] memory proof = merkle.getProof(rewardLeaves, 0);
+        SuccinctVApp(VAPP).rewardClaim(0, rewardAccounts[0], rewardAmounts[0], proof);
+        assertEq(SuccinctVApp(VAPP).isClaimed(rewardsMerkleRoot, 0), true);
+        assertEq(SuccinctVApp(VAPP).isClaimed(rewardsMerkleRoot, 1), false);
+    }
 
-    //     // Anyone should be able to call rewardClaim for any account.
-    //     address randomCaller = makeAddr("RANDOM_CALLER");
+    // Anyone is allowed to claim a reward for an account as long it's valid.
+    function test_RewardClaim_WhenDifferentCaller() public {
+        // Set the rewards root as auctioneer.
+        vm.prank(AUCTIONEER);
+        SuccinctVApp(VAPP).setRewardRoot(rewardsMerkleRoot, testDeadline);
 
-    //     // Claim as a different caller.
-    //     bytes32[] memory proof = merkle.getProof(rewardLeaves, 0);
-    //     vm.prank(randomCaller);
-    //     SuccinctVApp(VAPP).rewardClaim(0, rewardAccounts[0], rewardAmounts[0], proof);
+        // Anyone should be able to call rewardClaim for any account.
+        address randomCaller = makeAddr("RANDOM_CALLER");
 
-    //     // Verify the reward went to the correct account.
-    //     assertEq(MockERC20(PROVE).balanceOf(rewardAccounts[0]), rewardAmounts[0]);
-    //     assertEq(MockERC20(PROVE).balanceOf(randomCaller), 0);
-    // }
+        // Claim as a different caller.
+        bytes32[] memory proof = merkle.getProof(rewardLeaves, 0);
+        vm.prank(randomCaller);
+        SuccinctVApp(VAPP).rewardClaim(0, rewardAccounts[0], rewardAmounts[0], proof);
 
-    // // Not allowed to claim with a wrong amount.
-    // function test_RevertRewardClaim_WhenWrongAmount() public {
-    //     // Set the rewards root.
-    //     _setRewardsRoot(rewardsMerkleRoot);
+        // Verify the reward went to the correct account.
+        assertEq(MockERC20(PROVE).balanceOf(rewardAccounts[0]), rewardAmounts[0]);
+        assertEq(MockERC20(PROVE).balanceOf(randomCaller), 0);
+    }
 
-    //     // Try to claim with wrong amount.
-    //     bytes32[] memory proof = merkle.getProof(rewardLeaves, 0);
-    //     uint256 wrongAmount = rewardAmounts[0] + 1;
+    // Not allowed to claim with a wrong amount.
+    function test_RevertRewardClaim_WhenWrongAmount() public {
+        // Set the rewards root as auctioneer.
+        vm.prank(AUCTIONEER);
+        SuccinctVApp(VAPP).setRewardRoot(rewardsMerkleRoot, testDeadline);
 
-    //     vm.expectRevert(ISuccinctVApp.InvalidProof.selector);
-    //     SuccinctVApp(VAPP).rewardClaim(0, rewardAccounts[0], wrongAmount, proof);
-    // }
+        // Try to claim with wrong amount.
+        bytes32[] memory proof = merkle.getProof(rewardLeaves, 0);
+        uint256 wrongAmount = rewardAmounts[0] + 1;
 
-    // // Not allowed to claim with a wrong account.
-    // function test_RevertRewardClaim_WhenWrongAccount() public {
-    //     // Set the rewards root.
-    //     _setRewardsRoot(rewardsMerkleRoot);
+        vm.expectRevert(ISuccinctVApp.InvalidProof.selector);
+        SuccinctVApp(VAPP).rewardClaim(0, rewardAccounts[0], wrongAmount, proof);
+    }
 
-    //     // Try to claim with wrong account.
-    //     bytes32[] memory proof = merkle.getProof(rewardLeaves, 0);
-    //     address wrongAccount = makeAddr("WRONG_ACCOUNT");
+    // Not allowed to claim with a wrong account.
+    function test_RevertRewardClaim_WhenWrongAccount() public {
+        // Set the rewards root as auctioneer.
+        vm.prank(AUCTIONEER);
+        SuccinctVApp(VAPP).setRewardRoot(rewardsMerkleRoot, testDeadline);
 
-    //     vm.expectRevert(ISuccinctVApp.InvalidProof.selector);
-    //     SuccinctVApp(VAPP).rewardClaim(0, wrongAccount, rewardAmounts[0], proof);
-    // }
+        // Try to claim with wrong account.
+        bytes32[] memory proof = merkle.getProof(rewardLeaves, 0);
+        address wrongAccount = makeAddr("WRONG_ACCOUNT");
 
-    // // Not allowed to claim with an empty proof.
-    // function test_RevertRewardClaim_WhenEmptyProof() public {
-    //     // Set the rewards root.
-    //     _setRewardsRoot(rewardsMerkleRoot);
+        vm.expectRevert(ISuccinctVApp.InvalidProof.selector);
+        SuccinctVApp(VAPP).rewardClaim(0, wrongAccount, rewardAmounts[0], proof);
+    }
 
-    //     // Try to claim with empty proof.
-    //     bytes32[] memory emptyProof = new bytes32[](0);
+    // Not allowed to claim with an empty proof.
+    function test_RevertRewardClaim_WhenEmptyProof() public {
+        // Set the rewards root as auctioneer.
+        vm.prank(AUCTIONEER);
+        SuccinctVApp(VAPP).setRewardRoot(rewardsMerkleRoot, testDeadline);
 
-    //     vm.expectRevert(ISuccinctVApp.InvalidProof.selector);
-    //     SuccinctVApp(VAPP).rewardClaim(0, rewardAccounts[0], rewardAmounts[0], emptyProof);
-    // }
+        // Try to claim with empty proof.
+        bytes32[] memory emptyProof = new bytes32[](0);
 
-    // // It's valid if only a subset of accounts claim within an epoch.
-    // function test_RewardClaim_WhenPartial() public {
-    //     // Set the rewards root.
-    //     _setRewardsRoot(rewardsMerkleRoot);
+        vm.expectRevert(ISuccinctVApp.InvalidProof.selector);
+        SuccinctVApp(VAPP).rewardClaim(0, rewardAccounts[0], rewardAmounts[0], emptyProof);
+    }
 
-    //     // Claim only some rewards (not all).
-    //     uint256 totalClaimed = 0;
-    //     for (uint256 i = 0; i < 3; i++) {
-    //         bytes32[] memory proof = merkle.getProof(rewardLeaves, i);
-    //         SuccinctVApp(VAPP).rewardClaim(i, rewardAccounts[i], rewardAmounts[i], proof);
-    //         totalClaimed += rewardAmounts[i];
-    //     }
+    // It's valid if only a subset of accounts claim within an epoch.
+    function test_RewardClaim_WhenPartial() public {
+        // Set the rewards root as auctioneer.
+        vm.prank(AUCTIONEER);
+        SuccinctVApp(VAPP).setRewardRoot(rewardsMerkleRoot, testDeadline);
 
-    //     // Check claimed status.
-    //     assertEq(SuccinctVApp(VAPP).isClaimed(0), true);
-    //     assertEq(SuccinctVApp(VAPP).isClaimed(1), true);
-    //     assertEq(SuccinctVApp(VAPP).isClaimed(2), true);
-    //     assertEq(SuccinctVApp(VAPP).isClaimed(3), false);
-    //     assertEq(SuccinctVApp(VAPP).isClaimed(4), false);
+        // Claim only some rewards (not all).
+        uint256 totalClaimed = 0;
+        for (uint256 i = 0; i < 3; i++) {
+            bytes32[] memory proof = merkle.getProof(rewardLeaves, i);
+            SuccinctVApp(VAPP).rewardClaim(i, rewardAccounts[i], rewardAmounts[i], proof);
+            totalClaimed += rewardAmounts[i];
+        }
 
-    //     // Verify correct balances.
-    //     uint256 expectedRemainingBalance = 100 ether - totalClaimed;
-    //     assertEq(MockERC20(PROVE).balanceOf(VAPP), expectedRemainingBalance);
-    // }
+        // Check claimed status.
+        assertEq(SuccinctVApp(VAPP).isClaimed(rewardsMerkleRoot, 0), true);
+        assertEq(SuccinctVApp(VAPP).isClaimed(rewardsMerkleRoot, 1), true);
+        assertEq(SuccinctVApp(VAPP).isClaimed(rewardsMerkleRoot, 2), true);
+        assertEq(SuccinctVApp(VAPP).isClaimed(rewardsMerkleRoot, 3), false);
+        assertEq(SuccinctVApp(VAPP).isClaimed(rewardsMerkleRoot, 4), false);
 
-    // // Rewards should be transferred to the prover vault correctly: PROVE is sent to iPROVE,
-    // // and the iPROVE is sent to the prover.
-    // function test_RewardClaim_WhenToProverVault() public {
-    //     // Set the rewards root.
-    //     _setRewardsRoot(rewardsMerkleRoot);
+        // Verify correct balances.
+        uint256 expectedRemainingBalance = 100 ether - totalClaimed;
+        assertEq(MockERC20(PROVE).balanceOf(VAPP), expectedRemainingBalance);
+    }
 
-    //     // Get the prover index (last one in our array).
-    //     uint256 proverIndex = rewardAccounts.length - 1;
-    //     address proverVault = rewardAccounts[proverIndex];
-    //     uint256 amount = rewardAmounts[proverIndex];
+    // Rewards should be transferred to the prover vault correctly: PROVE is sent to iPROVE,
+    // and the iPROVE is sent to the prover.
+    function test_RewardClaim_WhenToProverVault() public {
+        // Set the rewards root as auctioneer.
+        vm.prank(AUCTIONEER);
+        SuccinctVApp(VAPP).setRewardRoot(rewardsMerkleRoot, testDeadline);
 
-    //     // Verify it's recognized as a prover.
-    //     assertEq(proverVault, testProver);
+        // Get the prover index (last one in our array).
+        uint256 proverIndex = rewardAccounts.length - 1;
+        address proverVault = rewardAccounts[proverIndex];
+        uint256 amount = rewardAmounts[proverIndex];
 
-    //     // Check initial balances.
-    //     uint256 initialVAppBalance = MockERC20(PROVE).balanceOf(VAPP);
-    //     uint256 initialProverPROVEBalance = MockERC20(PROVE).balanceOf(proverVault);
-    //     uint256 initialProveriPROVEBalance = MockERC20(I_PROVE).balanceOf(proverVault);
-    //     assertEq(initialProverPROVEBalance, 0);
-    //     assertEq(initialProveriPROVEBalance, 0);
+        // Verify it's recognized as a prover.
+        assertEq(proverVault, testProver);
 
-    //     // Claim reward for prover.
-    //     bytes32[] memory proof = merkle.getProof(rewardLeaves, proverIndex);
-    //     vm.expectEmit(true, true, true, true, VAPP);
-    //     emit ISuccinctVApp.RewardClaimed(proverIndex, proverVault, amount);
-    //     SuccinctVApp(VAPP).rewardClaim(proverIndex, proverVault, amount, proof);
+        // Check initial balances.
+        uint256 initialVAppBalance = MockERC20(PROVE).balanceOf(VAPP);
+        uint256 initialProverPROVEBalance = MockERC20(PROVE).balanceOf(proverVault);
+        uint256 initialProveriPROVEBalance = MockERC20(I_PROVE).balanceOf(proverVault);
+        assertEq(initialProverPROVEBalance, 0);
+        assertEq(initialProveriPROVEBalance, 0);
 
-    //     // Verify the prover received iPROVE instead of PROVE.
-    //     assertEq(MockERC20(PROVE).balanceOf(proverVault), 0);
-    //     assertEq(MockERC20(I_PROVE).balanceOf(proverVault), amount);
-    //     assertEq(MockERC20(PROVE).balanceOf(VAPP), initialVAppBalance - amount);
-    //     assertEq(SuccinctVApp(VAPP).isClaimed(proverIndex), true);
-    // }
+        // Claim reward for prover.
+        bytes32[] memory proof = merkle.getProof(rewardLeaves, proverIndex);
+        vm.expectEmit(true, true, true, true, VAPP);
+        emit ISuccinctVApp.RewardClaimed(rewardsMerkleRoot, proverIndex, proverVault, amount);
+        SuccinctVApp(VAPP).rewardClaim(proverIndex, proverVault, amount, proof);
 
-    // // Rewards should be transferred to mixed prover vaults and EOAs correctly.
-    // function test_RewardClaim_WhenMixedAccountTypes() public {
-    //     // Set the rewards root.
-    //     _setRewardsRoot(rewardsMerkleRoot);
+        // Verify the prover received iPROVE instead of PROVE.
+        assertEq(MockERC20(PROVE).balanceOf(proverVault), 0);
+        assertEq(MockERC20(I_PROVE).balanceOf(proverVault), amount);
+        assertEq(MockERC20(PROVE).balanceOf(VAPP), initialVAppBalance - amount);
+        assertEq(SuccinctVApp(VAPP).isClaimed(rewardsMerkleRoot, proverIndex), true);
+    }
 
-    //     // Claim for regular account (index 0).
-    //     bytes32[] memory proof0 = merkle.getProof(rewardLeaves, 0);
-    //     SuccinctVApp(VAPP).rewardClaim(0, rewardAccounts[0], rewardAmounts[0], proof0);
+    // Rewards should be transferred to mixed prover vaults and EOAs correctly.
+    function test_RewardClaim_WhenMixedAccountTypes() public {
+        // Set the rewards root as auctioneer.
+        vm.prank(AUCTIONEER);
+        SuccinctVApp(VAPP).setRewardRoot(rewardsMerkleRoot, testDeadline);
 
-    //     // Verify regular account received PROVE.
-    //     assertEq(MockERC20(PROVE).balanceOf(rewardAccounts[0]), rewardAmounts[0]);
-    //     assertEq(MockERC20(I_PROVE).balanceOf(rewardAccounts[0]), 0);
+        // Claim for regular account (index 0).
+        bytes32[] memory proof0 = merkle.getProof(rewardLeaves, 0);
+        SuccinctVApp(VAPP).rewardClaim(0, rewardAccounts[0], rewardAmounts[0], proof0);
 
-    //     // Claim for prover (last index).
-    //     uint256 proverIndex = rewardAccounts.length - 1;
-    //     bytes32[] memory proofProver = merkle.getProof(rewardLeaves, proverIndex);
-    //     SuccinctVApp(VAPP).rewardClaim(
-    //         proverIndex, testProver, rewardAmounts[proverIndex], proofProver
-    //     );
+        // Verify regular account received PROVE.
+        assertEq(MockERC20(PROVE).balanceOf(rewardAccounts[0]), rewardAmounts[0]);
+        assertEq(MockERC20(I_PROVE).balanceOf(rewardAccounts[0]), 0);
 
-    //     // Verify prover received iPROVE.
-    //     assertEq(MockERC20(PROVE).balanceOf(testProver), 0);
-    //     assertEq(MockERC20(I_PROVE).balanceOf(testProver), rewardAmounts[proverIndex]);
-    // }
+        // Claim for prover (last index).
+        uint256 proverIndex = rewardAccounts.length - 1;
+        bytes32[] memory proofProver = merkle.getProof(rewardLeaves, proverIndex);
+        SuccinctVApp(VAPP).rewardClaim(
+            proverIndex, testProver, rewardAmounts[proverIndex], proofProver
+        );
+
+        // Verify prover received iPROVE.
+        assertEq(MockERC20(PROVE).balanceOf(testProver), 0);
+        assertEq(MockERC20(I_PROVE).balanceOf(testProver), rewardAmounts[proverIndex]);
+    }
+
+    /*//////////////////////////////////////////////////////////////
+                           NEW DEADLINE TESTS
+    //////////////////////////////////////////////////////////////*/
+
+    // Not allowed to claim after deadline.
+    function test_RevertRewardClaim_WhenAfterDeadline() public {
+        // Set the rewards root as auctioneer with a deadline in the past.
+        uint256 pastDeadline = block.timestamp - 1;
+        vm.prank(AUCTIONEER);
+        SuccinctVApp(VAPP).setRewardRoot(rewardsMerkleRoot, pastDeadline);
+
+        // Move time forward past the deadline.
+        vm.warp(block.timestamp + 1);
+
+        // Try to claim.
+        bytes32[] memory proof = merkle.getProof(rewardLeaves, 0);
+        vm.expectRevert(ISuccinctVApp.RewardRootExpired.selector);
+        SuccinctVApp(VAPP).rewardClaim(0, rewardAccounts[0], rewardAmounts[0], proof);
+    }
+
+    // Auctioneer can't set new root before previous deadline.
+    function test_RevertSetRewardRoot_WhenBeforeDeadline() public {
+        // Set the rewards root as auctioneer.
+        vm.prank(AUCTIONEER);
+        SuccinctVApp(VAPP).setRewardRoot(rewardsMerkleRoot, testDeadline);
+
+        // Try to set a new root before deadline.
+        bytes32 newRoot = keccak256("NEW_ROOT");
+        uint256 newDeadline = block.timestamp + 2 hours;
+
+        vm.prank(AUCTIONEER);
+        vm.expectRevert(ISuccinctVApp.RewardRootNotExpired.selector);
+        SuccinctVApp(VAPP).setRewardRoot(newRoot, newDeadline);
+    }
+
+    // Auctioneer can set new root after deadline.
+    function test_SetRewardRoot_WhenAfterDeadline() public {
+        // Set the rewards root as auctioneer.
+        vm.prank(AUCTIONEER);
+        SuccinctVApp(VAPP).setRewardRoot(rewardsMerkleRoot, testDeadline);
+
+        // Move time past deadline.
+        vm.warp(testDeadline + 1);
+
+        // Set new root.
+        bytes32 newRoot = keccak256("NEW_ROOT");
+        uint256 newDeadline = block.timestamp + 2 hours;
+
+        vm.prank(AUCTIONEER);
+        vm.expectEmit(true, true, true, true, VAPP);
+        emit ISuccinctVApp.RewardRootSet(newRoot, newDeadline);
+        SuccinctVApp(VAPP).setRewardRoot(newRoot, newDeadline);
+
+        assertEq(SuccinctVApp(VAPP).rewardRoot(), newRoot);
+        assertEq(SuccinctVApp(VAPP).rewardDeadline(), newDeadline);
+    }
+
+    // Only auctioneer can set reward root.
+    function test_RevertSetRewardRoot_WhenNotAuctioneer() public {
+        vm.expectRevert(ISuccinctVApp.NotAuctioneer.selector);
+        SuccinctVApp(VAPP).setRewardRoot(rewardsMerkleRoot, testDeadline);
+
+        vm.prank(OWNER);
+        vm.expectRevert(ISuccinctVApp.NotAuctioneer.selector);
+        SuccinctVApp(VAPP).setRewardRoot(rewardsMerkleRoot, testDeadline);
+    }
+
+    // Claims are tracked separately per root.
+    function test_RewardClaim_MultipleRoots() public {
+        // Set first root.
+        vm.prank(AUCTIONEER);
+        SuccinctVApp(VAPP).setRewardRoot(rewardsMerkleRoot, testDeadline);
+
+        // Claim index 0 from first root.
+        bytes32[] memory proof = merkle.getProof(rewardLeaves, 0);
+        SuccinctVApp(VAPP).rewardClaim(0, rewardAccounts[0], rewardAmounts[0], proof);
+        assertEq(SuccinctVApp(VAPP).isClaimed(rewardsMerkleRoot, 0), true);
+
+        // Move time past deadline.
+        vm.warp(testDeadline + 1);
+
+        // Create new rewards data.
+        address[] memory newAccounts = new address[](2);
+        newAccounts[0] = makeAddr("NEW_REWARD_1");
+        newAccounts[1] = makeAddr("NEW_REWARD_2");
+        uint256[] memory newAmounts = new uint256[](2);
+        newAmounts[0] = 10e18;
+        newAmounts[1] = 20e18;
+
+        bytes32[] memory newLeaves = new bytes32[](2);
+        newLeaves[0] = keccak256(abi.encodePacked(uint256(0), newAccounts[0], newAmounts[0]));
+        newLeaves[1] = keccak256(abi.encodePacked(uint256(1), newAccounts[1], newAmounts[1]));
+
+        bytes32 newMerkleRoot = merkle.getRoot(newLeaves);
+        uint256 newDeadline = block.timestamp + 2 hours;
+
+        // Set new root.
+        vm.prank(AUCTIONEER);
+        SuccinctVApp(VAPP).setRewardRoot(newMerkleRoot, newDeadline);
+
+        // Index 0 is not claimed in new root.
+        assertEq(SuccinctVApp(VAPP).isClaimed(newMerkleRoot, 0), false);
+        assertEq(SuccinctVApp(VAPP).isClaimed(rewardsMerkleRoot, 0), true);
+
+        // Fund more for new claims.
+        MockERC20(PROVE).mint(VAPP, 30e18);
+
+        // Claim from new root.
+        bytes32[] memory newProof = merkle.getProof(newLeaves, 0);
+        SuccinctVApp(VAPP).rewardClaim(0, newAccounts[0], newAmounts[0], newProof);
+
+        assertEq(SuccinctVApp(VAPP).isClaimed(newMerkleRoot, 0), true);
+        assertEq(MockERC20(PROVE).balanceOf(newAccounts[0]), newAmounts[0]);
+    }
 }

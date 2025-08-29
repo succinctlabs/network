@@ -85,10 +85,13 @@ contract SuccinctVApp is
     mapping(uint64 => Transaction) public override transactions;
 
     /// @inheritdoc ISuccinctVApp
-    bytes32 public override rewardsRoot;
+    bytes32 public override rewardRoot;
+
+    /// @inheritdoc ISuccinctVApp
+    uint256 public override rewardDeadline;
 
     /// @dev This is a packed array of booleans for tracking claimed rewards.
-    mapping(uint256 => uint256) private rewardsClaimedBitMap;
+    mapping(bytes32 => mapping(uint256 => uint256)) private rewardsClaimedBitMap;
 
     /*//////////////////////////////////////////////////////////////
                                 MODIFIER
@@ -175,10 +178,10 @@ contract SuccinctVApp is
     }
 
     /// @inheritdoc ISuccinctVApp
-    function isClaimed(uint256 _index) public view override returns (bool) {
+    function isClaimed(bytes32 _root, uint256 _index) public view override returns (bool) {
         uint256 claimedWordIndex = _index / 256;
         uint256 claimedBitIndex = _index % 256;
-        uint256 claimedWord = rewardsClaimedBitMap[claimedWordIndex];
+        uint256 claimedWord = rewardsClaimedBitMap[_root][claimedWordIndex];
         uint256 mask = (1 << claimedBitIndex);
         return claimedWord & mask == mask;
     }
@@ -217,15 +220,18 @@ contract SuccinctVApp is
         uint256 _amount,
         bytes32[] calldata _merkleProof
     ) external override whenNotPaused {
+        // Ensure that the root exist and it's deadline has not passed.
+        if (rewardDeadline < block.timestamp) revert RewardRootExpired();
+
         // Ensure the index has not been marked as claimed.
-        if (isClaimed(_index)) revert RewardAlreadyClaimed();
+        if (isClaimed(rewardRoot, _index)) revert RewardAlreadyClaimed();
 
         // Mark the index as claimed.
-        _setClaimed(_index);
+        _setClaimed(rewardRoot, _index);
 
         // Verify the merkle proof.
         bytes32 node = keccak256(abi.encodePacked(_index, _account, _amount));
-        if (!MerkleProof.verify(_merkleProof, rewardsRoot, node)) revert InvalidProof();
+        if (!MerkleProof.verify(_merkleProof, rewardRoot, node)) revert InvalidProof();
 
         // Transfer the token.
         //
@@ -243,7 +249,7 @@ contract SuccinctVApp is
         }
 
         // Emit the event.
-        emit RewardClaimed(_index, _account, _amount);
+        emit RewardClaimed(rewardRoot, _index, _account, _amount);
     }
 
     /// @inheritdoc ISuccinctVApp
@@ -311,6 +317,23 @@ contract SuccinctVApp is
     /*//////////////////////////////////////////////////////////////
                               AUTHORIZED
     //////////////////////////////////////////////////////////////*/
+
+    /// @inheritdoc ISuccinctVApp
+    function setRewardRoot(bytes32 _newRoot, uint256 _newDeadline)
+        external
+        override
+        onlyAuctioneer
+    {
+        // Ensure that the previous reward deadline has passed.
+        if (rewardDeadline > block.timestamp) revert RewardRootNotExpired();
+
+        // Set the new reward root and deadline.
+        rewardRoot = _newRoot;
+        rewardDeadline = _newDeadline;
+
+        // Emit the event.
+        emit RewardRootSet(_newRoot, _newDeadline);
+    }
 
     /// @inheritdoc ISuccinctVApp
     function fork(bytes32 _vkey, bytes32 _root)
@@ -395,11 +418,11 @@ contract SuccinctVApp is
     }
 
     /// @dev Marks a reward index as claimed.
-    function _setClaimed(uint256 _index) private {
+    function _setClaimed(bytes32 _root, uint256 _index) private {
         uint256 claimedWordIndex = _index / 256;
         uint256 claimedBitIndex = _index % 256;
-        rewardsClaimedBitMap[claimedWordIndex] =
-            rewardsClaimedBitMap[claimedWordIndex] | (1 << claimedBitIndex);
+        rewardsClaimedBitMap[_root][claimedWordIndex] =
+            rewardsClaimedBitMap[_root][claimedWordIndex] | (1 << claimedBitIndex);
     }
 
     /// @dev Creates a receipt for an action.

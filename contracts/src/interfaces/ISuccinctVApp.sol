@@ -45,7 +45,12 @@ interface ISuccinctVApp {
     event MinDepositAmountUpdate(uint256 oldMinDepositAmount, uint256 newMinDepositAmount);
 
     /// @notice Emitted when a reward is claimed.
-    event RewardClaimed(uint256 indexed index, address indexed account, uint256 amount);
+    event RewardClaimed(
+        bytes32 indexed root, uint256 indexed index, address indexed account, uint256 amount
+    );
+
+    /// @notice Emitted when a reward root is added.
+    event RewardRootSet(bytes32 indexed root, uint256 deadline);
 
     /// @dev Thrown when the caller is not the auctioneer.
     error NotAuctioneer();
@@ -112,7 +117,13 @@ interface ISuccinctVApp {
     /// @dev Thrown when a transaction variant is invalid.
     error TransactionVariantInvalid();
 
-    /// @dev Thrown when a reward is already claimed.
+    /// @dev Thrown when trying to claim when a reward root has expired.
+    error RewardRootExpired();
+
+    /// @dev Thrown when trying to set a new root when the previous root has not expired.
+    error RewardRootNotExpired();
+
+    /// @dev Thrown when trying to claim a reward that has already been claimed.
     error RewardAlreadyClaimed();
 
     /// @notice The verification key for the vApp program.
@@ -165,8 +176,11 @@ interface ISuccinctVApp {
     /// @notice Timestamp for each block.
     function timestamps(uint64 block) external view returns (uint64);
 
-    /// @notice The current rewards merkle tree root.
-    function rewardsRoot() external view returns (bytes32);
+    /// @notice The currently active root for the reward merkle tree.
+    function rewardRoot() external view returns (bytes32);
+
+    /// @notice The deadline for the currently active reward root.
+    function rewardDeadline() external view returns (uint256);
 
     /// @notice Transactions for pending actions.
     function transactions(uint64 onchainTx)
@@ -180,9 +194,10 @@ interface ISuccinctVApp {
         );
 
     /// @notice Checks if a reward has been claimed.
+    /// @param root The root of the rewards merkle tree.
     /// @param index The index of the reward.
     /// @return True if the reward has been claimed, false otherwise.
-    function isClaimed(uint256 index) external view returns (bool);
+    function isClaimed(bytes32 root, uint256 index) external view returns (bool);
 
     /// @notice Deposit $PROVE into the prover network, must have already approved the contract as
     ///         a spender. The depositing account is credited with the $PROVE. Do not deposit with a
@@ -248,6 +263,12 @@ interface ISuccinctVApp {
     function step(bytes calldata publicValues, bytes calldata proofBytes)
         external
         returns (uint64 block, bytes32 oldRoot, bytes32 newRoot);
+
+    /// @notice Sets a new rewards merkle tree root.
+    /// @dev Only callable by the auctioneer. The previous reward deadline must have passed.
+    /// @param newRoot The root of the rewards merkle tree.
+    /// @param newDeadline The deadline for the root.
+    function setRewardRoot(bytes32 newRoot, uint256 newDeadline) external;
 
     /// @notice Updates the vapp program verification key, forks the state root.
     /// @dev Only callable by the owner, executes a state update. Also increments
