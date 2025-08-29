@@ -220,7 +220,7 @@ contract SuccinctVApp is
         uint256 _amount,
         bytes32[] calldata _merkleProof
     ) external override whenNotPaused {
-        // Ensure that the root exist and it's deadline has not passed.
+        // Ensure the reward deadline has not passed.
         if (rewardDeadline < block.timestamp) revert RewardRootExpired();
 
         // Ensure the index has not been marked as claimed.
