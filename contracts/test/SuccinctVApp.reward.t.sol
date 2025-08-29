@@ -60,6 +60,7 @@ contract SuccinctVAppRewardsTest is SuccinctVAppTest {
         // Rewards root should be empty initially.
         assertEq(SuccinctVApp(VAPP).rewardRoot(), bytes32(0));
         assertEq(SuccinctVApp(VAPP).rewardDeadline(), 0);
+        assertEq(SuccinctVApp(VAPP).rewardClaimedCount(), 0);
 
         // Check that isClaimed returns false for any index with zero root.
         for (uint256 i = 0; i < rewardAccounts.length; i++) {
@@ -84,6 +85,7 @@ contract SuccinctVAppRewardsTest is SuccinctVAppTest {
         );
 
         uint256 vappBalBefore = MockERC20(PROVE).balanceOf(VAPP);
+        uint256 claimedCountBefore = SuccinctVApp(VAPP).rewardClaimedCount();
 
         for (uint256 i = 0; i < rewardAccounts.length; i++) {
             // Setup.
@@ -114,7 +116,13 @@ contract SuccinctVAppRewardsTest is SuccinctVAppTest {
             vappBalBefore -= amount;
             assertEq(MockERC20(PROVE).balanceOf(VAPP), vappBalBefore);
             assertEq(SuccinctVApp(VAPP).isClaimed(rewardsMerkleRoot, i), true);
+
+            // Check claimed count incremented.
+            assertEq(SuccinctVApp(VAPP).rewardClaimedCount(), claimedCountBefore + i + 1);
         }
+
+        // Final check that all rewards were counted.
+        assertEq(SuccinctVApp(VAPP).rewardClaimedCount(), rewardAccounts.length);
     }
 
     // Not allowed to re-claim a reward.
@@ -129,12 +137,19 @@ contract SuccinctVAppRewardsTest is SuccinctVAppTest {
             SuccinctVApp(VAPP).rewardClaim(i, rewardAccounts[i], rewardAmounts[i], proof);
         }
 
+        // Get claimed count after all claims.
+        uint256 claimedCountAfterAll = SuccinctVApp(VAPP).rewardClaimedCount();
+        assertEq(claimedCountAfterAll, rewardAccounts.length);
+
         // Attempt to claim again.
         for (uint256 i = 0; i < rewardAccounts.length; i++) {
             bytes32[] memory proof = merkle.getProof(rewardLeaves, i);
             vm.expectRevert(ISuccinctVApp.RewardAlreadyClaimed.selector);
             SuccinctVApp(VAPP).rewardClaim(i, rewardAccounts[i], rewardAmounts[i], proof);
         }
+
+        // Verify count didn't change after failed attempts.
+        assertEq(SuccinctVApp(VAPP).rewardClaimedCount(), claimedCountAfterAll);
     }
 
     // Not allowed to claim with an invalid proof.
@@ -150,9 +165,15 @@ contract SuccinctVAppRewardsTest is SuccinctVAppTest {
         uint256 amount = rewardAmounts[index];
         bytes32[] memory invalidProof = merkle.getProof(rewardLeaves, invalidIndex);
 
+        // Get claimed count before attempt.
+        uint256 claimedCountBefore = SuccinctVApp(VAPP).rewardClaimedCount();
+
         // Attempt to claim with an invalid proof.
         vm.expectRevert(ISuccinctVApp.InvalidProof.selector);
         SuccinctVApp(VAPP).rewardClaim(index, claimer, amount, invalidProof);
+
+        // Verify count didn't change.
+        assertEq(SuccinctVApp(VAPP).rewardClaimedCount(), claimedCountBefore);
     }
 
     // Not allowed to claim when paused.

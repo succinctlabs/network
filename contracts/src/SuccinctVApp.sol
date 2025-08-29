@@ -90,6 +90,9 @@ contract SuccinctVApp is
     /// @inheritdoc ISuccinctVApp
     uint256 public override rewardDeadline;
 
+    /// @inheritdoc ISuccinctVApp
+    uint256 public override rewardClaimedCount;
+
     /// @dev This is a packed array of booleans for tracking claimed rewards.
     mapping(bytes32 => mapping(uint256 => uint256)) private rewardsClaimedBitMap;
 
@@ -226,8 +229,9 @@ contract SuccinctVApp is
         // Ensure the index has not been marked as claimed.
         if (isClaimed(rewardRoot, _index)) revert RewardAlreadyClaimed();
 
-        // Mark the index as claimed.
+        // Mark the index as claimed and increment the claimed count.
         _setClaimed(rewardRoot, _index);
+        rewardClaimedCount++;
 
         // Verify the merkle proof.
         bytes32 node = keccak256(abi.encodePacked(_index, _account, _amount));

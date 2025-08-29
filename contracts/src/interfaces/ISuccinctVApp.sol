@@ -182,6 +182,9 @@ interface ISuccinctVApp {
     /// @notice The deadline for the currently active reward root.
     function rewardDeadline() external view returns (uint256);
 
+    /// @notice The number of rewards claimed.
+    function rewardClaimedCount() external view returns (uint256);
+
     /// @notice Transactions for pending actions.
     function transactions(uint64 onchainTx)
         external
