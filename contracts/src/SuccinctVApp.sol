@@ -216,7 +216,7 @@ contract SuccinctVApp is
         address _account,
         uint256 _amount,
         bytes32[] calldata _merkleProof
-    ) public virtual override whenNotPaused {
+    ) external override whenNotPaused {
         // Ensure the index has not been marked as claimed.
         if (isClaimed(_index)) revert RewardAlreadyClaimed();
 

@@ -8,27 +8,24 @@ import {IERC20} from "../../lib/openzeppelin-contracts/contracts/interfaces/IERC
 contract MockERC4626 is MockERC20, IERC4626 {
     address public immutable asset;
 
-    constructor(
-        string memory name,
-        string memory symbol,
-        uint8 decimals_,
-        address _asset
-    ) MockERC20(name, symbol, decimals_) {
+    constructor(string memory name, string memory symbol, uint8 decimals_, address _asset)
+        MockERC20(name, symbol, decimals_)
+    {
         asset = _asset;
     }
 
     function deposit(uint256 assets, address receiver) public returns (uint256 shares) {
         // Simple 1:1 conversion for testing.
         shares = assets;
-        
+
         // Transfer assets from sender to this contract.
         IERC20(asset).transferFrom(msg.sender, address(this), assets);
-        
+
         // Mint shares to receiver.
         _mint(receiver, shares);
-        
+
         emit Deposit(msg.sender, receiver, assets, shares);
-        
+
         return shares;
     }
 
@@ -40,11 +37,10 @@ contract MockERC4626 is MockERC20, IERC4626 {
         return assets;
     }
 
-    function withdraw(
-        uint256 assets,
-        address receiver,
-        address owner
-    ) public returns (uint256 shares) {
+    function withdraw(uint256 assets, address receiver, address owner)
+        public
+        returns (uint256 shares)
+    {
         shares = assets; // 1:1 conversion
         if (msg.sender != owner) {
             _spendAllowance(owner, msg.sender, shares);
@@ -55,11 +51,10 @@ contract MockERC4626 is MockERC20, IERC4626 {
         return shares;
     }
 
-    function redeem(
-        uint256 shares,
-        address receiver,
-        address owner
-    ) public returns (uint256 assets) {
+    function redeem(uint256 shares, address receiver, address owner)
+        public
+        returns (uint256 assets)
+    {
         assets = shares; // 1:1 conversion
         if (msg.sender != owner) {
             _spendAllowance(owner, msg.sender, shares);
