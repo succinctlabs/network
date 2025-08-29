@@ -11,6 +11,7 @@ import {SuccinctGovernor} from "../src/SuccinctGovernor.sol";
 import {ISP1Verifier} from "../lib/sp1-contracts/contracts/src/ISP1Verifier.sol";
 import {FixtureLoader, Fixture, ProofFixtureJson} from "./utils/FixtureLoader.sol";
 import {MockERC20} from "./utils/MockERC20.sol";
+import {MockERC4626} from "./utils/MockERC4626.sol";
 import {ERC1967Proxy} from "../lib/openzeppelin-contracts/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import {Initializable} from "../lib/openzeppelin-contracts/contracts/proxy/utils/Initializable.sol";
 import {IERC20Permit} from
@@ -67,7 +68,7 @@ contract SuccinctVAppTest is Test, FixtureLoader {
     bytes32 public VKEY;
     bytes32 public GENESIS_STATE_ROOT;
 
-    function setUp() public {
+    function setUp() public virtual {
         // Load fixtures from JSON file
         jsonFixture = loadFixture(vm, Fixture.Groth16);
 
@@ -106,7 +107,7 @@ contract SuccinctVAppTest is Test, FixtureLoader {
 
         // Deploy tokens
         PROVE = address(new MockERC20("Succinct", "PROVE", 18));
-        I_PROVE = address(new MockERC20("Succinct", "iPROVE", 18));
+        I_PROVE = address(new MockERC4626("Succinct", "iPROVE", 18, PROVE));
 
         // Deploy governor
         GOVERNOR = address(
