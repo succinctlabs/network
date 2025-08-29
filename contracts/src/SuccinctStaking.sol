@@ -520,6 +520,11 @@ contract SuccinctStaking is
         _updateDispenseRate(_rate);
     }
 
+    /// @inheritdoc ISuccinctStaking
+    function updateUnstakePeriod(uint256 _unstakePeriod) external override onlyOwner {
+        _updateUnstakePeriod(_unstakePeriod);
+    }
+
     /*//////////////////////////////////////////////////////////////
                                INTERNAL
     //////////////////////////////////////////////////////////////*/
@@ -661,6 +666,11 @@ contract SuccinctStaking is
         emit DispenseRateUpdate(dispenseRate, _dispenseRate);
 
         dispenseRate = _dispenseRate;
+    }
+
+    /// @dev Set the new unstake period.
+    function _updateUnstakingPeriod(uint256 _unstakePeriod) internal pure {
+        unstakePeriod = _unstakePeriod
     }
 
     /// @dev Thrown if a zero address is passed.
