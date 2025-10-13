@@ -10,8 +10,8 @@ categories = { workspace = true }
 
 [dependencies]
 # alloy
-alloy-primitives = { workspace = true }
-alloy-sol-types = { workspace = true }
+alloy-primitives = { version = "1.0.22" }
+alloy-sol-types = { version = "1.0.22" }
 
 # misc
 anyhow = { workspace = true }
