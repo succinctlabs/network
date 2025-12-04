@@ -38,9 +38,15 @@ use aws_sdk_s3::{
 use aws_smithy_async::rt::sleep::default_async_sleep;
 use bytes::Bytes;
 use serde::{de::DeserializeOwned, Serialize};
-use tokio::sync::RwLock;
+use tokio::{sync::RwLock, task::JoinSet};
 use tracing::instrument;
 use url::Url;
+
+/// Chunk size for parallel downloads in bytes (32MB).
+const CHUNK_SIZE: usize = 32 * 1024 * 1024;
+
+/// Default concurrency for parallel downloads.
+const DEFAULT_CONCURRENCY: usize = 32;
 
 /// S3 Clients that are cached across the entire application.
 #[allow(clippy::type_complexity)]
@@ -161,6 +167,41 @@ impl Artifact {
             }
             "https" => download_https_file(uri).await,
             scheme => Err(anyhow!("Unsupported URI scheme for download_raw_from_uri: {scheme}")),
+        }
+    }
+
+    /// Downloads raw bytes of an artifact from a URI using parallel downloads.
+    ///
+    /// Supports both S3 URIs (s3://bucket/path) and HTTPS URLs. Downloads large
+    /// files in parallel chunks (32MB each) for improved performance. For S3 URIs,
+    /// uses byte-range requests via the S3 client. For HTTPS URLs, uses HTTP Range
+    /// headers if supported by the server, otherwise falls back to sequential download.
+    ///
+    /// # Arguments
+    /// * `uri` - The URI to download from (s3:// or https://)
+    /// * `s3_region` - The AWS region for S3 operations
+    /// * `artifact_type` - The type of artifact determining the S3 prefix
+    /// * `concurrency` - Optional concurrency limit (default: 8)
+    #[instrument(fields(label = self.label, id = self.id), skip_all)]
+    pub async fn download_raw_from_uri_par(
+        &self,
+        uri: &str,
+        s3_region: &str,
+        artifact_type: ArtifactType,
+        concurrency: Option<usize>,
+    ) -> Result<Bytes> {
+        let parsed_url = Url::parse(uri).context("Failed to parse URI")?;
+        match parsed_url.scheme() {
+            "s3" => {
+                let bucket =
+                    parsed_url.host_str().ok_or_else(|| anyhow!("S3 URI missing bucket: {uri}"))?;
+                let s3_client = get_s3_client(s3_region).await;
+                download_s3_file_par(&s3_client, bucket, &self.id, artifact_type, concurrency).await
+            }
+            "https" => download_https_file_par(uri, concurrency).await,
+            scheme => {
+                Err(anyhow!("Unsupported URI scheme for download_raw_from_uri_par: {scheme}"))
+            }
         }
     }
 
@@ -431,6 +472,107 @@ async fn download_s3_file(
     Ok(bytes)
 }
 
+async fn download_s3_file_par(
+    client: &S3Client,
+    bucket: &str,
+    id: &str,
+    artifact_type: ArtifactType,
+    concurrency: Option<usize>,
+) -> Result<Bytes> {
+    let key = get_s3_key(artifact_type, id);
+    let concurrency = concurrency.unwrap_or(DEFAULT_CONCURRENCY);
+
+    let head_res = client
+        .head_object()
+        .bucket(bucket)
+        .key(&key)
+        .send()
+        .await
+        .context("Failed to get object metadata from S3")?;
+
+    let size = head_res.content_length().unwrap_or(0);
+
+    if size <= 0 {
+        return Err(anyhow!("Invalid object size: {size}"));
+    }
+
+    if size as usize <= CHUNK_SIZE {
+        return download_s3_file(client, bucket, id, artifact_type).await;
+    }
+
+    let starts: Vec<(usize, i64)> = (0..size).step_by(CHUNK_SIZE).enumerate().collect();
+
+    let num_chunks = starts.len();
+    let concurrency = std::cmp::min(concurrency, num_chunks);
+
+    let mut set = JoinSet::new();
+    let (tx, mut rx) = tokio::sync::mpsc::channel(num_chunks);
+
+    for chunk_group in starts.chunks(std::cmp::max(num_chunks / concurrency, 1)) {
+        let client = client.clone();
+        let bucket = bucket.to_string();
+        let key = key.clone();
+        let tx = tx.clone();
+        let chunk_group = chunk_group.to_vec();
+
+        set.spawn(async move {
+            for (index, start) in chunk_group {
+                let end = std::cmp::min(start + CHUNK_SIZE as i64, size) - 1;
+                let range = format!("bytes={start}-{end}");
+
+                let mut retry_count = 0;
+                let max_retries = 5;
+                let mut delay = Duration::from_secs(1);
+
+                loop {
+                    match client.get_object().bucket(&bucket).key(&key).range(&range).send().await {
+                        Ok(res) => {
+                            let data = res.body.collect().await?;
+                            let bytes = data.into_bytes();
+                            tx.send((index, bytes)).await?;
+                            break;
+                        }
+                        Err(e) => {
+                            retry_count += 1;
+                            if retry_count >= max_retries {
+                                return Err(anyhow!(
+                                    "Failed to download S3 chunk after {max_retries} retries: {e}"
+                                ));
+                            }
+
+                            tracing::warn!(
+                                "retry attempt {} for downloading S3 chunk {}: {}",
+                                retry_count,
+                                index,
+                                e
+                            );
+
+                            tokio::time::sleep(delay).await;
+                            delay *= 2;
+                        }
+                    }
+                }
+            }
+            Ok::<(), anyhow::Error>(())
+        });
+    }
+
+    drop(tx);
+
+    let mut result = vec![0_u8; size as usize];
+    while let Some((index, chunk)) = rx.recv().await {
+        let start = index * CHUNK_SIZE;
+        let end = std::cmp::min(start + chunk.len(), size as usize);
+        result[start..end].copy_from_slice(&chunk);
+    }
+
+    while let Some(res) = set.join_next().await {
+        res.context("S3 download task panicked")??;
+    }
+
+    Ok(Bytes::from(result))
+}
+
 async fn download_https_file(uri: &str) -> Result<Bytes> {
     let client = reqwest::Client::new();
     let res = client
@@ -444,6 +586,140 @@ async fn download_https_file(uri: &str) -> Result<Bytes> {
     }
     let bytes = res.bytes().await.context("Failed to read HTTPS response body")?;
     Ok(bytes)
+}
+
+#[allow(clippy::too_many_lines)]
+async fn download_https_file_par(uri: &str, concurrency: Option<usize>) -> Result<Bytes> {
+    let concurrency = concurrency.unwrap_or(DEFAULT_CONCURRENCY);
+    let client = reqwest::Client::new();
+
+    let head_res = client
+        .head(uri)
+        .timeout(Duration::from_secs(30))
+        .send()
+        .await
+        .context("Failed to HEAD HTTPS URL")?;
+
+    if !head_res.status().is_success() {
+        return Err(anyhow!(
+            "Failed to get metadata from HTTPS URL {uri}: status {}",
+            head_res.status()
+        ));
+    }
+
+    let supports_range = head_res
+        .headers()
+        .get(reqwest::header::ACCEPT_RANGES)
+        .and_then(|v| v.to_str().ok())
+        .is_some_and(|v| v == "bytes");
+
+    let size = head_res
+        .headers()
+        .get(reqwest::header::CONTENT_LENGTH)
+        .and_then(|v| v.to_str().ok())
+        .and_then(|v| v.parse::<usize>().ok());
+
+    if !supports_range || size.is_none() {
+        return download_https_file(uri).await;
+    }
+
+    let size = size.unwrap();
+
+    if size <= CHUNK_SIZE {
+        return download_https_file(uri).await;
+    }
+
+    let starts: Vec<(usize, usize)> = (0..size).step_by(CHUNK_SIZE).enumerate().collect();
+
+    let num_chunks = starts.len();
+    let concurrency = std::cmp::min(concurrency, num_chunks);
+
+    let mut set = JoinSet::new();
+    let (tx, mut rx) = tokio::sync::mpsc::channel(num_chunks);
+
+    for chunk_group in starts.chunks(std::cmp::max(num_chunks / concurrency, 1)) {
+        let uri = uri.to_string();
+        let tx = tx.clone();
+        let chunk_group = chunk_group.to_vec();
+
+        set.spawn(async move {
+            let client = reqwest::Client::new();
+            for (index, start) in chunk_group {
+                let end = std::cmp::min(start + CHUNK_SIZE, size) - 1;
+                let range = format!("bytes={start}-{end}");
+
+                let mut retry_count = 0;
+                let max_retries = 5;
+                let mut delay = Duration::from_secs(1);
+
+                loop {
+                    match client
+                        .get(&uri)
+                        .header(reqwest::header::RANGE, &range)
+                        .timeout(Duration::from_secs(90))
+                        .send()
+                        .await
+                    {
+                        Ok(res) => {
+                            if !res.status().is_success() && res.status() != reqwest::StatusCode::PARTIAL_CONTENT {
+                                retry_count += 1;
+                                if retry_count >= max_retries {
+                                    return Err(anyhow!("Failed to download HTTPS chunk after {max_retries} retries: status {}", res.status()));
+                                }
+
+                                tracing::warn!(
+                                    "retry attempt {} for downloading HTTPS chunk {}: status {}",
+                                    retry_count,
+                                    index,
+                                    res.status()
+                                );
+
+                                tokio::time::sleep(delay).await;
+                                delay *= 2;
+                                continue;
+                            }
+
+                            let bytes = res.bytes().await?;
+                            tx.send((index, bytes)).await?;
+                            break;
+                        }
+                        Err(e) => {
+                            retry_count += 1;
+                            if retry_count >= max_retries {
+                                return Err(anyhow!("Failed to download HTTPS chunk after {max_retries} retries: {e}"));
+                            }
+
+                            tracing::warn!(
+                                "retry attempt {} for downloading HTTPS chunk {}: {}",
+                                retry_count,
+                                index,
+                                e
+                            );
+
+                            tokio::time::sleep(delay).await;
+                            delay *= 2;
+                        }
+                    }
+                }
+            }
+            Ok::<(), anyhow::Error>(())
+        });
+    }
+
+    drop(tx);
+
+    let mut result = vec![0_u8; size];
+    while let Some((index, chunk)) = rx.recv().await {
+        let start = index * CHUNK_SIZE;
+        let end = std::cmp::min(start + chunk.len(), size);
+        result[start..end].copy_from_slice(&chunk);
+    }
+
+    while let Some(res) = set.join_next().await {
+        res.context("HTTPS download task panicked")??;
+    }
+
+    Ok(Bytes::from(result))
 }
 
 async fn upload_file(
