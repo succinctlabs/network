@@ -4,8 +4,9 @@ pragma solidity ^0.8.28;
 import {SuccinctStaking} from "../../src/SuccinctStaking.sol";
 import {SuccinctVApp} from "../../src/SuccinctVApp.sol";
 import {IntermediateSuccinct} from "../../src/tokens/IntermediateSuccinct.sol";
-import {ERC1967Proxy} from
-    "../../lib/openzeppelin-contracts/contracts/proxy/ERC1967/ERC1967Proxy.sol";
+import {
+    ERC1967Proxy
+} from "../../lib/openzeppelin-contracts/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 
 contract AtomicDeployer {
     // Staking proxy param
@@ -152,18 +153,19 @@ contract AtomicDeployer {
             VAPP = address(new ERC1967Proxy{salt: salt}(vappImpl, vappInitData));
         }
 
-        SuccinctStaking(STAKING).initialize(
-            owner,
-            GOVERNOR,
-            VAPP,
-            prove,
-            I_PROVE,
-            dispenser,
-            minStakeAmount,
-            maxUnstakeRequests,
-            unstakePeriod,
-            slashCancellationPeriod
-        );
+        SuccinctStaking(STAKING)
+            .initialize(
+                owner,
+                GOVERNOR,
+                VAPP,
+                prove,
+                I_PROVE,
+                dispenser,
+                minStakeAmount,
+                maxUnstakeRequests,
+                unstakePeriod,
+                slashCancellationPeriod
+            );
 
         return (STAKING, VAPP, I_PROVE, GOVERNOR);
     }

@@ -18,11 +18,7 @@ struct ProofFixtureJson {
 contract FixtureLoader {
     using stdJson for string;
 
-    function loadFixture(VmSafe vm, Fixture fixture)
-        public
-        view
-        returns (ProofFixtureJson memory)
-    {
+    function loadFixture(VmSafe vm, Fixture fixture) public view returns (ProofFixtureJson memory) {
         string memory fixturePath;
         if (fixture == Fixture.Groth16) {
             fixturePath = "/fixtures/groth16-fixture.json";

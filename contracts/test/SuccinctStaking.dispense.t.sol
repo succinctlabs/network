@@ -393,7 +393,7 @@ contract SuccinctStakingDispenseTests is SuccinctStakingTest {
         skip(100);
         uint256 totalEarned1 = SuccinctStaking(STAKING).dispenseEarned()
             + (block.timestamp - SuccinctStaking(STAKING).dispenseRateTimestamp())
-                * SuccinctStaking(STAKING).dispenseRate();
+            * SuccinctStaking(STAKING).dispenseRate();
         uint256 totalAccounted1 =
             SuccinctStaking(STAKING).dispenseDistributed() + SuccinctStaking(STAKING).maxDispense();
         assertEq(totalEarned1, totalAccounted1, "Invariant broken after skip");
@@ -405,7 +405,7 @@ contract SuccinctStakingDispenseTests is SuccinctStakingTest {
 
         uint256 totalEarned2 = SuccinctStaking(STAKING).dispenseEarned()
             + (block.timestamp - SuccinctStaking(STAKING).dispenseRateTimestamp())
-                * SuccinctStaking(STAKING).dispenseRate();
+            * SuccinctStaking(STAKING).dispenseRate();
         uint256 totalAccounted2 =
             SuccinctStaking(STAKING).dispenseDistributed() + SuccinctStaking(STAKING).maxDispense();
         assertEq(totalEarned2, totalAccounted2, "Invariant broken after dispense");
@@ -416,7 +416,7 @@ contract SuccinctStakingDispenseTests is SuccinctStakingTest {
 
         uint256 totalEarned3 = SuccinctStaking(STAKING).dispenseEarned()
             + (block.timestamp - SuccinctStaking(STAKING).dispenseRateTimestamp())
-                * SuccinctStaking(STAKING).dispenseRate();
+            * SuccinctStaking(STAKING).dispenseRate();
         uint256 totalAccounted3 =
             SuccinctStaking(STAKING).dispenseDistributed() + SuccinctStaking(STAKING).maxDispense();
         assertEq(totalEarned3, totalAccounted3, "Invariant broken after rate change");
@@ -429,7 +429,7 @@ contract SuccinctStakingDispenseTests is SuccinctStakingTest {
 
         uint256 totalEarned4 = SuccinctStaking(STAKING).dispenseEarned()
             + (block.timestamp - SuccinctStaking(STAKING).dispenseRateTimestamp())
-                * SuccinctStaking(STAKING).dispenseRate();
+            * SuccinctStaking(STAKING).dispenseRate();
         uint256 totalAccounted4 =
             SuccinctStaking(STAKING).dispenseDistributed() + SuccinctStaking(STAKING).maxDispense();
         assertEq(totalEarned4, totalAccounted4, "Invariant broken after second dispense");

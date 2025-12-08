@@ -13,8 +13,9 @@ import {
 } from "../src/libraries/PublicValues.sol";
 import {ISuccinctVApp} from "../src/interfaces/ISuccinctVApp.sol";
 import {MockERC20} from "./utils/MockERC20.sol";
-import {ERC20Permit} from
-    "../lib/openzeppelin-contracts/contracts/token/ERC20/extensions/ERC20Permit.sol";
+import {
+    ERC20Permit
+} from "../lib/openzeppelin-contracts/contracts/token/ERC20/extensions/ERC20Permit.sol";
 
 contract SuccinctVAppDepositTest is SuccinctVAppTest {
     function test_Deposit_WhenValid() public {

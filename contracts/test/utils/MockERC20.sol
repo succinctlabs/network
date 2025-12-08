@@ -2,10 +2,12 @@
 pragma solidity ^0.8.28;
 
 import {ERC20} from "../../lib/openzeppelin-contracts/contracts/token/ERC20/ERC20.sol";
-import {ERC20Permit} from
-    "../../lib/openzeppelin-contracts/contracts/token/ERC20/extensions/ERC20Permit.sol";
-import {ERC20Votes} from
-    "../../lib/openzeppelin-contracts/contracts/token/ERC20/extensions/ERC20Votes.sol";
+import {
+    ERC20Permit
+} from "../../lib/openzeppelin-contracts/contracts/token/ERC20/extensions/ERC20Permit.sol";
+import {
+    ERC20Votes
+} from "../../lib/openzeppelin-contracts/contracts/token/ERC20/extensions/ERC20Votes.sol";
 import {Nonces} from "../../lib/openzeppelin-contracts/contracts/utils/Nonces.sol";
 
 contract MockERC20 is ERC20, ERC20Permit, ERC20Votes {

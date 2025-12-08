@@ -11,8 +11,9 @@ import {MockVApp, FeeCalculator} from "../src/mocks/MockVApp.sol";
 import {SuccinctGovernor} from "../src/SuccinctGovernor.sol";
 import {ERC20} from "../lib/openzeppelin-contracts/contracts/token/ERC20/ERC20.sol";
 import {IERC20} from "../lib/openzeppelin-contracts/contracts/interfaces/IERC20.sol";
-import {IERC20Permit} from
-    "../lib/openzeppelin-contracts/contracts/token/ERC20/extensions/IERC20Permit.sol";
+import {
+    IERC20Permit
+} from "../lib/openzeppelin-contracts/contracts/token/ERC20/extensions/IERC20Permit.sol";
 import {IERC4626} from "../lib/openzeppelin-contracts/contracts/interfaces/IERC4626.sol";
 import {ERC1967Proxy} from "../lib/openzeppelin-contracts/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 
@@ -101,18 +102,19 @@ contract SuccinctStakingTest is Test {
 
         // Initialize Succinct Staking
         vm.prank(OWNER);
-        SuccinctStaking(STAKING).initialize(
-            OWNER,
-            GOVERNOR,
-            VAPP,
-            PROVE,
-            I_PROVE,
-            DISPENSER,
-            MIN_STAKE_AMOUNT,
-            MAX_UNSTAKE_REQUESTS,
-            UNSTAKE_PERIOD,
-            SLASH_CANCELLATION_PERIOD
-        );
+        SuccinctStaking(STAKING)
+            .initialize(
+                OWNER,
+                GOVERNOR,
+                VAPP,
+                PROVE,
+                I_PROVE,
+                DISPENSER,
+                MIN_STAKE_AMOUNT,
+                MAX_UNSTAKE_REQUESTS,
+                UNSTAKE_PERIOD,
+                SLASH_CANCELLATION_PERIOD
+            );
 
         // Update the dispense rate
         vm.prank(OWNER);

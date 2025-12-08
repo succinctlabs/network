@@ -7,18 +7,22 @@ import {ISuccinctStaking} from "./interfaces/ISuccinctStaking.sol";
 import {IIntermediateSuccinct} from "./interfaces/IIntermediateSuccinct.sol";
 import {IProver} from "./interfaces/IProver.sol";
 import {SuccinctGovernor} from "./SuccinctGovernor.sol";
-import {Initializable} from
-    "../lib/openzeppelin-contracts-upgradeable/contracts/proxy/utils/Initializable.sol";
-import {OwnableUpgradeable} from
-    "../lib/openzeppelin-contracts-upgradeable/contracts/access/OwnableUpgradeable.sol";
+import {
+    Initializable
+} from "../lib/openzeppelin-contracts-upgradeable/contracts/proxy/utils/Initializable.sol";
+import {
+    OwnableUpgradeable
+} from "../lib/openzeppelin-contracts-upgradeable/contracts/access/OwnableUpgradeable.sol";
 import {IERC20} from "../lib/openzeppelin-contracts/contracts/interfaces/IERC20.sol";
-import {IERC20Permit} from
-    "../lib/openzeppelin-contracts/contracts/token/ERC20/extensions/IERC20Permit.sol";
+import {
+    IERC20Permit
+} from "../lib/openzeppelin-contracts/contracts/token/ERC20/extensions/IERC20Permit.sol";
 import {IERC4626} from "../lib/openzeppelin-contracts/contracts/interfaces/IERC4626.sol";
 import {SafeERC20} from "../lib/openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol";
 import {Math} from "../lib/openzeppelin-contracts/contracts/utils/math/Math.sol";
-import {UUPSUpgradeable} from
-    "../lib/openzeppelin-contracts-upgradeable/contracts/proxy/utils/UUPSUpgradeable.sol";
+import {
+    UUPSUpgradeable
+} from "../lib/openzeppelin-contracts-upgradeable/contracts/proxy/utils/UUPSUpgradeable.sol";
 
 /// @title SuccinctStaking
 /// @author Succinct Labs
@@ -286,7 +290,9 @@ contract SuccinctStaking is
         if (prover == address(0)) revert NotStaked();
 
         // Check that this staker has not already requested too many unstake requests.
-        if (unstakeClaims[msg.sender].length >= maxUnstakeRequests) revert TooManyUnstakeRequests();
+        if (unstakeClaims[msg.sender].length >= maxUnstakeRequests) {
+            revert TooManyUnstakeRequests();
+        }
 
         // Check that this prover is not in the process of being slashed.
         _requireProverWithoutSlashRequests(prover);
@@ -384,11 +390,7 @@ contract SuccinctStaking is
     }
 
     /// @inheritdoc ISuccinctStaking
-    function cancelSlash(address _prover, uint256 _index)
-        external
-        override
-        onlyForProver(_prover)
-    {
+    function cancelSlash(address _prover, uint256 _index) external override onlyForProver(_prover) {
         // Get the slash claim.
         SlashClaim storage claim = slashClaims[_prover][_index];
 

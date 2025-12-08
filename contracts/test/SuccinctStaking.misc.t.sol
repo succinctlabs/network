@@ -8,8 +8,9 @@ import {IProverRegistry} from "../src/interfaces/IProverRegistry.sol";
 import {MockVApp} from "../src/mocks/MockVApp.sol";
 import {IERC20} from "../lib/openzeppelin-contracts/contracts/interfaces/IERC20.sol";
 import {IERC4626} from "../lib/openzeppelin-contracts/contracts/interfaces/IERC4626.sol";
-import {ERC20Permit} from
-    "../lib/openzeppelin-contracts/contracts/token/ERC20/extensions/ERC20Permit.sol";
+import {
+    ERC20Permit
+} from "../lib/openzeppelin-contracts/contracts/token/ERC20/extensions/ERC20Permit.sol";
 
 // Possible combinations of functionality not covered in functionality-specific test files.
 contract SuccinctStakingMiscellaneousTests is SuccinctStakingTest {
@@ -61,8 +62,8 @@ contract SuccinctStakingMiscellaneousTests is SuccinctStakingTest {
             // Use safe arithmetic to avoid overflow
             uint256 maxStake = proveBalance / 4;
             if (maxStake > MIN_STAKE_AMOUNT) {
-                uint256 stakeAmount =
-                    MIN_STAKE_AMOUNT + ((_seed >> (_iteration * 8)) % (maxStake - MIN_STAKE_AMOUNT));
+                uint256 stakeAmount = MIN_STAKE_AMOUNT
+                    + ((_seed >> (_iteration * 8)) % (maxStake - MIN_STAKE_AMOUNT));
                 vm.prank(_actor);
                 IERC20(PROVE).approve(STAKING, stakeAmount);
 
@@ -360,9 +361,8 @@ contract SuccinctStakingMiscellaneousTests is SuccinctStakingTest {
         vm.expectRevert(
             abi.encodeWithSelector(ERC20Permit.ERC2612ExpiredSignature.selector, deadline)
         );
-        SuccinctStaking(STAKING).permitAndStake(
-            ALICE_PROVER, STAKER_1, stakeAmount, deadline, v, r, s
-        );
+        SuccinctStaking(STAKING)
+            .permitAndStake(ALICE_PROVER, STAKER_1, stakeAmount, deadline, v, r, s);
     }
 
     // Test behavior when vault operations return zero
@@ -444,9 +444,8 @@ contract SuccinctStakingMiscellaneousTests is SuccinctStakingTest {
         // Either way, it shouldn't cause unexpected behavior
         // Try to stake - may revert due to vault limits
         vm.prank(STAKER_1);
-        (bool success,) = address(STAKING).call(
-            abi.encodeWithSelector(SuccinctStaking.stake.selector, ALICE_PROVER, safeMax)
-        );
+        (bool success,) = address(STAKING)
+            .call(abi.encodeWithSelector(SuccinctStaking.stake.selector, ALICE_PROVER, safeMax));
 
         if (success) {
             // If it succeeds, we should be able to query the stake
@@ -984,9 +983,8 @@ contract SuccinctStakingMiscellaneousTests is SuccinctStakingTest {
         skip(UNSTAKE_PERIOD);
         if (SuccinctStaking(STAKING).unstakeRequests(STAKER_1).length > 0) {
             // Should not revert due to overflow in unstake calculations
-            uint256 preview = SuccinctStaking(STAKING).previewUnstake(
-                ALICE_PROVER, SuccinctStaking(STAKING).balanceOf(STAKER_1)
-            );
+            uint256 preview = SuccinctStaking(STAKING)
+                .previewUnstake(ALICE_PROVER, SuccinctStaking(STAKING).balanceOf(STAKER_1));
             assertTrue(preview >= 0, "Preview should not overflow");
 
             // Calculate expected maximum based on actual available iPROVE

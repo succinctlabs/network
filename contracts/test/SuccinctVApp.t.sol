@@ -13,8 +13,9 @@ import {FixtureLoader, Fixture, ProofFixtureJson} from "./utils/FixtureLoader.so
 import {MockERC20} from "./utils/MockERC20.sol";
 import {ERC1967Proxy} from "../lib/openzeppelin-contracts/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import {Initializable} from "../lib/openzeppelin-contracts/contracts/proxy/utils/Initializable.sol";
-import {IERC20Permit} from
-    "../lib/openzeppelin-contracts/contracts/token/ERC20/extensions/IERC20Permit.sol";
+import {
+    IERC20Permit
+} from "../lib/openzeppelin-contracts/contracts/token/ERC20/extensions/IERC20Permit.sol";
 
 contract SuccinctVAppTest is Test, FixtureLoader {
     using stdJson for string;
@@ -121,17 +122,18 @@ contract SuccinctVAppTest is Test, FixtureLoader {
         // Deploy VApp
         address vappImpl = address(new SuccinctVApp());
         VAPP = address(new ERC1967Proxy(vappImpl, ""));
-        SuccinctVApp(VAPP).initialize(
-            OWNER,
-            PROVE,
-            I_PROVE,
-            AUCTIONEER,
-            STAKING,
-            VERIFIER,
-            MIN_DEPOSIT_AMOUNT,
-            VKEY,
-            GENESIS_STATE_ROOT
-        );
+        SuccinctVApp(VAPP)
+            .initialize(
+                OWNER,
+                PROVE,
+                I_PROVE,
+                AUCTIONEER,
+                STAKING,
+                VERIFIER,
+                MIN_DEPOSIT_AMOUNT,
+                VKEY,
+                GENESIS_STATE_ROOT
+            );
         MockStaking(STAKING).setVApp(VAPP);
     }
 
@@ -193,16 +195,17 @@ contract SuccinctVAppSetupTests is SuccinctVAppTest {
 
     function test_RevertInitialized_WhenInvalidInitialization() public {
         vm.expectRevert(abi.encodeWithSelector(Initializable.InvalidInitialization.selector));
-        SuccinctVApp(VAPP).initialize(
-            OWNER,
-            PROVE,
-            I_PROVE,
-            AUCTIONEER,
-            STAKING,
-            VERIFIER,
-            MIN_DEPOSIT_AMOUNT,
-            VKEY,
-            GENESIS_STATE_ROOT
-        );
+        SuccinctVApp(VAPP)
+            .initialize(
+                OWNER,
+                PROVE,
+                I_PROVE,
+                AUCTIONEER,
+                STAKING,
+                VERIFIER,
+                MIN_DEPOSIT_AMOUNT,
+                VKEY,
+                GENESIS_STATE_ROOT
+            );
     }
 }

@@ -9,34 +9,36 @@ contract SuccinctStakingInitalizationTests is SuccinctStakingTest {
     function test_RevertInitialize_WhenNotProxy() public {
         address stakingImpl = address(new SuccinctStaking());
         vm.expectRevert(abi.encodeWithSelector(Initializable.InvalidInitialization.selector));
-        SuccinctStaking(stakingImpl).initialize(
-            OWNER,
-            GOVERNOR,
-            VAPP,
-            PROVE,
-            I_PROVE,
-            DISPENSER,
-            MIN_STAKE_AMOUNT,
-            MAX_UNSTAKE_REQUESTS,
-            UNSTAKE_PERIOD,
-            SLASH_CANCELLATION_PERIOD
-        );
+        SuccinctStaking(stakingImpl)
+            .initialize(
+                OWNER,
+                GOVERNOR,
+                VAPP,
+                PROVE,
+                I_PROVE,
+                DISPENSER,
+                MIN_STAKE_AMOUNT,
+                MAX_UNSTAKE_REQUESTS,
+                UNSTAKE_PERIOD,
+                SLASH_CANCELLATION_PERIOD
+            );
     }
 
     function test_RevertInitialize_WhenAlreadyInitialized() public {
         vm.expectRevert(abi.encodeWithSelector(Initializable.InvalidInitialization.selector));
         vm.prank(OWNER);
-        SuccinctStaking(STAKING).initialize(
-            OWNER,
-            GOVERNOR,
-            VAPP,
-            PROVE,
-            I_PROVE,
-            DISPENSER,
-            MIN_STAKE_AMOUNT,
-            MAX_UNSTAKE_REQUESTS,
-            UNSTAKE_PERIOD,
-            SLASH_CANCELLATION_PERIOD
-        );
+        SuccinctStaking(STAKING)
+            .initialize(
+                OWNER,
+                GOVERNOR,
+                VAPP,
+                PROVE,
+                I_PROVE,
+                DISPENSER,
+                MIN_STAKE_AMOUNT,
+                MAX_UNSTAKE_REQUESTS,
+                UNSTAKE_PERIOD,
+                SLASH_CANCELLATION_PERIOD
+            );
     }
 }

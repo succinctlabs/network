@@ -5,11 +5,15 @@ import {IProver} from "../interfaces/IProver.sol";
 import {IGovernor} from "../../lib/openzeppelin-contracts/contracts/governance/IGovernor.sol";
 import {ERC20} from "../../lib/openzeppelin-contracts/contracts/token/ERC20/ERC20.sol";
 import {IERC20} from "../../lib/openzeppelin-contracts/contracts/interfaces/IERC20.sol";
-import {ERC20Votes} from
-    "../../lib/openzeppelin-contracts/contracts/token/ERC20/extensions/ERC20Votes.sol";
-import {ERC4626} from
-    "../../lib/openzeppelin-contracts/contracts/token/ERC20/extensions/ERC4626.sol";
-import {SafeERC20} from "../../lib/openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol";
+import {
+    ERC20Votes
+} from "../../lib/openzeppelin-contracts/contracts/token/ERC20/extensions/ERC20Votes.sol";
+import {
+    ERC4626
+} from "../../lib/openzeppelin-contracts/contracts/token/ERC20/extensions/ERC4626.sol";
+import {
+    SafeERC20
+} from "../../lib/openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol";
 import {Strings} from "../../lib/openzeppelin-contracts/contracts/utils/Strings.sol";
 
 string constant NAME_PREFIX = "SuccinctProver-";
@@ -57,7 +61,9 @@ contract SuccinctProver is ERC4626, IProver {
         uint256 _id,
         uint256 _stakerFeeBips
     )
-        ERC20(string.concat(NAME_PREFIX, _id.toString()), string.concat(SYMBOL_PREFIX, _id.toString()))
+        ERC20(
+            string.concat(NAME_PREFIX, _id.toString()), string.concat(SYMBOL_PREFIX, _id.toString())
+        )
         ERC4626(IERC20(_iProve))
     {
         if (

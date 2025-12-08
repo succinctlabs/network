@@ -4,15 +4,19 @@ pragma solidity ^0.8.28;
 import {IProverRegistry} from "../interfaces/IProverRegistry.sol";
 import {IIntermediateSuccinct} from "../interfaces/IIntermediateSuccinct.sol";
 import {ERC20} from "../../lib/openzeppelin-contracts/contracts/token/ERC20/ERC20.sol";
-import {ERC20Burnable} from
-    "../../lib/openzeppelin-contracts/contracts/token/ERC20/extensions/ERC20Burnable.sol";
+import {
+    ERC20Burnable
+} from "../../lib/openzeppelin-contracts/contracts/token/ERC20/extensions/ERC20Burnable.sol";
 import {IERC20} from "../../lib/openzeppelin-contracts/contracts/interfaces/IERC20.sol";
-import {ERC20Permit} from
-    "../../lib/openzeppelin-contracts/contracts/token/ERC20/extensions/ERC20Permit.sol";
-import {ERC20Votes} from
-    "../../lib/openzeppelin-contracts/contracts/token/ERC20/extensions/ERC20Votes.sol";
-import {ERC4626} from
-    "../../lib/openzeppelin-contracts/contracts/token/ERC20/extensions/ERC4626.sol";
+import {
+    ERC20Permit
+} from "../../lib/openzeppelin-contracts/contracts/token/ERC20/extensions/ERC20Permit.sol";
+import {
+    ERC20Votes
+} from "../../lib/openzeppelin-contracts/contracts/token/ERC20/extensions/ERC20Votes.sol";
+import {
+    ERC4626
+} from "../../lib/openzeppelin-contracts/contracts/token/ERC20/extensions/ERC4626.sol";
 import {Nonces} from "../../lib/openzeppelin-contracts/contracts/utils/Nonces.sol";
 
 string constant NAME = "IntermediateSuccinct";
@@ -72,7 +76,8 @@ contract IntermediateSuccinct is ERC4626, ERC20Permit, ERC20Votes, IIntermediate
     {
         // Check for (1).
         bool isStakeOrUnstake = msg.sender == staking
-            || (IProverRegistry(staking).isProver(msg.sender) && (_from == staking || _to == staking));
+            || (IProverRegistry(staking).isProver(msg.sender)
+                && (_from == staking || _to == staking));
 
         // If not (1), check for (2).
         bool isProverReward;

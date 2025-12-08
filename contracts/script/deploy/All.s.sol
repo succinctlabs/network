@@ -8,8 +8,9 @@ import {IntermediateSuccinct} from "../../src/tokens/IntermediateSuccinct.sol";
 import {SuccinctGovernor} from "../../src/SuccinctGovernor.sol";
 import {Succinct} from "../../src/tokens/Succinct.sol";
 import {FixtureLoader} from "../../test/utils/FixtureLoader.sol";
-import {ERC1967Proxy} from
-    "../../lib/openzeppelin-contracts/contracts/proxy/ERC1967/ERC1967Proxy.sol";
+import {
+    ERC1967Proxy
+} from "../../lib/openzeppelin-contracts/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import {SP1VerifierGateway} from "../../lib/sp1-contracts/contracts/src/SP1VerifierGateway.sol";
 import {SP1Verifier} from "../../lib/sp1-contracts/contracts/src/v5.0.0/SP1VerifierGroth16.sol";
 
@@ -117,17 +118,18 @@ contract AllScript is BaseScript, FixtureLoader {
         uint256 UNSTAKE_PERIOD = readUint256("UNSTAKE_PERIOD");
         uint256 SLASH_CANCELLATION_PERIOD = readUint256("SLASH_CANCELLATION_PERIOD");
 
-        SuccinctStaking(STAKING).initialize(
-            OWNER,
-            GOVERNOR,
-            VAPP,
-            PROVE,
-            I_PROVE,
-            DISPENSER,
-            MIN_STAKE_AMOUNT,
-            MAX_UNSTAKE_REQUESTS,
-            UNSTAKE_PERIOD,
-            SLASH_CANCELLATION_PERIOD
-        );
+        SuccinctStaking(STAKING)
+            .initialize(
+                OWNER,
+                GOVERNOR,
+                VAPP,
+                PROVE,
+                I_PROVE,
+                DISPENSER,
+                MIN_STAKE_AMOUNT,
+                MAX_UNSTAKE_REQUESTS,
+                UNSTAKE_PERIOD,
+                SLASH_CANCELLATION_PERIOD
+            );
     }
 }

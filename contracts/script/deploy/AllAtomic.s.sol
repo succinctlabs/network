@@ -7,8 +7,9 @@ import {SuccinctVApp} from "../../src/SuccinctVApp.sol";
 import {IntermediateSuccinct} from "../../src/tokens/IntermediateSuccinct.sol";
 import {SuccinctGovernor} from "../../src/SuccinctGovernor.sol";
 import {AtomicDeployer} from "../utils/AtomicDeployer.sol";
-import {ERC1967Proxy} from
-    "../../lib/openzeppelin-contracts/contracts/proxy/ERC1967/ERC1967Proxy.sol";
+import {
+    ERC1967Proxy
+} from "../../lib/openzeppelin-contracts/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 
 // Deploy all contracts.
 contract AllAtomicScript is BaseScript {
