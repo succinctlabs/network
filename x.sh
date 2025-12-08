@@ -40,3 +40,11 @@ cargo prove build --elf-name spn-vapp-aggregation $USE_DOCKER --tag v5.1.0 --out
 cd ../../..
 echo "Done!"
 echo ""
+
+# Build the fibonacci example program.
+echo "Building fibonacci program..."
+cd programs/examples/fibonacci
+cargo prove build --elf-name spn-fibonacci-program $USE_DOCKER --tag v5.1.0 --output-directory ../../../elf
+cd ../../..
+echo "Done!"
+echo ""
