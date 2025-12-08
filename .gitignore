@@ -1,9 +1,6 @@
 # Ignore build artifacts
 /target/
 
-# Ignore lock files
-Cargo.lock
-
 # Ignore environment files
 .env
 
