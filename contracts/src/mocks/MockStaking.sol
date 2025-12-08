@@ -4,7 +4,9 @@ pragma solidity ^0.8.28;
 import {ISuccinctStaking} from "../interfaces/ISuccinctStaking.sol";
 import {ProverRegistry} from "../libraries/ProverRegistry.sol";
 import {IERC20} from "../../lib/openzeppelin-contracts/contracts/interfaces/IERC20.sol";
-import {SafeERC20} from "../../lib/openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol";
+import {
+    SafeERC20
+} from "../../lib/openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol";
 
 contract MockStaking is ProverRegistry, ISuccinctStaking {
     using SafeERC20 for IERC20;
@@ -112,9 +114,7 @@ contract MockStaking is ProverRegistry, ISuccinctStaking {
 
         unstakeClaims[msg.sender].push(
             UnstakeClaim({
-                iPROVEEscrow: _stPROVE,
-                slashFactor: pool.slashFactor,
-                timestamp: block.timestamp
+                iPROVEEscrow: _stPROVE, slashFactor: pool.slashFactor, timestamp: block.timestamp
             })
         );
 

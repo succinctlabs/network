@@ -3,8 +3,9 @@ pragma solidity ^0.8.28;
 
 import {BaseScript} from "../utils/Base.s.sol";
 import {SuccinctVApp} from "../../src/SuccinctVApp.sol";
-import {ERC1967Proxy} from
-    "../../lib/openzeppelin-contracts/contracts/proxy/ERC1967/ERC1967Proxy.sol";
+import {
+    ERC1967Proxy
+} from "../../lib/openzeppelin-contracts/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 
 contract SuccinctVAppScript is BaseScript {
     string internal constant KEY = "VAPP";

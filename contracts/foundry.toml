@@ -20,6 +20,8 @@ optimizer_runs = 100
 [profile.fuzz]
 optimizer = true
 optimizer_runs = 100
+
+[fuzz]
 runs = 10000
 seed = "0x1234"
 

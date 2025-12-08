@@ -349,10 +349,16 @@ contract SuccinctStakingFulfillmentTests is SuccinctStakingTest {
         BalanceSnapshot memory before = _takeSnapshot();
 
         // Calculate expected reward splits including protocol fees
-        (uint256 expectedProtocolFee1, uint256 expectedStakerReward1, uint256 expectedOwnerReward1)
-        = _calculateFullRewardSplit(rewardAmount1);
-        (uint256 expectedProtocolFee2, uint256 expectedStakerReward2, uint256 expectedOwnerReward2)
-        = _calculateFullRewardSplit(rewardAmount2);
+        (
+            uint256 expectedProtocolFee1,
+            uint256 expectedStakerReward1,
+            uint256 expectedOwnerReward1
+        ) = _calculateFullRewardSplit(rewardAmount1);
+        (
+            uint256 expectedProtocolFee2,
+            uint256 expectedStakerReward2,
+            uint256 expectedOwnerReward2
+        ) = _calculateFullRewardSplit(rewardAmount2);
 
         // Reward both provers
         MockVApp(VAPP).processFulfillment(ALICE_PROVER, rewardAmount1);

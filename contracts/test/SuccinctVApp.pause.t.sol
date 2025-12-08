@@ -4,8 +4,9 @@ pragma solidity ^0.8.28;
 import {SuccinctVAppTest} from "./SuccinctVApp.t.sol";
 import {SuccinctVApp} from "../src/SuccinctVApp.sol";
 import {ISuccinctStaking} from "../src/interfaces/ISuccinctStaking.sol";
-import {PausableUpgradeable} from
-    "../lib/openzeppelin-contracts-upgradeable/contracts/utils/PausableUpgradeable.sol";
+import {
+    PausableUpgradeable
+} from "../lib/openzeppelin-contracts-upgradeable/contracts/utils/PausableUpgradeable.sol";
 
 // Tests that functions that are marked as whenNotPaused revert when paused.
 contract SuccinctVAppPauseTest is SuccinctVAppTest {

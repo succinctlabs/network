@@ -6,8 +6,9 @@ import {SuccinctStaking} from "../src/SuccinctStaking.sol";
 import {IProverRegistry} from "../src/interfaces/IProverRegistry.sol";
 import {ISuccinctStaking} from "../src/interfaces/ISuccinctStaking.sol";
 import {IERC20} from "../lib/openzeppelin-contracts/contracts/interfaces/IERC20.sol";
-import {ERC20Permit} from
-    "../lib/openzeppelin-contracts/contracts/token/ERC20/extensions/ERC20Permit.sol";
+import {
+    ERC20Permit
+} from "../lib/openzeppelin-contracts/contracts/token/ERC20/extensions/ERC20Permit.sol";
 
 contract SuccinctStakingStakeTests is SuccinctStakingTest {
     function test_Stake_WhenValid() public {
@@ -221,9 +222,8 @@ contract SuccinctStakingStakeTests is SuccinctStakingTest {
 
         // The stake still succeeds because permit is now skipped.
         vm.prank(STAKER_1);
-        SuccinctStaking(STAKING).permitAndStake(
-            ALICE_PROVER, STAKER_1, stakeAmount, deadline, v, r, s
-        );
+        SuccinctStaking(STAKING)
+            .permitAndStake(ALICE_PROVER, STAKER_1, stakeAmount, deadline, v, r, s);
     }
 
     function test_RevertPermitAndStake_WhenSignatureInvalid() public {
@@ -238,9 +238,8 @@ contract SuccinctStakingStakeTests is SuccinctStakingTest {
         // Should revert with invalid signature
         vm.prank(STAKER_1);
         vm.expectRevert();
-        SuccinctStaking(STAKING).permitAndStake(
-            ALICE_PROVER, STAKER_1, stakeAmount, deadline, v, r, s
-        );
+        SuccinctStaking(STAKING)
+            .permitAndStake(ALICE_PROVER, STAKER_1, stakeAmount, deadline, v, r, s);
 
         // Check balances
         assertEq(IERC20(PROVE).balanceOf(STAKER_1), STAKER_PROVE_AMOUNT);
@@ -261,9 +260,8 @@ contract SuccinctStakingStakeTests is SuccinctStakingTest {
         vm.expectRevert(
             abi.encodeWithSelector(ERC20Permit.ERC2612ExpiredSignature.selector, deadline)
         );
-        SuccinctStaking(STAKING).permitAndStake(
-            ALICE_PROVER, STAKER_1, stakeAmount, deadline, v, r, s
-        );
+        SuccinctStaking(STAKING)
+            .permitAndStake(ALICE_PROVER, STAKER_1, stakeAmount, deadline, v, r, s);
 
         // Check balances unchanged
         assertEq(IERC20(PROVE).balanceOf(STAKING), DISPENSE_AMOUNT);
@@ -282,9 +280,8 @@ contract SuccinctStakingStakeTests is SuccinctStakingTest {
         // Should revert with the same InvalidSigner error as in the invalid signature test
         vm.prank(STAKER_1);
         vm.expectRevert();
-        SuccinctStaking(STAKING).permitAndStake(
-            ALICE_PROVER, STAKER_1, stakeAmount, deadline, v, r, s
-        );
+        SuccinctStaking(STAKING)
+            .permitAndStake(ALICE_PROVER, STAKER_1, stakeAmount, deadline, v, r, s);
 
         // Check balances unchanged
         assertEq(IERC20(PROVE).balanceOf(STAKER_1), STAKER_PROVE_AMOUNT);

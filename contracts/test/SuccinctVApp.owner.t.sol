@@ -5,8 +5,9 @@ import {SuccinctVAppTest} from "./SuccinctVApp.t.sol";
 import {SuccinctVApp} from "../src/SuccinctVApp.sol";
 import {ISuccinctVApp} from "../src/interfaces/ISuccinctVApp.sol";
 import {Ownable} from "../lib/openzeppelin-contracts/contracts/access/Ownable.sol";
-import {PausableUpgradeable} from
-    "../lib/openzeppelin-contracts-upgradeable/contracts/utils/PausableUpgradeable.sol";
+import {
+    PausableUpgradeable
+} from "../lib/openzeppelin-contracts-upgradeable/contracts/utils/PausableUpgradeable.sol";
 
 // Tests onlyOwner / setter functions.
 contract SuccinctVAppOwnerTest is SuccinctVAppTest {
