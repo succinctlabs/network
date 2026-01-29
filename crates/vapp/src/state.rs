@@ -831,7 +831,7 @@ impl<A: Storage<Address, Account>, R: Storage<RequestId, bool>> VAppState<A, R> 
                             .map_err(|_| VAppPanic::InvalidProof)?;
                     }
                     // Non-primary Compressed and supported non-Compressed modes use signature verification.
-                    (false, ProofMode::Compressed) | (_, ProofMode::Groth16) | (_, ProofMode::Plonk) => {
+                    (false, ProofMode::Compressed) | (_, ProofMode::Groth16 | ProofMode::Plonk) => {
                         let verify =
                             clear.verify.as_ref().ok_or(VAppPanic::MissingVerifierSignature)?;
                         let fulfillment_id = fulfill_body
