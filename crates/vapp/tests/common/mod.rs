@@ -572,7 +572,7 @@ pub fn create_clear_tx_with_options(
         nonce: request_nonce,
         vk_hash: hex::decode("005b97bb81b9ed64f9321049013a56d9633c115b076ae4144f2622d0da13d683")
             .unwrap(),
-        version: "sp1-v3.0.0".to_string(),
+        version: "sp1-v5.0.0".to_string(),
         mode: proof_mode as i32,
         strategy: FulfillmentStrategy::Auction as i32,
         stdin_uri: "s3://spn-artifacts-production3/stdins/artifact_01jqcgtjr7es883amkx30sqkg9"
@@ -883,7 +883,7 @@ pub fn create_clear_tx_with_public_values_hash(
         nonce: request_nonce,
         vk_hash: hex::decode("005b97bb81b9ed64f9321049013a56d9633c115b076ae4144f2622d0da13d683")
             .unwrap(),
-        version: "sp1-v3.0.0".to_string(),
+        version: "sp1-v5.0.0".to_string(),
         mode: proof_mode as i32,
         strategy: FulfillmentStrategy::Auction as i32,
         stdin_uri: "s3://spn-artifacts-production3/stdins/artifact_01jqcgtjr7es883amkx30sqkg9"
@@ -1060,4 +1060,160 @@ pub fn create_clear_tx_with_mismatched_auctioneer(
     }
 
     tx
+}
+
+/// Creates a clear transaction with a specific version string.
+#[allow(clippy::too_many_arguments)]
+pub fn create_clear_tx_with_version(
+    requester_signer: &PrivateKeySigner,
+    bidder_signer: &PrivateKeySigner,
+    fulfiller_signer: &PrivateKeySigner,
+    auctioneer_signer: &PrivateKeySigner,
+    executor_signer: &PrivateKeySigner,
+    verifier_signer: &PrivateKeySigner,
+    request_nonce: u64,
+    bid_amount: U256,
+    bid_nonce: u64,
+    settle_nonce: u64,
+    fulfill_nonce: u64,
+    execute_nonce: u64,
+    proof_mode: ProofMode,
+    execution_status: ExecutionStatus,
+    needs_verifier_signature: bool,
+    version: &str,
+) -> VAppTransaction {
+    use spn_network_types::HashableWithSender;
+
+    // Create request body with custom version.
+    let request_body = RequestProofRequestBody {
+        nonce: request_nonce,
+        vk_hash: hex::decode("005b97bb81b9ed64f9321049013a56d9633c115b076ae4144f2622d0da13d683")
+            .unwrap(),
+        version: version.to_string(),
+        mode: proof_mode as i32,
+        strategy: FulfillmentStrategy::Auction as i32,
+        stdin_uri: "s3://spn-artifacts-production3/stdins/artifact_01jqcgtjr7es883amkx30sqkg9"
+            .to_string(),
+        deadline: 1000,
+        cycle_limit: 1000,
+        gas_limit: 10000,
+        min_auction_period: 0,
+        whitelist: vec![],
+        domain: SPN_MAINNET_V1_DOMAIN.to_vec(),
+        auctioneer: auctioneer_signer.address().to_vec(),
+        executor: executor_signer.address().to_vec(),
+        verifier: verifier_signer.address().to_vec(),
+        public_values_hash: None,
+        base_fee: "0".to_string(),
+        max_price_per_pgu: "100000".to_string(),
+        variant: TransactionVariant::RequestVariant as i32,
+        treasury: signer("treasury").address().to_vec(),
+    };
+
+    // Compute the request ID from the request body and signer.
+    let request_id = request_body
+        .hash_with_signer(requester_signer.address().as_slice())
+        .expect("Failed to hash request body");
+
+    // Create and sign request.
+    let request = RequestProofRequest {
+        format: MessageFormat::Binary as i32,
+        signature: proto_sign(requester_signer, &request_body).as_bytes().to_vec(),
+        body: Some(request_body),
+    };
+
+    // Create bid body with computed request ID.
+    let bid_body = BidRequestBody {
+        nonce: bid_nonce,
+        request_id: request_id.to_vec(),
+        amount: bid_amount.to_string(),
+        domain: SPN_MAINNET_V1_DOMAIN.to_vec(),
+        prover: bidder_signer.address().to_vec(),
+        variant: TransactionVariant::BidVariant as i32,
+    };
+
+    // Create and sign bid.
+    let bid = BidRequest {
+        format: MessageFormat::Binary as i32,
+        signature: proto_sign(bidder_signer, &bid_body).as_bytes().to_vec(),
+        body: Some(bid_body),
+    };
+
+    // Create settle body with computed request ID.
+    let settle_body = SettleRequestBody {
+        nonce: settle_nonce,
+        request_id: request_id.to_vec(),
+        winner: bidder_signer.address().to_vec(),
+        domain: SPN_MAINNET_V1_DOMAIN.to_vec(),
+        variant: TransactionVariant::SettleVariant as i32,
+    };
+
+    // Create and sign settle.
+    let settle = SettleRequest {
+        format: MessageFormat::Binary as i32,
+        signature: proto_sign(auctioneer_signer, &settle_body).as_bytes().to_vec(),
+        body: Some(settle_body),
+    };
+
+    // Create execute body with computed request ID.
+    let execute_body = ExecuteProofRequestBody {
+        nonce: execute_nonce,
+        request_id: request_id.to_vec(),
+        execution_status: execution_status as i32,
+        public_values_hash: Some([0; 32].to_vec()), // Dummy public values hash
+        cycles: Some(1000),
+        pgus: Some(1000),
+        domain: SPN_MAINNET_V1_DOMAIN.to_vec(),
+        punishment: None,
+        failure_cause: None,
+        variant: TransactionVariant::ExecuteVariant as i32,
+    };
+
+    // Create and sign execute.
+    let execute = ExecuteProofRequest {
+        format: MessageFormat::Binary as i32,
+        signature: proto_sign(executor_signer, &execute_body).as_bytes().to_vec(),
+        body: Some(execute_body),
+    };
+
+    // Create fulfill body with computed request ID.
+    let fulfill_body = FulfillProofRequestBody {
+        nonce: fulfill_nonce,
+        request_id: request_id.to_vec(),
+        proof: vec![],
+        domain: SPN_MAINNET_V1_DOMAIN.to_vec(),
+        variant: TransactionVariant::FulfillVariant as i32,
+        reserved_metadata: None,
+    };
+
+    // Create fulfill request.
+    let fulfill = FulfillProofRequest {
+        format: MessageFormat::Binary as i32,
+        signature: proto_sign(fulfiller_signer, &fulfill_body).as_bytes().to_vec(),
+        body: Some(fulfill_body),
+    };
+
+    // Add verifier signature if required.
+    let verify = if needs_verifier_signature {
+        let fulfill_id = fulfill
+            .body
+            .as_ref()
+            .unwrap()
+            .hash_with_signer(fulfiller_signer.address().as_slice())
+            .expect("Failed to hash fulfill body");
+        use alloy::signers::SignerSync;
+        Some(verifier_signer.sign_message_sync(&fulfill_id).unwrap().as_bytes().to_vec())
+    } else {
+        None
+    };
+
+    VAppTransaction::Clear(ClearTransaction {
+        request,
+        bid,
+        settle,
+        execute,
+        fulfill: Some(fulfill),
+        verify,
+        vk: None,
+    })
 }
