@@ -984,10 +984,10 @@ fn test_clear_invalid_bid_amount_parsing() {
     let create_prover_tx = create_prover_tx(prover_address, prover_address, U256::ZERO, 1, 2, 2);
     test.state.execute::<MockVerifier>(&create_prover_tx).unwrap();
 
-    // For this test we need to create a transaction where parsing fails before signature validation.
-    // Since the VApp validates signatures before parsing amounts, we can't easily test U256ParseError
-    // for bid amounts by modifying an already-signed transaction. Instead, this test demonstrates
-    // that signature validation happens first.
+    // For this test we need to create a transaction where parsing fails before signature
+    // validation. Since the VApp validates signatures before parsing amounts, we can't easily
+    // test U256ParseError for bid amounts by modifying an already-signed transaction. Instead,
+    // this test demonstrates that signature validation happens first.
     let mut clear_tx = create_clear_tx(
         &test.requester,
         &test.fulfiller,
@@ -1379,9 +1379,10 @@ fn test_clear_invalid_settle_signature() {
         clear.settle.signature[0] ^= 0xFF;
     }
 
-    // Execute should fail with AuctioneerMismatch because corrupted signature recovers wrong address.
+    // Execute should fail with AuctioneerMismatch because corrupted signature recovers wrong
+    // address.
     let result = test.state.execute::<MockVerifier>(&clear_tx);
-    assert!(matches!(result, Err(VAppPanic::AuctioneerMismatch { .. })));
+    assert!(matches!(result, Err(VAppPanic::InvalidSignature { .. })));
 }
 
 #[test]
@@ -1423,9 +1424,9 @@ fn test_clear_invalid_execute_signature() {
         clear.execute.signature[0] ^= 0xFF;
     }
 
-    // Execute should fail with InvalidSignature because corrupted signature cannot be verified.
+    // Execute should fail with ExecutorMismatch because corrupted signature recovers to wrong address.
     let result = test.state.execute::<MockVerifier>(&clear_tx);
-    assert!(matches!(result, Err(VAppPanic::InvalidSignature { .. })));
+    assert!(matches!(result, Err(VAppPanic::ExecutorMismatch { .. })));
 }
 
 #[test]
@@ -2738,4 +2739,134 @@ fn test_clear_invalid_fulfill_variant() {
     // Execute should fail with InvalidProof.
     let result = test.state.execute::<RejectVerifier>(&clear_tx);
     assert!(matches!(result, Err(VAppPanic::InvalidTransactionVariant)));
+}
+
+#[test]
+fn test_clear_v6_compressed_uses_signature_verification() {
+    let mut test = setup();
+
+    // Setup: Deposit funds for requester and create prover.
+    let requester_address = test.requester.address();
+    let prover_address = test.fulfiller.address();
+    let amount = U256::from(100_000_000);
+
+    let deposit_tx = deposit_tx(requester_address, amount, 0, 1, 1);
+    test.state.execute::<MockVerifier>(&deposit_tx).unwrap();
+
+    let create_prover_tx = create_prover_tx(prover_address, prover_address, U256::ZERO, 1, 2, 2);
+    test.state.execute::<MockVerifier>(&create_prover_tx).unwrap();
+
+    // Create v6 compressed clear transaction with verifier signature (should use signature
+    // verification).
+    let clear_tx = create_clear_tx_with_version(
+        &test.requester,
+        &test.fulfiller,
+        &test.fulfiller,
+        &test.auctioneer,
+        &test.executor,
+        &test.verifier,
+        1,
+        U256::from(50_000),
+        1,
+        1,
+        1,
+        1,
+        ProofMode::Compressed,
+        ExecutionStatus::Executed,
+        true, // needs_verifier_signature - this is key for v6
+        "sp1-v6.0.0",
+    );
+
+    // Execute clear transaction - should succeed using signature verification.
+    let receipt = test.state.execute::<MockVerifier>(&clear_tx).unwrap();
+
+    // Verify balances after clear - requester pays, prover receives.
+    let expected_cost = U256::from(50_000_000);
+    let expected_requester_balance = amount - expected_cost;
+
+    assert_account_balance(&mut test, requester_address, expected_requester_balance);
+    assert_account_balance(&mut test, prover_address, expected_cost);
+
+    // Clear transactions don't return receipts.
+    assert!(receipt.is_none());
+}
+
+#[test]
+fn test_clear_v6_compressed_without_signature_fails() {
+    let mut test = setup();
+
+    // Setup: Deposit funds for requester and create prover.
+    let requester_address = test.requester.address();
+    let prover_address = test.fulfiller.address();
+    let amount = U256::from(100_000_000);
+
+    let deposit_tx = deposit_tx(requester_address, amount, 0, 1, 1);
+    test.state.execute::<MockVerifier>(&deposit_tx).unwrap();
+
+    let create_prover_tx = create_prover_tx(prover_address, prover_address, U256::ZERO, 1, 2, 2);
+    test.state.execute::<MockVerifier>(&create_prover_tx).unwrap();
+
+    // Create v6 compressed clear transaction without verifier signature (should fail).
+    let clear_tx = create_clear_tx_with_version(
+        &test.requester,
+        &test.fulfiller,
+        &test.fulfiller,
+        &test.auctioneer,
+        &test.executor,
+        &test.verifier,
+        1,
+        U256::from(50_000),
+        1,
+        1,
+        1,
+        1,
+        ProofMode::Compressed,
+        ExecutionStatus::Executed,
+        false, // needs_verifier_signature = false, should cause failure for v6
+        "sp1-v6.0.0",
+    );
+
+    // Execute should fail with MissingVerifierSignature since v6 compressed needs signature
+    // verification.
+    let result = test.state.execute::<MockVerifier>(&clear_tx);
+    assert!(matches!(result, Err(VAppPanic::MissingVerifierSignature)));
+}
+
+#[test]
+fn test_clear_unsupported_proof_mode_core() {
+    let mut test = setup();
+
+    // Setup: Deposit funds for requester and create prover.
+    let requester_address = test.requester.address();
+    let prover_address = test.fulfiller.address();
+    let amount = U256::from(100_000_000);
+
+    let deposit_tx = deposit_tx(requester_address, amount, 0, 1, 1);
+    test.state.execute::<MockVerifier>(&deposit_tx).unwrap();
+
+    let create_prover_tx = create_prover_tx(prover_address, prover_address, U256::ZERO, 1, 2, 2);
+    test.state.execute::<MockVerifier>(&create_prover_tx).unwrap();
+
+    // Create clear transaction with Core proof mode (unsupported).
+    let clear_tx = create_clear_tx(
+        &test.requester,
+        &test.fulfiller,
+        &test.fulfiller,
+        &test.auctioneer,
+        &test.executor,
+        &test.verifier,
+        1,
+        U256::from(50_000),
+        1,
+        1,
+        1,
+        1,
+        ProofMode::Core,
+        ExecutionStatus::Executed,
+        false,
+    );
+
+    // Execute should fail with UnsupportedProofMode.
+    let result = test.state.execute::<MockVerifier>(&clear_tx);
+    assert!(matches!(result, Err(VAppPanic::UnsupportedProofMode { .. })));
 }

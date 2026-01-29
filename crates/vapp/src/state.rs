@@ -406,7 +406,8 @@ impl<A: Storage<Address, Account>, R: Storage<RequestId, bool>> VAppState<A, R> 
                 let auctioneer = Address::try_from(body.auctioneer.as_slice())
                     .map_err(|_| VAppPanic::AddressDeserializationFailed)?;
 
-                // Validate that the from account has sufficient balance for transfer + auctioneer fee.
+                // Validate that the from account has sufficient balance for transfer + auctioneer
+                // fee.
                 debug!("validate from account has sufficient balance");
                 let balance = self.accounts.entry(from)?.or_default().get_balance();
                 let total_amount = u256::add(amount, auctioneer_fee)?;
@@ -816,14 +817,21 @@ impl<A: Storage<Address, Account>, R: Storage<RequestId, bool>> VAppState<A, R> 
                 )?;
                 let mode = ProofMode::try_from(request.mode)
                     .map_err(|_| VAppPanic::UnsupportedProofMode { mode: request.mode })?;
-                match mode {
-                    ProofMode::Compressed => {
+
+                // Parse version from the request (format: "sp1-v5.0.0", "sp1-v6.0.0", etc) to
+                // check if it is the primary supported version.
+                let is_primary_version = request.version.starts_with("sp1-v5");
+
+                match (is_primary_version, mode) {
+                    // Only the primary version with Compressed uses native SP1 verification.
+                    (true, ProofMode::Compressed) => {
                         let verifier = V::default();
                         verifier
                             .verify(vk, public_values_hash)
                             .map_err(|_| VAppPanic::InvalidProof)?;
                     }
-                    ProofMode::Groth16 | ProofMode::Plonk => {
+                    // Non-primary Compressed and supported non-Compressed modes use signature verification.
+                    (false, ProofMode::Compressed) | (_, ProofMode::Groth16 | ProofMode::Plonk) => {
                         let verify =
                             clear.verify.as_ref().ok_or(VAppPanic::MissingVerifierSignature)?;
                         let fulfillment_id = fulfill_body
@@ -834,6 +842,7 @@ impl<A: Storage<Address, Account>, R: Storage<RequestId, bool>> VAppState<A, R> 
                             return Err(VAppPanic::InvalidVerifierSignature);
                         }
                     }
+                    // Unsupported proof modes.
                     _ => {
                         return Err(VAppPanic::UnsupportedProofMode { mode: request.mode });
                     }
