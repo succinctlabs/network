@@ -2832,6 +2832,79 @@ fn test_clear_v6_compressed_without_signature_fails() {
     assert!(matches!(result, Err(VAppPanic::MissingVerifierSignature)));
 }
 
+/// Verifies that v6 signature verification works correctly when the fulfill body contains
+/// non-empty proof bytes and the verifier signature was created over the proof-stripped body.
+#[test]
+fn test_clear_v6_signature_over_stripped_proof_succeeds() {
+    let mut test = setup();
+    setup_requester_and_prover(&mut test);
+
+    let mut clear_tx = create_clear_tx_with_version(
+        &test.requester,
+        &test.fulfiller,
+        &test.fulfiller,
+        &test.auctioneer,
+        &test.executor,
+        &test.verifier,
+        1,
+        U256::from(50_000),
+        1,
+        1,
+        1,
+        1,
+        ProofMode::Compressed,
+        ExecutionStatus::Executed,
+        false,
+        "sp1-v6.0.0",
+    );
+    inject_proof_and_sign_clear(
+        &mut clear_tx,
+        vec![0xABu8; 200],
+        &test.fulfiller,
+        &test.verifier,
+        true,
+    );
+
+    test.state.execute::<MockVerifier>(&clear_tx).unwrap();
+}
+
+/// Verifies that signing over the FULL fulfill body (with proof bytes) fails when the STF
+/// strips proof before verifying.
+#[test]
+fn test_clear_v6_signature_over_full_proof_fails() {
+    let mut test = setup();
+    setup_requester_and_prover(&mut test);
+
+    let mut clear_tx = create_clear_tx_with_version(
+        &test.requester,
+        &test.fulfiller,
+        &test.fulfiller,
+        &test.auctioneer,
+        &test.executor,
+        &test.verifier,
+        1,
+        U256::from(50_000),
+        1,
+        1,
+        1,
+        1,
+        ProofMode::Compressed,
+        ExecutionStatus::Executed,
+        false,
+        "sp1-v6.0.0",
+    );
+    inject_proof_and_sign_clear(
+        &mut clear_tx,
+        vec![0xABu8; 200],
+        &test.fulfiller,
+        &test.verifier,
+        false,
+    );
+
+    let result = test.state.execute::<MockVerifier>(&clear_tx);
+    assert!(matches!(result, Err(VAppPanic::InvalidVerifierSignature)));
+}
+
 #[test]
 fn test_clear_unsupported_proof_mode_core() {
     let mut test = setup();
