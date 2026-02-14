@@ -835,7 +835,7 @@ impl<A: Storage<Address, Account>, R: Storage<RequestId, bool>> VAppState<A, R> 
                         let verify =
                             clear.verify.as_ref().ok_or(VAppPanic::MissingVerifierSignature)?;
                         let fulfillment_id = fulfill_body
-                            .hash_with_signer(fulfill_signer.as_slice())
+                            .fulfillment_id(fulfill_signer.as_slice())
                             .map_err(|_| VAppPanic::HashingBodyFailed)?;
                         let verifier = eth_sign_verify(&fulfillment_id, verify)?;
                         if verifier != address(request.verifier.as_slice())? {

@@ -22,6 +22,7 @@ use spn_vapp_core::{
         ClearTransaction, DelegateTransaction, OnchainTransaction, TransferTransaction,
         VAppTransaction, WithdrawTransaction,
     },
+    verifier::MockVerifier,
 };
 
 /// Creates a signer from a string key.
@@ -700,9 +701,8 @@ pub fn create_clear_tx_with_options(
         // For Groth16/Plonk modes, we need a verifier signature on the fulfillment hash.
         if let Some(ref fulfill_req) = fulfill {
             if let Some(ref fulfill_body) = fulfill_req.body {
-                // Hash the fulfill body with the fulfiller signer to get the fulfillment ID.
                 let fulfillment_id = fulfill_body
-                    .hash_with_signer(fulfiller_signer.address().as_slice())
+                    .fulfillment_id(fulfiller_signer.address().as_slice())
                     .expect("Failed to hash fulfill body");
 
                 // Create ETH signature of the fulfillment ID.
@@ -990,7 +990,7 @@ pub fn create_clear_tx_with_public_values_hash(
     // Create optional verifier signature.
     let verify = if needs_verifier_signature {
         let fulfillment_id = fulfill_body
-            .hash_with_signer(fulfiller_signer.address().as_slice())
+            .fulfillment_id(fulfiller_signer.address().as_slice())
             .expect("Failed to hash fulfill body");
         Some(verifier_signer.sign_message_sync(&fulfillment_id).unwrap().as_bytes().to_vec())
     } else {
@@ -1199,7 +1199,7 @@ pub fn create_clear_tx_with_version(
             .body
             .as_ref()
             .unwrap()
-            .hash_with_signer(fulfiller_signer.address().as_slice())
+            .fulfillment_id(fulfiller_signer.address().as_slice())
             .expect("Failed to hash fulfill body");
         use alloy::signers::SignerSync;
         Some(verifier_signer.sign_message_sync(&fulfill_id).unwrap().as_bytes().to_vec())
@@ -1216,4 +1216,54 @@ pub fn create_clear_tx_with_version(
         verify,
         vk: None,
     })
+}
+
+/// Sets up a requester with funds and a prover for CLEAR transaction tests.
+pub fn setup_requester_and_prover(test: &mut VAppTestContext) {
+    let requester_address = test.requester.address();
+    let prover_address = test.fulfiller.address();
+    let amount = U256::from(100_000_000);
+
+    let deposit = deposit_tx(requester_address, amount, 0, 1, 1);
+    test.state.execute::<MockVerifier>(&deposit).unwrap();
+
+    let create_prover = create_prover_tx(prover_address, prover_address, U256::ZERO, 1, 2, 2);
+    test.state.execute::<MockVerifier>(&create_prover).unwrap();
+}
+
+/// Injects non-empty proof bytes into a CLEAR transaction's fulfill body and creates a
+/// verifier signature. Re-signs the fulfill body after modification so the fulfiller's
+/// transaction signature remains valid.
+pub fn inject_proof_and_sign_clear(
+    clear_tx: &mut VAppTransaction,
+    proof_bytes: Vec<u8>,
+    fulfiller: &PrivateKeySigner,
+    verifier: &PrivateKeySigner,
+    strip_proof_for_verifier_sig: bool,
+) {
+    if let VAppTransaction::Clear(ref mut clear) = clear_tx {
+        // Inject proof bytes into the fulfill body.
+        let fulfill_req = clear.fulfill.as_mut().unwrap();
+        let fulfill_body = fulfill_req.body.as_mut().unwrap();
+        fulfill_body.proof = proof_bytes;
+
+        // Re-sign the fulfill body and create the verifier signature.
+        fulfill_req.signature = proto_sign(fulfiller, fulfill_body).as_bytes().to_vec();
+        let fulfillment_id = if strip_proof_for_verifier_sig {
+            // Production path: uses fulfillment_id() which strips proof before hashing.
+            fulfill_body
+                .fulfillment_id(fulfiller.address().as_slice())
+                .expect("Failed to hash fulfill body")
+        } else {
+            // Old broken path: hashes with proof included.
+            use spn_network_types::HashableWithSender;
+            fulfill_body
+                .hash_with_signer(fulfiller.address().as_slice())
+                .expect("Failed to hash fulfill body")
+        };
+        let sig = verifier.sign_message_sync(&fulfillment_id).unwrap();
+        clear.verify = Some(sig.as_bytes().to_vec());
+    } else {
+        panic!("expected VAppTransaction::Clear");
+    }
 }

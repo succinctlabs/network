@@ -43,3 +43,14 @@ impl<T: Message> HashableWithSender for T {
         Ok(hasher.finalize().into())
     }
 }
+
+impl FulfillProofRequestBody {
+    /// Computes the fulfillment ID by hashing the body with the signer address, stripping the
+    /// proof bytes first. The verifier signature covers metadata only — proof bytes are stored
+    /// in S3 and never carried through the STF.
+    pub fn fulfillment_id(&self, signer: &[u8]) -> Result<[u8; 32], prost::EncodeError> {
+        let mut signing_body = self.clone();
+        signing_body.proof = Vec::new();
+        signing_body.hash_with_signer(signer)
+    }
+}
