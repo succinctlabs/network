@@ -92,7 +92,7 @@ pub trait MerkleTreeHasher {
 
 impl<K: StorageKey, V: StorageValue, H: MerkleTreeHasher> MerkleStorage<K, V, H> {
     /// Compute the merkle root from scratch.
-    pub fn root(&mut self) -> B256 {
+    pub fn root(&self) -> B256 {
         let num_bits = K::bits();
 
         // If no leaves, return the precomputed empty tree root.
