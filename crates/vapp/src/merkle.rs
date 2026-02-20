@@ -218,10 +218,7 @@ impl<K: StorageKey, V: StorageValue, H: MerkleTreeHasher> MerkleStorage<K, V, H>
     fn compute_node(&mut self, layer: usize, index: U256) -> B256 {
         // Base case: leaf layer.
         if layer == 0 {
-            return self
-                .leaves
-                .get(&index)
-                .map_or(self.zero_hashes[0], |v| H::hash(v));
+            return self.leaves.get(&index).map_or(self.zero_hashes[0], |v| H::hash(v));
         }
 
         // Return cached value if available.
