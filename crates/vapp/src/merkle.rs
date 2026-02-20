@@ -573,7 +573,7 @@ mod tests {
 
     #[test]
     fn empty_tree_has_expected_root() {
-        let mut tree = U256Tree::new();
+        let tree = U256Tree::new();
         let expected_root = tree.zero_hashes[256];
         assert_eq!(tree.root(), expected_root);
     }
@@ -760,8 +760,8 @@ mod tests {
 
     #[test]
     fn tree_supports_default_constructor() {
-        let mut tree: U256Tree = MerkleStorage::default();
-        let mut empty_tree = U256Tree::new();
+        let tree: U256Tree = MerkleStorage::default();
+        let empty_tree = U256Tree::new();
         assert_eq!(tree.root(), empty_tree.root());
     }
 
