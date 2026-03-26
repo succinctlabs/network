@@ -1,4 +1,4 @@
-use sp1_sdk::{HashableKey, Prover, ProvingKey, ProverClient};
+use sp1_sdk::{HashableKey, Prover, ProverClient, ProvingKey};
 use std::fs;
 
 fn main() {
