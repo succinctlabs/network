@@ -142,7 +142,7 @@ impl Artifact {
 
     /// Downloads raw bytes of an artifact from a URI.
     ///
-    /// Supports both S3 URIs (s3://bucket/path) and HTTPS URLs. For S3 URIs,
+    /// Supports both S3 URIs (`s3://bucket/path`) and HTTPS URLs. For S3 URIs,
     /// extracts the bucket name and downloads using the S3 client. For HTTPS URLs,
     /// performs a standard HTTP GET request.
     ///
@@ -172,7 +172,7 @@ impl Artifact {
 
     /// Downloads raw bytes of an artifact from a URI using parallel downloads.
     ///
-    /// Supports both S3 URIs (s3://bucket/path) and HTTPS URLs. Downloads large
+    /// Supports both S3 URIs (`s3://bucket/path`) and HTTPS URLs. Downloads large
     /// files in parallel chunks (32MB each) for improved performance. For S3 URIs,
     /// uses byte-range requests via the S3 client. For HTTPS URLs, uses HTTP Range
     /// headers if supported by the server, otherwise falls back to sequential download.
