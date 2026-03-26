@@ -6,7 +6,7 @@
 #![allow(clippy::cast_precision_loss)]
 
 use anyhow::Result;
-use sp1_sdk::{ProveRequest, Prover, ProvingKey, ProverClient, SP1Stdin};
+use sp1_sdk::{ProveRequest, Prover, ProverClient, ProvingKey, SP1Stdin};
 use tracing::error;
 
 /// Trait for calibrating the prover.
@@ -67,10 +67,11 @@ impl Calibrator for SinglePassCalibrator {
         })?;
 
         // Execute to get the prover gas.
-        let (_, report) = client.execute(pk.elf().clone(), self.stdin.clone()).await.map_err(|e| {
-            error!("Failed to execute the prover: {e}");
-            anyhow::anyhow!("{e}")
-        })?;
+        let (_, report) =
+            client.execute(pk.elf().clone(), self.stdin.clone()).await.map_err(|e| {
+                error!("Failed to execute the prover: {e}");
+                anyhow::anyhow!("{e}")
+            })?;
         let prover_gas = report.gas().unwrap_or(0);
 
         // Start timing.
