@@ -39,14 +39,14 @@ runs:
           ~/.cargo/git/db/
           target/
           ~/.rustup/
-        key: rust-1.88.0-${{ hashFiles('**/Cargo.toml') }}
-        restore-keys: rust-1.88.0-
+        key: rust-1.91.0-${{ hashFiles('**/Cargo.toml') }}
+        restore-keys: rust-1.91.0-
 
     - name: Setup toolchain
       id: rustc-toolchain
       shell: bash
       run: |
-        curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- --default-toolchain 1.88.0 -y
+        curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- --default-toolchain 1.91.0 -y
         rustup install nightly
 
     - name: "Install sp1up"
@@ -58,4 +58,4 @@ runs:
     - name: "Install SP1 toolchain"
       shell: bash
       run: |
-        sp1up --version v5.2.4
+        sp1up --version v6.0.2
