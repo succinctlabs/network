@@ -69,7 +69,7 @@ impl<K: StorageKey, V: StorageValue> Storage<K, V> for SparseStorage<K, V> {
         Ok(())
     }
 
-    fn entry(&mut self, key: K) -> Result<Entry<U256, V>, StorageError> {
+    fn entry(&mut self, key: K) -> Result<Entry<'_, U256, V>, StorageError> {
         let index = key.index();
         if !self.witnessed_keys.contains(&index) {
             return Err(StorageError::KeyNotAllowed);
