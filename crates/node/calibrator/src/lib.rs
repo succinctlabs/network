@@ -61,16 +61,14 @@ impl Calibrator for SinglePassCalibrator {
         let client = ProverClient::from_env().await;
 
         // Setup the proving key.
-        let pk = client.setup(self.elf.clone().into()).await.map_err(|e| {
+        let pk = client.setup(self.elf.clone().into()).await.inspect_err(|e| {
             error!("Failed to setup the prover: {e}");
-            anyhow::anyhow!("{e}")
         })?;
 
         // Execute to get the prover gas.
         let (_, report) =
-            client.execute(pk.elf().clone(), self.stdin.clone()).await.map_err(|e| {
+            client.execute(pk.elf().clone(), self.stdin.clone()).await.inspect_err(|e| {
                 error!("Failed to execute the prover: {e}");
-                anyhow::anyhow!("{e}")
             })?;
         let prover_gas = report.gas().unwrap_or(0);
 
@@ -78,9 +76,8 @@ impl Calibrator for SinglePassCalibrator {
         let start = std::time::Instant::now();
 
         // Generate the proof.
-        let _ = client.prove(&pk, self.stdin.clone()).compressed().await.map_err(|e| {
+        let _ = client.prove(&pk, self.stdin.clone()).compressed().await.inspect_err(|e| {
             error!("Failed to generate the proof: {e}");
-            anyhow::anyhow!("{e}")
         })?;
 
         // Calculate duration and throughput.

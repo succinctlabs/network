@@ -625,25 +625,18 @@ impl<C: NodeContext> NodeProver<C> for SerialProver {
                 let start = Instant::now();
                 info!("{SERIAL_PROVER_TAG} Setting up proving key...");
 
-                let pk = prover.setup(program.into()).await.map_err(|e| anyhow::anyhow!("{e}"))?;
+                let pk = prover.setup(program.into()).await?;
                 info!(duration = %start.elapsed().as_secs_f64(), "{SERIAL_PROVER_TAG} Set up proving key.");
 
                 let start = Instant::now();
                 info!("{SERIAL_PROVER_TAG} Executing program...");
-                let (_, report) = prover
-                    .execute(pk.elf().clone(), stdin.clone())
-                    .await
-                    .map_err(|e| anyhow::anyhow!("{e}"))?;
+                let (_, report) = prover.execute(pk.elf().clone(), stdin.clone()).await?;
                 let cycles = report.total_instruction_count();
                 info!(duration = %start.elapsed().as_secs_f64(), cycles = %cycles, "{SERIAL_PROVER_TAG} Executed program.");
 
                 let start = Instant::now();
                 info!("{SERIAL_PROVER_TAG} Generating proof...");
-                let proof = prover
-                    .prove(&pk, stdin)
-                    .mode(mode)
-                    .await
-                    .map_err(|e| anyhow::anyhow!("{e}"))?;
+                let proof = prover.prove(&pk, stdin).mode(mode).await?;
                 let proving_time = start.elapsed();
                 info!(duration = %proving_time.as_secs_f64(), cycles = %cycles, "{SERIAL_PROVER_TAG} Proof generation complete.");
                 Ok::<_, anyhow::Error>((proof, cycles, proving_time))
