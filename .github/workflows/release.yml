@@ -28,10 +28,12 @@ jobs:
           sudo docker system prune -af
           df -h
 
-      - name: Install protobuf compiler
+      - name: Patch SP1 Docker image with protobuf includes
         run: |
-          sudo apt-get update
-          sudo apt-get install -y protobuf-compiler
+          docker pull ghcr.io/succinctlabs/sp1:v6.0.2
+          echo 'FROM ghcr.io/succinctlabs/sp1:v6.0.2
+          RUN apt-get update && apt-get install -y --no-install-recommends libprotobuf-dev && rm -rf /var/lib/apt/lists/*' \
+            | docker build -t ghcr.io/succinctlabs/sp1:v6.0.2 -
 
       - name: Build RISC-V ELFs
         run: |
