@@ -820,7 +820,7 @@ impl<A: Storage<Address, Account>, R: Storage<RequestId, bool>> VAppState<A, R> 
 
                 // Parse version from the request (format: "sp1-v5.0.0", "sp1-v6.0.0", etc) to
                 // check if it is the primary supported version.
-                let is_primary_version = request.version.starts_with("sp1-v5");
+                let is_primary_version = request.version.starts_with("sp1-v6");
 
                 match (is_primary_version, mode) {
                     // Only the primary version with Compressed uses native SP1 verification.

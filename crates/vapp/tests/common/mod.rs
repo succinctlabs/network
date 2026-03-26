@@ -572,7 +572,7 @@ pub fn create_clear_tx_with_options(
         nonce: request_nonce,
         vk_hash: hex::decode("005b97bb81b9ed64f9321049013a56d9633c115b076ae4144f2622d0da13d683")
             .unwrap(),
-        version: "sp1-v5.0.0".to_string(),
+        version: "sp1-v6.0.0".to_string(),
         mode: proof_mode as i32,
         strategy: FulfillmentStrategy::Auction as i32,
         stdin_uri: "s3://spn-artifacts-production3/stdins/artifact_01jqcgtjr7es883amkx30sqkg9"
@@ -883,7 +883,7 @@ pub fn create_clear_tx_with_public_values_hash(
         nonce: request_nonce,
         vk_hash: hex::decode("005b97bb81b9ed64f9321049013a56d9633c115b076ae4144f2622d0da13d683")
             .unwrap(),
-        version: "sp1-v5.0.0".to_string(),
+        version: "sp1-v6.0.0".to_string(),
         mode: proof_mode as i32,
         strategy: FulfillmentStrategy::Auction as i32,
         stdin_uri: "s3://spn-artifacts-production3/stdins/artifact_01jqcgtjr7es883amkx30sqkg9"
