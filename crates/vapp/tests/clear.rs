@@ -2881,7 +2881,7 @@ fn test_clear_invalid_fulfill_variant() {
 }
 
 #[test]
-fn test_clear_v6_compressed_uses_signature_verification() {
+fn test_clear_v5_compressed_uses_signature_verification() {
     let mut test = setup();
 
     // Setup: Deposit funds for requester and create prover.
@@ -2895,8 +2895,8 @@ fn test_clear_v6_compressed_uses_signature_verification() {
     let create_prover_tx = create_prover_tx(prover_address, prover_address, U256::ZERO, 1, 2, 2);
     test.state.execute::<MockVerifier>(&create_prover_tx).unwrap();
 
-    // Create v6 compressed clear transaction with verifier signature (should use signature
-    // verification).
+    // Create v5 compressed clear transaction with verifier signature (should use signature
+    // verification since v5 is no longer the primary version).
     let clear_tx = create_clear_tx_with_version(
         &test.requester,
         &test.fulfiller,
@@ -2912,8 +2912,8 @@ fn test_clear_v6_compressed_uses_signature_verification() {
         1,
         ProofMode::Compressed,
         ExecutionStatus::Executed,
-        true, // needs_verifier_signature - this is key for v6
-        "sp1-v6.0.0",
+        true, // needs_verifier_signature - this is key for non-primary v5
+        "sp1-v5.0.0",
     );
 
     // Execute clear transaction - should succeed using signature verification.
@@ -2931,7 +2931,7 @@ fn test_clear_v6_compressed_uses_signature_verification() {
 }
 
 #[test]
-fn test_clear_v6_compressed_without_signature_fails() {
+fn test_clear_v5_compressed_without_signature_fails() {
     let mut test = setup();
 
     // Setup: Deposit funds for requester and create prover.
@@ -2945,7 +2945,7 @@ fn test_clear_v6_compressed_without_signature_fails() {
     let create_prover_tx = create_prover_tx(prover_address, prover_address, U256::ZERO, 1, 2, 2);
     test.state.execute::<MockVerifier>(&create_prover_tx).unwrap();
 
-    // Create v6 compressed clear transaction without verifier signature (should fail).
+    // Create v5 compressed clear transaction without verifier signature (should fail).
     let clear_tx = create_clear_tx_with_version(
         &test.requester,
         &test.fulfiller,
@@ -2961,12 +2961,12 @@ fn test_clear_v6_compressed_without_signature_fails() {
         1,
         ProofMode::Compressed,
         ExecutionStatus::Executed,
-        false, // needs_verifier_signature = false, should cause failure for v6
-        "sp1-v6.0.0",
+        false, // needs_verifier_signature = false, should cause failure for non-primary v5
+        "sp1-v5.0.0",
     );
 
-    // Execute should fail with MissingVerifierSignature since v6 compressed needs signature
-    // verification.
+    // Execute should fail with MissingVerifierSignature since v5 compressed needs signature
+    // verification (v5 is no longer the primary version).
     let result = test.state.execute::<MockVerifier>(&clear_tx);
     assert!(matches!(result, Err(VAppError::Panic(VAppPanic::MissingVerifierSignature))));
 }

@@ -1,4 +1,4 @@
-use sp1_sdk::{HashableKey, ProverClient};
+use sp1_sdk::{HashableKey, Prover, ProvingKey, ProverClient};
 use std::fs;
 
 fn main() {
@@ -6,12 +6,13 @@ fn main() {
     println!("cargo:rerun-if-changed=../../../elf/spn-vapp-stf");
     let elf = fs::read("../../../elf/spn-vapp-stf").expect("failed to read elf");
 
-    // Setup the prover client.
-    let client = ProverClient::from_env();
-
-    // Setup the program.
-    let (_, vk) = client.setup(&elf);
-    let hash = vk.hash_u32();
+    // Setup the prover client and compute the verification key hash.
+    let rt = tokio::runtime::Runtime::new().expect("failed to create tokio runtime");
+    let hash = rt.block_on(async {
+        let client = ProverClient::from_env().await;
+        let pk = client.setup(elf.into()).await.expect("failed to setup program");
+        pk.verifying_key().hash_u32()
+    });
 
     // Create key.rs file with the hash as [u32; 8]
     let content = format!("pub const STF_VKEY: [u32; 8] = {hash:?};");
