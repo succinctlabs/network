@@ -32,6 +32,9 @@ pub enum ArtifactType {
     Proof = 3,
     /// A transaction artifact.
     Transaction = 4,
+    /// A private stdin artifact stored under the private-stdins/ prefix.
+    /// Only fetched via the authenticated GetStdinUri RPC.
+    PrivateStdin = 5,
 }
 impl ArtifactType {
     /// String value of the enum field names used in the ProtoBuf definition.
@@ -45,6 +48,7 @@ impl ArtifactType {
             Self::Stdin => "STDIN",
             Self::Proof => "PROOF",
             Self::Transaction => "TRANSACTION",
+            Self::PrivateStdin => "PRIVATE_STDIN",
         }
     }
     /// Creates an enum from field names used in the ProtoBuf definition.
@@ -55,6 +59,7 @@ impl ArtifactType {
             "STDIN" => Some(Self::Stdin),
             "PROOF" => Some(Self::Proof),
             "TRANSACTION" => Some(Self::Transaction),
+            "PRIVATE_STDIN" => Some(Self::PrivateStdin),
             _ => None,
         }
     }

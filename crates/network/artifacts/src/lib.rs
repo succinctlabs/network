@@ -381,8 +381,9 @@ impl Artifact {
     }
 }
 
-/// Given a S3 URL (e.g. <s3://prover-network-staging/artifacts/artifact_01j92x39ngfnrra5br9n8zr07x>),
-/// extract the artifact name from the URL (e.g. `artifact_01j92x39ngfnrra5br9n8zr07x`).
+/// Given a S3 URL (e.g.
+/// <s3://prover-network-staging/artifacts/artifact_01j92x39ngfnrra5br9n8zr07x>), extract the
+/// artifact name from the URL (e.g. `artifact_01j92x39ngfnrra5br9n8zr07x`).
 ///
 /// This is used because the cluster assumes a specific bucket and path already, and just operates
 /// on the artifact name.
@@ -402,6 +403,7 @@ pub fn get_s3_prefix(artifact_type: ArtifactType) -> &'static str {
         ArtifactType::Stdin => "stdins",
         ArtifactType::Proof => "proofs",
         ArtifactType::Transaction => "transactions",
+        ArtifactType::PrivateStdin => "private-stdins",
     }
 }
 
@@ -743,4 +745,15 @@ async fn upload_file(
         .context("Failed to upload object to S3")?;
 
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use spn_artifact_types::ArtifactType;
+
+    #[test]
+    fn private_stdin_has_its_own_prefix() {
+        assert_eq!(get_s3_prefix(ArtifactType::PrivateStdin), "private-stdins");
+    }
 }
