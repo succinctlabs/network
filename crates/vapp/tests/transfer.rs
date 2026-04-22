@@ -3,7 +3,7 @@ mod common;
 use alloy_primitives::U256;
 use spn_network_types::{MessageFormat, TransactionVariant, TransferRequest, TransferRequestBody};
 use spn_vapp_core::{
-    errors::VAppPanic,
+    errors::{VAppError, VAppPanic, VAppRevert},
     transactions::{TransferTransaction, VAppTransaction},
     verifier::MockVerifier,
 };
@@ -211,18 +211,15 @@ fn test_transfer_insufficient_balance() {
     let expected_total = transfer_amount + fee; // 2 + 1 = 3 PROVE
     assert!(matches!(
         result,
-        Err(VAppPanic::InsufficientBalance {
-            account,
-            amount,
-            balance
-        }) if account == from_signer.address() && amount == expected_total && balance == initial_balance
+        Err(VAppError::Revert(VAppRevert::InsufficientTransferBalance { account, required, balance })) if account == from_signer.address() && required == expected_total && balance == initial_balance
     ));
 
-    // Verify balances remain unchanged.
+    // Verify balances remain unchanged; cursor advances because soft-revert is a legitimate
+    // state transition.
     assert_account_balance(&mut test, from_signer.address(), initial_balance);
     assert_account_balance(&mut test, to_address, U256::ZERO);
     assert_account_balance(&mut test, auctioneer, U256::ZERO);
-    assert_state_counters(&test, 2, 2, 0, 1);
+    assert_state_counters(&test, 3, 2, 0, 1);
 }
 
 #[test]
@@ -242,15 +239,35 @@ fn test_transfer_from_zero_balance_account() {
     let expected_total = transfer_amount + fee; // 1 + 1 = 2 PROVE
     assert!(matches!(
         result,
-        Err(VAppPanic::InsufficientBalance {
-            account,
-            amount,
-            balance
-        }) if account == from_signer.address() && amount == expected_total && balance == U256::ZERO
+        Err(VAppError::Revert(VAppRevert::InsufficientTransferBalance { account, required, balance })) if account == from_signer.address() && required == expected_total && balance == U256::ZERO
     ));
 
-    // Verify state remains unchanged.
-    assert_state_counters(&test, 1, 1, 0, 0);
+    // Verify balances unchanged; cursor advances because soft-revert is a legitimate state
+    // transition.
+    assert_state_counters(&test, 2, 1, 0, 0);
+}
+
+#[test]
+fn test_transfer_insufficient_balance_retires_request() {
+    // A soft-reverted transfer must retire the transaction id so it cannot be retried.
+    let mut test = setup();
+    let from_signer = test.signers[0].clone();
+    let to_address = test.signers[1].address();
+    let auctioneer = test.auctioneer.address();
+    let fee = prove(1);
+
+    // No deposit — from_signer has zero balance, transfer will revert.
+    let transfer_tx = transfer_tx(&from_signer, to_address, prove(1), 1, auctioneer, fee);
+
+    let first = test.state.execute::<MockVerifier>(&transfer_tx);
+    assert!(matches!(
+        first,
+        Err(VAppError::Revert(VAppRevert::InsufficientTransferBalance { .. }))
+    ));
+
+    // Re-submitting the same transfer must fail with TransactionAlreadyProcessed.
+    let retry = test.state.execute::<MockVerifier>(&transfer_tx);
+    assert!(matches!(retry, Err(VAppError::Panic(VAppPanic::TransactionAlreadyProcessed { .. }))));
 }
 
 #[test]
@@ -276,11 +293,7 @@ fn test_transfer_from_signer_without_balance() {
     let expected_total = transfer_amount + fee;
     assert!(matches!(
         result,
-        Err(VAppPanic::InsufficientBalance {
-            account,
-            amount,
-            balance
-        }) if account == from_signer_without_balance.address() && amount == expected_total && balance == U256::ZERO
+        Err(VAppError::Revert(VAppRevert::InsufficientTransferBalance { account, required, balance })) if account == from_signer_without_balance.address() && required == expected_total && balance == U256::ZERO
     ));
 
     // Verify balances remain unchanged.
@@ -316,7 +329,7 @@ fn test_transfer_domain_mismatch() {
     let result = test.state.execute::<MockVerifier>(&transfer_tx);
 
     // Verify the correct panic error is returned.
-    assert!(matches!(result, Err(VAppPanic::DomainMismatch { .. })));
+    assert!(matches!(result, Err(VAppError::Panic(VAppPanic::DomainMismatch { .. }))));
 
     // Verify balances remain unchanged.
     assert_account_balance(&mut test, from_signer.address(), U256::from(500));
@@ -333,7 +346,7 @@ fn test_transfer_missing_body() {
     let result = test.state.execute::<MockVerifier>(&transfer_tx);
 
     // Verify the correct panic error is returned.
-    assert!(matches!(result, Err(VAppPanic::MissingProtoBody)));
+    assert!(matches!(result, Err(VAppError::Panic(VAppPanic::MissingProtoBody))));
 
     // Verify state remains unchanged.
     assert_state_counters(&test, 1, 1, 0, 0);
@@ -357,7 +370,7 @@ fn test_transfer_invalid_amount_parsing() {
     let result = test.state.execute::<MockVerifier>(&transfer_tx);
 
     // Verify the correct panic error is returned.
-    assert!(matches!(result, Err(VAppPanic::InvalidTransferAmount { .. })));
+    assert!(matches!(result, Err(VAppError::Panic(VAppPanic::InvalidTransferAmount { .. }))));
 
     // Verify balances remain unchanged.
     assert_account_balance(&mut test, from_signer.address(), U256::from(500));
@@ -399,7 +412,7 @@ fn test_transfer_invalid_to_address() {
     let result = test.state.execute::<MockVerifier>(&transfer_tx);
 
     // Verify the correct panic error is returned.
-    assert!(matches!(result, Err(VAppPanic::AddressDeserializationFailed)));
+    assert!(matches!(result, Err(VAppError::Panic(VAppPanic::AddressDeserializationFailed))));
 
     // Verify balance remains unchanged.
     assert_account_balance(&mut test, from_signer.address(), U256::from(500));
@@ -435,7 +448,7 @@ fn test_transfer_replay_protection() {
     let result = test.state.execute::<MockVerifier>(&transfer_tx);
 
     // Verify the second execution fails with TransactionAlreadyProcessed error.
-    assert!(matches!(result, Err(VAppPanic::TransactionAlreadyProcessed { .. })));
+    assert!(matches!(result, Err(VAppError::Panic(VAppPanic::TransactionAlreadyProcessed { .. }))));
 
     // Verify balances remain unchanged after replay attempt.
     assert_account_balance(&mut test, from_signer.address(), prove(7));
@@ -468,7 +481,7 @@ fn test_transfer_invalid_fee_parsing() {
 
     // Verify the correct panic error is returned.
     assert!(
-        matches!(result, Err(VAppPanic::InvalidU256Amount { amount }) if amount == "not_a_number")
+        matches!(result, Err(VAppError::Panic(VAppPanic::InvalidU256Amount { amount })) if amount == "not_a_number")
     );
 
     // Verify balances remain unchanged.
@@ -501,7 +514,7 @@ fn test_transfer_invalid_auctioneer_address() {
     let result = test.state.execute::<MockVerifier>(&transfer_tx);
 
     // Verify the correct panic error is returned.
-    assert!(matches!(result, Err(VAppPanic::AddressDeserializationFailed)));
+    assert!(matches!(result, Err(VAppError::Panic(VAppPanic::AddressDeserializationFailed))));
 
     // Verify balances remain unchanged.
     assert_account_balance(&mut test, from_signer.address(), U256::from(500));

@@ -3,7 +3,7 @@ mod common;
 use alloy_primitives::U256;
 use spn_network_types::{ExecutionStatus, HashableWithSender, ProofMode, TransactionVariant};
 use spn_vapp_core::{
-    errors::VAppPanic,
+    errors::{VAppError, VAppPanic, VAppRevert},
     transactions::VAppTransaction,
     verifier::{MockVerifier, RejectVerifier},
 };
@@ -283,7 +283,7 @@ fn test_clear_missing_request_body() {
 
     // Execute should fail with MissingProtoBody.
     let result = test.state.execute::<MockVerifier>(&clear_tx);
-    assert!(matches!(result, Err(VAppPanic::MissingProtoBody)));
+    assert!(matches!(result, Err(VAppError::Panic(VAppPanic::MissingProtoBody))));
 }
 
 #[test]
@@ -327,7 +327,7 @@ fn test_clear_missing_bid_body() {
 
     // Execute should fail with MissingProtoBody.
     let result = test.state.execute::<MockVerifier>(&clear_tx);
-    assert!(matches!(result, Err(VAppPanic::MissingProtoBody)));
+    assert!(matches!(result, Err(VAppError::Panic(VAppPanic::MissingProtoBody))));
 }
 
 #[test]
@@ -371,7 +371,7 @@ fn test_clear_missing_settle_body() {
 
     // Execute should fail with MissingProtoBody.
     let result = test.state.execute::<MockVerifier>(&clear_tx);
-    assert!(matches!(result, Err(VAppPanic::MissingProtoBody)));
+    assert!(matches!(result, Err(VAppError::Panic(VAppPanic::MissingProtoBody))));
 }
 
 #[test]
@@ -415,7 +415,7 @@ fn test_clear_missing_execute_body() {
 
     // Execute should fail with MissingProtoBody.
     let result = test.state.execute::<MockVerifier>(&clear_tx);
-    assert!(matches!(result, Err(VAppPanic::MissingProtoBody)));
+    assert!(matches!(result, Err(VAppError::Panic(VAppPanic::MissingProtoBody))));
 }
 
 #[test]
@@ -461,7 +461,7 @@ fn test_clear_missing_fulfill_body() {
 
     // Execute should fail with MissingProtoBody.
     let result = test.state.execute::<MockVerifier>(&clear_tx);
-    assert!(matches!(result, Err(VAppPanic::MissingProtoBody)));
+    assert!(matches!(result, Err(VAppError::Panic(VAppPanic::MissingProtoBody))));
 }
 
 #[test]
@@ -509,7 +509,7 @@ fn test_clear_request_id_mismatch_bid() {
 
     let result = test.state.execute::<MockVerifier>(&clear_tx);
     println!("Result: {result:?}");
-    assert!(matches!(result, Err(VAppPanic::RequestIdMismatch { .. })));
+    assert!(matches!(result, Err(VAppError::Panic(VAppPanic::RequestIdMismatch { .. }))));
 }
 
 // TODO(claude): Something about this test seems fishy.
@@ -559,7 +559,7 @@ fn test_clear_request_id_mismatch_settle() {
 
     // Execute should fail with AddressDeserializationFailed due to request ID mismatch validation.
     let result = test.state.execute::<MockVerifier>(&clear_tx);
-    assert!(matches!(result, Err(VAppPanic::RequestIdMismatch { .. })));
+    assert!(matches!(result, Err(VAppError::Panic(VAppPanic::RequestIdMismatch { .. }))));
 }
 
 #[test]
@@ -606,7 +606,7 @@ fn test_clear_request_id_mismatch_execute() {
 
     // Execute should fail with AddressDeserializationFailed due to request ID mismatch validation.
     let result = test.state.execute::<MockVerifier>(&clear_tx);
-    assert!(matches!(result, Err(VAppPanic::RequestIdMismatch { .. })));
+    assert!(matches!(result, Err(VAppError::Panic(VAppPanic::RequestIdMismatch { .. }))));
 }
 
 #[test]
@@ -655,7 +655,7 @@ fn test_clear_request_id_mismatch_fulfill() {
 
     // Execute should fail with AddressDeserializationFailed due to request ID mismatch validation.
     let result = test.state.execute::<MockVerifier>(&clear_tx);
-    assert!(matches!(result, Err(VAppPanic::RequestIdMismatch { .. })));
+    assert!(matches!(result, Err(VAppError::Panic(VAppPanic::RequestIdMismatch { .. }))));
 }
 
 #[test]
@@ -716,7 +716,7 @@ fn test_clear_already_fulfilled_request() {
 
     // Second execution should fail with RequestAlreadyFulfilled.
     let result = test.state.execute::<MockVerifier>(&clear_tx2);
-    assert!(matches!(result, Err(VAppPanic::TransactionAlreadyProcessed { .. })));
+    assert!(matches!(result, Err(VAppError::Panic(VAppPanic::TransactionAlreadyProcessed { .. }))));
 }
 
 #[test]
@@ -749,10 +749,11 @@ fn test_clear_prover_does_not_exist() {
         false,
     );
 
-    // Execute should fail with ProverDelegatedSignerMismatch because the prover
-    // doesn't exist in this test's state, which causes the delegated signer check to fail.
+    // Execute should fail with ProverDoesNotExist: the Clear handler's prover lookup now
+    // uses `get().ok_or(..)` (not `entry().or_default`), so a missing prover is caught
+    // explicitly rather than surfacing indirectly as a delegated-signer mismatch.
     let result = test.state.execute::<MockVerifier>(&clear_tx);
-    assert!(matches!(result, Err(VAppPanic::ProverDelegatedSignerMismatch { .. })));
+    assert!(matches!(result, Err(VAppError::Panic(VAppPanic::ProverDoesNotExist { .. }))));
 }
 
 #[test]
@@ -792,9 +793,72 @@ fn test_clear_delegated_signer_mismatch() {
         false,
     );
 
-    // Execute should fail with ProverDelegatedSignerMismatch.
+    // Execute should fail with ProverDoesNotExist: the bid is signed by `wrong_signer`, so
+    // `bid.prover == wrong_signer.address()`, which is not a registered prover. The handler
+    // catches the missing prover via `get().ok_or(..)` before the delegated-signer check is
+    // reached. See `test_clear_delegated_signer_mismatch_with_real_delegation` below for a
+    // test that actually exercises the delegated-signer-mismatch panic.
     let result = test.state.execute::<MockVerifier>(&clear_tx);
-    assert!(matches!(result, Err(VAppPanic::ProverDelegatedSignerMismatch { .. })));
+    assert!(matches!(result, Err(VAppError::Panic(VAppPanic::ProverDoesNotExist { .. }))));
+}
+
+/// Exercises the real `ProverDelegatedSignerMismatch` panic path.
+///
+/// Setup: register a prover, fund the owner, install a delegate via `Delegate`. At that point
+/// `accounts[prover_address].signer` is the delegate, not the original owner / prover key.
+/// Then submit a Clear whose bid is signed by the original prover key (which is no longer the
+/// delegated signer). The Clear handler looks up the prover account (exists, so no
+/// `ProverDoesNotExist`) and then compares `prover_account.get_signer()` against the recovered
+/// `bid_signer` — they differ, so `ProverDelegatedSignerMismatch` must panic.
+#[test]
+fn test_clear_delegated_signer_mismatch_with_real_delegation() {
+    let mut test = setup();
+    let prover_owner = test.signers[0].clone();
+    let delegate = test.signers[2].clone();
+    let prover_address = test.fulfiller.address();
+
+    // Register the prover with a distinct owner. CreateProver initializes `signer = owner`.
+    let create_prover_tx =
+        create_prover_tx(prover_address, prover_owner.address(), U256::ZERO, 0, 1, 1);
+    test.state.execute::<MockVerifier>(&create_prover_tx).unwrap();
+
+    // Fund the prover owner to cover the 1 PROVE delegation fee.
+    let one_prove = U256::from(10).pow(U256::from(18));
+    let fund_owner_tx = deposit_tx(prover_owner.address(), one_prove, 0, 2, 2);
+    test.state.execute::<MockVerifier>(&fund_owner_tx).unwrap();
+
+    // Install the delegate. After this, accounts[prover_address].signer == delegate.address().
+    let delegate_tx = delegate_tx(&prover_owner, prover_address, delegate.address(), 1);
+    test.state.execute::<MockVerifier>(&delegate_tx).unwrap();
+
+    // Build a Clear whose bid is signed by `test.fulfiller` — the original prover key, which is
+    // no longer the delegated signer. `create_clear_tx` ties `bid.prover` and the bid signature
+    // to the same signer, so `bid.prover == bid_signer == fulfiller.address()`. Since the
+    // registered prover's delegated signer is now `delegate.address()`, the handler must panic
+    // on the delegated-signer comparison — after a successful prover lookup.
+    let clear_tx = create_clear_tx(
+        &test.requester,
+        &test.fulfiller,
+        &test.fulfiller,
+        &test.auctioneer,
+        &test.executor,
+        &test.verifier,
+        1,
+        U256::from(100),
+        1,
+        1,
+        1,
+        1,
+        ProofMode::Compressed,
+        ExecutionStatus::Executed,
+        false,
+    );
+
+    let result = test.state.execute::<MockVerifier>(&clear_tx);
+    assert!(matches!(
+        result,
+        Err(VAppError::Panic(VAppPanic::ProverDelegatedSignerMismatch { .. }))
+    ));
 }
 
 #[test]
@@ -838,7 +902,7 @@ fn test_clear_prover_not_in_whitelist() {
 
     // Execute should fail with ProverNotInWhitelist.
     let result = test.state.execute::<MockVerifier>(&clear_tx);
-    assert!(matches!(result, Err(VAppPanic::ProverNotInWhitelist { .. })));
+    assert!(matches!(result, Err(VAppError::Panic(VAppPanic::ProverNotInWhitelist { .. }))));
 }
 
 #[test]
@@ -878,7 +942,7 @@ fn test_clear_max_price_exceeded() {
 
     // Execute should fail with MaxPricePerPguExceeded.
     let result = test.state.execute::<MockVerifier>(&clear_tx);
-    assert!(matches!(result, Err(VAppPanic::MaxPricePerPguExceeded { .. })));
+    assert!(matches!(result, Err(VAppError::Panic(VAppPanic::MaxPricePerPguExceeded { .. }))));
 }
 
 #[test]
@@ -926,7 +990,7 @@ fn test_clear_gas_limit_exceeded() {
 
     // Execute should fail with GasLimitExceeded.
     let result = test.state.execute::<MockVerifier>(&clear_tx);
-    assert!(matches!(result, Err(VAppPanic::GasLimitExceeded { .. })));
+    assert!(matches!(result, Err(VAppError::Panic(VAppPanic::GasLimitExceeded { .. }))));
 }
 
 #[test]
@@ -964,9 +1028,19 @@ fn test_clear_insufficient_requester_balance() {
         false,
     );
 
-    // Execute should fail with InsufficientBalance.
+    // The requester cannot cover the cost, so the clear soft-reverts: the request is retired
+    // so it cannot be retried, but balances are untouched and the driver can advance past it.
     let result = test.state.execute::<MockVerifier>(&clear_tx);
-    assert!(matches!(result, Err(VAppPanic::InsufficientBalance { .. })));
+    assert!(matches!(result, Err(VAppError::Revert(VAppRevert::InsufficientClearBalance { .. }))));
+
+    // Balances unchanged: requester still has the original small amount, prover has none.
+    assert_account_balance(&mut test, requester_address, small_amount);
+    assert_account_balance(&mut test, prover_address, U256::ZERO);
+
+    // Re-submitting the same clear must fail with TransactionAlreadyProcessed, proving the
+    // request was retired by the soft revert above.
+    let retry = test.state.execute::<MockVerifier>(&clear_tx);
+    assert!(matches!(retry, Err(VAppError::Panic(VAppPanic::TransactionAlreadyProcessed { .. }))));
 }
 
 #[test]
@@ -1016,7 +1090,10 @@ fn test_clear_invalid_bid_amount_parsing() {
     // Execute should fail. Due to validation order, this fails with a signature mismatch
     // rather than a parsing error since signature validation happens before amount parsing.
     let result = test.state.execute::<MockVerifier>(&clear_tx);
-    assert!(matches!(result, Err(VAppPanic::ProverDelegatedSignerMismatch { .. })));
+    assert!(matches!(
+        result,
+        Err(VAppError::Panic(VAppPanic::ProverDelegatedSignerMismatch { .. }))
+    ));
 }
 
 #[test]
@@ -1056,7 +1133,7 @@ fn test_clear_invalid_base_fee_parsing() {
 
     // Execute should fail with U256ParseError.
     let result = test.state.execute::<MockVerifier>(&clear_tx);
-    assert!(matches!(result, Err(VAppPanic::U256ParseError(_))));
+    assert!(matches!(result, Err(VAppError::Panic(VAppPanic::U256ParseError(_)))));
 }
 
 #[test]
@@ -1096,7 +1173,7 @@ fn test_clear_invalid_max_price_parsing() {
 
     // Execute should fail with U256ParseError.
     let result = test.state.execute::<MockVerifier>(&clear_tx);
-    assert!(matches!(result, Err(VAppPanic::U256ParseError(_))));
+    assert!(matches!(result, Err(VAppError::Panic(VAppPanic::U256ParseError(_)))));
 }
 
 #[test]
@@ -1337,7 +1414,7 @@ fn test_clear_invalid_request_signature() {
 
     // Execute should fail with InvalidSignature.
     let result = test.state.execute::<MockVerifier>(&clear_tx);
-    assert!(matches!(result, Err(VAppPanic::InvalidSignature { .. })));
+    assert!(matches!(result, Err(VAppError::Panic(VAppPanic::InvalidSignature { .. }))));
 }
 
 #[test]
@@ -1382,7 +1459,7 @@ fn test_clear_invalid_settle_signature() {
     // Execute should fail with AuctioneerMismatch because corrupted signature recovers wrong
     // address.
     let result = test.state.execute::<MockVerifier>(&clear_tx);
-    assert!(matches!(result, Err(VAppPanic::InvalidSignature { .. })));
+    assert!(matches!(result, Err(VAppError::Panic(VAppPanic::InvalidSignature { .. }))));
 }
 
 #[test]
@@ -1424,9 +1501,10 @@ fn test_clear_invalid_execute_signature() {
         clear.execute.signature[0] ^= 0xFF;
     }
 
-    // Execute should fail with ExecutorMismatch because corrupted signature recovers to wrong address.
+    // Execute should fail with ExecutorMismatch because corrupted signature recovers to wrong
+    // address.
     let result = test.state.execute::<MockVerifier>(&clear_tx);
-    assert!(matches!(result, Err(VAppPanic::ExecutorMismatch { .. })));
+    assert!(matches!(result, Err(VAppError::Panic(VAppPanic::ExecutorMismatch { .. }))));
 }
 
 #[test]
@@ -1472,7 +1550,7 @@ fn test_clear_invalid_fulfill_signature() {
 
     // Execute should fail with InvalidSignature.
     let result = test.state.execute::<MockVerifier>(&clear_tx);
-    assert!(matches!(result, Err(VAppPanic::InvalidSignature { .. })));
+    assert!(matches!(result, Err(VAppError::Panic(VAppPanic::InvalidSignature { .. }))));
 }
 
 #[test]
@@ -1518,7 +1596,7 @@ fn test_clear_domain_mismatch_request() {
 
     // Execute should fail with DomainMismatch.
     let result = test.state.execute::<MockVerifier>(&clear_tx);
-    assert!(matches!(result, Err(VAppPanic::DomainMismatch { .. })));
+    assert!(matches!(result, Err(VAppError::Panic(VAppPanic::DomainMismatch { .. }))));
 }
 
 #[test]
@@ -1564,7 +1642,7 @@ fn test_clear_domain_mismatch_bid() {
 
     // Execute should fail with DomainMismatch.
     let result = test.state.execute::<MockVerifier>(&clear_tx);
-    assert!(matches!(result, Err(VAppPanic::DomainMismatch { .. })));
+    assert!(matches!(result, Err(VAppError::Panic(VAppPanic::DomainMismatch { .. }))));
 }
 
 #[test]
@@ -1610,7 +1688,7 @@ fn test_clear_domain_mismatch_settle() {
 
     // Execute should fail with DomainMismatch.
     let result = test.state.execute::<MockVerifier>(&clear_tx);
-    assert!(matches!(result, Err(VAppPanic::DomainMismatch { .. })));
+    assert!(matches!(result, Err(VAppError::Panic(VAppPanic::DomainMismatch { .. }))));
 }
 
 #[test]
@@ -1656,7 +1734,7 @@ fn test_clear_domain_mismatch_execute() {
 
     // Execute should fail with DomainMismatch.
     let result = test.state.execute::<MockVerifier>(&clear_tx);
-    assert!(matches!(result, Err(VAppPanic::DomainMismatch { .. })));
+    assert!(matches!(result, Err(VAppError::Panic(VAppPanic::DomainMismatch { .. }))));
 }
 
 #[test]
@@ -1704,7 +1782,7 @@ fn test_clear_domain_mismatch_fulfill() {
 
     // Execute should fail with DomainMismatch.
     let result = test.state.execute::<MockVerifier>(&clear_tx);
-    assert!(matches!(result, Err(VAppPanic::DomainMismatch { .. })));
+    assert!(matches!(result, Err(VAppError::Panic(VAppPanic::DomainMismatch { .. }))));
 }
 
 #[test]
@@ -1745,7 +1823,7 @@ fn test_clear_auctioneer_mismatch_request() {
 
     // Execute should fail with AuctioneerMismatch.
     let result = test.state.execute::<MockVerifier>(&clear_tx);
-    assert!(matches!(result, Err(VAppPanic::AuctioneerMismatch { .. })));
+    assert!(matches!(result, Err(VAppError::Panic(VAppPanic::AuctioneerMismatch { .. }))));
 }
 
 #[test]
@@ -1786,7 +1864,7 @@ fn test_clear_auctioneer_mismatch_global() {
 
     // Execute should fail with AuctioneerMismatch.
     let result = test.state.execute::<MockVerifier>(&clear_tx);
-    assert!(matches!(result, Err(VAppPanic::AuctioneerMismatch { .. })));
+    assert!(matches!(result, Err(VAppError::Panic(VAppPanic::AuctioneerMismatch { .. }))));
 }
 
 #[test]
@@ -1833,7 +1911,7 @@ fn test_clear_executor_mismatch_request() {
 
     // Execute should fail with ExecutorMismatch.
     let result = test.state.execute::<MockVerifier>(&clear_tx);
-    assert!(matches!(result, Err(VAppPanic::ExecutorMismatch { .. })));
+    assert!(matches!(result, Err(VAppError::Panic(VAppPanic::ExecutorMismatch { .. }))));
 }
 
 #[test]
@@ -1882,7 +1960,7 @@ fn test_clear_executor_mismatch_global() {
 
     // Execute should fail with ExecutorMismatch.
     let result = test.state.execute::<MockVerifier>(&clear_tx);
-    assert!(matches!(result, Err(VAppPanic::ExecutorMismatch { .. })));
+    assert!(matches!(result, Err(VAppError::Panic(VAppPanic::ExecutorMismatch { .. }))));
 }
 
 #[test]
@@ -1939,6 +2017,67 @@ fn test_clear_unexecutable_with_punishment() {
 }
 
 #[test]
+fn test_clear_unexecutable_insufficient_punishment_balance() {
+    let mut test = setup();
+
+    // Setup: Deposit a small amount for the requester, too small to cover the punishment.
+    let requester_address = test.requester.address();
+    let prover_address = test.fulfiller.address();
+    let small_amount = U256::from(1_000_000);
+
+    let deposit_tx = deposit_tx(requester_address, small_amount, 0, 1, 1);
+    test.state.execute::<MockVerifier>(&deposit_tx).unwrap();
+
+    let create_prover_tx = create_prover_tx(prover_address, prover_address, U256::ZERO, 1, 2, 2);
+    test.state.execute::<MockVerifier>(&create_prover_tx).unwrap();
+
+    // Create a clear transaction with Unexecutable status.
+    let mut clear_tx = create_clear_tx(
+        &test.requester,
+        &test.fulfiller,
+        &test.fulfiller,
+        &test.auctioneer,
+        &test.executor,
+        &test.verifier,
+        1,
+        U256::from(50_000),
+        1,
+        1,
+        1,
+        1,
+        ProofMode::Compressed,
+        ExecutionStatus::Unexecutable,
+        false,
+    );
+
+    // Set a punishment larger than the requester balance but still within max cost.
+    // max_cost = max_price_per_pgu * gas_limit + base_fee ~ 1B in this setup;
+    // requester has 1M; punishment of 500M is valid bounds-wise but unpayable.
+    if let VAppTransaction::Clear(ref mut clear) = clear_tx {
+        if let Some(ref mut execute_body) = clear.execute.body {
+            execute_body.punishment = Some("500000000".to_string());
+            clear.execute.signature = proto_sign(&test.executor, execute_body).as_bytes().to_vec();
+        }
+    }
+
+    // Soft-revert: request is retired, but no balances move.
+    let result = test.state.execute::<MockVerifier>(&clear_tx);
+    assert!(matches!(
+        result,
+        Err(VAppError::Revert(VAppRevert::InsufficientPunishmentBalance { .. }))
+    ));
+
+    // Balances unchanged: requester still has the small deposit, treasury has nothing.
+    assert_account_balance(&mut test, requester_address, small_amount);
+    assert_account_balance(&mut test, prover_address, U256::ZERO);
+
+    // Re-submitting the same clear must fail with TransactionAlreadyProcessed, proving the
+    // request was retired by the soft revert above.
+    let retry = test.state.execute::<MockVerifier>(&clear_tx);
+    assert!(matches!(retry, Err(VAppError::Panic(VAppPanic::TransactionAlreadyProcessed { .. }))));
+}
+
+#[test]
 fn test_clear_unexecutable_missing_punishment() {
     let mut test = setup();
 
@@ -1974,7 +2113,7 @@ fn test_clear_unexecutable_missing_punishment() {
 
     // Execute should fail with MissingPunishment.
     let result = test.state.execute::<MockVerifier>(&clear_tx);
-    assert!(matches!(result, Err(VAppPanic::MissingPunishment)));
+    assert!(matches!(result, Err(VAppError::Panic(VAppPanic::MissingPunishment))));
 }
 
 #[test]
@@ -2022,7 +2161,7 @@ fn test_clear_punishment_exceeds_max_cost() {
 
     // Execute should fail with PunishmentExceedsMaxCost.
     let result = test.state.execute::<MockVerifier>(&clear_tx);
-    assert!(matches!(result, Err(VAppPanic::PunishmentExceedsMaxCost { .. })));
+    assert!(matches!(result, Err(VAppError::Panic(VAppPanic::PunishmentExceedsMaxCost { .. }))));
 }
 
 #[test]
@@ -2069,7 +2208,7 @@ fn test_clear_invalid_execution_status() {
 
     // Execute should fail with ExecutionFailed.
     let result = test.state.execute::<MockVerifier>(&clear_tx);
-    assert!(matches!(result, Err(VAppPanic::ExecutionFailed { .. })));
+    assert!(matches!(result, Err(VAppError::Panic(VAppPanic::ExecutionFailed { .. }))));
 }
 
 #[test]
@@ -2108,7 +2247,7 @@ fn test_clear_missing_verifier_signature_groth16() {
 
     // Execute should fail with MissingVerifierSignature.
     let result = test.state.execute::<MockVerifier>(&clear_tx);
-    assert!(matches!(result, Err(VAppPanic::MissingVerifierSignature)));
+    assert!(matches!(result, Err(VAppError::Panic(VAppPanic::MissingVerifierSignature))));
 }
 
 #[test]
@@ -2147,7 +2286,7 @@ fn test_clear_missing_verifier_signature_plonk() {
 
     // Execute should fail with MissingVerifierSignature.
     let result = test.state.execute::<MockVerifier>(&clear_tx);
-    assert!(matches!(result, Err(VAppPanic::MissingVerifierSignature)));
+    assert!(matches!(result, Err(VAppError::Panic(VAppPanic::MissingVerifierSignature))));
 }
 
 #[test]
@@ -2193,7 +2332,7 @@ fn test_clear_invalid_verifier_signature() {
 
     // Execute should fail with InvalidSignature because corrupted signature cannot be recovered.
     let result = test.state.execute::<MockVerifier>(&clear_tx);
-    assert!(matches!(result, Err(VAppPanic::InvalidSignature { .. })));
+    assert!(matches!(result, Err(VAppError::Panic(VAppPanic::InvalidSignature { .. }))));
 }
 
 #[test]
@@ -2244,7 +2383,7 @@ fn test_clear_verifier_address_mismatch() {
 
     // Execute should fail with InvalidVerifierSignature.
     let result = test.state.execute::<MockVerifier>(&clear_tx);
-    assert!(matches!(result, Err(VAppPanic::InvalidVerifierSignature)));
+    assert!(matches!(result, Err(VAppError::Panic(VAppPanic::InvalidVerifierSignature))));
 }
 
 #[test]
@@ -2318,7 +2457,7 @@ fn test_clear_public_values_hash_mismatch() {
     // Execute should fail with PublicValuesHashMismatch.
     let result = test.state.execute::<MockVerifier>(&clear_tx);
     println!("Result: {result:?}");
-    assert!(matches!(result, Err(VAppPanic::PublicValuesHashMismatch)));
+    assert!(matches!(result, Err(VAppError::Panic(VAppPanic::PublicValuesHashMismatch))));
 }
 
 #[test]
@@ -2365,7 +2504,7 @@ fn test_clear_missing_execute_public_values_hash() {
 
     // Execute should fail with MissingPublicValuesHash.
     let result = test.state.execute::<MockVerifier>(&clear_tx);
-    assert!(matches!(result, Err(VAppPanic::MissingPublicValuesHash)));
+    assert!(matches!(result, Err(VAppError::Panic(VAppPanic::MissingPublicValuesHash))));
 }
 
 #[test]
@@ -2409,7 +2548,7 @@ fn test_clear_missing_fulfill_field() {
 
     // Execute should fail with MissingFulfill.
     let result = test.state.execute::<MockVerifier>(&clear_tx);
-    assert!(matches!(result, Err(VAppPanic::MissingFulfill)));
+    assert!(matches!(result, Err(VAppError::Panic(VAppPanic::MissingFulfill))));
 }
 
 #[test]
@@ -2456,7 +2595,7 @@ fn test_clear_missing_pgus_value() {
 
     // Execute should fail with MissingPgusUsed.
     let result = test.state.execute::<MockVerifier>(&clear_tx);
-    assert!(matches!(result, Err(VAppPanic::MissingPgusUsed)));
+    assert!(matches!(result, Err(VAppError::Panic(VAppPanic::MissingPgusUsed))));
 }
 
 #[test]
@@ -2505,7 +2644,7 @@ fn test_clear_invalid_proof_compressed() {
 
     // Execute should fail with InvalidProof.
     let result = test.state.execute::<RejectVerifier>(&clear_tx);
-    assert!(matches!(result, Err(VAppPanic::InvalidProof)));
+    assert!(matches!(result, Err(VAppError::Panic(VAppPanic::InvalidProof))));
 }
 
 #[test]
@@ -2551,7 +2690,7 @@ fn test_clear_invalid_request_variant() {
 
     // Execute should fail with InvalidProof.
     let result = test.state.execute::<RejectVerifier>(&clear_tx);
-    assert!(matches!(result, Err(VAppPanic::InvalidTransactionVariant)));
+    assert!(matches!(result, Err(VAppError::Panic(VAppPanic::InvalidTransactionVariant))));
 }
 
 #[test]
@@ -2597,7 +2736,7 @@ fn test_clear_invalid_bid_variant() {
 
     // Execute should fail with InvalidProof.
     let result = test.state.execute::<RejectVerifier>(&clear_tx);
-    assert!(matches!(result, Err(VAppPanic::InvalidTransactionVariant)));
+    assert!(matches!(result, Err(VAppError::Panic(VAppPanic::InvalidTransactionVariant))));
 }
 
 #[test]
@@ -2643,7 +2782,7 @@ fn test_clear_invalid_settle_variant() {
 
     // Execute should fail with InvalidProof.
     let result = test.state.execute::<RejectVerifier>(&clear_tx);
-    assert!(matches!(result, Err(VAppPanic::InvalidTransactionVariant)));
+    assert!(matches!(result, Err(VAppError::Panic(VAppPanic::InvalidTransactionVariant))));
 }
 
 #[test]
@@ -2689,7 +2828,7 @@ fn test_clear_invalid_execute_variant() {
 
     // Execute should fail with InvalidProof.
     let result = test.state.execute::<RejectVerifier>(&clear_tx);
-    assert!(matches!(result, Err(VAppPanic::InvalidTransactionVariant)));
+    assert!(matches!(result, Err(VAppError::Panic(VAppPanic::InvalidTransactionVariant))));
 }
 
 #[test]
@@ -2738,7 +2877,7 @@ fn test_clear_invalid_fulfill_variant() {
 
     // Execute should fail with InvalidProof.
     let result = test.state.execute::<RejectVerifier>(&clear_tx);
-    assert!(matches!(result, Err(VAppPanic::InvalidTransactionVariant)));
+    assert!(matches!(result, Err(VAppError::Panic(VAppPanic::InvalidTransactionVariant))));
 }
 
 #[test]
@@ -2829,7 +2968,7 @@ fn test_clear_v6_compressed_without_signature_fails() {
     // Execute should fail with MissingVerifierSignature since v6 compressed needs signature
     // verification.
     let result = test.state.execute::<MockVerifier>(&clear_tx);
-    assert!(matches!(result, Err(VAppPanic::MissingVerifierSignature)));
+    assert!(matches!(result, Err(VAppError::Panic(VAppPanic::MissingVerifierSignature))));
 }
 
 #[test]
@@ -2868,5 +3007,5 @@ fn test_clear_unsupported_proof_mode_core() {
 
     // Execute should fail with UnsupportedProofMode.
     let result = test.state.execute::<MockVerifier>(&clear_tx);
-    assert!(matches!(result, Err(VAppPanic::UnsupportedProofMode { .. })));
+    assert!(matches!(result, Err(VAppError::Panic(VAppPanic::UnsupportedProofMode { .. }))));
 }

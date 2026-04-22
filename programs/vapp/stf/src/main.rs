@@ -5,6 +5,7 @@ use alloy_primitives::Keccak256;
 use alloy_sol_types::SolType;
 use sp1_zkvm::lib::verify::verify_sp1_proof;
 use spn_vapp_core::{
+    errors::VAppError,
     input::VAppStfInput,
     merkle::MerkleStorage,
     sol::StepPublicValues,
@@ -60,7 +61,10 @@ pub fn main() {
             Ok(None) => {
                 println!("tx {pos} processed");
             }
-            Err(panic) => {
+            Err(VAppError::Revert(revert)) => {
+                println!("tx {pos} reverted: {revert:?}");
+            }
+            Err(VAppError::Panic(panic)) => {
                 panic!("tx {pos} panicked: {panic:?}");
             }
         }

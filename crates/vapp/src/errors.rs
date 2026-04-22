@@ -7,6 +7,50 @@ use thiserror::Error;
 
 use crate::storage::StorageError;
 
+/// An error returned by the vApp state transition function.
+///
+/// `Panic` halts block production. `Revert` is itself a valid state transition: the offending
+/// tx id is retired, balances are untouched, and the cursor advances.
+#[derive(Debug, Error, PartialEq)]
+#[allow(missing_docs)]
+pub enum VAppError {
+    #[error("vapp panicked: {0}")]
+    Panic(#[from] VAppPanic),
+
+    #[error("vapp reverted: {0}")]
+    Revert(#[from] VAppRevert),
+}
+
+/// A recoverable state transition failure. The driver logs and advances the cursor.
+#[derive(Debug, Clone, Error, PartialEq)]
+#[allow(missing_docs)]
+pub enum VAppRevert {
+    #[error(
+        "Clear rejected: account {account} cannot cover cost: required {required}, balance {balance}"
+    )]
+    InsufficientClearBalance { account: Address, required: U256, balance: U256 },
+
+    #[error(
+        "Clear rejected: account {account} cannot cover punishment for unexecutable request: required {required}, balance {balance}"
+    )]
+    InsufficientPunishmentBalance { account: Address, required: U256, balance: U256 },
+
+    #[error(
+        "Delegate rejected: prover owner {account} cannot cover delegation fee: required {required}, balance {balance}"
+    )]
+    InsufficientDelegateBalance { account: Address, required: U256, balance: U256 },
+
+    #[error(
+        "Transfer rejected: account {account} cannot cover amount + fee: required {required}, balance {balance}"
+    )]
+    InsufficientTransferBalance { account: Address, required: U256, balance: U256 },
+
+    #[error(
+        "Withdraw rejected: account {account} cannot cover amount (+ fee on self-withdraw): required {required}, balance {balance}"
+    )]
+    InsufficientWithdrawBalance { account: Address, required: U256, balance: U256 },
+}
+
 /// An unrecoverable error that will prevent a transaction from being included in the ledger.
 #[derive(Debug, Error, PartialEq)]
 #[allow(missing_docs)]
