@@ -2,7 +2,7 @@ mod common;
 
 use alloy_primitives::U256;
 use spn_vapp_core::{
-    errors::{VAppError, VAppPanic},
+    errors::{VAppError, VAppPanic, VAppRevert},
     verifier::MockVerifier,
 };
 
@@ -115,7 +115,31 @@ fn test_withdraw_insufficient_balance() {
     let withdraw_tx = withdraw_tx(&test.requester, account, withdraw_amount, 0);
     let result = test.state.execute::<MockVerifier>(&withdraw_tx);
 
-    assert!(matches!(result, Err(VAppError::Panic(VAppPanic::InsufficientBalance { .. }))));
+    assert!(matches!(
+        result,
+        Err(VAppError::Revert(VAppRevert::InsufficientWithdrawBalance { .. }))
+    ));
+}
+
+#[test]
+fn test_withdraw_insufficient_balance_retires_request() {
+    // A soft-reverted withdraw must retire the transaction id so it cannot be retried.
+    let mut test = setup();
+    let account = test.requester.address();
+
+    // No deposit — account has zero balance, withdraw will revert.
+    let withdraw_amount = U256::from(10).pow(U256::from(18));
+    let withdraw_tx = withdraw_tx(&test.requester, account, withdraw_amount, 0);
+
+    let first = test.state.execute::<MockVerifier>(&withdraw_tx);
+    assert!(matches!(
+        first,
+        Err(VAppError::Revert(VAppRevert::InsufficientWithdrawBalance { .. }))
+    ));
+
+    // Re-submitting the same withdraw must fail with TransactionAlreadyProcessed.
+    let retry = test.state.execute::<MockVerifier>(&withdraw_tx);
+    assert!(matches!(retry, Err(VAppError::Panic(VAppPanic::TransactionAlreadyProcessed { .. }))));
 }
 
 #[test]
@@ -128,7 +152,10 @@ fn test_withdraw_zero_balance_account() {
     let withdraw_tx = withdraw_tx(&test.requester, account, withdraw_amount, 0);
     let result = test.state.execute::<MockVerifier>(&withdraw_tx);
 
-    assert!(matches!(result, Err(VAppError::Panic(VAppPanic::InsufficientBalance { .. }))));
+    assert!(matches!(
+        result,
+        Err(VAppError::Revert(VAppRevert::InsufficientWithdrawBalance { .. }))
+    ));
 }
 
 #[test]
@@ -146,7 +173,10 @@ fn test_withdraw_insufficient_for_auctioneer_fee() {
     let withdraw_tx = withdraw_tx(&test.requester, account, withdraw_amount, 0);
     let result = test.state.execute::<MockVerifier>(&withdraw_tx);
 
-    assert!(matches!(result, Err(VAppError::Panic(VAppPanic::InsufficientBalance { .. }))));
+    assert!(matches!(
+        result,
+        Err(VAppError::Revert(VAppRevert::InsufficientWithdrawBalance { .. }))
+    ));
 }
 
 #[test]
@@ -250,8 +280,8 @@ fn test_withdraw_third_party_insufficient_prover_balance() {
     let result = test.state.execute::<MockVerifier>(&withdraw_tx);
 
     assert!(
-        matches!(result, Err(VAppError::Panic(VAppPanic::InsufficientBalance { account, amount, balance }))
-        if account == prover_address && amount == withdraw_amount && balance == prover_balance)
+        matches!(result, Err(VAppError::Revert(VAppRevert::InsufficientWithdrawBalance { account, required, balance }))
+        if account == prover_address && required == withdraw_amount && balance == prover_balance)
     );
 }
 
@@ -283,8 +313,8 @@ fn test_withdraw_third_party_insufficient_fee_balance() {
     let result = test.state.execute::<MockVerifier>(&withdraw_tx);
 
     assert!(
-        matches!(result, Err(VAppError::Panic(VAppPanic::InsufficientBalance { account, amount, balance }))
-        if account == third_party.address() && amount == auctioneer_fee && balance == third_party_balance)
+        matches!(result, Err(VAppError::Revert(VAppRevert::InsufficientWithdrawBalance { account, required, balance }))
+        if account == third_party.address() && required == auctioneer_fee && balance == third_party_balance)
     );
 }
 

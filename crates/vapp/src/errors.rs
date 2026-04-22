@@ -9,11 +9,8 @@ use crate::storage::StorageError;
 
 /// An error returned by the vApp state transition function.
 ///
-/// A [`Panic`](VAppError::Panic) represents an unrecoverable protocol violation that must halt
-/// block production. A [`Revert`](VAppError::Revert) represents a transaction that was rejected
-/// by protocol rules but whose rejection is itself a valid state transition: the offending
-/// request (if any) is retired so it cannot be retried, balances are otherwise untouched, and
-/// the event cursor advances so subsequent transactions can be processed.
+/// `Panic` halts block production. `Revert` is itself a valid state transition: the offending
+/// tx id is retired, balances are untouched, and the cursor advances.
 #[derive(Debug, Error, PartialEq)]
 #[allow(missing_docs)]
 pub enum VAppError {
@@ -24,10 +21,7 @@ pub enum VAppError {
     Revert(#[from] VAppRevert),
 }
 
-/// A recoverable state transition failure.
-///
-/// Emitted when a transaction cannot be applied under current state but the state machine can
-/// safely move past it. The driver treats this as a warning (not fatal) and advances the cursor.
+/// A recoverable state transition failure. The driver logs and advances the cursor.
 #[derive(Debug, Clone, Error, PartialEq)]
 #[allow(missing_docs)]
 pub enum VAppRevert {
@@ -40,6 +34,21 @@ pub enum VAppRevert {
         "Clear rejected: account {account} cannot cover punishment for unexecutable request: required {required}, balance {balance}"
     )]
     InsufficientPunishmentBalance { account: Address, required: U256, balance: U256 },
+
+    #[error(
+        "Delegate rejected: prover owner {account} cannot cover delegation fee: required {required}, balance {balance}"
+    )]
+    InsufficientDelegateBalance { account: Address, required: U256, balance: U256 },
+
+    #[error(
+        "Transfer rejected: account {account} cannot cover amount + fee: required {required}, balance {balance}"
+    )]
+    InsufficientTransferBalance { account: Address, required: U256, balance: U256 },
+
+    #[error(
+        "Withdraw rejected: account {account} cannot cover amount (+ fee on self-withdraw): required {required}, balance {balance}"
+    )]
+    InsufficientWithdrawBalance { account: Address, required: U256, balance: U256 },
 }
 
 /// An unrecoverable error that will prevent a transaction from being included in the ledger.

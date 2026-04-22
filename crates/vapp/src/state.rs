@@ -24,17 +24,13 @@ use crate::{
     verifier::VAppVerifier,
 };
 
-/// The outcome of applying a single [`VAppTransaction`] inside the state machine.
+/// The outcome of applying a single [`VAppTransaction`].
 ///
-/// `execute_inner` returns this so the outer [`VAppState::execute`] wrapper can distinguish
-/// a clean application from a soft revert and decide whether to advance the cursor.
+/// On `Reverted`, the offending tx id is already retired in the `transactions` map and no other
+/// state was mutated; the cursor still advances.
 #[derive(Debug, Clone)]
 enum ExecuteOutcome {
-    /// The transaction applied cleanly. Carries an optional on-chain receipt.
     Applied(Option<VAppReceipt>),
-    /// The transaction was rejected under protocol rules. State remains consistent
-    /// (offending request id already retired in the `transactions` map, no other mutations),
-    /// and the cursor should still advance.
     Reverted(VAppRevert),
 }
 
@@ -157,24 +153,20 @@ impl<A: Storage<Address, Account>, R: Storage<RequestId, bool>> VAppState<A, R> 
         Ok(())
     }
 
-    /// Executes a [`VAppTransaction`] and returns an optional [`VAppReceipt`].
+    /// Executes a [`VAppTransaction`].
     ///
-    /// Returns `Err(VAppError::Panic(..))` on an unrecoverable protocol violation. Returns
-    /// `Err(VAppError::Revert(..))` when the transaction was rejected under protocol rules but
-    /// the state machine can move past it; in that case the cursor is still advanced and the
-    /// offending request (if any) has been retired in the `transactions` map.
+    /// `Err(Panic)` is unrecoverable (halts block production). `Err(Revert)` is a valid state
+    /// transition: the cursor advances and the offending tx id (if any) is retired.
     pub fn execute<V: VAppVerifier>(
         &mut self,
         event: &VAppTransaction,
     ) -> Result<Option<VAppReceipt>, VAppError> {
         match self.execute_inner::<V>(event) {
             Ok(ExecuteOutcome::Applied(receipt)) => {
-                // Increment the tx counter.
                 self.tx_id += 1;
                 Ok(receipt)
             }
             Ok(ExecuteOutcome::Reverted(revert)) => {
-                // Advance the cursor; the revert is itself a valid state transition.
                 self.tx_id += 1;
                 Err(VAppError::Revert(revert))
             }
@@ -332,15 +324,17 @@ impl<A: Storage<Address, Account>, R: Storage<RequestId, bool>> VAppState<A, R> 
                 // Check that the prover owner has sufficient balance for the delegation fee.
                 //
                 // The prover owner must have a non-zero balance to set a delegate, which they can
-                // accomplish by making a deposit.
+                // accomplish by making a deposit. If not, soft-revert — `get()` keeps the revert
+                // path from materializing a default account leaf.
                 debug!("validate prover owner has sufficient balance for delegation fee");
-                let owner_balance = self.accounts.entry(prover_owner)?.or_default().get_balance();
+                let owner_balance =
+                    self.accounts.get(&prover_owner)?.map_or(U256::ZERO, Account::get_balance);
                 if owner_balance < auctioneer_fee {
-                    return Err(VAppPanic::InsufficientBalance {
+                    return Ok(ExecuteOutcome::Reverted(VAppRevert::InsufficientDelegateBalance {
                         account: prover_owner,
-                        amount: auctioneer_fee,
+                        required: auctioneer_fee,
                         balance: owner_balance,
-                    });
+                    }));
                 }
 
                 // Deduct the delegation fee from the prover owner.
@@ -429,16 +423,17 @@ impl<A: Storage<Address, Account>, R: Storage<RequestId, bool>> VAppState<A, R> 
                     .map_err(|_| VAppPanic::AddressDeserializationFailed)?;
 
                 // Validate that the from account has sufficient balance for transfer + auctioneer
-                // fee.
+                // fee; soft-revert otherwise. `get()` keeps the revert path from materializing a
+                // default account leaf.
                 debug!("validate from account has sufficient balance");
-                let balance = self.accounts.entry(from)?.or_default().get_balance();
+                let balance = self.accounts.get(&from)?.map_or(U256::ZERO, Account::get_balance);
                 let total_amount = u256::add(amount, auctioneer_fee)?;
                 if balance < total_amount {
-                    return Err(VAppPanic::InsufficientBalance {
+                    return Ok(ExecuteOutcome::Reverted(VAppRevert::InsufficientTransferBalance {
                         account: from,
-                        amount: total_amount,
+                        required: total_amount,
                         balance,
-                    });
+                    }));
                 }
 
                 // Transfer the amount from the transferer to the recipient.
@@ -497,10 +492,15 @@ impl<A: Storage<Address, Account>, R: Storage<RequestId, bool>> VAppState<A, R> 
                 // Mark the transaction as processed.
                 self.transactions.insert(withdraw_id, true)?;
 
-                // Extract the account address.
+                // Extract the account address. `get()` keeps this read from materializing a
+                // default leaf when the address has never been credited (the revert path below
+                // must not mutate the accounts tree).
                 debug!("extract account address");
                 let account = address(body.account.as_slice())?;
-                let owner = self.accounts.entry(account)?.or_default().get_owner();
+                let owner = self
+                    .accounts
+                    .get(&account)?
+                    .map_or(Address::ZERO, Account::get_owner);
 
                 // If the account is not a prover (provers always have a non-zero owner address),
                 // then only the account itself can withdraw.
@@ -527,17 +527,22 @@ impl<A: Storage<Address, Account>, R: Storage<RequestId, bool>> VAppState<A, R> 
                 let auctioneer = Address::try_from(body.auctioneer.as_slice())
                     .map_err(|_| VAppPanic::AddressDeserializationFailed)?;
 
+                // Soft-revert on any insolvency below. `get()` (not `entry().or_default`) so the
+                // revert doesn't materialize a default account leaf.
                 if account == from {
                     // Self withdraw (normal user or prover owner).
                     debug!("validate balance for self withdraw (account pays amount + fee)");
-                    let balance = self.accounts.entry(account)?.or_default().get_balance();
+                    let balance =
+                        self.accounts.get(&account)?.map_or(U256::ZERO, Account::get_balance);
                     let total = u256::add(amount, auctioneer_fee)?;
                     if balance < total {
-                        return Err(VAppPanic::InsufficientBalance {
-                            account,
-                            amount: total,
-                            balance,
-                        });
+                        return Ok(ExecuteOutcome::Reverted(
+                            VAppRevert::InsufficientWithdrawBalance {
+                                account,
+                                required: total,
+                                balance,
+                            },
+                        ));
                     }
 
                     // Deduct the amount from the withdrawing account.
@@ -550,22 +555,28 @@ impl<A: Storage<Address, Account>, R: Storage<RequestId, bool>> VAppState<A, R> 
                     // Someone else withdrawing for a prover.
                     debug!("validate balances for prover withdraw (prover pays amount, signer pays fee)");
 
-                    let prover_balance = self.accounts.entry(account)?.or_default().get_balance();
+                    let prover_balance =
+                        self.accounts.get(&account)?.map_or(U256::ZERO, Account::get_balance);
                     if prover_balance < amount {
-                        return Err(VAppPanic::InsufficientBalance {
-                            account,
-                            amount,
-                            balance: prover_balance,
-                        });
+                        return Ok(ExecuteOutcome::Reverted(
+                            VAppRevert::InsufficientWithdrawBalance {
+                                account,
+                                required: amount,
+                                balance: prover_balance,
+                            },
+                        ));
                     }
 
-                    let from_balance = self.accounts.entry(from)?.or_default().get_balance();
+                    let from_balance =
+                        self.accounts.get(&from)?.map_or(U256::ZERO, Account::get_balance);
                     if from_balance < auctioneer_fee {
-                        return Err(VAppPanic::InsufficientBalance {
-                            account: from,
-                            amount: auctioneer_fee,
-                            balance: from_balance,
-                        });
+                        return Ok(ExecuteOutcome::Reverted(
+                            VAppRevert::InsufficientWithdrawBalance {
+                                account: from,
+                                required: auctioneer_fee,
+                                balance: from_balance,
+                            },
+                        ));
                     }
 
                     // Deduct the amount from the prover.
@@ -731,12 +742,13 @@ impl<A: Storage<Address, Account>, R: Storage<RequestId, bool>> VAppState<A, R> 
                         return Err(VAppPanic::PunishmentExceedsMaxCost { punishment, max_price });
                     }
 
-                    // Validate that the requester has sufficient balance to pay the punishment.
-                    //
-                    // If the requester cannot cover the punishment, soft-revert the clear: retire
-                    // the request so it cannot be retried, but leave balances untouched. The
-                    // driver advances the cursor and the chain continues. See [VAppRevert].
-                    let balance = self.accounts.entry(request_signer)?.or_default().get_balance();
+                    // Validate that the requester has sufficient balance to pay the punishment;
+                    // soft-revert otherwise. `get()` keeps the revert path from materializing a
+                    // default leaf.
+                    let balance = self
+                        .accounts
+                        .get(&request_signer)?
+                        .map_or(U256::ZERO, Account::get_balance);
                     if balance < punishment {
                         self.transactions.insert(request_id, true)?;
                         return Ok(ExecuteOutcome::Reverted(
@@ -882,13 +894,9 @@ impl<A: Storage<Address, Account>, R: Storage<RequestId, bool>> VAppState<A, R> 
                     return Err(VAppPanic::GasLimitExceeded { pgus, gas_limit });
                 }
 
-                // Ensure the user can afford the cost of the proof.
-                //
-                // If the requester cannot cover the cost, soft-revert the clear: retire the
-                // request so it cannot be retried and so a well-funded retry is not possible at a
-                // different cost, but leave balances untouched. Under the write-off policy, the
-                // prover receives no reward for the work performed. The driver advances the
-                // cursor and the chain continues. See [VAppRevert::InsufficientClearBalance].
+                // Ensure the user can afford the cost of the proof; soft-revert otherwise under
+                // the write-off policy (prover gets no reward). Retire the request here so a
+                // funded retry at a different cost isn't possible.
                 let account = self
                     .accounts
                     .get(&request_signer)?

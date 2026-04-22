@@ -5,7 +5,7 @@ use spn_network_types::{
     MessageFormat, SetDelegationRequest, SetDelegationRequestBody, TransactionVariant,
 };
 use spn_vapp_core::{
-    errors::{VAppError, VAppPanic},
+    errors::{VAppError, VAppPanic, VAppRevert},
     transactions::{DelegateTransaction, VAppTransaction},
     verifier::MockVerifier,
 };
@@ -491,11 +491,40 @@ fn test_delegate_insufficient_balance() {
     let result = test.state.execute::<MockVerifier>(&delegate_tx);
 
     // Verify the correct panic error is returned.
-    assert!(matches!(result, Err(VAppError::Panic(VAppPanic::InsufficientBalance { .. }))));
+    assert!(matches!(
+        result,
+        Err(VAppError::Revert(VAppRevert::InsufficientDelegateBalance { .. }))
+    ));
 
     // Verify signer remains unchanged.
     assert_prover_signer(&mut test, prover_address, prover_owner.address());
     assert_account_balance(&mut test, prover_owner.address(), insufficient_amount);
+}
+
+#[test]
+fn test_delegate_insufficient_balance_retires_request() {
+    // A soft-reverted delegate must retire the transaction id so it cannot be retried.
+    let mut test = setup();
+    let prover_owner = test.signers[0].clone();
+    let prover_address = test.signers[1].address();
+    let delegate_address = test.signers[2].address();
+
+    let create_prover_tx =
+        create_prover_tx(prover_address, prover_owner.address(), U256::from(500), 0, 1, 1);
+    test.state.execute::<MockVerifier>(&create_prover_tx).unwrap();
+
+    // Owner has zero balance (no deposit) so the delegate will revert.
+    let delegate_tx = delegate_tx(&prover_owner, prover_address, delegate_address, 1);
+
+    let first = test.state.execute::<MockVerifier>(&delegate_tx);
+    assert!(matches!(
+        first,
+        Err(VAppError::Revert(VAppRevert::InsufficientDelegateBalance { .. }))
+    ));
+
+    // Re-submitting the same delegate must fail with TransactionAlreadyProcessed.
+    let retry = test.state.execute::<MockVerifier>(&delegate_tx);
+    assert!(matches!(retry, Err(VAppError::Panic(VAppPanic::TransactionAlreadyProcessed { .. }))));
 }
 
 #[test]
@@ -515,7 +544,10 @@ fn test_delegate_zero_balance_owner() {
     let result = test.state.execute::<MockVerifier>(&delegate_tx);
 
     // Verify the correct panic error is returned.
-    assert!(matches!(result, Err(VAppError::Panic(VAppPanic::InsufficientBalance { .. }))));
+    assert!(matches!(
+        result,
+        Err(VAppError::Revert(VAppRevert::InsufficientDelegateBalance { .. }))
+    ));
 
     // Verify signer remains unchanged.
     assert_prover_signer(&mut test, prover_address, prover_owner.address());

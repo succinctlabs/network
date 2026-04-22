@@ -62,7 +62,6 @@ pub fn main() {
                 println!("tx {pos} processed");
             }
             Err(VAppError::Revert(revert)) => {
-                // Soft revert: part of the legitimate state transition, no receipt emitted.
                 println!("tx {pos} reverted: {revert:?}");
             }
             Err(VAppError::Panic(panic)) => {
