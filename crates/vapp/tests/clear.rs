@@ -796,11 +796,69 @@ fn test_clear_delegated_signer_mismatch() {
     // Execute should fail with ProverDoesNotExist: the bid is signed by `wrong_signer`, so
     // `bid.prover == wrong_signer.address()`, which is not a registered prover. The handler
     // catches the missing prover via `get().ok_or(..)` before the delegated-signer check is
-    // reached. A follow-up test that actually exercises delegated-signer-mismatch would need
-    // a Delegate tx to install a delegate, then a bid signed by someone-other-than the
-    // delegate on behalf of an existing prover.
+    // reached. See `test_clear_delegated_signer_mismatch_with_real_delegation` below for a
+    // test that actually exercises the delegated-signer-mismatch panic.
     let result = test.state.execute::<MockVerifier>(&clear_tx);
     assert!(matches!(result, Err(VAppError::Panic(VAppPanic::ProverDoesNotExist { .. }))));
+}
+
+/// Exercises the real `ProverDelegatedSignerMismatch` panic path.
+///
+/// Setup: register a prover, fund the owner, install a delegate via `Delegate`. At that point
+/// `accounts[prover_address].signer` is the delegate, not the original owner / prover key.
+/// Then submit a Clear whose bid is signed by the original prover key (which is no longer the
+/// delegated signer). The Clear handler looks up the prover account (exists, so no
+/// `ProverDoesNotExist`) and then compares `prover_account.get_signer()` against the recovered
+/// `bid_signer` — they differ, so `ProverDelegatedSignerMismatch` must panic.
+#[test]
+fn test_clear_delegated_signer_mismatch_with_real_delegation() {
+    let mut test = setup();
+    let prover_owner = test.signers[0].clone();
+    let delegate = test.signers[2].clone();
+    let prover_address = test.fulfiller.address();
+
+    // Register the prover with a distinct owner. CreateProver initializes `signer = owner`.
+    let create_prover_tx =
+        create_prover_tx(prover_address, prover_owner.address(), U256::ZERO, 0, 1, 1);
+    test.state.execute::<MockVerifier>(&create_prover_tx).unwrap();
+
+    // Fund the prover owner to cover the 1 PROVE delegation fee.
+    let one_prove = U256::from(10).pow(U256::from(18));
+    let fund_owner_tx = deposit_tx(prover_owner.address(), one_prove, 0, 2, 2);
+    test.state.execute::<MockVerifier>(&fund_owner_tx).unwrap();
+
+    // Install the delegate. After this, accounts[prover_address].signer == delegate.address().
+    let delegate_tx = delegate_tx(&prover_owner, prover_address, delegate.address(), 1);
+    test.state.execute::<MockVerifier>(&delegate_tx).unwrap();
+
+    // Build a Clear whose bid is signed by `test.fulfiller` — the original prover key, which is
+    // no longer the delegated signer. `create_clear_tx` ties `bid.prover` and the bid signature
+    // to the same signer, so `bid.prover == bid_signer == fulfiller.address()`. Since the
+    // registered prover's delegated signer is now `delegate.address()`, the handler must panic
+    // on the delegated-signer comparison — after a successful prover lookup.
+    let clear_tx = create_clear_tx(
+        &test.requester,
+        &test.fulfiller,
+        &test.fulfiller,
+        &test.auctioneer,
+        &test.executor,
+        &test.verifier,
+        1,
+        U256::from(100),
+        1,
+        1,
+        1,
+        1,
+        ProofMode::Compressed,
+        ExecutionStatus::Executed,
+        false,
+    );
+
+    let result = test.state.execute::<MockVerifier>(&clear_tx);
+    assert!(matches!(
+        result,
+        Err(VAppError::Panic(VAppPanic::ProverDelegatedSignerMismatch { .. }))
+    ));
 }
 
 #[test]
