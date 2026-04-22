@@ -10,7 +10,7 @@ use tracing::{debug, info};
 use spn_network_types::{ExecutionStatus, HashableWithSender, ProofMode, TransactionVariant};
 
 use crate::{
-    errors::VAppPanic,
+    errors::{VAppError, VAppPanic, VAppRevert},
     fee::{fee, PROTOCOL_FEE_BIPS},
     merkle::{MerkleStorage, MerkleTreeHasher},
     receipts::{OffchainReceipt, OnchainReceipt, VAppReceipt},
@@ -23,6 +23,20 @@ use crate::{
     utils::{address, bytes_to_words_be, tx_variant},
     verifier::VAppVerifier,
 };
+
+/// The outcome of applying a single [`VAppTransaction`] inside the state machine.
+///
+/// `execute_inner` returns this so the outer [`VAppState::execute`] wrapper can distinguish
+/// a clean application from a soft revert and decide whether to advance the cursor.
+#[derive(Debug, Clone)]
+enum ExecuteOutcome {
+    /// The transaction applied cleanly. Carries an optional on-chain receipt.
+    Applied(Option<VAppReceipt>),
+    /// The transaction was rejected under protocol rules. State remains consistent
+    /// (offending request id already retired in the `transactions` map, no other mutations),
+    /// and the cursor should still advance.
+    Reverted(VAppRevert),
+}
 
 /// The state of the Succinct Prover Network vApp.
 ///
@@ -144,16 +158,28 @@ impl<A: Storage<Address, Account>, R: Storage<RequestId, bool>> VAppState<A, R> 
     }
 
     /// Executes a [`VAppTransaction`] and returns an optional [`VAppReceipt`].
+    ///
+    /// Returns `Err(VAppError::Panic(..))` on an unrecoverable protocol violation. Returns
+    /// `Err(VAppError::Revert(..))` when the transaction was rejected under protocol rules but
+    /// the state machine can move past it; in that case the cursor is still advanced and the
+    /// offending request (if any) has been retired in the `transactions` map.
     pub fn execute<V: VAppVerifier>(
         &mut self,
         event: &VAppTransaction,
-    ) -> Result<Option<VAppReceipt>, VAppPanic> {
-        let action = self.execute_inner::<V>(event)?;
-
-        // Increment the tx counter.
-        self.tx_id += 1;
-
-        Ok(action)
+    ) -> Result<Option<VAppReceipt>, VAppError> {
+        match self.execute_inner::<V>(event) {
+            Ok(ExecuteOutcome::Applied(receipt)) => {
+                // Increment the tx counter.
+                self.tx_id += 1;
+                Ok(receipt)
+            }
+            Ok(ExecuteOutcome::Reverted(revert)) => {
+                // Advance the cursor; the revert is itself a valid state transition.
+                self.tx_id += 1;
+                Err(VAppError::Revert(revert))
+            }
+            Err(panic) => Err(VAppError::Panic(panic)),
+        }
     }
 
     #[allow(clippy::needless_return)]
@@ -161,7 +187,7 @@ impl<A: Storage<Address, Account>, R: Storage<RequestId, bool>> VAppState<A, R> 
     fn execute_inner<V: VAppVerifier>(
         &mut self,
         event: &VAppTransaction,
-    ) -> Result<Option<VAppReceipt>, VAppPanic> {
+    ) -> Result<ExecuteOutcome, VAppPanic> {
         match event {
             VAppTransaction::Deposit(deposit) => {
                 // Log the deposit event.
@@ -188,11 +214,11 @@ impl<A: Storage<Address, Account>, R: Storage<RequestId, bool>> VAppState<A, R> 
                     .add_balance(deposit.action.amount)?;
 
                 // Return the deposit action.
-                return Ok(Some(VAppReceipt::Deposit(OnchainReceipt {
+                return Ok(ExecuteOutcome::Applied(Some(VAppReceipt::Deposit(OnchainReceipt {
                     onchain_tx_id: deposit.onchain_tx,
                     action: deposit.action.clone(),
                     status: TransactionStatus::Completed,
-                })));
+                }))));
             }
             VAppTransaction::CreateProver(prover) => {
                 // Log the set delegated signer event.
@@ -221,11 +247,13 @@ impl<A: Storage<Address, Account>, R: Storage<RequestId, bool>> VAppState<A, R> 
                     .set_staker_fee_bips(prover.action.stakerFeeBips);
 
                 // Return the set delegated signer action.
-                return Ok(Some(VAppReceipt::CreateProver(OnchainReceipt {
-                    action: prover.action.clone(),
-                    onchain_tx_id: prover.onchain_tx,
-                    status: TransactionStatus::Completed,
-                })));
+                return Ok(ExecuteOutcome::Applied(Some(VAppReceipt::CreateProver(
+                    OnchainReceipt {
+                        action: prover.action.clone(),
+                        onchain_tx_id: prover.onchain_tx,
+                        status: TransactionStatus::Completed,
+                    },
+                ))));
             }
             VAppTransaction::Delegate(delegation) => {
                 // Log the delegation event.
@@ -248,10 +276,7 @@ impl<A: Storage<Address, Account>, R: Storage<RequestId, bool>> VAppState<A, R> 
                 let domain = B256::try_from(body.domain.as_slice())
                     .map_err(|_| VAppPanic::DomainDeserializationFailed)?;
                 if domain != self.domain {
-                    return Err(VAppPanic::DomainMismatch {
-                        expected: self.domain,
-                        actual: domain,
-                    });
+                    return Err(VAppPanic::DomainMismatch { expected: self.domain, actual: domain });
                 }
 
                 // Verify the proto signature.
@@ -339,7 +364,7 @@ impl<A: Storage<Address, Account>, R: Storage<RequestId, bool>> VAppState<A, R> 
                 prover_account.set_signer(delegate);
 
                 // No action returned since delegation is off-chain.
-                return Ok(None);
+                return Ok(ExecuteOutcome::Applied(None));
             }
             VAppTransaction::Transfer(transfer) => {
                 // Log the transfer event.
@@ -367,10 +392,7 @@ impl<A: Storage<Address, Account>, R: Storage<RequestId, bool>> VAppState<A, R> 
                 let domain = B256::try_from(body.domain.as_slice())
                     .map_err(|_| VAppPanic::DomainDeserializationFailed)?;
                 if domain != self.domain {
-                    return Err(VAppPanic::DomainMismatch {
-                        expected: self.domain,
-                        actual: domain,
-                    });
+                    return Err(VAppPanic::DomainMismatch { expected: self.domain, actual: domain });
                 }
 
                 // Verify that the transaction is not already processed.
@@ -431,7 +453,7 @@ impl<A: Storage<Address, Account>, R: Storage<RequestId, bool>> VAppState<A, R> 
                 info!("└── Auctioneer({}): + {} $PROVE (fee)", auctioneer, auctioneer_fee);
                 self.accounts.entry(auctioneer)?.or_default().add_balance(auctioneer_fee)?;
 
-                return Ok(None);
+                return Ok(ExecuteOutcome::Applied(None));
             }
             VAppTransaction::Withdraw(withdraw) => {
                 // Log the withdraw event.
@@ -459,10 +481,7 @@ impl<A: Storage<Address, Account>, R: Storage<RequestId, bool>> VAppState<A, R> 
                 let domain = B256::try_from(body.domain.as_slice())
                     .map_err(|_| VAppPanic::DomainDeserializationFailed)?;
                 if domain != self.domain {
-                    return Err(VAppPanic::DomainMismatch {
-                        expected: self.domain,
-                        actual: domain,
-                    });
+                    return Err(VAppPanic::DomainMismatch { expected: self.domain, actual: domain });
                 }
 
                 // Verify that the transaction is not already processed.
@@ -562,10 +581,10 @@ impl<A: Storage<Address, Account>, R: Storage<RequestId, bool>> VAppState<A, R> 
                 self.accounts.entry(auctioneer)?.or_default().add_balance(auctioneer_fee)?;
 
                 // Return the withdraw action.
-                return Ok(Some(VAppReceipt::Withdraw(OffchainReceipt {
+                return Ok(ExecuteOutcome::Applied(Some(VAppReceipt::Withdraw(OffchainReceipt {
                     action: Withdraw { account, amount },
                     status: TransactionStatus::Completed,
-                })));
+                }))));
             }
             VAppTransaction::Clear(clear) => {
                 // Make sure the proto bodies are present for (request, bid, settle, execute).
@@ -664,8 +683,8 @@ impl<A: Storage<Address, Account>, R: Storage<RequestId, bool>> VAppState<A, R> 
                 //
                 // Requesters may whitelist what provers they want to work with to ensure better
                 // SLAs and quality of service.
-                if !request.whitelist.is_empty()
-                    && !request.whitelist.contains(&prover_address.to_vec())
+                if !request.whitelist.is_empty() &&
+                    !request.whitelist.contains(&prover_address.to_vec())
                 {
                     return Err(VAppPanic::ProverNotInWhitelist { prover: prover_address });
                 }
@@ -673,10 +692,7 @@ impl<A: Storage<Address, Account>, R: Storage<RequestId, bool>> VAppState<A, R> 
                 // Validate that the request, settle, and auctioneer addresses match.
                 let request_auctioneer = address(request.auctioneer.as_slice())?;
                 if request_auctioneer != settle_signer {
-                    return Err(VAppPanic::AuctioneerMismatch {
-                        request_auctioneer,
-                        settle_signer,
-                    });
+                    return Err(VAppPanic::AuctioneerMismatch { request_auctioneer, settle_signer });
                 }
 
                 // Validate that the request, execute, and executor addresses match.
@@ -716,13 +732,20 @@ impl<A: Storage<Address, Account>, R: Storage<RequestId, bool>> VAppState<A, R> 
                     }
 
                     // Validate that the requester has sufficient balance to pay the punishment.
+                    //
+                    // If the requester cannot cover the punishment, soft-revert the clear: retire
+                    // the request so it cannot be retried, but leave balances untouched. The
+                    // driver advances the cursor and the chain continues. See [VAppRevert].
                     let balance = self.accounts.entry(request_signer)?.or_default().get_balance();
                     if balance < punishment {
-                        return Err(VAppPanic::InsufficientBalance {
-                            account: request_signer,
-                            amount: punishment,
-                            balance,
-                        });
+                        self.transactions.insert(request_id, true)?;
+                        return Ok(ExecuteOutcome::Reverted(
+                            VAppRevert::InsufficientPunishmentBalance {
+                                account: request_signer,
+                                required: punishment,
+                                balance,
+                            },
+                        ));
                     }
 
                     // Deduct the punishment from the requester.
@@ -737,7 +760,7 @@ impl<A: Storage<Address, Account>, R: Storage<RequestId, bool>> VAppState<A, R> 
                     // Set the transaction as processed.
                     self.transactions.insert(request_id, true)?;
 
-                    return Ok(None);
+                    return Ok(ExecuteOutcome::Applied(None));
                 }
 
                 // Validate that the execution status is successful.
@@ -830,7 +853,8 @@ impl<A: Storage<Address, Account>, R: Storage<RequestId, bool>> VAppState<A, R> 
                             .verify(vk, public_values_hash)
                             .map_err(|_| VAppPanic::InvalidProof)?;
                     }
-                    // Non-primary Compressed and supported non-Compressed modes use signature verification.
+                    // Non-primary Compressed and supported non-Compressed modes use signature
+                    // verification.
                     (false, ProofMode::Compressed) | (_, ProofMode::Groth16 | ProofMode::Plonk) => {
                         let verify =
                             clear.verify.as_ref().ok_or(VAppPanic::MissingVerifierSignature)?;
@@ -859,30 +883,30 @@ impl<A: Storage<Address, Account>, R: Storage<RequestId, bool>> VAppState<A, R> 
                 }
 
                 // Ensure the user can afford the cost of the proof.
+                //
+                // If the requester cannot cover the cost, soft-revert the clear: retire the
+                // request so it cannot be retried and so a well-funded retry is not possible at a
+                // different cost, but leave balances untouched. Under the write-off policy, the
+                // prover receives no reward for the work performed. The driver advances the
+                // cursor and the chain continues. See [VAppRevert::InsufficientClearBalance].
                 let account = self
                     .accounts
                     .get(&request_signer)?
                     .ok_or(VAppPanic::AccountDoesNotExist { account: request_signer })?;
                 if account.get_balance() < cost {
-                    return Err(VAppPanic::InsufficientBalance {
+                    let balance = account.get_balance();
+                    self.transactions.insert(request_id, true)?;
+                    return Ok(ExecuteOutcome::Reverted(VAppRevert::InsufficientClearBalance {
                         account: request_signer,
-                        amount: cost,
-                        balance: account.get_balance(),
-                    });
+                        required: cost,
+                        balance,
+                    }));
                 }
 
-                // Log the clear event.
-                let request_id: [u8; 32] = clear
-                    .fulfill
-                    .as_ref()
-                    .ok_or(VAppPanic::MissingFulfill)?
-                    .body
-                    .as_ref()
-                    .ok_or(VAppPanic::MissingProtoBody)?
-                    .request_id
-                    .clone()
-                    .try_into()
-                    .map_err(|_| VAppPanic::FailedToParseBytes)?;
+                // Log the clear event. The canonical `request_id` bound earlier from
+                // `request.hash_with_signer(..)` is the authoritative protocol id; the fulfill
+                // body's `request_id` is validated equal to it above (`RequestIdMismatch` check),
+                // so we reuse the outer binding here rather than re-parsing.
                 info!(
                     "STEP {}: CLEAR(request_id={}, requester={}, prover={}, cost={})",
                     self.tx_id,
@@ -932,7 +956,7 @@ impl<A: Storage<Address, Account>, R: Storage<RequestId, bool>> VAppState<A, R> 
                 );
                 self.accounts.entry(prover_owner)?.or_default().add_balance(prover_owner_fee)?;
 
-                return Ok(None);
+                return Ok(ExecuteOutcome::Applied(None));
             }
         }
     }

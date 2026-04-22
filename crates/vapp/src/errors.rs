@@ -7,6 +7,41 @@ use thiserror::Error;
 
 use crate::storage::StorageError;
 
+/// An error returned by the vApp state transition function.
+///
+/// A [`Panic`](VAppError::Panic) represents an unrecoverable protocol violation that must halt
+/// block production. A [`Revert`](VAppError::Revert) represents a transaction that was rejected
+/// by protocol rules but whose rejection is itself a valid state transition: the offending
+/// request (if any) is retired so it cannot be retried, balances are otherwise untouched, and
+/// the event cursor advances so subsequent transactions can be processed.
+#[derive(Debug, Error, PartialEq)]
+#[allow(missing_docs)]
+pub enum VAppError {
+    #[error("vapp panicked: {0}")]
+    Panic(#[from] VAppPanic),
+
+    #[error("vapp reverted: {0}")]
+    Revert(#[from] VAppRevert),
+}
+
+/// A recoverable state transition failure.
+///
+/// Emitted when a transaction cannot be applied under current state but the state machine can
+/// safely move past it. The driver treats this as a warning (not fatal) and advances the cursor.
+#[derive(Debug, Clone, Error, PartialEq)]
+#[allow(missing_docs)]
+pub enum VAppRevert {
+    #[error(
+        "Clear rejected: account {account} cannot cover cost: required {required}, balance {balance}"
+    )]
+    InsufficientClearBalance { account: Address, required: U256, balance: U256 },
+
+    #[error(
+        "Clear rejected: account {account} cannot cover punishment for unexecutable request: required {required}, balance {balance}"
+    )]
+    InsufficientPunishmentBalance { account: Address, required: U256, balance: U256 },
+}
+
 /// An unrecoverable error that will prevent a transaction from being included in the ledger.
 #[derive(Debug, Error, PartialEq)]
 #[allow(missing_docs)]
