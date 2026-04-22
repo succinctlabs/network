@@ -679,9 +679,13 @@ impl<A: Storage<Address, Account>, R: Storage<RequestId, bool>> VAppState<A, R> 
                 // Validate the the bidder has the right to bid on behalf of the prover.
                 //
                 // Provers are liable for their bids, so it's imported to verify that they are the
-                // ones that are bidding.
+                // ones that are bidding. `get()` (not `entry().or_default`) so the Clear-revert
+                // paths below don't materialize a default prover leaf.
                 let prover_address = address(bid.prover.as_slice())?;
-                let prover_account = self.accounts.entry(prover_address)?.or_default();
+                let prover_account = self
+                    .accounts
+                    .get(&prover_address)?
+                    .ok_or(VAppPanic::ProverDoesNotExist { prover: prover_address })?;
                 let prover_owner = prover_account.get_owner();
                 if prover_account.get_signer() != bid_signer {
                     return Err(VAppPanic::ProverDelegatedSignerMismatch {

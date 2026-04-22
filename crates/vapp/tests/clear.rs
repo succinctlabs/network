@@ -749,12 +749,13 @@ fn test_clear_prover_does_not_exist() {
         false,
     );
 
-    // Execute should fail with ProverDelegatedSignerMismatch because the prover
-    // doesn't exist in this test's state, which causes the delegated signer check to fail.
+    // Execute should fail with ProverDoesNotExist: the Clear handler's prover lookup now
+    // uses `get().ok_or(..)` (not `entry().or_default`), so a missing prover is caught
+    // explicitly rather than surfacing indirectly as a delegated-signer mismatch.
     let result = test.state.execute::<MockVerifier>(&clear_tx);
     assert!(matches!(
         result,
-        Err(VAppError::Panic(VAppPanic::ProverDelegatedSignerMismatch { .. }))
+        Err(VAppError::Panic(VAppPanic::ProverDoesNotExist { .. }))
     ));
 }
 
@@ -795,11 +796,16 @@ fn test_clear_delegated_signer_mismatch() {
         false,
     );
 
-    // Execute should fail with ProverDelegatedSignerMismatch.
+    // Execute should fail with ProverDoesNotExist: the bid is signed by `wrong_signer`, so
+    // `bid.prover == wrong_signer.address()`, which is not a registered prover. The handler
+    // catches the missing prover via `get().ok_or(..)` before the delegated-signer check is
+    // reached. A follow-up test that actually exercises delegated-signer-mismatch would need
+    // a Delegate tx to install a delegate, then a bid signed by someone-other-than the
+    // delegate on behalf of an existing prover.
     let result = test.state.execute::<MockVerifier>(&clear_tx);
     assert!(matches!(
         result,
-        Err(VAppError::Panic(VAppPanic::ProverDelegatedSignerMismatch { .. }))
+        Err(VAppError::Panic(VAppPanic::ProverDoesNotExist { .. }))
     ));
 }
 
