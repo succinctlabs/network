@@ -753,10 +753,7 @@ fn test_clear_prover_does_not_exist() {
     // uses `get().ok_or(..)` (not `entry().or_default`), so a missing prover is caught
     // explicitly rather than surfacing indirectly as a delegated-signer mismatch.
     let result = test.state.execute::<MockVerifier>(&clear_tx);
-    assert!(matches!(
-        result,
-        Err(VAppError::Panic(VAppPanic::ProverDoesNotExist { .. }))
-    ));
+    assert!(matches!(result, Err(VAppError::Panic(VAppPanic::ProverDoesNotExist { .. }))));
 }
 
 #[test]
@@ -803,10 +800,7 @@ fn test_clear_delegated_signer_mismatch() {
     // a Delegate tx to install a delegate, then a bid signed by someone-other-than the
     // delegate on behalf of an existing prover.
     let result = test.state.execute::<MockVerifier>(&clear_tx);
-    assert!(matches!(
-        result,
-        Err(VAppError::Panic(VAppPanic::ProverDoesNotExist { .. }))
-    ));
+    assert!(matches!(result, Err(VAppError::Panic(VAppPanic::ProverDoesNotExist { .. }))));
 }
 
 #[test]

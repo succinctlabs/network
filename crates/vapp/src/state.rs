@@ -268,7 +268,10 @@ impl<A: Storage<Address, Account>, R: Storage<RequestId, bool>> VAppState<A, R> 
                 let domain = B256::try_from(body.domain.as_slice())
                     .map_err(|_| VAppPanic::DomainDeserializationFailed)?;
                 if domain != self.domain {
-                    return Err(VAppPanic::DomainMismatch { expected: self.domain, actual: domain });
+                    return Err(VAppPanic::DomainMismatch {
+                        expected: self.domain,
+                        actual: domain,
+                    });
                 }
 
                 // Verify the proto signature.
@@ -386,7 +389,10 @@ impl<A: Storage<Address, Account>, R: Storage<RequestId, bool>> VAppState<A, R> 
                 let domain = B256::try_from(body.domain.as_slice())
                     .map_err(|_| VAppPanic::DomainDeserializationFailed)?;
                 if domain != self.domain {
-                    return Err(VAppPanic::DomainMismatch { expected: self.domain, actual: domain });
+                    return Err(VAppPanic::DomainMismatch {
+                        expected: self.domain,
+                        actual: domain,
+                    });
                 }
 
                 // Verify that the transaction is not already processed.
@@ -476,7 +482,10 @@ impl<A: Storage<Address, Account>, R: Storage<RequestId, bool>> VAppState<A, R> 
                 let domain = B256::try_from(body.domain.as_slice())
                     .map_err(|_| VAppPanic::DomainDeserializationFailed)?;
                 if domain != self.domain {
-                    return Err(VAppPanic::DomainMismatch { expected: self.domain, actual: domain });
+                    return Err(VAppPanic::DomainMismatch {
+                        expected: self.domain,
+                        actual: domain,
+                    });
                 }
 
                 // Verify that the transaction is not already processed.
@@ -497,10 +506,7 @@ impl<A: Storage<Address, Account>, R: Storage<RequestId, bool>> VAppState<A, R> 
                 // must not mutate the accounts tree).
                 debug!("extract account address");
                 let account = address(body.account.as_slice())?;
-                let owner = self
-                    .accounts
-                    .get(&account)?
-                    .map_or(Address::ZERO, Account::get_owner);
+                let owner = self.accounts.get(&account)?.map_or(Address::ZERO, Account::get_owner);
 
                 // If the account is not a prover (provers always have a non-zero owner address),
                 // then only the account itself can withdraw.
@@ -698,8 +704,8 @@ impl<A: Storage<Address, Account>, R: Storage<RequestId, bool>> VAppState<A, R> 
                 //
                 // Requesters may whitelist what provers they want to work with to ensure better
                 // SLAs and quality of service.
-                if !request.whitelist.is_empty() &&
-                    !request.whitelist.contains(&prover_address.to_vec())
+                if !request.whitelist.is_empty()
+                    && !request.whitelist.contains(&prover_address.to_vec())
                 {
                     return Err(VAppPanic::ProverNotInWhitelist { prover: prover_address });
                 }
@@ -707,7 +713,10 @@ impl<A: Storage<Address, Account>, R: Storage<RequestId, bool>> VAppState<A, R> 
                 // Validate that the request, settle, and auctioneer addresses match.
                 let request_auctioneer = address(request.auctioneer.as_slice())?;
                 if request_auctioneer != settle_signer {
-                    return Err(VAppPanic::AuctioneerMismatch { request_auctioneer, settle_signer });
+                    return Err(VAppPanic::AuctioneerMismatch {
+                        request_auctioneer,
+                        settle_signer,
+                    });
                 }
 
                 // Validate that the request, execute, and executor addresses match.
