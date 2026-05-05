@@ -355,7 +355,7 @@ message ProofRequest {
   ProofRequestError error = 36;
   // Whether this request's stdin is private. When true, stdin_public_uri is
   // empty and stdin is only fetchable via GetStdinUri by an authorized caller.
-  bool stdin_private = 37;
+  bool stdin_private = 38;
 }
 
 message GetProofRequestStatusRequest {

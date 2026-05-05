@@ -463,7 +463,7 @@ pub struct ProofRequest {
     pub error: i32,
     /// Whether this request's stdin is private. When true, stdin_public_uri is
     /// empty and stdin is only fetchable via GetStdinUri by an authorized caller.
-    #[prost(bool, tag = "37")]
+    #[prost(bool, tag = "38")]
     pub stdin_private: bool,
 }
 #[derive(serde::Serialize, serde::Deserialize)]
