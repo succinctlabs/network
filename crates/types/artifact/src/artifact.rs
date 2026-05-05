@@ -34,7 +34,7 @@ pub enum ArtifactType {
     Transaction = 4,
     /// A private stdin artifact stored under the private-stdins/ prefix.
     /// Only fetched via the authenticated GetStdinUri RPC.
-    PrivateStdin = 5,
+    PrivateStdin = 7,
 }
 impl ArtifactType {
     /// String value of the enum field names used in the ProtoBuf definition.

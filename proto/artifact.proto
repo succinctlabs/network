@@ -33,5 +33,5 @@ enum ArtifactType {
     TRANSACTION = 4;
     // A private stdin artifact stored under the private-stdins/ prefix.
     // Only fetched via the authenticated GetStdinUri RPC.
-    PRIVATE_STDIN = 5;
+    PRIVATE_STDIN = 7;
 }
