@@ -147,6 +147,9 @@ message RequestProofRequestBody {
   TransactionVariant variant = 19;
   // The treasury address.
   bytes treasury = 20;
+  // Whether the stdin is private. When true, stdin_uri must be under
+  // the private-stdins/ prefix and is only fetchable via GetStdinUri.
+  bool stdin_private = 21;
 }
 
 message RequestProofResponse {
@@ -350,6 +353,9 @@ message ProofRequest {
   optional string max_price_per_pgu = 35;
   // The proof request error, if any.
   ProofRequestError error = 36;
+  // Whether this request's stdin is private. When true, stdin_public_uri is
+  // empty and stdin is only fetchable via GetStdinUri by an authorized caller.
+  bool stdin_private = 38;
 }
 
 message GetProofRequestStatusRequest {
@@ -389,6 +395,31 @@ message GetProofRequestDetailsRequest {
 message GetProofRequestDetailsResponse {
   // The detailed request.
   ProofRequest request = 1;
+}
+
+message GetStdinUriRequest {
+  // The message format of the body.
+  MessageFormat format = 1;
+  // The signature of the sender.
+  bytes signature = 2;
+  // The body of the request.
+  GetStdinUriRequestBody body = 3;
+}
+
+message GetStdinUriRequestBody {
+  // The account nonce of the sender.
+  uint64 nonce = 1;
+  // The identifier for the request.
+  bytes request_id = 2;
+  // The domain separator bytes for the request.
+  bytes domain = 3;
+}
+
+message GetStdinUriResponse {
+  // Presigned HTTPS URL for downloading the stdin artifact.
+  string stdin_uri = 1;
+  // Unix seconds at which the URL expires.
+  uint64 expires_at = 2;
 }
 
 message GetFilteredProofRequestsRequest {

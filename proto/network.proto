@@ -27,6 +27,9 @@ service ProverNetwork {
   // Get the details of a proof request.
   rpc GetProofRequestDetails(types.GetProofRequestDetailsRequest)
       returns (types.GetProofRequestDetailsResponse) {}
+  // Get a short-lived presigned URL to download a private request's stdin.
+  // Only callable by the requester, executor, or (post-settlement) fulfiller.
+  rpc GetStdinUri(types.GetStdinUriRequest) returns (types.GetStdinUriResponse) {}
   // Get the proof requests that meet the filter criteria.
   rpc GetFilteredProofRequests(types.GetFilteredProofRequestsRequest)
       returns (types.GetFilteredProofRequestsResponse) {}

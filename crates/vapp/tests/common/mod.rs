@@ -591,6 +591,7 @@ pub fn create_clear_tx_with_options(
         max_price_per_pgu: max_price_per_pgu.unwrap_or("100000").to_string(),
         variant: TransactionVariant::RequestVariant as i32,
         treasury: signer("treasury").address().to_vec(),
+        stdin_private: false,
     };
 
     // Compute the request ID from the request body and signer.
@@ -902,6 +903,7 @@ pub fn create_clear_tx_with_public_values_hash(
         max_price_per_pgu: "100000".to_string(),
         variant: TransactionVariant::RequestVariant as i32,
         treasury: signer("treasury").address().to_vec(),
+        stdin_private: false,
     };
 
     // Compute the request ID from the request body and signer.
@@ -1108,6 +1110,7 @@ pub fn create_clear_tx_with_version(
         max_price_per_pgu: "100000".to_string(),
         variant: TransactionVariant::RequestVariant as i32,
         treasury: signer("treasury").address().to_vec(),
+        stdin_private: false,
     };
 
     // Compute the request ID from the request body and signer.
