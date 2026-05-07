@@ -38,11 +38,11 @@ spn-network-types = { path = "crates/types/network" }
 spn-vapp-core = { path = "crates/vapp" }
 
 # sp1
-sp1-sdk = "6.0.2"
-sp1-prover = "6.0.2"
-sp1-verifier = "6.0.2"
-sp1-zkvm = "6.0.2"
-sp1-build = "6.0.2"
+sp1-sdk = "6.1.0"
+sp1-prover = "6.1.0"
+sp1-verifier = "6.1.0"
+sp1-zkvm = "6.1.0"
+sp1-build = "6.1.0"
 
 # aws
 aws-config = "1.5.3"
