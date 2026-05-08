@@ -1412,9 +1412,14 @@ fn test_clear_invalid_request_signature() {
         clear.request.signature[0] ^= 0xFF;
     }
 
-    // Execute should fail because the corrupted request signature recovers the wrong address.
+    // A bit-flipped ECDSA signature either fails recovery or recovers a different signer
+    // that then fails the request_id binding.
     let result = test.state.execute::<MockVerifier>(&clear_tx);
-    assert!(result.is_err());
+    assert!(matches!(
+        result,
+        Err(VAppError::Panic(VAppPanic::InvalidSignature { .. }))
+            | Err(VAppError::Panic(VAppPanic::RequestIdMismatch { .. }))
+    ));
 }
 
 #[test]
