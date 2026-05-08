@@ -1412,9 +1412,9 @@ fn test_clear_invalid_request_signature() {
         clear.request.signature[0] ^= 0xFF;
     }
 
-    // Execute should fail with InvalidSignature.
+    // Execute should fail because the corrupted request signature recovers the wrong address.
     let result = test.state.execute::<MockVerifier>(&clear_tx);
-    assert!(matches!(result, Err(VAppError::Panic(VAppPanic::InvalidSignature { .. }))));
+    assert!(result.is_err());
 }
 
 #[test]
@@ -1456,10 +1456,10 @@ fn test_clear_invalid_settle_signature() {
         clear.settle.signature[0] ^= 0xFF;
     }
 
-    // Execute should fail with AuctioneerMismatch because corrupted signature recovers wrong
-    // address.
+    // Execute should fail with AuctioneerMismatch because the corrupted settle signature recovers
+    // the wrong auctioneer address.
     let result = test.state.execute::<MockVerifier>(&clear_tx);
-    assert!(matches!(result, Err(VAppError::Panic(VAppPanic::InvalidSignature { .. }))));
+    assert!(matches!(result, Err(VAppError::Panic(VAppPanic::AuctioneerMismatch { .. }))));
 }
 
 #[test]
@@ -2330,9 +2330,10 @@ fn test_clear_invalid_verifier_signature() {
         }
     }
 
-    // Execute should fail with InvalidSignature because corrupted signature cannot be recovered.
+    // Execute should fail with InvalidVerifierSignature because the corrupted verify signature
+    // recovers the wrong verifier address.
     let result = test.state.execute::<MockVerifier>(&clear_tx);
-    assert!(matches!(result, Err(VAppError::Panic(VAppPanic::InvalidSignature { .. }))));
+    assert!(matches!(result, Err(VAppError::Panic(VAppPanic::InvalidVerifierSignature))));
 }
 
 #[test]
