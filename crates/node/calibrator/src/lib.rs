@@ -6,13 +6,14 @@
 #![allow(clippy::cast_precision_loss)]
 
 use anyhow::Result;
-use sp1_sdk::{ProverClient, SP1Stdin};
+use sp1_sdk::{ProveRequest, Prover, ProverClient, ProvingKey, SP1Stdin};
 use tracing::error;
 
 /// Trait for calibrating the prover.
+#[async_trait::async_trait]
 pub trait Calibrator {
     /// Calibrate the prover.
-    fn calibrate(&self) -> Result<CalibratorMetrics>;
+    async fn calibrate(&self) -> Result<CalibratorMetrics>;
 }
 
 /// Metrics for the calibration of the prover.
@@ -53,28 +54,30 @@ impl SinglePassCalibrator {
     }
 }
 
+#[async_trait::async_trait]
 impl Calibrator for SinglePassCalibrator {
-    fn calibrate(&self) -> Result<CalibratorMetrics> {
-        // Initialize the prover client from environment
-        let client = ProverClient::from_env();
+    async fn calibrate(&self) -> Result<CalibratorMetrics> {
+        // Initialize the prover client from environment.
+        let client = ProverClient::from_env().await;
+
+        // Setup the proving key.
+        let pk = client.setup(self.elf.clone().into()).await.inspect_err(|e| {
+            error!("Failed to setup the prover: {e}");
+        })?;
 
         // Execute to get the prover gas.
-        let (_, report) = client.execute(&self.elf, &self.stdin).run().map_err(|e| {
-            error!("Failed to execute the prover: {e}");
-            e
-        })?;
-        let prover_gas = report.gas.unwrap_or(0);
-
-        // Setup the proving key and verification key.
-        let (pk, _vk) = client.setup(&self.elf);
+        let (_, report) =
+            client.execute(pk.elf().clone(), self.stdin.clone()).await.inspect_err(|e| {
+                error!("Failed to execute the prover: {e}");
+            })?;
+        let prover_gas = report.gas().unwrap_or(0);
 
         // Start timing.
         let start = std::time::Instant::now();
 
         // Generate the proof.
-        let _ = client.prove(&pk, &self.stdin).compressed().run().map_err(|e| {
+        let _ = client.prove(&pk, self.stdin.clone()).compressed().await.inspect_err(|e| {
             error!("Failed to generate the proof: {e}");
-            e
         })?;
 
         // Calculate duration and throughput.
@@ -105,12 +108,12 @@ impl Calibrator for SinglePassCalibrator {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use sp1_sdk::include_elf;
+    use sp1_sdk::{include_elf, Elf};
 
-    const SPN_FIBONACCI_ELF: &[u8] = include_elf!("spn-fibonacci-program");
+    const SPN_FIBONACCI_ELF: Elf = include_elf!("spn-fibonacci-program");
 
-    #[test]
-    fn test_calibrate() {
+    #[tokio::test]
+    async fn test_calibrate() {
         // Create the ELF.
         let elf = SPN_FIBONACCI_ELF.to_vec();
 
@@ -127,7 +130,7 @@ mod tests {
             SinglePassCalibrator::new(elf, stdin, cost_per_hour, utilization_rate, profit_margin);
 
         // Calibrate the prover.
-        let metrics = calibrator.calibrate().unwrap();
+        let metrics = calibrator.calibrate().await.unwrap();
         println!("metrics: {metrics:?}");
     }
 }

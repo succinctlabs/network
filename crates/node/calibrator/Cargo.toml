@@ -16,5 +16,9 @@ sp1-build = { workspace = true }
 sp1-sdk = { workspace = true }
 
 # misc
+async-trait = { workspace = true }
 tracing = { workspace = true }
 anyhow = { workspace = true }
+
+[dev-dependencies]
+tokio = { workspace = true }

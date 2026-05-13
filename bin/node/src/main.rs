@@ -13,7 +13,7 @@ use rustls::crypto::ring;
 use tabled::{settings::Style, Table, Tabled};
 use tracing::info;
 
-use sp1_sdk::{include_elf, SP1Stdin};
+use sp1_sdk::{include_elf, Elf, SP1Stdin};
 use spn_calibrator::{Calibrator, SinglePassCalibrator};
 use spn_network_types::prover_network_client::ProverNetworkClient;
 use spn_node_core::{Node, NodeContext, SerialBidder, SerialContext, SerialMonitor, SerialProver};
@@ -82,7 +82,7 @@ async fn main() -> Result<()> {
     match cli {
         Args::Calibrate(args) => {
             // Create the ELF.
-            const SPN_FIBONACCI_ELF: &[u8] = include_elf!("spn-fibonacci-program");
+            const SPN_FIBONACCI_ELF: Elf = include_elf!("spn-fibonacci-program");
 
             // Create a table for the input parameters.
             #[derive(Tabled)]
@@ -136,7 +136,7 @@ async fn main() -> Result<()> {
                 args.profit_margin,
             );
             let metrics =
-                calibrator.calibrate().map_err(|e| anyhow!("failed to calibrate: {}", e))?;
+                calibrator.calibrate().await.map_err(|e| anyhow!("failed to calibrate: {}", e))?;
 
             // Create a table for the calibration results.
             #[derive(Tabled)]
@@ -188,7 +188,7 @@ async fn main() -> Result<()> {
             let bidder = SerialBidder::new(U256::from(args.bid), args.throughput, args.prover);
 
             // Setup the prover
-            let prover = SerialProver::new();
+            let prover = SerialProver::new().await;
 
             // Setup the monitor.
             let monitor = SerialMonitor::new();

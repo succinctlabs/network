@@ -18,7 +18,7 @@ sol! {
         TransactionStatus status;
         /// @notice The onchain transaction ID.
         uint64 onchainTxId;
-        /// @notice The action of one of {Deposit, Withdraw, CreateProver}.
+        /// @notice The action of one of {Deposit, Withdraw, `CreateProver`}.
         bytes action;
     }
 
@@ -31,7 +31,7 @@ sol! {
         TransactionStatus status;
         /// @notice The onchain transaction ID.
         uint64 onchainTxId;
-        /// @notice The action of one of {Deposit, Withdraw, CreateProver}.
+        /// @notice The action of one of {Deposit, Withdraw, `CreateProver`}.
         bytes action;
     }
 
@@ -90,7 +90,7 @@ sol! {
         Receipt[] receipts;
     }
 
-    /// @notice The state of the VApp.
+    /// @notice The state of the `VApp`.
     #[derive(Debug, Default, PartialEq, Serialize, Deserialize)]
     struct VAppStateContainer {
         bytes32 domain;

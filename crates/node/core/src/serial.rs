@@ -1,7 +1,6 @@
 use std::{
     collections::HashSet,
     env,
-    panic::{self, AssertUnwindSafe},
     sync::{atomic, Arc},
     time::{Duration, Instant, SystemTime},
 };
@@ -11,7 +10,7 @@ use alloy_signer_local::PrivateKeySigner;
 use anyhow::{Context, Result};
 use chrono::{self, DateTime};
 use nvml_wrapper::Nvml;
-use sp1_sdk::{EnvProver, SP1ProofMode, SP1Stdin};
+use sp1_sdk::{env::EnvProver, ProveRequest, Prover, ProvingKey, SP1ProofMode, SP1Stdin};
 use spn_artifacts::{extract_artifact_name, Artifact};
 use spn_network_types::{
     prover_network_client::ProverNetworkClient, BidRequest, BidRequestBody, ExecutionStatus,
@@ -264,16 +263,9 @@ pub struct SerialProver {
     unexecutable_requests: Arc<Mutex<HashSet<Vec<u8>>>>,
 }
 
-impl Default for SerialProver {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
 impl SerialProver {
     /// Create a new [`SerialProver`].
-    #[must_use]
-    pub fn new() -> Self {
+    pub async fn new() -> Self {
         // Set the SP1_PROVER environment variable based on CUDA support.
         if spn_utils::has_cuda_support() {
             info!("CUDA support detected, using GPU prover");
@@ -284,7 +276,7 @@ impl SerialProver {
         }
 
         Self {
-            prover: Arc::new(EnvProver::new()),
+            prover: Arc::new(EnvProver::new().await),
             unexecutable_requests: Arc::new(Mutex::new(HashSet::new())),
         }
     }
@@ -617,7 +609,7 @@ impl<C: NodeContext> NodeProver<C> for SerialProver {
                 stdin_artifact.download_stdin_from_uri(&request.stdin_public_uri, "").await?;
             info!(stdin_size = %stdin.buffer.iter().map(std::vec::Vec::len).sum::<usize>(), artifact_id = %hex::encode(stdin_artifact_id), "{SERIAL_PROVER_TAG} Downloaded stdin.");
 
-            // Generate the proving keys and the proof in a separate thread to catch panics.
+            // Generate the proving keys and the proof in a separate task.
             let prover = self.prover.clone();
             let mode = ProofMode::try_from(request.mode).unwrap_or(ProofMode::Core);
             let mode = match mode {
@@ -629,27 +621,25 @@ impl<C: NodeContext> NodeProver<C> for SerialProver {
             };
 
             // Store the join handle and extract its abort handle.
-            let proving_handle = tokio::task::spawn_blocking(move || {
-                panic::catch_unwind(AssertUnwindSafe(move || {
-                    let start = Instant::now();
-                    info!("{SERIAL_PROVER_TAG} Setting up proving key...");
+            let proving_handle = tokio::spawn(async move {
+                let start = Instant::now();
+                info!("{SERIAL_PROVER_TAG} Setting up proving key...");
 
-                    let (pk, _) = prover.setup(&program);
-                    info!(duration = %start.elapsed().as_secs_f64(), "{SERIAL_PROVER_TAG} Set up proving key.");
+                let pk = prover.setup(program.into()).await?;
+                info!(duration = %start.elapsed().as_secs_f64(), "{SERIAL_PROVER_TAG} Set up proving key.");
 
-                    let start = Instant::now();
-                    info!("{SERIAL_PROVER_TAG} Executing program...");
-                    let (_, report) = prover.execute(&pk.elf, &stdin).run().unwrap();
-                    let cycles = report.total_instruction_count();
-                    info!(duration = %start.elapsed().as_secs_f64(), cycles = %cycles, "{SERIAL_PROVER_TAG} Executed program.");
+                let start = Instant::now();
+                info!("{SERIAL_PROVER_TAG} Executing program...");
+                let (_, report) = prover.execute(pk.elf().clone(), stdin.clone()).await?;
+                let cycles = report.total_instruction_count();
+                info!(duration = %start.elapsed().as_secs_f64(), cycles = %cycles, "{SERIAL_PROVER_TAG} Executed program.");
 
-                    let start = Instant::now();
-                    info!("{SERIAL_PROVER_TAG} Generating proof...");
-                    let proof = prover.prove(&pk, &stdin).mode(mode).run();
-                    let proving_time = start.elapsed();
-                    info!(duration = %proving_time.as_secs_f64(), cycles = %cycles, "{SERIAL_PROVER_TAG} Proof generation complete.");
-                    (proof, cycles, proving_time)
-                }))
+                let start = Instant::now();
+                info!("{SERIAL_PROVER_TAG} Generating proof...");
+                let proof = prover.prove(&pk, stdin).mode(mode).await?;
+                let proving_time = start.elapsed();
+                info!(duration = %proving_time.as_secs_f64(), cycles = %cycles, "{SERIAL_PROVER_TAG} Proof generation complete.");
+                Ok::<_, anyhow::Error>((proof, cycles, proving_time))
             });
             let proving_abort_handle = proving_handle.abort_handle();
 
@@ -693,100 +683,96 @@ impl<C: NodeContext> NodeProver<C> for SerialProver {
             monitoring_task.abort();
 
             match result {
-                Ok(panic_result) => match panic_result {
-                    Ok((proof_result, cycles, proving_time)) => {
-                        match proof_result {
-                            Ok(proof) => {
-                                // Update the metrics.
-                                let metrics = ctx.metrics();
-                                *metrics.total_cycles.lock().await += cycles;
-                                *metrics.total_proving_time.lock().await += proving_time;
-                                *metrics.fulfilled.lock().await += 1;
+                Ok(Ok((proof, cycles, proving_time))) => {
+                    // Update the metrics.
+                    let metrics = ctx.metrics();
+                    *metrics.total_cycles.lock().await += cycles;
+                    *metrics.total_proving_time.lock().await += proving_time;
+                    *metrics.fulfilled.lock().await += 1;
 
-                                // Now serialize the actual proof value
-                                let proof_bytes = bincode::serialize(&proof)
-                                    .context("failed to serialize proof")?;
+                    // Now serialize the actual proof value.
+                    let proof_bytes =
+                        bincode::serialize(&proof).context("failed to serialize proof")?;
 
-                                // Fulfill the proof.
-                                let address = ctx.signer().address().to_vec();
-                                if let Err(e) = ctx.network()
+                    // Fulfill the proof.
+                    let address = ctx.signer().address().to_vec();
+                    if let Err(e) = ctx
+                        .network()
+                        .clone()
+                        .with_retry(
+                            || async {
+                                // Get the nonce.
+                                let nonce = ctx
+                                    .network()
                                     .clone()
-                                    .with_retry(
-                                        || async {
-                                            // Get the nonce.
-                                            let nonce = ctx
-                                                .network()
-                                                .clone()
-                                                .get_nonce(GetNonceRequest { address: address.clone() })
-                                                .await?
-                                                .into_inner()
-                                                .nonce;
-                                            info!(nonce = %nonce, "{SERIAL_PROVER_TAG} Fetched account nonce.");
+                                    .get_nonce(GetNonceRequest { address: address.clone() })
+                                    .await?
+                                    .into_inner()
+                                    .nonce;
+                                info!(nonce = %nonce, "{SERIAL_PROVER_TAG} Fetched account nonce.");
 
-                                            // Create and submit the fulfill request.
-                                            let body = FulfillProofRequestBody {
-                                                nonce,
-                                                request_id: request.request_id.clone(),
-                                                proof: proof_bytes.clone(),
-                                                reserved_metadata: None,
-                                                domain: SPN_MAINNET_V1_DOMAIN.to_vec(),
-                                                variant: TransactionVariant::FulfillVariant as i32,
-                                            };
-                                            let fulfill_request = FulfillProofRequest {
-                                                format: MessageFormat::Binary.into(),
-                                                signature: body.sign(&ctx.signer()).into(),
-                                                body: Some(body),
-                                            };
-                                            ctx.network().clone().fulfill_proof(fulfill_request).await?;
-                                            info!(
-                                                request_id = %hex::encode(&request.request_id),
-                                                proof_size = %proof_bytes.len(),
-                                                "{SERIAL_PROVER_TAG} Proof fulfillment submitted."
-                                            );
-                                            Ok(())
-                                        },
-                                        "Fulfill",
-                                    )
-                                    .await
-                                {
-                                    error!("{SERIAL_PROVER_TAG} Failed to fulfill proof: {:?}", e);
-                                }
-                            }
-                            Err(e) => {
-                                error!("{SERIAL_PROVER_TAG} Proof generation failed: {:?}", e);
-
-                                // Report failure to the network
-                                report_request_status(
-                                    ctx,
-                                    request.request_id.clone(),
-                                    &request.request_id,
-                                    "proof failure",
-                                )
-                                .await;
-                            }
-                        }
-                    }
-                    Err(e) => {
-                        let panic_msg = match e.downcast_ref::<&str>() {
-                            Some(s) => (*s).to_string(),
-                            None => match e.downcast_ref::<String>() {
-                                Some(s) => s.clone(),
-                                None => "Unknown panic".to_string(),
+                                // Create and submit the fulfill request.
+                                let body = FulfillProofRequestBody {
+                                    nonce,
+                                    request_id: request.request_id.clone(),
+                                    proof: proof_bytes.clone(),
+                                    reserved_metadata: None,
+                                    domain: SPN_MAINNET_V1_DOMAIN.to_vec(),
+                                    variant: TransactionVariant::FulfillVariant as i32,
+                                };
+                                let fulfill_request = FulfillProofRequest {
+                                    format: MessageFormat::Binary.into(),
+                                    signature: body.sign(&ctx.signer()).into(),
+                                    body: Some(body),
+                                };
+                                ctx.network().clone().fulfill_proof(fulfill_request).await?;
+                                info!(
+                                    request_id = %hex::encode(&request.request_id),
+                                    proof_size = %proof_bytes.len(),
+                                    "{SERIAL_PROVER_TAG} Proof fulfillment submitted."
+                                );
+                                Ok(())
                             },
-                        };
-
-                        error!("{SERIAL_PROVER_TAG} Proving panicked: {}", panic_msg);
-
-                        // Attempt to mark the request as failed on the network.
-                        report_request_status(
-                            ctx,
-                            request.request_id.clone(),
-                            &request.request_id,
-                            "panic failure",
+                            "Fulfill",
                         )
-                        .await;
+                        .await
+                    {
+                        error!("{SERIAL_PROVER_TAG} Failed to fulfill proof: {:?}", e);
                     }
-                },
+                }
+                Ok(Err(e)) => {
+                    error!("{SERIAL_PROVER_TAG} Proof generation failed: {:?}", e);
+
+                    // Report failure to the network.
+                    report_request_status(
+                        ctx,
+                        request.request_id.clone(),
+                        &request.request_id,
+                        "proof failure",
+                    )
+                    .await;
+                }
+                Err(e) if e.is_panic() => {
+                    let panic_payload = e.into_panic();
+                    let panic_msg = match panic_payload.downcast_ref::<&str>() {
+                        Some(s) => (*s).to_string(),
+                        None => match panic_payload.downcast_ref::<String>() {
+                            Some(s) => s.clone(),
+                            None => "Unknown panic".to_string(),
+                        },
+                    };
+
+                    error!("{SERIAL_PROVER_TAG} Proving panicked: {}", panic_msg);
+
+                    // Attempt to mark the request as failed on the network.
+                    report_request_status(
+                        ctx,
+                        request.request_id.clone(),
+                        &request.request_id,
+                        "panic failure",
+                    )
+                    .await;
+                }
                 Err(e) => {
                     // Check if this was a cancellation.
                     let is_cancelled = e.is_cancelled();

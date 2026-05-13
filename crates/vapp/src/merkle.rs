@@ -515,7 +515,7 @@ impl<K: StorageKey, V: StorageValue, H: MerkleTreeHasher> Storage<K, V> for Merk
     }
 
     /// Gets an entry at the given key.
-    fn entry(&mut self, key: K) -> Result<Entry<U256, V>, StorageError> {
+    fn entry(&mut self, key: K) -> Result<Entry<'_, U256, V>, StorageError> {
         let index = key.index();
         // Track that this key has been touched (entry can be used for read or write).
         self.touched_keys.insert(key);
