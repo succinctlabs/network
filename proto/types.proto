@@ -1076,6 +1076,18 @@ message SettleResponse {
 
 message SettleResponseBody {}
 
+message GetProvePriceRequest {
+}
+
+message GetProvePriceResponse {
+  // The current price of PROVE token in USD as a decimal string.
+  string price = 1;
+  // The unix timestamp when the price was last updated.
+  int64 last_updated = 2;
+  // The 24-hour price change percentage as a decimal string. Empty if unknown.
+  string percent_change_24h = 3;
+}
+
 message GetProversByUptimeRequest {
   // Whether to only return high availability provers.
   bool high_availability_only = 1;
