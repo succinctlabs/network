@@ -1411,6 +1411,22 @@ pub struct SettleResponse {
 pub struct SettleResponseBody {}
 #[derive(serde::Serialize, serde::Deserialize)]
 #[derive(Clone, Copy, PartialEq, ::prost::Message)]
+pub struct GetProvePriceRequest {}
+#[derive(serde::Serialize, serde::Deserialize)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct GetProvePriceResponse {
+    /// The current price of PROVE token in USD as a decimal string.
+    #[prost(string, tag = "1")]
+    pub price: ::prost::alloc::string::String,
+    /// The unix timestamp when the price was last updated.
+    #[prost(int64, tag = "2")]
+    pub last_updated: i64,
+    /// The 24-hour price change percentage as a decimal string. Empty if unknown.
+    #[prost(string, tag = "3")]
+    pub percent_change_24h: ::prost::alloc::string::String,
+}
+#[derive(serde::Serialize, serde::Deserialize)]
+#[derive(Clone, Copy, PartialEq, ::prost::Message)]
 pub struct GetProversByUptimeRequest {
     /// Whether to only return high availability provers.
     #[prost(bool, tag = "1")]

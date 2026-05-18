@@ -130,6 +130,8 @@ service ProverNetwork {
   // Settle the bids on a proof request to choose the assigned prover. Only callable by
   // the approved auctioneer.
   rpc Settle(types.SettleRequest) returns (types.SettleResponse) {}
+  // Get the current PROVE token price in USD.
+  rpc GetProvePrice(types.GetProvePriceRequest) returns (types.GetProvePriceResponse) {}
   // Get the provers that have historically had reliable uptime.
   rpc GetProversByUptime(types.GetProversByUptimeRequest) returns (types.GetProversByUptimeResponse) {}
   // Get settleable proof requests that have passed auction period and have bids.
