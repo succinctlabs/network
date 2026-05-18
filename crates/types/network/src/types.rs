@@ -2758,6 +2758,12 @@ pub enum ProofRequestError {
     /// The public values hash provided in the request does not match the hash from the execution
     /// oracle.
     PublicValuesMismatch = 4,
+    /// The proof failed verification (e.g., invalid proof, public values hash mismatch during
+    /// verification).
+    VerificationFailure = 5,
+    /// Execution succeeded but a downstream proving task (controller, shard prove,
+    /// recursion, wrap, etc.) hit a fatal error.
+    ProvingFailure = 6,
 }
 impl ProofRequestError {
     /// String value of the enum field names used in the ProtoBuf definition.
@@ -2771,6 +2777,8 @@ impl ProofRequestError {
             Self::VerificationKeyMismatch => "VERIFICATION_KEY_MISMATCH",
             Self::UnknownFailure => "UNKNOWN_FAILURE",
             Self::PublicValuesMismatch => "PUBLIC_VALUES_MISMATCH",
+            Self::VerificationFailure => "VERIFICATION_FAILURE",
+            Self::ProvingFailure => "PROVING_FAILURE",
         }
     }
     /// Creates an enum from field names used in the ProtoBuf definition.
@@ -2783,6 +2791,8 @@ impl ProofRequestError {
             "VERIFICATION_KEY_MISMATCH" => Some(Self::VerificationKeyMismatch),
             "UNKNOWN_FAILURE" => Some(Self::UnknownFailure),
             "PUBLIC_VALUES_MISMATCH" => Some(Self::PublicValuesMismatch),
+            "VERIFICATION_FAILURE" => Some(Self::VerificationFailure),
+            "PROVING_FAILURE" => Some(Self::ProvingFailure),
             _ => None,
         }
     }
