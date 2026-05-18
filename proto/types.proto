@@ -1767,4 +1767,10 @@ enum ProofRequestError {
   // The public values hash provided in the request does not match the hash from the execution
   // oracle.
   PUBLIC_VALUES_MISMATCH = 4;
+  // The proof failed verification (e.g., invalid proof, public values hash mismatch during
+  // verification).
+  VERIFICATION_FAILURE = 5;
+  // Execution succeeded but a downstream proving task (controller, shard prove,
+  // recursion, wrap, etc.) hit a fatal error.
+  PROVING_FAILURE = 6;
 }
