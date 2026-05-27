@@ -7,7 +7,7 @@
 
 This is the monorepo for the Succinct Prover Network, a protocol on Ethereum that coordinates a distributed network of provers to generate zero knowledge proofs for any piece of software. This protocol creates a two-sided marketplace between provers and requesters, enabling anyone to receive proofs for applications such as blockchains, bridges, oracles, AI agents, video games, and more.
 
-For more details, refer to the [network](https://docs.succinct.xyz/docs/network/introduction) and [provers](https://docs.succinct.xyz/docs/provers/introduction) section of our documentation.
+For more details, refer to the [network](https://docs.succinct.xyz/docs/protocol/introduction) and [provers](https://docs.succinct.xyz/docs/provers/introduction) section of our documentation.
 
 ## Overview
 
