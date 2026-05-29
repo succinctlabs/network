@@ -9,7 +9,7 @@ keywords = { workspace = true }
 categories = { workspace = true }
 
 [dependencies]
-alloy = { workspace = true }
+alloy-primitives = { workspace = true }
 async-trait = { workspace = true }
 thiserror = { workspace = true }
 time = { workspace = true }

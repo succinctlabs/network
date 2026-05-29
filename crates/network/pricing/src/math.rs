@@ -1,4 +1,4 @@
-use alloy::primitives::U256;
+use alloy_primitives::U256;
 
 use crate::error::PriceError;
 
