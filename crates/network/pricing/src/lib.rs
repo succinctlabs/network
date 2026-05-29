@@ -5,6 +5,8 @@
 
 mod error;
 mod math;
+mod provider;
 
 pub use error::PriceError;
 pub use math::{compute_max_price_per_pgu_wei, parse_usd_micros};
+pub use provider::{PriceProvider, ProvePrice};

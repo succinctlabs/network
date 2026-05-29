@@ -7602,7 +7602,9 @@ name = "spn-pricing"
 version = "0.1.0"
 dependencies = [
  "alloy",
+ "async-trait",
  "thiserror 1.0.69",
+ "time",
 ]
 
 [[package]]
