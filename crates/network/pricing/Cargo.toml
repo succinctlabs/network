@@ -1,0 +1,13 @@
+[package]
+name = "spn-pricing"
+description = "PROVE/USD price parsing and USD→PROVE conversion shared across SPN consumers."
+version = { workspace = true }
+edition = { workspace = true }
+license = { workspace = true }
+repository = { workspace = true }
+keywords = { workspace = true }
+categories = { workspace = true }
+
+[dependencies]
+alloy = { workspace = true }
+thiserror = { workspace = true }
