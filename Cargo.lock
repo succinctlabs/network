@@ -7598,6 +7598,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "spn-pricing"
+version = "0.1.0"
+dependencies = [
+ "alloy-primitives",
+ "async-trait",
+ "thiserror 1.0.69",
+ "time",
+]
+
+[[package]]
 name = "spn-rpc"
 version = "0.1.0"
 dependencies = [

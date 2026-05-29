@@ -11,6 +11,7 @@ categories = ["cryptography"]
 members = [
     "bin/node",
     "crates/network/artifacts",
+    "crates/network/pricing",
     "crates/network/rpc",
     "crates/network/utils",
     "crates/node/calibrator",
@@ -29,6 +30,7 @@ resolver = "2"
 [workspace.dependencies]
 # spn
 spn-artifacts = { path = "crates/network/artifacts" }
+spn-pricing = { path = "crates/network/pricing" }
 spn-rpc = { path = "crates/network/rpc" }
 spn-utils = { path = "crates/network/utils" }
 spn-calibrator = { path = "crates/node/calibrator" }
@@ -126,6 +128,7 @@ sqlx = { version = "0.8", features = [
     "time",
 ] }
 thiserror = "1.0.63"
+time = "0.3"
 tokio = { version = "1.0", features = ["full"] }
 url = "2.5.0"
 reqwest = "0.12.0"
