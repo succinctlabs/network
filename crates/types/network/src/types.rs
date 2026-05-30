@@ -1427,6 +1427,18 @@ pub struct GetProvePriceResponse {
 }
 #[derive(serde::Serialize, serde::Deserialize)]
 #[derive(Clone, Copy, PartialEq, ::prost::Message)]
+pub struct GetDynamicPricingRequestersRequest {}
+#[derive(serde::Serialize, serde::Deserialize)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct GetDynamicPricingRequestersResponse {
+    /// Requester addresses opted into dynamic pricing. Bidders apply their USD floor only
+    /// to requests originating from these addresses; everyone else is priced under the
+    /// static path.
+    #[prost(bytes = "vec", repeated, tag = "1")]
+    pub requesters: ::prost::alloc::vec::Vec<::prost::alloc::vec::Vec<u8>>,
+}
+#[derive(serde::Serialize, serde::Deserialize)]
+#[derive(Clone, Copy, PartialEq, ::prost::Message)]
 pub struct GetProversByUptimeRequest {
     /// Whether to only return high availability provers.
     #[prost(bool, tag = "1")]
