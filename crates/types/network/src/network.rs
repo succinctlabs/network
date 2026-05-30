@@ -1073,6 +1073,39 @@ pub mod prover_network_client {
                 .insert(GrpcMethod::new("network.ProverNetwork", "GetProvePrice"));
             self.inner.unary(req, path, codec).await
         }
+        /// Get requester addresses opted into dynamic pricing. Bidders gate their USD floor on
+        /// this set; addresses not in the response are bid under the static path.
+        pub async fn get_dynamic_pricing_requesters(
+            &mut self,
+            request: impl tonic::IntoRequest<
+                super::super::types::GetDynamicPricingRequestersRequest,
+            >,
+        ) -> std::result::Result<
+            tonic::Response<super::super::types::GetDynamicPricingRequestersResponse>,
+            tonic::Status,
+        > {
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::unknown(
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
+            let codec = tonic::codec::ProstCodec::default();
+            let path = http::uri::PathAndQuery::from_static(
+                "/network.ProverNetwork/GetDynamicPricingRequesters",
+            );
+            let mut req = request.into_request();
+            req.extensions_mut()
+                .insert(
+                    GrpcMethod::new(
+                        "network.ProverNetwork",
+                        "GetDynamicPricingRequesters",
+                    ),
+                );
+            self.inner.unary(req, path, codec).await
+        }
         /// Get the provers that have historically had reliable uptime.
         pub async fn get_provers_by_uptime(
             &mut self,
@@ -2024,6 +2057,17 @@ pub mod prover_network_server {
             request: tonic::Request<super::super::types::GetProvePriceRequest>,
         ) -> std::result::Result<
             tonic::Response<super::super::types::GetProvePriceResponse>,
+            tonic::Status,
+        >;
+        /// Get requester addresses opted into dynamic pricing. Bidders gate their USD floor on
+        /// this set; addresses not in the response are bid under the static path.
+        async fn get_dynamic_pricing_requesters(
+            &self,
+            request: tonic::Request<
+                super::super::types::GetDynamicPricingRequestersRequest,
+            >,
+        ) -> std::result::Result<
+            tonic::Response<super::super::types::GetDynamicPricingRequestersResponse>,
             tonic::Status,
         >;
         /// Get the provers that have historically had reliable uptime.
@@ -4091,6 +4135,58 @@ pub mod prover_network_server {
                     let inner = self.inner.clone();
                     let fut = async move {
                         let method = GetProvePriceSvc(inner);
+                        let codec = tonic::codec::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                "/network.ProverNetwork/GetDynamicPricingRequesters" => {
+                    #[allow(non_camel_case_types)]
+                    struct GetDynamicPricingRequestersSvc<T: ProverNetwork>(pub Arc<T>);
+                    impl<
+                        T: ProverNetwork,
+                    > tonic::server::UnaryService<
+                        super::super::types::GetDynamicPricingRequestersRequest,
+                    > for GetDynamicPricingRequestersSvc<T> {
+                        type Response = super::super::types::GetDynamicPricingRequestersResponse;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<
+                                super::super::types::GetDynamicPricingRequestersRequest,
+                            >,
+                        ) -> Self::Future {
+                            let inner = Arc::clone(&self.0);
+                            let fut = async move {
+                                <T as ProverNetwork>::get_dynamic_pricing_requesters(
+                                        &inner,
+                                        request,
+                                    )
+                                    .await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let method = GetDynamicPricingRequestersSvc(inner);
                         let codec = tonic::codec::ProstCodec::default();
                         let mut grpc = tonic::server::Grpc::new(codec)
                             .apply_compression_config(

@@ -132,6 +132,10 @@ service ProverNetwork {
   rpc Settle(types.SettleRequest) returns (types.SettleResponse) {}
   // Get the current PROVE token price in USD.
   rpc GetProvePrice(types.GetProvePriceRequest) returns (types.GetProvePriceResponse) {}
+  // Get requester addresses opted into dynamic pricing. Bidders gate their USD floor on
+  // this set; addresses not in the response are bid under the static path.
+  rpc GetDynamicPricingRequesters(types.GetDynamicPricingRequestersRequest)
+      returns (types.GetDynamicPricingRequestersResponse) {}
   // Get the provers that have historically had reliable uptime.
   rpc GetProversByUptime(types.GetProversByUptimeRequest) returns (types.GetProversByUptimeResponse) {}
   // Get settleable proof requests that have passed auction period and have bids.
