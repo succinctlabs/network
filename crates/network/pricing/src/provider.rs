@@ -14,6 +14,16 @@ pub struct ProvePrice {
     pub as_of: OffsetDateTime,
 }
 
+impl ProvePrice {
+    /// Parse a PROVE/USD reading from the wire fields of a `GetProvePriceResponse`.
+    pub fn parse(price_str: &str, last_updated_unix: i64) -> Result<Self, PriceError> {
+        let usd_micros = crate::math::parse_usd_micros(price_str)?;
+        let as_of = OffsetDateTime::from_unix_timestamp(last_updated_unix)
+            .map_err(|_| PriceError::InvalidTimestamp(last_updated_unix))?;
+        Ok(Self { usd_micros, as_of })
+    }
+}
+
 /// Source of a PROVE/USD reading.
 ///
 /// Implementations may back this with any source (DB row, RPC call, in-memory cache, mock).
@@ -27,4 +37,33 @@ pub struct ProvePrice {
 pub trait PriceProvider: Send + Sync {
     /// Return the freshest available PROVE/USD reading.
     async fn current_prove_usd_micros(&self) -> Result<ProvePrice, PriceError>;
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn parse_typical() {
+        let p = ProvePrice::parse("0.40", 1_700_000_000).unwrap();
+        assert_eq!(p.usd_micros, 400_000);
+        assert_eq!(p.as_of.unix_timestamp(), 1_700_000_000);
+    }
+
+    #[test]
+    fn parse_rejects_bad_price() {
+        assert!(matches!(
+            ProvePrice::parse("0", 1_700_000_000),
+            Err(PriceError::PriceConversion(_))
+        ));
+    }
+
+    #[test]
+    fn parse_rejects_invalid_timestamp() {
+        // OffsetDateTime::from_unix_timestamp rejects values outside its supported range.
+        assert!(matches!(
+            ProvePrice::parse("0.40", i64::MAX),
+            Err(PriceError::InvalidTimestamp(_))
+        ));
+    }
 }
