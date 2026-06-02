@@ -1088,6 +1088,18 @@ message GetProvePriceResponse {
   string percent_change_24h = 3;
 }
 
+message GetMarketPricePerPguRequest {
+}
+
+message GetMarketPricePerPguResponse {
+  // The network's current price per prover gas unit (PGU), denominated in PROVE wei, as
+  // a base-10 integer string (no decimal point). Callers apply their own buffer before
+  // passing it as `RequestProofRequestBody.max_price_per_pgu`.
+  string price = 1;
+  // The unix timestamp at which this price was last updated.
+  int64 last_updated = 2;
+}
+
 message GetProversByUptimeRequest {
   // Whether to only return high availability provers.
   bool high_availability_only = 1;

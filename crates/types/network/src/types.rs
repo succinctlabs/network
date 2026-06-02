@@ -1427,6 +1427,21 @@ pub struct GetProvePriceResponse {
 }
 #[derive(serde::Serialize, serde::Deserialize)]
 #[derive(Clone, Copy, PartialEq, ::prost::Message)]
+pub struct GetMarketPricePerPguRequest {}
+#[derive(serde::Serialize, serde::Deserialize)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct GetMarketPricePerPguResponse {
+    /// The network's current price per prover gas unit (PGU), denominated in PROVE wei, as
+    /// a base-10 integer string (no decimal point). Callers apply their own buffer before
+    /// passing it as `RequestProofRequestBody.max_price_per_pgu`.
+    #[prost(string, tag = "1")]
+    pub price: ::prost::alloc::string::String,
+    /// The unix timestamp at which this price was last updated.
+    #[prost(int64, tag = "2")]
+    pub last_updated: i64,
+}
+#[derive(serde::Serialize, serde::Deserialize)]
+#[derive(Clone, Copy, PartialEq, ::prost::Message)]
 pub struct GetProversByUptimeRequest {
     /// Whether to only return high availability provers.
     #[prost(bool, tag = "1")]

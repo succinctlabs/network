@@ -132,6 +132,10 @@ service ProverNetwork {
   rpc Settle(types.SettleRequest) returns (types.SettleResponse) {}
   // Get the current PROVE token price in USD.
   rpc GetProvePrice(types.GetProvePriceRequest) returns (types.GetProvePriceResponse) {}
+  // Get the network's current price per prover gas unit (PGU), in PROVE wei. Callers
+  // apply their own buffer before passing it as `RequestProofRequestBody.max_price_per_pgu`.
+  rpc GetMarketPricePerPgu(types.GetMarketPricePerPguRequest)
+      returns (types.GetMarketPricePerPguResponse) {}
   // Get the provers that have historically had reliable uptime.
   rpc GetProversByUptime(types.GetProversByUptimeRequest) returns (types.GetProversByUptimeResponse) {}
   // Get settleable proof requests that have passed auction period and have bids.
