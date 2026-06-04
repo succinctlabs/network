@@ -1096,8 +1096,9 @@ message GetMarketPricePerPguResponse {
   // a base-10 integer string (no decimal point). Callers apply their own buffer before
   // passing it as `RequestProofRequestBody.max_price_per_pgu`.
   string price = 1;
-  // The unix timestamp at which this price was last updated.
-  int64 last_updated = 2;
+  // Unix timestamp this price applies to. Advances whenever any input that feeds
+  // `price` moves.
+  int64 as_of = 2;
 }
 
 message GetProversByUptimeRequest {

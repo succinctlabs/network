@@ -1436,9 +1436,10 @@ pub struct GetMarketPricePerPguResponse {
     /// passing it as `RequestProofRequestBody.max_price_per_pgu`.
     #[prost(string, tag = "1")]
     pub price: ::prost::alloc::string::String,
-    /// The unix timestamp at which this price was last updated.
+    /// Unix timestamp this price applies to. Advances whenever any input that feeds
+    /// `price` moves.
     #[prost(int64, tag = "2")]
-    pub last_updated: i64,
+    pub as_of: i64,
 }
 #[derive(serde::Serialize, serde::Deserialize)]
 #[derive(Clone, Copy, PartialEq, ::prost::Message)]
