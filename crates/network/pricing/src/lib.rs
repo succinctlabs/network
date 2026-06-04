@@ -8,5 +8,5 @@ mod math;
 mod provider;
 
 pub use error::PriceError;
-pub use math::{compute_max_price_per_pgu_wei, parse_usd_micros};
+pub use math::{compute_max_price_per_pgu_wei, parse_usd_micros, usd_micros_to_prove_wei};
 pub use provider::{PriceProvider, ProvePrice};

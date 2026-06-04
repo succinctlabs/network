@@ -2,29 +2,37 @@ use alloy_primitives::U256;
 
 use crate::error::PriceError;
 
-/// Compute a `max_price_per_pgu` ceiling in PROVE wei from a USD target.
+/// Convert a USD amount (in µUSD) to PROVE wei at the given PROVE/USD rate.
 ///
 /// ```text
-/// ceiling_wei_per_pgu = (target_usd_micros_per_bpgu * 10^9) / prove_usd_micros
+/// wei = (usd_micros * 10^18) / prove_usd_micros
 /// ```
 ///
-/// Inputs are both integers in µUSD-denominated units:
-/// - `target_usd_micros_per_bpgu`: µUSD per BPGU (1 BPGU = 10^9 PGU). 200_000 = $0.20/BPGU.
+/// - `usd_micros`: µUSD to convert. 200_000 = $0.20.
 /// - `prove_usd_micros`: µUSD per 1 PROVE. 400_000 = $0.40/PROVE.
 ///
 /// Result rounds **down**, which is conservative for the consumer: the realized $-value
-/// can never inadvertently exceed `target` due to rounding.
+/// can never inadvertently exceed `usd_micros` due to rounding.
+pub fn usd_micros_to_prove_wei(usd_micros: u64, prove_usd_micros: u64) -> Result<U256, PriceError> {
+    if prove_usd_micros == 0 {
+        return Err(PriceError::ZeroProvePrice);
+    }
+    let scale = U256::from(10u64).pow(U256::from(18u64));
+    let numerator = U256::from(usd_micros).checked_mul(scale).ok_or(PriceError::Overflow)?;
+    Ok(numerator / U256::from(prove_usd_micros))
+}
+
+/// Compute the wei-per-PGU value for a USD-per-BPGU target at the given PROVE/USD rate.
+///
+/// - `target_usd_micros_per_bpgu`: µUSD per BPGU (1 BPGU = 10^9 PGU). 200_000 = $0.20/BPGU.
+/// - `prove_usd_micros`: µUSD per 1 PROVE. 400_000 = $0.40/PROVE.
 pub fn compute_max_price_per_pgu_wei(
     target_usd_micros_per_bpgu: u64,
     prove_usd_micros: u64,
 ) -> Result<U256, PriceError> {
-    if prove_usd_micros == 0 {
-        return Err(PriceError::ZeroProvePrice);
-    }
-    let scale = U256::from(10u64).pow(U256::from(9u64));
-    let numerator =
-        U256::from(target_usd_micros_per_bpgu).checked_mul(scale).ok_or(PriceError::Overflow)?;
-    Ok(numerator / U256::from(prove_usd_micros))
+    let wei_per_bpgu = usd_micros_to_prove_wei(target_usd_micros_per_bpgu, prove_usd_micros)?;
+    let pgu_per_bpgu = U256::from(10u64).pow(U256::from(9u64));
+    Ok(wei_per_bpgu / pgu_per_bpgu)
 }
 
 /// Parse a PROVE/USD decimal string (e.g. `"0.40"`) into µUSD (`400_000`).
@@ -101,6 +109,34 @@ mod tests {
     #[test]
     fn very_large_target_does_not_overflow_u256() {
         let wei = compute_max_price_per_pgu_wei(u64::MAX, 1_000_000).unwrap();
+        assert!(wei > U256::ZERO);
+    }
+
+    /// $0.20 at PROVE=$0.40 → 0.5 PROVE = 5 * 10^17 wei.
+    #[test]
+    fn usd_micros_to_prove_wei_reference_anchor() {
+        let wei = usd_micros_to_prove_wei(200_000, 400_000).unwrap();
+        assert_eq!(wei, U256::from(500_000_000_000_000_000u64));
+    }
+
+    /// Halving PROVE doubles the wei needed for the same USD amount.
+    #[test]
+    fn usd_micros_to_prove_wei_scales_inversely_with_prove() {
+        let at_high = usd_micros_to_prove_wei(200_000, 400_000).unwrap();
+        let at_low = usd_micros_to_prove_wei(200_000, 200_000).unwrap();
+        assert_eq!(at_low, at_high * U256::from(2u64));
+    }
+
+    #[test]
+    fn usd_micros_to_prove_wei_zero_prove_errors() {
+        assert!(matches!(usd_micros_to_prove_wei(200_000, 0), Err(PriceError::ZeroProvePrice)));
+    }
+
+    /// Extreme: u64::MAX µUSD at PROVE = 1 µUSD/PROVE. Verifies the multiply stays in U256
+    /// range (max numerator = u64::MAX * 10^18 ≈ 1.84e37, well under U256::MAX ≈ 1.16e77).
+    #[test]
+    fn usd_micros_to_prove_wei_extreme_does_not_overflow() {
+        let wei = usd_micros_to_prove_wei(u64::MAX, 1).unwrap();
         assert!(wei > U256::ZERO);
     }
 
