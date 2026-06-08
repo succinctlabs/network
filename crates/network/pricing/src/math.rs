@@ -41,7 +41,8 @@ pub fn compute_max_price_per_pgu_wei(
 /// Rounding down stays at or below the input — never above — so publish-side and bid-side
 /// callers both stay within their original bound after alignment.
 pub fn round_down_to_tick(wei: U256, required_bid_multiple: U256) -> U256 {
-    if required_bid_multiple <= U256::from(1u64) {
+    const ONE: U256 = U256::from_limbs([1, 0, 0, 0]);
+    if required_bid_multiple <= ONE {
         return wei;
     }
     wei - (wei % required_bid_multiple)
