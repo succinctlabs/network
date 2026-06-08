@@ -581,6 +581,9 @@ message GetProofRequestParamsResponse {
   string base_fee = 6;
   // The default treasury address.
   bytes treasury = 7;
+  // Auction tick size in wei per PGU. Bids and `max_price_per_pgu` must be a multiple
+  // of this value to be accepted.
+  uint64 tick_size = 8;
 }
 
 /****************
