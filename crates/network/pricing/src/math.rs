@@ -35,6 +35,18 @@ pub fn compute_max_price_per_pgu_wei(
     Ok(wei_per_bpgu / pgu_per_bpgu)
 }
 
+/// Floor `wei` to a multiple of `required_bid_multiple`. `0` and `1` are sentinels for
+/// "no tick" and return `wei` unchanged.
+///
+/// Rounding down stays at or below the input — never above — so publish-side and bid-side
+/// callers both stay within their original bound after alignment.
+pub fn round_down_to_tick(wei: U256, required_bid_multiple: U256) -> U256 {
+    if required_bid_multiple <= U256::from(1u64) {
+        return wei;
+    }
+    wei - (wei % required_bid_multiple)
+}
+
 /// Parse a PROVE/USD decimal string (e.g. `"0.40"`) into µUSD (`400_000`).
 ///
 /// The price must be finite and strictly positive. A zero or negative PROVE price is
@@ -168,5 +180,32 @@ mod tests {
         assert!(parse_usd_micros("0.0000004").is_err());
         // 0.0000005 USD = 0.5 µUSD → rounds to 1, the smallest accepted value.
         assert_eq!(parse_usd_micros("0.0000005").unwrap(), 1);
+    }
+
+    #[test]
+    fn round_down_to_tick_floors_to_multiple() {
+        assert_eq!(
+            round_down_to_tick(U256::from(642_742_367u64), U256::from(10_000_000u64)),
+            U256::from(640_000_000u64),
+        );
+    }
+
+    #[test]
+    fn round_down_to_tick_aligned_input_unchanged() {
+        assert_eq!(
+            round_down_to_tick(U256::from(500_000_000u64), U256::from(10_000_000u64)),
+            U256::from(500_000_000u64),
+        );
+    }
+
+    #[test]
+    fn round_down_to_tick_zero_and_one_are_no_ops() {
+        assert_eq!(round_down_to_tick(U256::from(123u64), U256::ZERO), U256::from(123u64));
+        assert_eq!(round_down_to_tick(U256::from(123u64), U256::from(1u64)), U256::from(123u64));
+    }
+
+    #[test]
+    fn round_down_to_tick_sub_tick_rounds_to_zero() {
+        assert_eq!(round_down_to_tick(U256::from(5u64), U256::from(10u64)), U256::ZERO);
     }
 }
