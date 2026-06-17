@@ -329,6 +329,14 @@ pub struct FailFulfillmentRequestBody {
     /// The optional proof request error.
     #[prost(enumeration = "ProofRequestError", optional, tag = "3")]
     pub error: ::core::option::Option<i32>,
+    /// An optional structured, sanitized error trace (UTF-8 JSON) describing why
+    /// the request failed. The producer redacts secrets and bounds the size; it may
+    /// be omitted when no useful context is available. Wire-compatible with
+    /// network-services `FailFulfillmentRequestBody.error_trace = 4`. The RPC
+    /// re-validates and re-sanitizes it before storing. See
+    /// `spn_network_types::error_trace` for the canonical shape and limits.
+    #[prost(bytes = "vec", optional, tag = "4")]
+    pub error_trace: ::core::option::Option<::prost::alloc::vec::Vec<u8>>,
 }
 #[derive(serde::Serialize, serde::Deserialize)]
 #[derive(Clone, PartialEq, ::prost::Message)]
