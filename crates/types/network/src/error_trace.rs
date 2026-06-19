@@ -318,34 +318,34 @@ impl ErrorTrace {
         let msg = self.message.trim();
         let lower = msg.to_lowercase();
         // Treat very short or canonically-generic messages as carrying no signal.
-        let generic = lower.is_empty() ||
-            msg.chars().count() <= 2 ||
-            matches!(
+        let generic = lower.is_empty()
+            || msg.chars().count() <= 2
+            || matches!(
                 lower.as_str(),
-                "unknown error" |
-                    "unknown" |
-                    "unknown failure" |
-                    "unspecified" |
-                    "unspecifiedproofrequestfailure" |
-                    "unknownfailure" |
-                    "error" |
-                    "error:" |
-                    "failed" |
-                    "failure" |
-                    "panic" |
-                    "panicked" |
-                    "internal error" |
-                    "some(error)" |
-                    "n/a" |
-                    "none" |
-                    "null"
+                "unknown error"
+                    | "unknown"
+                    | "unknown failure"
+                    | "unspecified"
+                    | "unspecifiedproofrequestfailure"
+                    | "unknownfailure"
+                    | "error"
+                    | "error:"
+                    | "failed"
+                    | "failure"
+                    | "panic"
+                    | "panicked"
+                    | "internal error"
+                    | "some(error)"
+                    | "n/a"
+                    | "none"
+                    | "null"
             );
-        !generic ||
-            self.details.is_some() ||
-            self.panic.is_some() ||
-            self.stderr_excerpt.is_some() ||
-            self.stack_trace.is_some() ||
-            self.exit_code.is_some()
+        !generic
+            || self.details.is_some()
+            || self.panic.is_some()
+            || self.stderr_excerpt.is_some()
+            || self.stack_trace.is_some()
+            || self.exit_code.is_some()
     }
 
     /// Serialize to JSON bytes for the wire / for storage, enforcing
@@ -652,11 +652,11 @@ fn sanitize_line(line: &str) -> String {
             // Skip lone connectors and chained scheme words (e.g. the "Bearer"/
             // "Basic" in "Authorization: Bearer <tok>" / "Authorization: Basic
             // <creds>") so the redaction lands on the actual credential.
-            while j < tokens.len() &&
-                (tokens[j] == "=" ||
-                    tokens[j] == ":" ||
-                    is_auth_label(tokens[j]) ||
-                    is_auth_scheme_word(tokens[j]))
+            while j < tokens.len()
+                && (tokens[j] == "="
+                    || tokens[j] == ":"
+                    || is_auth_label(tokens[j])
+                    || is_auth_scheme_word(tokens[j]))
             {
                 out.push(tokens[j].to_string());
                 j += 1;
@@ -688,11 +688,11 @@ fn redact_token(token: &str) -> String {
     //    so the URL is wrapped in punctuation and prefix checks miss it — match the
     //    signing params directly as a defense in depth.
     let lower = token.to_lowercase();
-    if lower.contains("x-amz-signature") ||
-        lower.contains("x-amz-credential") ||
-        lower.contains("x-amz-security-token") ||
-        lower.contains("&signature=") ||
-        lower.contains("?signature=")
+    if lower.contains("x-amz-signature")
+        || lower.contains("x-amz-credential")
+        || lower.contains("x-amz-security-token")
+        || lower.contains("&signature=")
+        || lower.contains("?signature=")
     {
         if let Some(scheme) = token.find("://") {
             if let Some(q) = token[scheme..].find('?') {
@@ -756,14 +756,14 @@ fn redact_aws_keys(token: &str) -> Option<String> {
     let mut i = 0;
     let mut found = false;
     while i < bytes.len() {
-        let is_key = i + 20 <= bytes.len() &&
-            bytes[i] == b'A' &&
-            (bytes[i + 1] == b'K' || bytes[i + 1] == b'S') &&
-            bytes[i + 2] == b'I' &&
-            bytes[i + 3] == b'A' &&
-            bytes[i + 4..i + 20].iter().all(|&b| b.is_ascii_uppercase() || b.is_ascii_digit()) &&
-            (i == 0 || !is_key_char(bytes[i - 1])) &&
-            (i + 20 == bytes.len() || !is_key_char(bytes[i + 20]));
+        let is_key = i + 20 <= bytes.len()
+            && bytes[i] == b'A'
+            && (bytes[i + 1] == b'K' || bytes[i + 1] == b'S')
+            && bytes[i + 2] == b'I'
+            && bytes[i + 3] == b'A'
+            && bytes[i + 4..i + 20].iter().all(|&b| b.is_ascii_uppercase() || b.is_ascii_digit())
+            && (i == 0 || !is_key_char(bytes[i - 1]))
+            && (i + 20 == bytes.len() || !is_key_char(bytes[i + 20]));
         if is_key {
             out.push_str("[REDACTED-AWS-KEY]");
             i += 20;
@@ -810,8 +810,8 @@ fn secret_value_follows(token: &str, next: Option<&str>) -> bool {
         // Bare sensitive key: carry over only when an explicit connector follows
         // (so prose like "the password was wrong" isn't over-redacted).
         None => {
-            key_is_sensitive(token.trim_end_matches([':', '='])) &&
-                matches!(next, Some("=") | Some(":"))
+            key_is_sensitive(token.trim_end_matches([':', '=']))
+                && matches!(next, Some("=") | Some(":"))
         }
         // `key=value` / `key:value`: carry over only when the in-token value is
         // empty or a bare auth scheme (the real credential is the next token).
@@ -913,9 +913,9 @@ fn strip_stack_boilerplate(stack: &str) -> String {
         }
         blanks = 0;
         let lower = trimmed.to_lowercase();
-        if lower.starts_with("note: run with") ||
-            lower == "stack backtrace:" ||
-            is_std_frame(trimmed)
+        if lower.starts_with("note: run with")
+            || lower == "stack backtrace:"
+            || is_std_frame(trimmed)
         {
             continue;
         }
