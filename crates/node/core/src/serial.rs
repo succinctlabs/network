@@ -381,6 +381,8 @@ async fn fail_request<C: NodeContext>(ctx: &C, request_id: Vec<u8>) -> Result<()
                     nonce,
                     request_id: request_id.clone(),
                     error: None,
+                    // The serial prover has no cluster extra_data context here.
+                    error_trace: None,
                 };
                 let fail_request = FailFulfillmentRequest {
                     format: MessageFormat::Binary.into(),
