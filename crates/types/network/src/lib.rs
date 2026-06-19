@@ -9,6 +9,8 @@ pub use network::*;
 mod types;
 pub use types::*;
 
+pub mod error_trace;
+
 use alloy_primitives::Keccak256;
 #[cfg(feature = "network")]
 use alloy_primitives::Signature;
