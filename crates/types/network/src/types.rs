@@ -1370,6 +1370,67 @@ pub struct BidResponse {
 pub struct BidResponseBody {}
 #[derive(serde::Serialize, serde::Deserialize)]
 #[derive(Clone, PartialEq, ::prost::Message)]
+pub struct ReportProverInfoRequest {
+    /// The message format of the body.
+    #[prost(enumeration = "MessageFormat", tag = "1")]
+    pub format: i32,
+    /// The signature of the sender.
+    #[prost(bytes = "vec", tag = "2")]
+    pub signature: ::prost::alloc::vec::Vec<u8>,
+    /// The body of the request.
+    #[prost(message, optional, tag = "3")]
+    pub body: ::core::option::Option<ReportProverInfoRequestBody>,
+}
+#[derive(serde::Serialize, serde::Deserialize)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct ReportProverInfoRequestBody {
+    /// The domain separator for the request.
+    #[prost(bytes = "vec", tag = "1")]
+    pub domain: ::prost::alloc::vec::Vec<u8>,
+    /// The address of the prover the report is for. Must match the signer-resolved prover.
+    #[prost(bytes = "vec", tag = "2")]
+    pub prover: ::prost::alloc::vec::Vec<u8>,
+    /// The build identity of one or more cluster components.
+    #[prost(message, repeated, tag = "3")]
+    pub components: ::prost::alloc::vec::Vec<ComponentInfo>,
+}
+/// Self-reported build identity of a single cluster component. This is debugging
+/// telemetry, not verified attestation. `component` is a free-form string validated
+/// against a server-side allowlist (fulfiller, coordinator, gpu-node, cpu-node).
+#[derive(serde::Serialize, serde::Deserialize)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct ComponentInfo {
+    /// The component kind, e.g. "fulfiller", "coordinator", "gpu-node", "cpu-node".
+    #[prost(string, tag = "1")]
+    pub component: ::prost::alloc::string::String,
+    /// The component instance identifier ("" for singletons, worker id for nodes).
+    #[prost(string, tag = "2")]
+    pub instance_id: ::prost::alloc::string::String,
+    /// The crate version (CARGO_PKG_VERSION).
+    #[prost(string, tag = "3")]
+    pub version: ::prost::alloc::string::String,
+    /// The git commit the binary was built from.
+    #[prost(string, tag = "4")]
+    pub git_sha: ::prost::alloc::string::String,
+    /// The container image tag the component is running.
+    #[prost(string, tag = "5")]
+    pub image_tag: ::prost::alloc::string::String,
+    /// The build timestamp.
+    #[prost(string, tag = "6")]
+    pub build_timestamp: ::prost::alloc::string::String,
+}
+#[derive(serde::Serialize, serde::Deserialize)]
+#[derive(Clone, Copy, PartialEq, ::prost::Message)]
+pub struct ReportProverInfoResponse {
+    /// The body of the response.
+    #[prost(message, optional, tag = "1")]
+    pub body: ::core::option::Option<ReportProverInfoResponseBody>,
+}
+#[derive(serde::Serialize, serde::Deserialize)]
+#[derive(Clone, Copy, PartialEq, ::prost::Message)]
+pub struct ReportProverInfoResponseBody {}
+#[derive(serde::Serialize, serde::Deserialize)]
+#[derive(Clone, PartialEq, ::prost::Message)]
 pub struct SettleRequest {
     /// The message format of the body.
     #[prost(enumeration = "MessageFormat", tag = "1")]
