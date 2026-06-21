@@ -190,9 +190,37 @@ impl ErrorTrace {
             return Some(trace);
         }
 
-        // Shape 2: execution result. The typed `failure_cause` drives the trace.
+        // Shape 2: execution result. The typed `failure_cause` drives the
+        // source/kind; optional enrichment (`failure_message`, `exit_code`)
+        // improves the message/details when the producer supplies it.
         if let Some(er) = parse_execution_result(raw) {
-            return Self::from_execute_failure_cause(er.failure_cause as i32);
+            let msg = er.failure_message.as_deref().map(str::trim).filter(|s| !s.is_empty());
+            let mut trace = match Self::from_execute_failure_cause(er.failure_cause as i32) {
+                Some(trace) => trace,
+                // Unspecified(0) cause carries no signal on its own, but the producer
+                // may still attach a failure_message (e.g. an unmapped
+                // Err(ExecutionError)). Surface it as an execution-phase executor error
+                // rather than dropping it; finalize() drops generic/empty text.
+                None if msg.is_some() => {
+                    let mut trace = ErrorTrace::new(
+                        ErrorSource::Executor,
+                        ErrorKind::ExecutorError,
+                        "execution failed",
+                    );
+                    trace.phase = Some("execution".to_string());
+                    trace
+                }
+                None => return None,
+            };
+            if let Some(code) = er.exit_code {
+                trace.exit_code = Some(code);
+            }
+            if let Some(msg) = msg {
+                let (message, details) = split_summary_and_details(msg);
+                trace.message = message;
+                trace.details = details;
+            }
+            return Some(trace);
         }
 
         // Unknown shape: keep the raw string as a best-effort message rather than
@@ -456,6 +484,15 @@ fn parse_proving_failure(raw: &str) -> Option<ProvingFailurePayload> {
 struct ExecutionResultPayload {
     #[serde(default)]
     failure_cause: i64,
+    /// Additive enrichment from newer producers: a bounded, human-readable detail
+    /// string for `Err(ExecutionError)` execute-only failures. Absent on older
+    /// producers and on guest-panic (`HaltWithNonZeroExitCode`) failures.
+    #[serde(default)]
+    failure_message: Option<String>,
+    /// Additive enrichment from newer producers: the guest exit code for non-zero
+    /// halt failures. Absent on older producers.
+    #[serde(default)]
+    exit_code: Option<i64>,
 }
 
 fn parse_execution_result(raw: &str) -> Option<ExecutionResultPayload> {
@@ -1087,6 +1124,99 @@ mod tests {
         assert_eq!(t.kind, ErrorKind::ExecutorError);
         assert_eq!(t.source, ErrorSource::Executor);
         assert!(t.message.contains("ExceededCycleLimit"), "{}", t.message);
+    }
+
+    #[test]
+    fn cluster_execution_enriched_failure_message_improves_message() {
+        // An enriched producer adds a bounded `failure_message` for Err(ExecutionError)
+        // execute-only failures. It improves message/details; source/kind stay.
+        let extra = r#"{"status":3,"failure_cause":5,"cycles":0,"gas":0,"public_values_hash":[],"failure_message":"exceeded cycle limit of 1000000"}"#;
+        let t = ErrorTrace::from_cluster_extra_data(Some(extra))
+            .and_then(ErrorTrace::finalize)
+            .expect("useful trace");
+        assert_eq!(t.kind, ErrorKind::ExecutorError);
+        assert_eq!(t.source, ErrorSource::Executor);
+        assert_eq!(t.message, "exceeded cycle limit of 1000000");
+        assert_eq!(t.phase.as_deref(), Some("execution"));
+    }
+
+    #[test]
+    fn cluster_execution_enriched_exit_code_is_populated() {
+        // An enriched producer adds `exit_code` for non-zero halt failures.
+        let extra = r#"{"status":3,"failure_cause":1,"cycles":123,"gas":456,"public_values_hash":[],"exit_code":101}"#;
+        let t = ErrorTrace::from_cluster_extra_data(Some(extra))
+            .and_then(ErrorTrace::finalize)
+            .expect("useful trace");
+        assert_eq!(t.kind, ErrorKind::ProgramPanic);
+        assert_eq!(t.source, ErrorSource::Program);
+        assert_eq!(t.exit_code, Some(101));
+    }
+
+    #[test]
+    fn cluster_execution_old_payload_unchanged_by_enrichment() {
+        // Back-compat: a failure_cause-only payload (no enrichment keys) must
+        // parse exactly as before — generic message, no details, no exit_code.
+        let extra = r#"{"status":3,"failure_cause":5,"cycles":0,"gas":0,"public_values_hash":[]}"#;
+        let t = ErrorTrace::from_cluster_extra_data(Some(extra)).expect("useful trace");
+        assert_eq!(t.message, "execution failed: ExceededCycleLimit");
+        assert_eq!(t.details, None);
+        assert_eq!(t.exit_code, None);
+    }
+
+    #[test]
+    fn cluster_execution_enriched_message_is_redacted_and_bounded() {
+        // A secret smuggled into failure_message is redacted by finalize, and an
+        // oversized message is bounded by MESSAGE_MAX.
+        let big = "x".repeat(MESSAGE_MAX * 2);
+        let extra = format!(
+            r#"{{"status":3,"failure_cause":5,"failure_message":"boom aws_secret_access_key=AKIAEXAMPLE12345 {big}"}}"#
+        );
+        let t = ErrorTrace::from_cluster_extra_data(Some(&extra))
+            .and_then(ErrorTrace::finalize)
+            .expect("useful trace");
+        assert!(!t.message.contains("AKIAEXAMPLE12345"), "secret not redacted: {}", t.message);
+        assert!(t.message.contains(REDACTED));
+        // Bounded near MESSAGE_MAX (truncate_bytes appends a short marker suffix).
+        assert!(t.message.contains("[truncated"), "not truncated: {}", t.message.len());
+        assert!(t.message.len() < MESSAGE_MAX + 64, "message not bounded: {}", t.message.len());
+    }
+
+    #[test]
+    fn cluster_execution_unspecified_cause_with_message_is_kept() {
+        // failure_cause == 0 (Unspecified) but the producer attached a message for an
+        // unmapped Err(ExecutionError): surface it as an execution-phase executor error
+        // instead of dropping it.
+        let extra = r#"{"status":3,"failure_cause":0,"failure_message":"invalid memory access for untrusted program at address 1234"}"#;
+        let t = ErrorTrace::from_cluster_extra_data(Some(extra))
+            .and_then(ErrorTrace::finalize)
+            .expect("useful trace");
+        assert_eq!(t.kind, ErrorKind::ExecutorError);
+        assert_eq!(t.source, ErrorSource::Executor);
+        assert_eq!(t.message, "invalid memory access for untrusted program at address 1234");
+        assert_eq!(t.phase.as_deref(), Some("execution"));
+    }
+
+    #[test]
+    fn cluster_execution_unspecified_cause_without_message_is_none() {
+        // failure_cause == 0 and no message: unchanged enum-only behavior => no trace.
+        let extra = r#"{"status":3,"failure_cause":0,"cycles":0,"gas":0,"public_values_hash":[]}"#;
+        assert!(ErrorTrace::from_cluster_extra_data(Some(extra)).is_none());
+    }
+
+    #[test]
+    fn cluster_execution_unspecified_cause_blank_message_is_none() {
+        // failure_cause == 0 with a blank/whitespace message: no useful signal.
+        let extra = r#"{"status":3,"failure_cause":0,"failure_message":"   "}"#;
+        assert!(ErrorTrace::from_cluster_extra_data(Some(extra)).is_none());
+    }
+
+    #[test]
+    fn cluster_execution_enriched_useless_message_falls_back_to_cause() {
+        // A blank failure_message must not blank the trace: the cause-derived
+        // message survives.
+        let extra = r#"{"status":3,"failure_cause":5,"failure_message":"   "}"#;
+        let t = ErrorTrace::from_cluster_extra_data(Some(extra)).expect("useful trace");
+        assert_eq!(t.message, "execution failed: ExceededCycleLimit");
     }
 
     #[test]
