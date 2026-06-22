@@ -1055,6 +1055,47 @@ message BidResponse {
 
 message BidResponseBody {}
 
+message ReportProverInfoRequest {
+  // The message format of the body.
+  MessageFormat format = 1;
+  // The signature of the sender.
+  bytes signature = 2;
+  // The body of the request.
+  ReportProverInfoRequestBody body = 3;
+}
+
+message ReportProverInfoRequestBody {
+  // The domain separator for the request.
+  bytes domain = 1;
+  // The address of the prover the report is for. Must match the signer-resolved prover.
+  bytes prover = 2;
+  // The build identity of one or more cluster components.
+  repeated ComponentInfo components = 3;
+}
+
+// Self-reported build identity of a single cluster component. This is debugging
+// telemetry, not verified attestation. `component` is a free-form string validated
+// against a server-side allowlist (fulfiller, coordinator, gpu-node, cpu-node).
+message ComponentInfo {
+  // The component kind, e.g. "fulfiller", "coordinator", "gpu-node", "cpu-node".
+  string component = 1;
+  // The component instance identifier ("" for singletons, worker id for nodes).
+  string instance_id = 2;
+  // The crate version (CARGO_PKG_VERSION).
+  string version = 3;
+  // The git commit the binary was built from.
+  string git_sha = 4;
+  // The container image tag the component is running.
+  string image_tag = 5;
+}
+
+message ReportProverInfoResponse {
+  // The body of the response.
+  ReportProverInfoResponseBody body = 1;
+}
+
+message ReportProverInfoResponseBody {}
+
 message SettleRequest {
   // The message format of the body.
   MessageFormat format = 1;
