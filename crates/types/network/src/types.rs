@@ -1415,9 +1415,6 @@ pub struct ComponentInfo {
     /// The container image tag the component is running.
     #[prost(string, tag = "5")]
     pub image_tag: ::prost::alloc::string::String,
-    /// The build timestamp.
-    #[prost(string, tag = "6")]
-    pub build_timestamp: ::prost::alloc::string::String,
 }
 #[derive(serde::Serialize, serde::Deserialize)]
 #[derive(Clone, Copy, PartialEq, ::prost::Message)]

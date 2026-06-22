@@ -1080,8 +1080,6 @@ message ComponentInfo {
   string git_sha = 4;
   // The container image tag the component is running.
   string image_tag = 5;
-  // The build timestamp.
-  string build_timestamp = 6;
 }
 
 message ReportProverInfoResponse {
