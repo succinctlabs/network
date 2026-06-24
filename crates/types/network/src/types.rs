@@ -1405,23 +1405,21 @@ pub struct ReportProverInfoRequestBody {
 /// Self-reported build identity of a single cluster component. This is debugging
 /// telemetry, not verified attestation. `component` is a free-form string validated
 /// against a server-side allowlist (fulfiller, coordinator, gpu-node, cpu-node).
+/// Keyed by build identity (component, version, git_sha, image_tag).
 #[derive(serde::Serialize, serde::Deserialize)]
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct ComponentInfo {
     /// The component kind, e.g. "fulfiller", "coordinator", "gpu-node", "cpu-node".
     #[prost(string, tag = "1")]
     pub component: ::prost::alloc::string::String,
-    /// The component instance identifier ("" for singletons, worker id for nodes).
-    #[prost(string, tag = "2")]
-    pub instance_id: ::prost::alloc::string::String,
     /// The crate version (CARGO_PKG_VERSION).
-    #[prost(string, tag = "3")]
+    #[prost(string, tag = "2")]
     pub version: ::prost::alloc::string::String,
     /// The git commit the binary was built from.
-    #[prost(string, tag = "4")]
+    #[prost(string, tag = "3")]
     pub git_sha: ::prost::alloc::string::String,
     /// The container image tag the component is running.
-    #[prost(string, tag = "5")]
+    #[prost(string, tag = "4")]
     pub image_tag: ::prost::alloc::string::String,
 }
 #[derive(serde::Serialize, serde::Deserialize)]
