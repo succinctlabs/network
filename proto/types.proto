@@ -235,6 +235,11 @@ message ExecuteProofRequestBody {
   optional ExecuteFailureCause failure_cause = 9;
   // The variant of the transaction.
   TransactionVariant variant = 10;
+  // Optional bounded, sanitized structured failure trace, set when execution
+  // failed. Same contract as FailFulfillmentRequestBody.error_trace: the network
+  // re-validates and stores it in `requests.error_trace`. See
+  // `spn_network_types::error_trace`.
+  optional bytes error_trace = 11;
 }
 
 message ExecuteProofResponse {

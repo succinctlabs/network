@@ -20,9 +20,10 @@
 //!
 //! SYNC: this is a manually-kept duplicate of the canonical module in
 //! `succinctlabs/network-services` (PR #1191). The two proto repos are not
-//! auto-synced; `FailFulfillmentRequestBody.error_trace` is wire field 4 in
-//! both. Keep this file and its network-services twin logically identical —
-//! change them together.
+//! auto-synced; `FailFulfillmentRequestBody.error_trace` is wire field 4 and
+//! `ExecuteProofRequestBody.error_trace` is wire field 11 in both repos. Keep
+//! this file and its network-services twin logically identical — change them
+//! together.
 
 use serde::{Deserialize, Serialize};
 

@@ -651,6 +651,7 @@ pub fn create_clear_tx_with_options(
         punishment: None,
         failure_cause: None,
         variant: TransactionVariant::ExecuteVariant as i32,
+        error_trace: None,
     };
 
     // Create and sign execute.
@@ -963,6 +964,7 @@ pub fn create_clear_tx_with_public_values_hash(
         punishment: None,
         failure_cause: None,
         variant: TransactionVariant::ExecuteVariant as i32,
+        error_trace: None,
     };
 
     // Create and sign execute.
@@ -1170,6 +1172,7 @@ pub fn create_clear_tx_with_version(
         punishment: None,
         failure_cause: None,
         variant: TransactionVariant::ExecuteVariant as i32,
+        error_trace: None,
     };
 
     // Create and sign execute.
