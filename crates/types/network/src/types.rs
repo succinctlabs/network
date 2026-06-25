@@ -290,6 +290,12 @@ pub struct ExecuteProofRequestBody {
     /// The variant of the transaction.
     #[prost(enumeration = "TransactionVariant", tag = "10")]
     pub variant: i32,
+    /// Optional bounded, sanitized structured failure trace, set when execution
+    /// failed. Same contract as FailFulfillmentRequestBody.error_trace: the network
+    /// re-validates and stores it in `requests.error_trace`. See
+    /// `spn_network_types::error_trace`.
+    #[prost(bytes = "vec", optional, tag = "11")]
+    pub error_trace: ::core::option::Option<::prost::alloc::vec::Vec<u8>>,
 }
 #[derive(serde::Serialize, serde::Deserialize)]
 #[derive(Clone, PartialEq, ::prost::Message)]
