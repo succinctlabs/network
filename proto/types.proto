@@ -1081,17 +1081,16 @@ message ReportProverInfoRequestBody {
 // Self-reported build identity of a single cluster component. This is debugging
 // telemetry, not verified attestation. `component` is a free-form string validated
 // against a server-side allowlist (fulfiller, coordinator, gpu-node, cpu-node).
+// Keyed by build identity (component, version, git_sha, image_tag).
 message ComponentInfo {
   // The component kind, e.g. "fulfiller", "coordinator", "gpu-node", "cpu-node".
   string component = 1;
-  // The component instance identifier ("" for singletons, worker id for nodes).
-  string instance_id = 2;
   // The crate version (CARGO_PKG_VERSION).
-  string version = 3;
+  string version = 2;
   // The git commit the binary was built from.
-  string git_sha = 4;
+  string git_sha = 3;
   // The container image tag the component is running.
-  string image_tag = 5;
+  string image_tag = 4;
 }
 
 message ReportProverInfoResponse {
