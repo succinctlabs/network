@@ -1303,6 +1303,45 @@ message Bid {
  *** Provers ***
  ***************/
 
+message GetProverRequirementsRequest {}
+
+message ProverRequirements {
+  // Whole-request proving rate in MGas/s: gas_used divided by fulfillment latency
+  // must meet this whenever the rate grants more time than the floor.
+  string min_mgas_per_second = 1;
+  // Minimum time budget in seconds granted to every request regardless of size.
+  uint64 floor_latency_seconds = 2;
+  // Minimum success rate over resolved requests in the lookback window; falling
+  // below it means suspension.
+  string min_success_rate_percentage = 3;
+  // Performance evaluation lookback window in hours.
+  uint64 performance_lookback_hours = 4;
+  // Minimum resolved (succeeded or failed) requests in the window for an
+  // evaluation to run at all.
+  uint64 min_resolved_requests_to_evaluate = 5;
+}
+
+message GetProverRequirementsResponse {
+  // The enforced requirements. Absent when performance requirements are not
+  // enforced on this network.
+  ProverRequirements requirements = 1;
+}
+
+message GetProverStatusRequest {
+  // The address of the prover.
+  bytes prover = 1;
+}
+
+message GetProverStatusResponse {
+  // Whether the prover is whitelisted.
+  bool is_whitelisted = 1;
+  // Whether the prover is exempt from performance evaluation (high availability).
+  bool is_high_availability = 2;
+  // Unix seconds when the current suspension expires; absent when not suspended.
+  optional uint64 suspended_until = 3;
+}
+
+
 message GetProverStatsRequest {
   optional bytes address = 1;
 }

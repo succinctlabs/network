@@ -1219,6 +1219,63 @@ pub mod prover_network_client {
                 .insert(GrpcMethod::new("network.ProverNetwork", "SuspendProver"));
             self.inner.unary(req, path, codec).await
         }
+        /// Get the network's prover performance requirements. A fulfilled request counts
+        /// toward a prover's success rate only if fulfilled within
+        /// `GREATEST(gas / min_mgas_per_second, floor_latency_seconds)` seconds of request
+        /// creation.
+        pub async fn get_prover_requirements(
+            &mut self,
+            request: impl tonic::IntoRequest<
+                super::super::types::GetProverRequirementsRequest,
+            >,
+        ) -> std::result::Result<
+            tonic::Response<super::super::types::GetProverRequirementsResponse>,
+            tonic::Status,
+        > {
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::unknown(
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
+            let codec = tonic::codec::ProstCodec::default();
+            let path = http::uri::PathAndQuery::from_static(
+                "/network.ProverNetwork/GetProverRequirements",
+            );
+            let mut req = request.into_request();
+            req.extensions_mut()
+                .insert(
+                    GrpcMethod::new("network.ProverNetwork", "GetProverRequirements"),
+                );
+            self.inner.unary(req, path, codec).await
+        }
+        /// Get a prover's whitelist and suspension status.
+        pub async fn get_prover_status(
+            &mut self,
+            request: impl tonic::IntoRequest<super::super::types::GetProverStatusRequest>,
+        ) -> std::result::Result<
+            tonic::Response<super::super::types::GetProverStatusResponse>,
+            tonic::Status,
+        > {
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::unknown(
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
+            let codec = tonic::codec::ProstCodec::default();
+            let path = http::uri::PathAndQuery::from_static(
+                "/network.ProverNetwork/GetProverStatus",
+            );
+            let mut req = request.into_request();
+            req.extensions_mut()
+                .insert(GrpcMethod::new("network.ProverNetwork", "GetProverStatus"));
+            self.inner.unary(req, path, codec).await
+        }
         /// Report the self-reported build identity of a prover's cluster components (fulfiller,
         /// coordinator, workers). Debugging telemetry signed by the prover key; not attestation.
         pub async fn report_prover_info(
@@ -2127,6 +2184,25 @@ pub mod prover_network_server {
             request: tonic::Request<super::super::types::SuspendProverRequest>,
         ) -> std::result::Result<
             tonic::Response<super::super::types::SuspendProverResponse>,
+            tonic::Status,
+        >;
+        /// Get the network's prover performance requirements. A fulfilled request counts
+        /// toward a prover's success rate only if fulfilled within
+        /// `GREATEST(gas / min_mgas_per_second, floor_latency_seconds)` seconds of request
+        /// creation.
+        async fn get_prover_requirements(
+            &self,
+            request: tonic::Request<super::super::types::GetProverRequirementsRequest>,
+        ) -> std::result::Result<
+            tonic::Response<super::super::types::GetProverRequirementsResponse>,
+            tonic::Status,
+        >;
+        /// Get a prover's whitelist and suspension status.
+        async fn get_prover_status(
+            &self,
+            request: tonic::Request<super::super::types::GetProverStatusRequest>,
+        ) -> std::result::Result<
+            tonic::Response<super::super::types::GetProverStatusResponse>,
             tonic::Status,
         >;
         /// Report the self-reported build identity of a prover's cluster components (fulfiller,
@@ -4424,6 +4500,107 @@ pub mod prover_network_server {
                     let inner = self.inner.clone();
                     let fut = async move {
                         let method = SuspendProverSvc(inner);
+                        let codec = tonic::codec::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                "/network.ProverNetwork/GetProverRequirements" => {
+                    #[allow(non_camel_case_types)]
+                    struct GetProverRequirementsSvc<T: ProverNetwork>(pub Arc<T>);
+                    impl<
+                        T: ProverNetwork,
+                    > tonic::server::UnaryService<
+                        super::super::types::GetProverRequirementsRequest,
+                    > for GetProverRequirementsSvc<T> {
+                        type Response = super::super::types::GetProverRequirementsResponse;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<
+                                super::super::types::GetProverRequirementsRequest,
+                            >,
+                        ) -> Self::Future {
+                            let inner = Arc::clone(&self.0);
+                            let fut = async move {
+                                <T as ProverNetwork>::get_prover_requirements(
+                                        &inner,
+                                        request,
+                                    )
+                                    .await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let method = GetProverRequirementsSvc(inner);
+                        let codec = tonic::codec::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                "/network.ProverNetwork/GetProverStatus" => {
+                    #[allow(non_camel_case_types)]
+                    struct GetProverStatusSvc<T: ProverNetwork>(pub Arc<T>);
+                    impl<
+                        T: ProverNetwork,
+                    > tonic::server::UnaryService<
+                        super::super::types::GetProverStatusRequest,
+                    > for GetProverStatusSvc<T> {
+                        type Response = super::super::types::GetProverStatusResponse;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<
+                                super::super::types::GetProverStatusRequest,
+                            >,
+                        ) -> Self::Future {
+                            let inner = Arc::clone(&self.0);
+                            let fut = async move {
+                                <T as ProverNetwork>::get_prover_status(&inner, request)
+                                    .await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let method = GetProverStatusSvc(inner);
                         let codec = tonic::codec::ProstCodec::default();
                         let mut grpc = tonic::server::Grpc::new(codec)
                             .apply_compression_config(

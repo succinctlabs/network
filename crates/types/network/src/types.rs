@@ -1715,6 +1715,59 @@ pub struct Bid {
     pub amount: ::prost::alloc::string::String,
 }
 #[derive(serde::Serialize, serde::Deserialize)]
+#[derive(Clone, Copy, PartialEq, ::prost::Message)]
+pub struct GetProverRequirementsRequest {}
+#[derive(serde::Serialize, serde::Deserialize)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct ProverRequirements {
+    /// Whole-request proving rate in MGas/s: gas_used divided by fulfillment latency
+    /// must meet this whenever the rate grants more time than the floor.
+    #[prost(string, tag = "1")]
+    pub min_mgas_per_second: ::prost::alloc::string::String,
+    /// Minimum time budget in seconds granted to every request regardless of size.
+    #[prost(uint64, tag = "2")]
+    pub floor_latency_seconds: u64,
+    /// Minimum success rate over resolved requests in the lookback window; falling
+    /// below it means suspension.
+    #[prost(string, tag = "3")]
+    pub min_success_rate_percentage: ::prost::alloc::string::String,
+    /// Performance evaluation lookback window in hours.
+    #[prost(uint64, tag = "4")]
+    pub performance_lookback_hours: u64,
+    /// Minimum resolved (succeeded or failed) requests in the window for an
+    /// evaluation to run at all.
+    #[prost(uint64, tag = "5")]
+    pub min_resolved_requests_to_evaluate: u64,
+}
+#[derive(serde::Serialize, serde::Deserialize)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct GetProverRequirementsResponse {
+    /// The enforced requirements. Absent when performance requirements are not
+    /// enforced on this network.
+    #[prost(message, optional, tag = "1")]
+    pub requirements: ::core::option::Option<ProverRequirements>,
+}
+#[derive(serde::Serialize, serde::Deserialize)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct GetProverStatusRequest {
+    /// The address of the prover.
+    #[prost(bytes = "vec", tag = "1")]
+    pub prover: ::prost::alloc::vec::Vec<u8>,
+}
+#[derive(serde::Serialize, serde::Deserialize)]
+#[derive(Clone, Copy, PartialEq, ::prost::Message)]
+pub struct GetProverStatusResponse {
+    /// Whether the prover is whitelisted.
+    #[prost(bool, tag = "1")]
+    pub is_whitelisted: bool,
+    /// Whether the prover is exempt from performance evaluation (high availability).
+    #[prost(bool, tag = "2")]
+    pub is_high_availability: bool,
+    /// Unix seconds when the current suspension expires; absent when not suspended.
+    #[prost(uint64, optional, tag = "3")]
+    pub suspended_until: ::core::option::Option<u64>,
+}
+#[derive(serde::Serialize, serde::Deserialize)]
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct GetProverStatsRequest {
     #[prost(bytes = "vec", optional, tag = "1")]
