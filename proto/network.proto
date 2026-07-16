@@ -147,6 +147,15 @@ service ProverNetwork {
   // Suspend a prover.
   rpc SuspendProver(types.SuspendProverRequest)
       returns (types.SuspendProverResponse) {}
+  // Get the network's prover performance requirements. A fulfilled request counts
+  // toward a prover's success rate only if fulfilled within
+  // `GREATEST(gas_used / 1_000_000 / min_mgas_per_second, floor_latency_seconds)`
+  // seconds of request creation.
+  rpc GetProverRequirements(types.GetProverRequirementsRequest)
+      returns (types.GetProverRequirementsResponse) {}
+  // Get a prover's whitelist and suspension status.
+  rpc GetProverStatus(types.GetProverStatusRequest)
+      returns (types.GetProverStatusResponse) {}
   // Report the self-reported build identity of a prover's cluster components (fulfiller,
   // coordinator, workers). Debugging telemetry signed by the prover key; not attestation.
   rpc ReportProverInfo(types.ReportProverInfoRequest) returns (types.ReportProverInfoResponse) {}
