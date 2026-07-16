@@ -1221,8 +1221,8 @@ pub mod prover_network_client {
         }
         /// Get the network's prover performance requirements. A fulfilled request counts
         /// toward a prover's success rate only if fulfilled within
-        /// `GREATEST(gas / min_mgas_per_second, floor_latency_seconds)` seconds of request
-        /// creation.
+        /// `GREATEST(gas_used / 1_000_000 / min_mgas_per_second, floor_latency_seconds)`
+        /// seconds of request creation.
         pub async fn get_prover_requirements(
             &mut self,
             request: impl tonic::IntoRequest<
@@ -2188,8 +2188,8 @@ pub mod prover_network_server {
         >;
         /// Get the network's prover performance requirements. A fulfilled request counts
         /// toward a prover's success rate only if fulfilled within
-        /// `GREATEST(gas / min_mgas_per_second, floor_latency_seconds)` seconds of request
-        /// creation.
+        /// `GREATEST(gas_used / 1_000_000 / min_mgas_per_second, floor_latency_seconds)`
+        /// seconds of request creation.
         async fn get_prover_requirements(
             &self,
             request: tonic::Request<super::super::types::GetProverRequirementsRequest>,

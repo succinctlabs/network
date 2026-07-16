@@ -149,8 +149,8 @@ service ProverNetwork {
       returns (types.SuspendProverResponse) {}
   // Get the network's prover performance requirements. A fulfilled request counts
   // toward a prover's success rate only if fulfilled within
-  // `GREATEST(gas / min_mgas_per_second, floor_latency_seconds)` seconds of request
-  // creation.
+  // `GREATEST(gas_used / 1_000_000 / min_mgas_per_second, floor_latency_seconds)`
+  // seconds of request creation.
   rpc GetProverRequirements(types.GetProverRequirementsRequest)
       returns (types.GetProverRequirementsResponse) {}
   // Get a prover's whitelist and suspension status.
