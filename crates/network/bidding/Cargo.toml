@@ -1,0 +1,11 @@
+[package]
+name = "spn-bidding"
+description = "Pure bidding policy shared by SPN bidders: gas-aware admission, performance-requirement deadlines, and expected-gas sizing from published program estimates."
+version = { workspace = true }
+edition = { workspace = true }
+license = { workspace = true }
+repository = { workspace = true }
+keywords = { workspace = true }
+categories = { workspace = true }
+
+[dependencies]

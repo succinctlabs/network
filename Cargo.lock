@@ -7481,6 +7481,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "spn-bidding"
+version = "0.1.0"
+
+[[package]]
 name = "spn-calibrator"
 version = "0.1.0"
 dependencies = [
