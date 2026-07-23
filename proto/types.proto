@@ -1341,6 +1341,24 @@ message GetProverStatusResponse {
   optional uint64 suspended_until = 3;
 }
 
+message GetProgramGasEstimatesRequest {
+  // Programs to look up. The server caps the number per call.
+  repeated bytes vk_hashes = 1;
+}
+
+message ProgramGasEstimate {
+  bytes vk_hash = 1;
+  // The network's expected gas for this program's next proof. The estimation method
+  // is server-side and may change without notice.
+  uint64 gas_estimate = 2;
+}
+
+message GetProgramGasEstimatesResponse {
+  // One entry per requested vk the network has an estimate for; programs without
+  // one are absent.
+  repeated ProgramGasEstimate estimates = 1;
+}
+
 
 message GetProverStatsRequest {
   optional bytes address = 1;

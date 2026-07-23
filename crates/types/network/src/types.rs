@@ -1769,6 +1769,31 @@ pub struct GetProverStatusResponse {
 }
 #[derive(serde::Serialize, serde::Deserialize)]
 #[derive(Clone, PartialEq, ::prost::Message)]
+pub struct GetProgramGasEstimatesRequest {
+    /// Programs to look up. The server caps the number per call.
+    #[prost(bytes = "vec", repeated, tag = "1")]
+    pub vk_hashes: ::prost::alloc::vec::Vec<::prost::alloc::vec::Vec<u8>>,
+}
+#[derive(serde::Serialize, serde::Deserialize)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct ProgramGasEstimate {
+    #[prost(bytes = "vec", tag = "1")]
+    pub vk_hash: ::prost::alloc::vec::Vec<u8>,
+    /// The network's expected gas for this program's next proof. The estimation method
+    /// is server-side and may change without notice.
+    #[prost(uint64, tag = "2")]
+    pub gas_estimate: u64,
+}
+#[derive(serde::Serialize, serde::Deserialize)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct GetProgramGasEstimatesResponse {
+    /// One entry per requested vk the network has an estimate for; programs without
+    /// one are absent.
+    #[prost(message, repeated, tag = "1")]
+    pub estimates: ::prost::alloc::vec::Vec<ProgramGasEstimate>,
+}
+#[derive(serde::Serialize, serde::Deserialize)]
+#[derive(Clone, PartialEq, ::prost::Message)]
 pub struct GetProverStatsRequest {
     #[prost(bytes = "vec", optional, tag = "1")]
     pub address: ::core::option::Option<::prost::alloc::vec::Vec<u8>>,

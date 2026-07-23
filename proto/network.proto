@@ -156,6 +156,10 @@ service ProverNetwork {
   // Get a prover's whitelist and suspension status.
   rpc GetProverStatus(types.GetProverStatusRequest)
       returns (types.GetProverStatusResponse) {}
+  // Get the network's per-program gas estimates, so provers can size a request by
+  // its expected gas instead of its declared limits.
+  rpc GetProgramGasEstimates(types.GetProgramGasEstimatesRequest)
+      returns (types.GetProgramGasEstimatesResponse) {}
   // Report the self-reported build identity of a prover's cluster components (fulfiller,
   // coordinator, workers). Debugging telemetry signed by the prover key; not attestation.
   rpc ReportProverInfo(types.ReportProverInfoRequest) returns (types.ReportProverInfoResponse) {}

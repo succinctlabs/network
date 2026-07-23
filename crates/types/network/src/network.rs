@@ -1276,6 +1276,36 @@ pub mod prover_network_client {
                 .insert(GrpcMethod::new("network.ProverNetwork", "GetProverStatus"));
             self.inner.unary(req, path, codec).await
         }
+        /// Get the network's per-program gas estimates, so provers can size a request by
+        /// its expected gas instead of its declared limits.
+        pub async fn get_program_gas_estimates(
+            &mut self,
+            request: impl tonic::IntoRequest<
+                super::super::types::GetProgramGasEstimatesRequest,
+            >,
+        ) -> std::result::Result<
+            tonic::Response<super::super::types::GetProgramGasEstimatesResponse>,
+            tonic::Status,
+        > {
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::unknown(
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
+            let codec = tonic::codec::ProstCodec::default();
+            let path = http::uri::PathAndQuery::from_static(
+                "/network.ProverNetwork/GetProgramGasEstimates",
+            );
+            let mut req = request.into_request();
+            req.extensions_mut()
+                .insert(
+                    GrpcMethod::new("network.ProverNetwork", "GetProgramGasEstimates"),
+                );
+            self.inner.unary(req, path, codec).await
+        }
         /// Report the self-reported build identity of a prover's cluster components (fulfiller,
         /// coordinator, workers). Debugging telemetry signed by the prover key; not attestation.
         pub async fn report_prover_info(
@@ -2203,6 +2233,15 @@ pub mod prover_network_server {
             request: tonic::Request<super::super::types::GetProverStatusRequest>,
         ) -> std::result::Result<
             tonic::Response<super::super::types::GetProverStatusResponse>,
+            tonic::Status,
+        >;
+        /// Get the network's per-program gas estimates, so provers can size a request by
+        /// its expected gas instead of its declared limits.
+        async fn get_program_gas_estimates(
+            &self,
+            request: tonic::Request<super::super::types::GetProgramGasEstimatesRequest>,
+        ) -> std::result::Result<
+            tonic::Response<super::super::types::GetProgramGasEstimatesResponse>,
             tonic::Status,
         >;
         /// Report the self-reported build identity of a prover's cluster components (fulfiller,
@@ -4601,6 +4640,58 @@ pub mod prover_network_server {
                     let inner = self.inner.clone();
                     let fut = async move {
                         let method = GetProverStatusSvc(inner);
+                        let codec = tonic::codec::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                "/network.ProverNetwork/GetProgramGasEstimates" => {
+                    #[allow(non_camel_case_types)]
+                    struct GetProgramGasEstimatesSvc<T: ProverNetwork>(pub Arc<T>);
+                    impl<
+                        T: ProverNetwork,
+                    > tonic::server::UnaryService<
+                        super::super::types::GetProgramGasEstimatesRequest,
+                    > for GetProgramGasEstimatesSvc<T> {
+                        type Response = super::super::types::GetProgramGasEstimatesResponse;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<
+                                super::super::types::GetProgramGasEstimatesRequest,
+                            >,
+                        ) -> Self::Future {
+                            let inner = Arc::clone(&self.0);
+                            let fut = async move {
+                                <T as ProverNetwork>::get_program_gas_estimates(
+                                        &inner,
+                                        request,
+                                    )
+                                    .await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let method = GetProgramGasEstimatesSvc(inner);
                         let codec = tonic::codec::ProstCodec::default();
                         let mut grpc = tonic::server::Grpc::new(codec)
                             .apply_compression_config(
