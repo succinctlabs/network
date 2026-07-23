@@ -7,10 +7,12 @@
 
 pub mod admission;
 pub mod estimate_cache;
+pub mod pending;
 pub mod policy;
 pub mod requirements;
 
 pub use admission::{admission_outcome, AdmissionOutcome, ClusterState, RequestDemand};
 pub use estimate_cache::{EstimateCache, EstimateLookup};
+pub use pending::PendingBids;
 pub use policy::expected_gas;
 pub use requirements::{perf_deadline, PerformanceRequirements};
