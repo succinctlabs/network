@@ -1076,6 +1076,9 @@ message ReportProverInfoRequestBody {
   bytes prover = 2;
   // The build identity of one or more cluster components.
   repeated ComponentInfo components = 3;
+  // The GPU capacity snapshot for the cluster. Optional: if it is absent, the receiver
+  // keeps the stored capacity.
+  optional ClusterCapacitySnapshot capacity = 4;
 }
 
 // Self-reported build identity of a single cluster component. This is debugging
@@ -1091,6 +1094,87 @@ message ComponentInfo {
   string git_sha = 3;
   // The container image tag the component is running.
   string image_tag = 4;
+}
+
+// The self-reported GPU capacity of a prover's cluster. This is telemetry, not verified
+// attestation. All GPU time is in GPU-milliseconds, which has the same meaning on all
+// GPU models.
+message ClusterCapacitySnapshot {
+  // Unix seconds on the coordinator clock when the coordinator made this snapshot. This
+  // is not the send time or the receive time.
+  uint64 observed_at = 1;
+  // Unix seconds when the coordinator process started and the counters were zero. The
+  // server subtracts two snapshots only if their `counters_since` values are equal.
+  uint64 counters_since = 2;
+  // The number of connected GPU worker nodes at `observed_at`. Each node has one GPU.
+  uint32 gpu_nodes = 3;
+  // The integral of `gpu_nodes` over time since `counters_since`. This value only
+  // increases. It is the capacity denominator.
+  uint64 gpu_available_ms_total = 4;
+  // The sum of per-task GPU permit-hold time since `counters_since`. This value only
+  // increases. It is the utilization numerator. It can be more than
+  // `gpu_available_ms_total` because of sampling effects.
+  uint64 gpu_busy_ms_total = 5;
+  // One entry for each different GPU model. The `node_count` values add up to `gpu_nodes`.
+  repeated GpuClassCount gpus = 6;
+}
+
+// The number of connected GPU nodes that have the same GPU model.
+message GpuClassCount {
+  // The device name from CUDA, for example "NVIDIA L4". Empty if the node could not
+  // identify its GPU.
+  string name = 1;
+  // The total VRAM of the device in bytes, from CUDA. Zero if unknown.
+  uint64 memory_total_bytes = 2;
+  // The number of connected GPU nodes that have this (name, memory_total_bytes).
+  uint32 node_count = 3;
+}
+
+message GetProverCapacityRequest {
+  // The address of the prover.
+  bytes prover = 1;
+}
+
+message GetProverCapacityResponse {
+  // The latest stored snapshot. Absent if the prover has not reported capacity.
+  optional ProverCapacity capacity = 1;
+}
+
+// The latest stored capacity snapshot for a prover, with the most recent completed
+// observation window.
+message ProverCapacity {
+  // Unix seconds on the coordinator clock when the coordinator made the snapshot.
+  uint64 observed_at = 1;
+  // Unix seconds when the coordinator process started.
+  uint64 counters_since = 2;
+  // The number of connected GPU nodes at `observed_at`. Each node has one GPU.
+  uint32 gpu_nodes = 3;
+  // GPU-milliseconds available since `counters_since`.
+  uint64 gpu_available_ms_total = 4;
+  // GPU-milliseconds busy since `counters_since`.
+  uint64 gpu_busy_ms_total = 5;
+  // One entry for each different GPU model. The `node_count` values add up to `gpu_nodes`.
+  repeated GpuClassCount gpus = 6;
+  // The most recent completed window. Absent until the server has two comparable
+  // snapshots.
+  optional ProverCapacityWindow latest_window = 7;
+  // Unix seconds on the server clock when a report last superseded the stored snapshot.
+  // All other fields come from the prover. Use this field to measure staleness.
+  uint64 last_reported_at = 8;
+}
+
+// The difference between two consecutive snapshots that had the same `counters_since`.
+message ProverCapacityWindow {
+  // Unix seconds of the older snapshot.
+  uint64 window_start = 1;
+  // Unix seconds of the newer snapshot.
+  uint64 window_end = 2;
+  // GPU-milliseconds available in the window.
+  uint64 gpu_available_ms = 3;
+  // GPU-milliseconds busy in the window.
+  uint64 gpu_busy_ms = 4;
+  // The number of connected GPU nodes at `window_end`.
+  uint32 gpu_nodes_end = 5;
 }
 
 message ReportProverInfoResponse {
