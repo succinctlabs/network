@@ -160,6 +160,9 @@ service ProverNetwork {
   // its expected gas instead of its declared limits.
   rpc GetProgramGasEstimates(types.GetProgramGasEstimatesRequest)
       returns (types.GetProgramGasEstimatesResponse) {}
+  // Get the latest stored GPU capacity snapshot for a prover, with its most recent
+  // completed observation window.
+  rpc GetProverCapacity(types.GetProverCapacityRequest) returns (types.GetProverCapacityResponse) {}
   // Report the self-reported build identity of a prover's cluster components (fulfiller,
   // coordinator, workers). Debugging telemetry signed by the prover key; not attestation.
   rpc ReportProverInfo(types.ReportProverInfoRequest) returns (types.ReportProverInfoResponse) {}

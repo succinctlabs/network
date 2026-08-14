@@ -1407,6 +1407,10 @@ pub struct ReportProverInfoRequestBody {
     /// The build identity of one or more cluster components.
     #[prost(message, repeated, tag = "3")]
     pub components: ::prost::alloc::vec::Vec<ComponentInfo>,
+    /// The GPU capacity snapshot for the cluster. Optional: if it is absent, the receiver
+    /// keeps the stored capacity.
+    #[prost(message, optional, tag = "4")]
+    pub capacity: ::core::option::Option<ClusterCapacitySnapshot>,
 }
 /// Self-reported build identity of a single cluster component. This is debugging
 /// telemetry, not verified attestation. `component` is a free-form string validated
@@ -1427,6 +1431,117 @@ pub struct ComponentInfo {
     /// The container image tag the component is running.
     #[prost(string, tag = "4")]
     pub image_tag: ::prost::alloc::string::String,
+}
+/// The self-reported GPU capacity of a prover's cluster. This is telemetry, not verified
+/// attestation. All GPU time is in GPU-milliseconds, which has the same meaning on all
+/// GPU models.
+#[derive(serde::Serialize, serde::Deserialize)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct ClusterCapacitySnapshot {
+    /// Unix seconds on the coordinator clock when the coordinator made this snapshot. This
+    /// is not the send time or the receive time.
+    #[prost(uint64, tag = "1")]
+    pub observed_at: u64,
+    /// Unix seconds when the coordinator process started and the counters were zero. The
+    /// server subtracts two snapshots only if their `counters_since` values are equal.
+    #[prost(uint64, tag = "2")]
+    pub counters_since: u64,
+    /// The number of connected GPU worker nodes at `observed_at`. Each node has one GPU.
+    #[prost(uint32, tag = "3")]
+    pub gpu_nodes: u32,
+    /// The integral of `gpu_nodes` over time since `counters_since`. This value only
+    /// increases. It is the capacity denominator.
+    #[prost(uint64, tag = "4")]
+    pub gpu_available_ms_total: u64,
+    /// The sum of per-task GPU permit-hold time since `counters_since`. This value only
+    /// increases. It is the utilization numerator. It can be more than
+    /// `gpu_available_ms_total` because of sampling effects.
+    #[prost(uint64, tag = "5")]
+    pub gpu_busy_ms_total: u64,
+    /// One entry for each different GPU model. The `node_count` values add up to `gpu_nodes`.
+    #[prost(message, repeated, tag = "6")]
+    pub gpus: ::prost::alloc::vec::Vec<GpuClassCount>,
+}
+/// The number of connected GPU nodes that have the same GPU model.
+#[derive(serde::Serialize, serde::Deserialize)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct GpuClassCount {
+    /// The device name from CUDA, for example "NVIDIA L4". Empty if the node could not
+    /// identify its GPU.
+    #[prost(string, tag = "1")]
+    pub name: ::prost::alloc::string::String,
+    /// The total VRAM of the device in bytes, from CUDA. Zero if unknown.
+    #[prost(uint64, tag = "2")]
+    pub memory_total_bytes: u64,
+    /// The number of connected GPU nodes that have this (name, memory_total_bytes).
+    #[prost(uint32, tag = "3")]
+    pub node_count: u32,
+}
+#[derive(serde::Serialize, serde::Deserialize)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct GetProverCapacityRequest {
+    /// The address of the prover.
+    #[prost(bytes = "vec", tag = "1")]
+    pub prover: ::prost::alloc::vec::Vec<u8>,
+}
+#[derive(serde::Serialize, serde::Deserialize)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct GetProverCapacityResponse {
+    /// The latest stored snapshot. Absent if the prover has not reported capacity.
+    #[prost(message, optional, tag = "1")]
+    pub capacity: ::core::option::Option<ProverCapacity>,
+}
+/// The latest stored capacity snapshot for a prover, with the most recent completed
+/// observation window.
+#[derive(serde::Serialize, serde::Deserialize)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct ProverCapacity {
+    /// Unix seconds on the coordinator clock when the coordinator made the snapshot.
+    #[prost(uint64, tag = "1")]
+    pub observed_at: u64,
+    /// Unix seconds when the coordinator process started.
+    #[prost(uint64, tag = "2")]
+    pub counters_since: u64,
+    /// The number of connected GPU nodes at `observed_at`. Each node has one GPU.
+    #[prost(uint32, tag = "3")]
+    pub gpu_nodes: u32,
+    /// GPU-milliseconds available since `counters_since`.
+    #[prost(uint64, tag = "4")]
+    pub gpu_available_ms_total: u64,
+    /// GPU-milliseconds busy since `counters_since`.
+    #[prost(uint64, tag = "5")]
+    pub gpu_busy_ms_total: u64,
+    /// One entry for each different GPU model. The `node_count` values add up to `gpu_nodes`.
+    #[prost(message, repeated, tag = "6")]
+    pub gpus: ::prost::alloc::vec::Vec<GpuClassCount>,
+    /// The most recent completed window. Absent until the server has two comparable
+    /// snapshots.
+    #[prost(message, optional, tag = "7")]
+    pub latest_window: ::core::option::Option<ProverCapacityWindow>,
+    /// Unix seconds on the server clock when a report last superseded the stored snapshot.
+    /// All other fields come from the prover. Use this field to measure staleness.
+    #[prost(uint64, tag = "8")]
+    pub last_reported_at: u64,
+}
+/// The difference between two consecutive snapshots that had the same `counters_since`.
+#[derive(serde::Serialize, serde::Deserialize)]
+#[derive(Clone, Copy, PartialEq, ::prost::Message)]
+pub struct ProverCapacityWindow {
+    /// Unix seconds of the older snapshot.
+    #[prost(uint64, tag = "1")]
+    pub window_start: u64,
+    /// Unix seconds of the newer snapshot.
+    #[prost(uint64, tag = "2")]
+    pub window_end: u64,
+    /// GPU-milliseconds available in the window.
+    #[prost(uint64, tag = "3")]
+    pub gpu_available_ms: u64,
+    /// GPU-milliseconds busy in the window.
+    #[prost(uint64, tag = "4")]
+    pub gpu_busy_ms: u64,
+    /// The number of connected GPU nodes at `window_end`.
+    #[prost(uint32, tag = "5")]
+    pub gpu_nodes_end: u32,
 }
 #[derive(serde::Serialize, serde::Deserialize)]
 #[derive(Clone, Copy, PartialEq, ::prost::Message)]
