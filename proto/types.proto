@@ -368,6 +368,9 @@ message ProofRequest {
   // Whether this request's stdin is private. When true, stdin_public_uri is
   // empty and stdin is only fetchable via GetStdinUri by an authorized caller.
   bool stdin_private = 38;
+  // The lowest price per prover gas unit the network accepts for this request, in PROVE wei.
+  // Absent means no floor applies.
+  optional string floor_price_per_pgu = 40;
 }
 
 message GetProofRequestStatusRequest {
@@ -596,6 +599,8 @@ message GetProofRequestParamsResponse {
   // Auction tick size in wei per PGU. Bids and `max_price_per_pgu` must be a multiple
   // of this value to be accepted.
   uint64 tick_size = 8;
+  // The network's current floor price per prover gas unit before any request cap, in PROVE wei.
+  string network_floor_price_per_pgu = 9;
 }
 
 /****************

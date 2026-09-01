@@ -48,6 +48,19 @@ pub fn round_down_to_tick(wei: U256, required_bid_multiple: U256) -> U256 {
     wei - (wei % required_bid_multiple)
 }
 
+/// Ceil `wei` to a multiple of `required_bid_multiple`. `0` and `1` mean no tick.
+pub fn round_up_to_tick(wei: U256, required_bid_multiple: U256) -> Result<U256, PriceError> {
+    const ONE: U256 = U256::from_limbs([1, 0, 0, 0]);
+    if required_bid_multiple <= ONE {
+        return Ok(wei);
+    }
+    let remainder = wei % required_bid_multiple;
+    if remainder.is_zero() {
+        return Ok(wei);
+    }
+    wei.checked_add(required_bid_multiple - remainder).ok_or(PriceError::Overflow)
+}
+
 /// Parse a PROVE/USD decimal string (e.g. `"0.40"`) into µUSD (`400_000`).
 ///
 /// The price must be finite and strictly positive. A zero or negative PROVE price is
@@ -208,5 +221,34 @@ mod tests {
     #[test]
     fn round_down_to_tick_sub_tick_rounds_to_zero() {
         assert_eq!(round_down_to_tick(U256::from(5u64), U256::from(10u64)), U256::ZERO);
+    }
+
+    #[test]
+    fn round_up_leaves_aligned_values() {
+        let wei = round_up_to_tick(U256::from(300u64), U256::from(100u64)).unwrap();
+        assert_eq!(wei, U256::from(300u64));
+    }
+
+    #[test]
+    fn round_up_raises_unaligned_values() {
+        let wei = round_up_to_tick(U256::from(210u64), U256::from(100u64)).unwrap();
+        assert_eq!(wei, U256::from(300u64));
+    }
+
+    #[test]
+    fn round_up_tick_sentinels_pass_through() {
+        assert_eq!(round_up_to_tick(U256::from(210u64), U256::ZERO).unwrap(), U256::from(210u64));
+        assert_eq!(
+            round_up_to_tick(U256::from(210u64), U256::from(1u64)).unwrap(),
+            U256::from(210u64)
+        );
+    }
+
+    #[test]
+    fn round_up_overflow_errors() {
+        assert!(matches!(
+            round_up_to_tick(U256::MAX, U256::from(100u64)),
+            Err(PriceError::Overflow)
+        ));
     }
 }

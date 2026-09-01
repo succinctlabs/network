@@ -16,7 +16,8 @@ use spn_network_types::{
     prover_network_client::ProverNetworkClient, BidRequest, BidRequestBody, ExecutionStatus,
     FailFulfillmentRequest, FailFulfillmentRequestBody, FulfillProofRequest,
     FulfillProofRequestBody, FulfillmentStatus, GetFilteredProofRequestsRequest, GetNonceRequest,
-    GetProofRequestDetailsRequest, MessageFormat, ProofMode, Signable, TransactionVariant,
+    GetProofRequestDetailsRequest, MessageFormat, ProofMode, ProofRequest, Signable,
+    TransactionVariant,
 };
 use spn_rpc::{fetch_owner, RetryableRpc};
 use spn_utils::{time_now, SPN_MAINNET_V1_DOMAIN};
@@ -90,6 +91,15 @@ impl SerialBidder {
     #[must_use]
     pub fn new(bid: U256, throughput: f64, prover: Address) -> Self {
         Self { bid, throughput, prover }
+    }
+
+    /// `None` means the request's ceiling is below our price, so we do not bid.
+    fn amount_for(&self, request: &ProofRequest) -> Option<U256> {
+        let wei =
+            |v: Option<&str>| v.filter(|v| !v.is_empty()).and_then(|v| v.parse::<U256>().ok());
+        let floor = wei(request.floor_price_per_pgu.as_deref()).unwrap_or(U256::ZERO);
+        let ceiling = wei(request.max_price_per_pgu.as_deref()).unwrap_or(U256::MAX);
+        Some(self.bid.max(floor)).filter(|amount| *amount <= ceiling)
     }
 }
 
@@ -190,6 +200,11 @@ impl<C: NodeContext> NodeBidder<C> for SerialBidder {
                         .request
                         .ok_or_else(|| anyhow::anyhow!("request details not found"))?;
 
+                    let Some(amount) = self.amount_for(&request) else {
+                        info!(request_id = %request_id, "{SERIAL_BIDDER_TAG} Our price exceeds the request's max price. Skipping...");
+                        return Ok(());
+                    };
+
                     // Log the request details in a structured format.
                     let current_time = time_now();
                     let remaining_time = request.deadline.saturating_sub(current_time);
@@ -226,12 +241,12 @@ impl<C: NodeContext> NodeBidder<C> for SerialBidder {
                     }
 
                     // Bid on the request.
-                    info!(request_id = %request_id, bid = %self.bid, "{SERIAL_BIDDER_TAG} Submitting a bid for request");
+                    info!(request_id = %request_id, bid = %amount, "{SERIAL_BIDDER_TAG} Submitting a bid for request");
                     let body = BidRequestBody {
                         nonce,
                         request_id: hex::decode(request_id.clone())
                             .context("failed to decode request_id")?,
-                        amount: self.bid.to_string(),
+                        amount: amount.to_string(),
                         prover: self.prover.to_vec(),
                         domain: SPN_MAINNET_V1_DOMAIN.to_vec(),
                         variant: TransactionVariant::BidVariant as i32,
@@ -828,5 +843,66 @@ async fn report_request_status<C: NodeContext>(
             "{SERIAL_PROVER_TAG} Successfully reported {} status to network",
             status_type
         );
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use alloy_primitives::{Address, U256};
+    use spn_network_types::ProofRequest;
+
+    use super::SerialBidder;
+
+    fn bidder() -> SerialBidder {
+        SerialBidder::new(U256::from(10u64), 1.0, Address::ZERO)
+    }
+
+    fn request(min: Option<&str>, max: Option<&str>) -> ProofRequest {
+        ProofRequest {
+            floor_price_per_pgu: min.map(ToString::to_string),
+            max_price_per_pgu: max.map(ToString::to_string),
+            ..Default::default()
+        }
+    }
+
+    #[test]
+    fn bid_rises_to_the_requests_floor() {
+        let amount = bidder().amount_for(&request(Some("125000000"), Some("500000000")));
+        assert_eq!(amount, Some(U256::from(125_000_000u64)));
+    }
+
+    #[test]
+    fn bid_without_a_floor_is_the_configured_price() {
+        let amount = bidder().amount_for(&request(None, Some("500000000")));
+        assert_eq!(amount, Some(U256::from(10u64)));
+    }
+
+    #[test]
+    fn floor_above_the_ceiling_skips() {
+        let amount = bidder().amount_for(&request(Some("125000000"), Some("100000000")));
+        assert_eq!(amount, None);
+    }
+
+    #[test]
+    fn configured_bid_above_the_ceiling_skips() {
+        let bidder = SerialBidder::new(U256::from(500_000_000u64), 1.0, Address::ZERO);
+        assert_eq!(bidder.amount_for(&request(None, Some("100000000"))), None);
+    }
+
+    #[test]
+    fn absent_ceiling_does_not_cap() {
+        let amount = bidder().amount_for(&request(Some("125000000"), None));
+        assert_eq!(amount, Some(U256::from(125_000_000u64)));
+    }
+
+    #[test]
+    fn empty_values_are_treated_as_absent() {
+        assert_eq!(bidder().amount_for(&request(Some(""), Some(""))), Some(U256::from(10u64)));
+    }
+
+    #[test]
+    fn unparseable_values_are_treated_as_absent() {
+        let amount = bidder().amount_for(&request(Some("not a number"), Some("also not")));
+        assert_eq!(amount, Some(U256::from(10u64)));
     }
 }

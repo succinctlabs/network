@@ -479,6 +479,10 @@ pub struct ProofRequest {
     /// empty and stdin is only fetchable via GetStdinUri by an authorized caller.
     #[prost(bool, tag = "38")]
     pub stdin_private: bool,
+    /// The lowest price per prover gas unit the network accepts for this request, in PROVE wei.
+    /// Absent means no floor applies.
+    #[prost(string, optional, tag = "40")]
+    pub floor_price_per_pgu: ::core::option::Option<::prost::alloc::string::String>,
 }
 #[derive(serde::Serialize, serde::Deserialize)]
 #[derive(Clone, PartialEq, ::prost::Message)]
@@ -785,6 +789,9 @@ pub struct GetProofRequestParamsResponse {
     /// of this value to be accepted.
     #[prost(uint64, tag = "8")]
     pub tick_size: u64,
+    /// The network's current floor price per prover gas unit before any request cap, in PROVE wei.
+    #[prost(string, tag = "9")]
+    pub network_floor_price_per_pgu: ::prost::alloc::string::String,
 }
 #[derive(serde::Serialize, serde::Deserialize)]
 #[derive(Clone, PartialEq, ::prost::Message)]

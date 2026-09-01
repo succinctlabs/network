@@ -9,6 +9,7 @@ mod provider;
 
 pub use error::PriceError;
 pub use math::{
-    compute_max_price_per_pgu_wei, parse_usd_micros, round_down_to_tick, usd_micros_to_prove_wei,
+    compute_max_price_per_pgu_wei, parse_usd_micros, round_down_to_tick, round_up_to_tick,
+    usd_micros_to_prove_wei,
 };
 pub use provider::{PriceProvider, ProvePrice};
