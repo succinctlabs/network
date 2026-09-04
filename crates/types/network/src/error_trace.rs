@@ -290,13 +290,20 @@ impl ErrorTrace {
         trace
     }
 
-    /// Sanitize (redact secrets, strip boilerplate) and bound every text field,
+    /// Derive recognized panic metadata, sanitize and bound every text field,
     /// then decide whether the trace carries useful context.
     ///
     /// Returns `None` when the trace would amount to junk (e.g. a bare "Unknown
     /// Error" with no other signal), so the caller stores `NULL` rather than a
     /// useless blob.
     pub fn finalize(mut self) -> Option<Self> {
+        if self.panic.is_none() && self.kind == ErrorKind::ProgramPanic {
+            let text = self.details.as_deref().unwrap_or(&self.message);
+            if text.contains("panicked at ") || text.contains("panic occurred at ") {
+                self.panic = parse_panic_block(text);
+            }
+        }
+
         self.message = truncate_bytes(sanitize(&self.message), MESSAGE_MAX);
         self.details = self
             .details
@@ -1151,6 +1158,24 @@ mod tests {
         assert_eq!(t.kind, ErrorKind::ProgramPanic);
         assert_eq!(t.source, ErrorSource::Program);
         assert_eq!(t.exit_code, Some(101));
+        assert!(t.panic.is_none());
+    }
+
+    #[test]
+    fn cluster_execution_guest_panic_extracts_structured_location() {
+        let extra = r#"{"status":3,"failure_cause":1,"cycles":123,"gas":456,"public_values_hash":[],"failure_message":"thread '<unnamed>' (1) panicked at panic/src/main.rs:9:5:\nassertion `left == right` failed\n  left: 1999999000000\n right: 1","exit_code":1}"#;
+        let t = ErrorTrace::from_cluster_extra_data(Some(extra))
+            .and_then(ErrorTrace::finalize)
+            .expect("useful trace");
+
+        assert_eq!(t.kind, ErrorKind::ProgramPanic);
+        assert_eq!(t.source, ErrorSource::Program);
+        assert_eq!(t.exit_code, Some(1));
+        assert_eq!(t.message, "thread '<unnamed>' (1) panicked at panic/src/main.rs:9:5:");
+        assert!(t.details.as_deref().unwrap().contains("assertion `left == right` failed"));
+        let panic = t.panic.expect("panic info");
+        assert_eq!(panic.location.as_deref(), Some("panic/src/main.rs:9:5"));
+        assert!(panic.message.contains("assertion `left == right` failed"));
     }
 
     #[test]
