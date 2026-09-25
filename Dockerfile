@@ -27,7 +27,7 @@ ENV PATH=$PATH:/usr/local/go/bin
 ENV SP1_HOME="/root/.sp1"
 ENV PATH="${SP1_HOME}/bin:${PATH}"
 RUN curl -L https://sp1.succinct.xyz | bash && \
-    sp1up
+    sp1up --version 6.8.1
 
 # Prepare for git dependencies
 ENV CARGO_NET_GIT_FETCH_WITH_CLI=true
