@@ -6,22 +6,28 @@ pub fn has_cuda_support() -> bool {
     // Common paths where nvidia-smi might be installed.
     let nvidia_smi_paths = ["nvidia-smi", "/usr/bin/nvidia-smi", "/usr/local/bin/nvidia-smi"];
 
-    for path in nvidia_smi_paths {
+    let found = nvidia_smi_paths.iter().any(|path| {
         match Command::new(path).output() {
             Ok(output) => {
                 if output.status.success() {
                     debug!("found working nvidia-smi at: {}", path);
-                    return true;
+                    true
+                } else {
+                    debug!("nvidia-smi at {} exists but returned error status", path);
+                    false
                 }
-                debug!("nvidia-smi at {} exists but returned error status", path);
             }
             Err(e) => {
                 debug!("failed to execute nvidia-smi at {}: {}", path, e);
+                false
             }
         }
+    });
+
+    if !found {
+        debug!("no working nvidia-smi found in any standard location");
     }
-
-    debug!("no working nvidia-smi found in any standard location");
-
-    false
+    
+    found
 }
+
