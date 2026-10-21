@@ -10,10 +10,10 @@ keywords = { workspace = true }
 categories = { workspace = true }
 
 [dependencies]
-tonic = { workspace = true, features = ["tls", "tls-roots", "gzip"] }
+tonic = { workspace = true, features = ["tls-ring", "tls-native-roots", "gzip"] }
+tonic-prost = { workspace = true }
 prost = { workspace = true }
 serde = { workspace = true }
 
 [build-dependencies]
-prost-build = { workspace = true }
-tonic-build = { workspace = true }
+tonic-prost-build = { workspace = true }
