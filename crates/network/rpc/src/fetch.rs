@@ -1,7 +1,7 @@
 use std::str::FromStr;
 
 use alloy_primitives::U256;
-use anyhow::Result;
+use anyhow::{anyhow, Result};
 use spn_network_types::{
     prover_network_client::ProverNetworkClient, GetBalanceRequest, GetOwnerRequest,
 };
@@ -35,7 +35,25 @@ pub async fn fetch_owner(
     address: &[u8],
 ) -> Result<Vec<u8>> {
     let address = address.to_vec();
-    let req = Request::new(GetOwnerRequest { address });
-    let resp = network.clone().get_owner(req).await?;
-    Ok(resp.into_inner().owner)
+    let response = network
+        .clone()
+        .with_retry(
+            || async {
+                debug!("fetching owner for {}", hex::encode(&address));
+                let req = Request::new(GetOwnerRequest { address: address.clone() });
+                let response = network.clone().get_owner(req).await?;
+                Ok(response.into_inner().owner)
+            },
+            "get owner",
+        )
+        .await?;
+    
+    debug!("fetched owner for {} with response: {}", hex::encode(&address), hex::encode(&response));
+    
+    // Check if the owner address is empty
+    if response.is_empty() {
+        return Err(anyhow!("Owner address is empty"));
+    }
+    
+    Ok(response)
 }
