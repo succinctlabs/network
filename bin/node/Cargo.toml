@@ -28,5 +28,5 @@ clap = { version = "4.0", features = ["derive"] }
 rustls = { workspace = true, features = ["ring"] }
 tabled = "0.15"
 tokio = { workspace = true, features = ["full"] }
-tonic = { workspace = true , features = ["tls", "tls-roots", "gzip"] }
+tonic = { workspace = true , features = ["tls-ring", "tls-native-roots", "gzip"] }
 tracing = { workspace = true }

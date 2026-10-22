@@ -10,8 +10,8 @@ categories = { workspace = true }
 
 [dependencies]
 tonic = { workspace = true, optional = true }
+tonic-prost = { workspace = true, optional = true }
 prost = { workspace = true }
-prost-types = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 alloy = { workspace = true, optional = true }
@@ -20,8 +20,7 @@ alloy-primitives = { workspace = true }
 thiserror = { workspace = true }
 
 [build-dependencies]
-prost-build = { workspace = true }
-tonic-build = { workspace = true }
+tonic-prost-build = { workspace = true }
 
 [features]
-network = ["tonic", "alloy"]
+network = ["tonic", "tonic-prost", "alloy"]
