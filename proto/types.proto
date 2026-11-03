@@ -1999,4 +1999,6 @@ enum ProofRequestError {
   // Execution succeeded but a downstream proving task (controller, shard prove,
   // recursion, wrap, etc.) hit a fatal error.
   PROVING_FAILURE = 6;
+  // The program artifact exceeds the proxy's size limit.
+  PROGRAM_TOO_LARGE = 7;
 }
