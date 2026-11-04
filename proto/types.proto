@@ -2001,4 +2001,6 @@ enum ProofRequestError {
   PROVING_FAILURE = 6;
   // The program artifact exceeds the proxy's size limit.
   PROGRAM_TOO_LARGE = 7;
+  // The program artifact cannot be decoded.
+  INVALID_PROGRAM = 8;
 }
