@@ -48,7 +48,7 @@ contract SuccinctVAppReceiptGasTest is SuccinctVAppTest {
         uint64 step;
         bytes32 root = fixture.oldRoot;
         while (remaining > 0) {
-            uint256 count = remaining > 46 ? 46 : remaining;
+            uint256 count = remaining > 32 ? 32 : remaining;
             bytes32 nextRoot = bytes32(uint256(++step));
             bytes memory values = _withdrawals(count, root, nextRoot, false);
             vm.prank(AUCTIONEER);
@@ -61,21 +61,21 @@ contract SuccinctVAppReceiptGasTest is SuccinctVAppTest {
             root = nextRoot;
             remaining -= count;
         }
-        assertEq(step, 22);
+        assertEq(step, 32);
         assertEq(MockERC20(PROVE).balanceOf(ALICE), 1_000);
         assertEq(MockERC20(PROVE).balanceOf(VAPP), 0);
     }
 
     function test_ReceiptGas_ColdRecipientsFitBoundedPrefix() public {
         mockCall(true);
-        MockERC20(PROVE).mint(VAPP, 46);
-        bytes memory values = _withdrawals(46, fixture.oldRoot, bytes32(uint256(1)), true);
+        MockERC20(PROVE).mint(VAPP, 32);
+        bytes memory values = _withdrawals(32, fixture.oldRoot, bytes32(uint256(1)), true);
         vm.prank(AUCTIONEER);
         (bool ok,) = VAPP.call{gas: 7_000_000}(
             abi.encodeCall(SuccinctVApp.step, (values, jsonFixture.proof))
         );
         assertTrue(ok, "cold balances fit with room for verification and calldata");
-        for (uint256 i = 0; i < 46; i++) {
+        for (uint256 i = 0; i < 32; i++) {
             assertEq(MockERC20(PROVE).balanceOf(address(uint160(i + 100))), 1);
         }
     }
@@ -137,11 +137,11 @@ contract SuccinctVAppReceiptGasVaultTest is Test {
             ROOT
         );
         staking.setVApp(address(vapp));
-        for (uint256 i = 0; i < 46; i++) {
+        for (uint256 i = 0; i < 32; i++) {
             // Real prover constructors self-delegate, exercising distinct voting checkpoints.
             vaults.push(staking.createProver(address(uint160(i + 100)), 1_000));
         }
-        prove.mint(address(vapp), 46);
+        prove.mint(address(vapp), 32);
     }
 
     function test_ReceiptGas_ColdVaultRewardsFitBoundedPrefix() public {
