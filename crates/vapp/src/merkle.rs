@@ -96,6 +96,70 @@ pub trait MerkleTreeHasher {
     fn hash_pair<V: StorageValue>(left: &V, right: &V) -> B256;
 }
 
+/// Incremental root calculation against an immutable snapshot of a full tree.
+///
+/// Each update reuses paths changed by earlier updates. Proofs are generated from the owned
+/// snapshot, so callers cannot supply unverified paths. The snapshot itself is never modified.
+/// Retained paths grow with the number of distinct updated keys; create a new updater from the
+/// current full tree at a suitable boundary to release them.
+pub struct MerkleRootUpdater<K: StorageKey, V: StorageValue, H: MerkleTreeHasher = Keccak256> {
+    base: MerkleStorage<K, V, H>,
+    nodes: BTreeMap<(usize, U256), B256>,
+    root: B256,
+}
+
+impl<K: StorageKey, V: StorageValue, H: MerkleTreeHasher> MerkleRootUpdater<K, V, H> {
+    /// Takes ownership of the baseline tree and calculates its initial root.
+    #[must_use]
+    pub fn new(base: MerkleStorage<K, V, H>) -> Self {
+        Self { root: base.root(), base, nodes: BTreeMap::new() }
+    }
+
+    /// Returns the root after all updates applied so far, without rebuilding the tree.
+    #[must_use]
+    pub fn root(&self) -> B256 {
+        self.root
+    }
+
+    /// Sets a leaf's value for root calculation, preserving all earlier updates.
+    ///
+    /// `None` represents an absent leaf, which differs from a present default-valued leaf.
+    /// This changes only the calculated root; callers update their full tree separately.
+    ///
+    /// # Errors
+    /// Returns an error if the key is outside the tree's index space. The calculated root and
+    /// retained paths remain unchanged on failure.
+    pub fn update(&mut self, key: &K, value: Option<&V>) -> Result<B256, MerkleStorageError> {
+        let proof = self.base.proof(key)?;
+        self.root = update_merkle_path(&mut self.nodes, &proof, value);
+        Ok(self.root)
+    }
+}
+
+/// Applies a path authenticated against the common baseline, reusing previously changed nodes.
+/// Callers either verify supplied proofs or generate them from their owned baseline tree.
+fn update_merkle_path<K: StorageKey, V: StorageValue, H: MerkleTreeHasher>(
+    nodes: &mut BTreeMap<(usize, U256), B256>,
+    proof: &MerkleProof<K, V, H>,
+    value: Option<&V>,
+) -> B256 {
+    let mut index = proof.key.index();
+    let mut hash = value.map_or(B256::ZERO, H::hash);
+    nodes.insert((0, index), hash);
+    for (level, original_sibling) in proof.proof.iter().enumerate() {
+        // An earlier update may have changed the sibling since this baseline proof.
+        let sibling = nodes.get(&(level, index ^ U256::ONE)).unwrap_or(original_sibling);
+        hash = if index & U256::ONE == U256::ZERO {
+            H::hash_pair(&hash, sibling)
+        } else {
+            H::hash_pair(sibling, &hash)
+        };
+        index >>= 1;
+        nodes.insert((level + 1, index), hash);
+    }
+    hash
+}
+
 impl<K: StorageKey, V: StorageValue, H: MerkleTreeHasher> MerkleStorage<K, V, H> {
     /// Compute the merkle root from scratch.
     #[must_use]
@@ -383,63 +447,14 @@ impl<K: StorageKey, V: StorageValue, H: MerkleTreeHasher> MerkleStorage<K, V, H>
             }
         }
 
-        // -----------------------------------------------------------------------------------------
-        // 2. Collect all nodes that are known after the update. We build a map keyed by (level,
-        //    index) -> hash. Level 0 corresponds to leaves, a larger level means a node that is
-        //    further up the tree.  The map is gradually filled while we walk over all proofs.
-        // -----------------------------------------------------------------------------------------
+        // Use the same path calculation as incremental updates, after verifying all inputs.
         let num_bits = K::bits();
         let mut nodes: BTreeMap<(usize, U256), B256> = BTreeMap::new();
-
-        // Iterate over every proof and replay its path to the root using the
-        // (possibly updated) value for the leaf.
         for proof in proofs {
-            let leaf_index = proof.key.index();
-            let is_updated = updated_value_map.contains_key(&leaf_index);
-            let mut current_hash = if is_updated {
-                H::hash(updated_value_map[&leaf_index])
-            } else {
-                match &proof.value {
-                    Some(v) => H::hash(v),
-                    None => B256::ZERO,
-                }
-            };
-            let mut current_index = leaf_index;
-
-            // Store/overwrite the leaf node.
-            nodes.insert((0, current_index), current_hash);
-
-            // Walk up the tree using the supplied sibling hashes.
-            for (level, &proof_sibling_hash) in proof.proof.iter().enumerate() {
-                let sibling_index = current_index ^ U256::ONE;
-                // Prefer an updated sibling hash that might already be present in the map.
-                let sibling_hash =
-                    nodes.get(&(level, sibling_index)).copied().unwrap_or(proof_sibling_hash);
-
-                // Make sure the sibling is also recorded so later proofs can
-                // make use of a potentially updated version.
-                nodes.entry((level, sibling_index)).or_insert(sibling_hash);
-
-                // Compose the parent hash.
-                let parent_hash = if current_index & U256::ONE == U256::ZERO {
-                    H::hash_pair(&current_hash, &sibling_hash)
-                } else {
-                    H::hash_pair(&sibling_hash, &current_hash)
-                };
-
-                current_index >>= 1;
-                current_hash = parent_hash;
-
-                // Persist the parent for use by subsequent proofs.
-                nodes.insert((level + 1, current_index), current_hash);
-            }
+            let value = updated_value_map.get(&proof.key.index()).copied().or(proof.value.as_ref());
+            update_merkle_path(&mut nodes, proof, value);
         }
 
-        // -----------------------------------------------------------------------------------------
-        // 3. The root resides at `level == num_bits` and `index == 0` after all proofs have been
-        //    processed.  We stored/overwrote that entry during the previous loop, so we can read it
-        //    directly.
-        // -----------------------------------------------------------------------------------------
         nodes
             .get(&(num_bits, U256::ZERO))
             .copied()
@@ -570,6 +585,164 @@ mod tests {
 
     type U256Tree = MerkleStorage<U256, U256>;
     type AddressTree = MerkleStorage<Address, U256>;
+
+    #[test]
+    fn incremental_roots_match_full_and_stateless_calculation_across_snapshots() {
+        let keys: Vec<_> = (0_u64..24)
+            .map(|i| {
+                if i % 2 == 0 {
+                    U256::from(i)
+                } else {
+                    U256::from_be_bytes(keccak256(i.to_le_bytes()).0)
+                }
+            })
+            .collect();
+        let mut baseline = U256Tree::new();
+        for key in &keys[..12] {
+            baseline.insert(*key, U256::ONE).unwrap();
+        }
+        let old_root = baseline.root();
+        let mut proofs: Vec<_> = keys.iter().map(|key| baseline.proof(key).unwrap()).collect();
+        let mut current = baseline.clone();
+        let mut updater = MerkleRootUpdater::new(baseline);
+        assert_eq!(updater.root(), old_root);
+        assert_eq!(updater.update(&keys[23], None).unwrap(), old_root);
+
+        for i in 0..96 {
+            if i == 48 {
+                updater = MerkleRootUpdater::new(current.clone());
+            }
+            let key = keys[(i * 17) % keys.len()];
+            let value = U256::from(i);
+            current.insert(key, value).unwrap();
+            let root = updater.update(&key, Some(&value)).unwrap();
+            assert_eq!(root, current.root(), "full root at update {i}");
+            let values: Vec<_> = keys
+                .iter()
+                .filter_map(|key| current.get_untracked(key).map(|value| (*key, *value)))
+                .collect();
+            proofs.reverse();
+            assert_eq!(
+                root,
+                U256Tree::calculate_new_root(old_root, &proofs, &values).unwrap(),
+                "stateless root at update {i}"
+            );
+        }
+    }
+
+    #[test]
+    fn incremental_roots_distinguish_absent_zero_removed_and_reinserted_leaves() {
+        let mut tree = U256Tree::new();
+        tree.insert(U256::ZERO, U256::from(7)).unwrap();
+        tree.insert(U256::ONE, U256::from(8)).unwrap();
+        let mut updater = MerkleRootUpdater::new(tree.clone());
+        for (key, value) in [
+            (U256::from(2), None),
+            (U256::from(2), Some(U256::ZERO)),
+            (U256::ZERO, None),
+            (U256::ONE, Some(U256::from(9))),
+            (U256::ZERO, Some(U256::from(10))),
+            (U256::from(2), None),
+            (U256::from(2), Some(U256::from(11))),
+        ] {
+            let previous_root = tree.root();
+            if let Some(value) = value {
+                tree.insert(key, value).unwrap();
+            } else {
+                tree.leaves.remove(&key);
+            }
+            let root = updater.update(&key, value.as_ref()).unwrap();
+            assert_eq!(root, tree.root());
+            if value == Some(U256::ZERO) {
+                assert_ne!(root, previous_root, "an absent leaf differs from a zero value");
+            }
+        }
+    }
+
+    #[test]
+    fn incremental_update_rejects_out_of_bounds_keys_without_changing_the_root() {
+        #[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+        struct ByteKey(u16);
+        impl StorageKey for ByteKey {
+            fn index(&self) -> U256 {
+                U256::from(self.0)
+            }
+            fn bits() -> usize {
+                8
+            }
+        }
+        let mut tree = MerkleStorage::<ByteKey, U256>::new();
+        let mut updater = MerkleRootUpdater::new(tree.clone());
+        tree.insert(ByteKey(1), U256::ONE).unwrap();
+        let root = updater.update(&ByteKey(1), Some(&U256::ONE)).unwrap();
+        assert_eq!(
+            updater.update(&ByteKey(256), Some(&U256::ONE)),
+            Err(MerkleStorageError::IndexOutOfBounds { index: U256::from(256), num_bits: 8 })
+        );
+        assert_eq!(updater.root(), root);
+        tree.insert(ByteKey(255), U256::from(2)).unwrap();
+        assert_eq!(updater.update(&ByteKey(255), Some(&U256::from(2))).unwrap(), tree.root());
+    }
+
+    #[test]
+    fn incremental_and_stateless_updates_use_the_configured_hasher() {
+        #[derive(Clone)]
+        struct ReversedHasher;
+        impl MerkleTreeHasher for ReversedHasher {
+            fn hash<V: StorageValue>(value: &V) -> B256 {
+                Keccak256::hash(value)
+            }
+            fn hash_pair<V: StorageValue>(left: &V, right: &V) -> B256 {
+                Keccak256::hash_pair(right, left)
+            }
+        }
+        type Tree = MerkleStorage<Address, U256, ReversedHasher>;
+        let keys: Vec<_> = (0..16).map(|i| Address::repeat_byte(i + 1)).collect();
+        let mut baseline = Tree::new();
+        for key in &keys[..8] {
+            baseline.insert(*key, U256::ONE).unwrap();
+        }
+        let old_root = baseline.root();
+        let proofs: Vec<_> = keys.iter().map(|key| baseline.proof(key).unwrap()).collect();
+        let mut current = baseline.clone();
+        let mut updater = MerkleRootUpdater::new(baseline);
+        for i in 0..32 {
+            let key = keys[i % keys.len()];
+            let value = U256::from(i);
+            current.insert(key, value).unwrap();
+            let root = updater.update(&key, Some(&value)).unwrap();
+            let values: Vec<_> = keys
+                .iter()
+                .filter_map(|key| current.get_untracked(key).map(|value| (*key, *value)))
+                .collect();
+            assert_eq!(root, current.root());
+            assert_eq!(root, Tree::calculate_new_root(old_root, &proofs, &values).unwrap());
+        }
+    }
+
+    #[test]
+    fn stateless_calculation_still_rejects_invalid_read_only_proofs() {
+        let mut tree = U256Tree::new();
+        tree.insert(U256::ONE, U256::from(7)).unwrap();
+        let root = tree.root();
+        let proof = tree.proof(&U256::ONE).unwrap();
+        let mut malformed = proof.clone();
+        malformed.proof.pop();
+        assert_eq!(
+            U256Tree::calculate_new_root(root, &[malformed], &[]),
+            Err(MerkleStorageError::InvalidMerkleProofLength)
+        );
+        let mut tampered = proof.clone();
+        tampered.value = Some(U256::from(8));
+        assert_eq!(
+            U256Tree::calculate_new_root(root, &[tampered], &[]),
+            Err(MerkleStorageError::InvalidMerkleProof)
+        );
+        assert_eq!(
+            U256Tree::calculate_new_root(B256::ZERO, &[proof], &[]),
+            Err(MerkleStorageError::InvalidMerkleProof)
+        );
+    }
 
     #[test]
     fn empty_tree_has_expected_root() {
