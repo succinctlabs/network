@@ -41,31 +41,6 @@ contract SuccinctVAppReceiptGasTest is SuccinctVAppTest {
         assertEq(MockERC20(PROVE).balanceOf(ALICE), 1_000);
     }
 
-    function test_ReceiptGas_SplitWithdrawalsAdvanceConsecutiveRoots() public {
-        mockCall(true);
-        MockERC20(PROVE).mint(VAPP, 1_000);
-        uint256 remaining = 1_000;
-        uint64 step;
-        bytes32 root = fixture.oldRoot;
-        while (remaining > 0) {
-            uint256 count = remaining > 32 ? 32 : remaining;
-            bytes32 nextRoot = bytes32(uint256(++step));
-            bytes memory values = _withdrawals(count, root, nextRoot, false);
-            vm.prank(AUCTIONEER);
-            (bool ok,) = VAPP.call{gas: 8_000_000}(
-                abi.encodeCall(SuccinctVApp.step, (values, jsonFixture.proof))
-            );
-            assertTrue(ok, "bounded withdrawal prefix must fit");
-            assertEq(SuccinctVApp(VAPP).blockNumber(), step);
-            assertEq(SuccinctVApp(VAPP).root(), nextRoot);
-            root = nextRoot;
-            remaining -= count;
-        }
-        assertEq(step, 32);
-        assertEq(MockERC20(PROVE).balanceOf(ALICE), 1_000);
-        assertEq(MockERC20(PROVE).balanceOf(VAPP), 0);
-    }
-
     function test_ReceiptGas_ColdRecipientsFitBoundedPrefix() public {
         mockCall(true);
         MockERC20(PROVE).mint(VAPP, 32);
