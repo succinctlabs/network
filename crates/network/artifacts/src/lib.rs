@@ -116,7 +116,7 @@ impl Artifact {
         let mut delay = Duration::from_secs(1); // Start with 1 second delay
 
         loop {
-            match download_s3_file(&s3_client, s3_bucket, &self.id, artifact_type).await {
+            match download_s3_file(&s3_client, s3_bucket, &self.id, artifact_type, u64::MAX).await {
                 Ok(bytes) => return Ok(bytes),
                 Err(e) => {
                     retry_count += 1;
@@ -163,9 +163,9 @@ impl Artifact {
                 let bucket =
                     parsed_url.host_str().ok_or_else(|| anyhow!("S3 URI missing bucket: {uri}"))?;
                 let s3_client = get_s3_client(s3_region).await;
-                download_s3_file(&s3_client, bucket, &self.id, artifact_type).await
+                download_s3_file(&s3_client, bucket, &self.id, artifact_type, u64::MAX).await
             }
-            "https" => download_https_file(uri).await,
+            "https" => download_https_file(uri, u64::MAX).await,
             scheme => Err(anyhow!("Unsupported URI scheme for download_raw_from_uri: {scheme}")),
         }
     }
@@ -182,6 +182,7 @@ impl Artifact {
     /// * `s3_region` - The AWS region for S3 operations
     /// * `artifact_type` - The type of artifact determining the S3 prefix
     /// * `concurrency` - Optional concurrency limit (default: 8)
+    /// * `max_bytes` - The largest artifact to accept; a larger one fails with [`ArtifactTooLarge`]
     #[instrument(fields(label = self.label, id = self.id), skip_all)]
     pub async fn download_raw_from_uri_par(
         &self,
@@ -189,6 +190,7 @@ impl Artifact {
         s3_region: &str,
         artifact_type: ArtifactType,
         concurrency: Option<usize>,
+        max_bytes: u64,
     ) -> Result<Bytes> {
         let parsed_url = Url::parse(uri).context("Failed to parse URI")?;
         match parsed_url.scheme() {
@@ -196,9 +198,17 @@ impl Artifact {
                 let bucket =
                     parsed_url.host_str().ok_or_else(|| anyhow!("S3 URI missing bucket: {uri}"))?;
                 let s3_client = get_s3_client(s3_region).await;
-                download_s3_file_par(&s3_client, bucket, &self.id, artifact_type, concurrency).await
+                download_s3_file_par(
+                    &s3_client,
+                    bucket,
+                    &self.id,
+                    artifact_type,
+                    concurrency,
+                    max_bytes,
+                )
+                .await
             }
-            "https" => download_https_file_par(uri, concurrency).await,
+            "https" => download_https_file_par(uri, concurrency, max_bytes).await,
             scheme => {
                 Err(anyhow!("Unsupported URI scheme for download_raw_from_uri_par: {scheme}"))
             }
@@ -452,11 +462,20 @@ async fn get_s3_client(s3_region: &str) -> Arc<S3Client> {
     }
 }
 
+/// A download refused because the artifact is larger than the caller accepts.
+#[derive(Debug, thiserror::Error)]
+#[error("artifact exceeds {max_bytes} bytes")]
+pub struct ArtifactTooLarge {
+    /// The size limit of the refused download.
+    pub max_bytes: u64,
+}
+
 async fn download_s3_file(
     client: &S3Client,
     bucket: &str,
     id: &str,
     artifact_type: ArtifactType,
+    max_bytes: u64,
 ) -> Result<Bytes> {
     let key = get_s3_key(artifact_type, id);
 
@@ -467,6 +486,10 @@ async fn download_s3_file(
         .send()
         .await
         .context("Failed to get object from S3")?;
+
+    if res.content_length().is_some_and(|len| len as u64 > max_bytes) {
+        return Err(ArtifactTooLarge { max_bytes }.into());
+    }
 
     let data = res.body.collect().await.context("Failed to read S3 object body")?;
     let bytes = data.into_bytes();
@@ -480,6 +503,7 @@ async fn download_s3_file_par(
     id: &str,
     artifact_type: ArtifactType,
     concurrency: Option<usize>,
+    max_bytes: u64,
 ) -> Result<Bytes> {
     let key = get_s3_key(artifact_type, id);
     let concurrency = concurrency.unwrap_or(DEFAULT_CONCURRENCY);
@@ -498,8 +522,12 @@ async fn download_s3_file_par(
         return Err(anyhow!("Invalid object size: {size}"));
     }
 
+    if size as u64 > max_bytes {
+        return Err(ArtifactTooLarge { max_bytes }.into());
+    }
+
     if size as usize <= CHUNK_SIZE {
-        return download_s3_file(client, bucket, id, artifact_type).await;
+        return download_s3_file(client, bucket, id, artifact_type, max_bytes).await;
     }
 
     let starts: Vec<(usize, i64)> = (0..size).step_by(CHUNK_SIZE).enumerate().collect();
@@ -575,9 +603,9 @@ async fn download_s3_file_par(
     Ok(Bytes::from(result))
 }
 
-async fn download_https_file(uri: &str) -> Result<Bytes> {
+async fn download_https_file(uri: &str, max_bytes: u64) -> Result<Bytes> {
     let client = reqwest::Client::new();
-    let res = client
+    let mut res = client
         .get(uri)
         .timeout(Duration::from_secs(90))
         .send()
@@ -586,12 +614,25 @@ async fn download_https_file(uri: &str) -> Result<Bytes> {
     if !res.status().is_success() {
         return Err(anyhow!("Failed to download from HTTPS URL {uri}: status {}", res.status()));
     }
-    let bytes = res.bytes().await.context("Failed to read HTTPS response body")?;
-    Ok(bytes)
+    if res.content_length().is_some_and(|len| len > max_bytes) {
+        return Err(ArtifactTooLarge { max_bytes }.into());
+    }
+    let mut body = Vec::new();
+    while let Some(chunk) = res.chunk().await.context("Failed to read HTTPS response body")? {
+        if (body.len() + chunk.len()) as u64 > max_bytes {
+            return Err(ArtifactTooLarge { max_bytes }.into());
+        }
+        body.extend_from_slice(&chunk);
+    }
+    Ok(body.into())
 }
 
 #[allow(clippy::too_many_lines)]
-async fn download_https_file_par(uri: &str, concurrency: Option<usize>) -> Result<Bytes> {
+async fn download_https_file_par(
+    uri: &str,
+    concurrency: Option<usize>,
+    max_bytes: u64,
+) -> Result<Bytes> {
     let concurrency = concurrency.unwrap_or(DEFAULT_CONCURRENCY);
     let client = reqwest::Client::new();
 
@@ -622,13 +663,17 @@ async fn download_https_file_par(uri: &str, concurrency: Option<usize>) -> Resul
         .and_then(|v| v.parse::<usize>().ok());
 
     if !supports_range || size.is_none() {
-        return download_https_file(uri).await;
+        return download_https_file(uri, max_bytes).await;
     }
 
     let size = size.unwrap();
 
+    if size as u64 > max_bytes {
+        return Err(ArtifactTooLarge { max_bytes }.into());
+    }
+
     if size <= CHUNK_SIZE {
-        return download_https_file(uri).await;
+        return download_https_file(uri, max_bytes).await;
     }
 
     let starts: Vec<(usize, usize)> = (0..size).step_by(CHUNK_SIZE).enumerate().collect();
@@ -751,9 +796,36 @@ async fn upload_file(
 mod tests {
     use super::*;
     use spn_artifact_types::ArtifactType;
+    use tokio::io::{AsyncReadExt, AsyncWriteExt};
 
     #[test]
     fn private_stdin_has_its_own_prefix() {
         assert_eq!(get_s3_prefix(ArtifactType::PrivateStdin), "private-stdins");
+    }
+
+    async fn serve(response: &'static str) -> String {
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let uri = format!("http://{}/", listener.local_addr().unwrap());
+        tokio::spawn(async move {
+            loop {
+                let (mut socket, _) = listener.accept().await.unwrap();
+                let _ = socket.read(&mut [0; 1024]).await.unwrap();
+                socket.write_all(response.as_bytes()).await.unwrap();
+            }
+        });
+        uri
+    }
+
+    #[tokio::test]
+    async fn https_download_rejects_a_body_over_the_cap() {
+        let with_length = "HTTP/1.1 200 OK\r\ncontent-length: 10\r\n\r\n0123456789";
+        let chunked =
+            "HTTP/1.1 200 OK\r\ntransfer-encoding: chunked\r\n\r\na\r\n0123456789\r\n0\r\n\r\n";
+        for response in [with_length, chunked] {
+            let uri = serve(response).await;
+            assert_eq!(download_https_file(&uri, 10).await.unwrap().len(), 10);
+            let err = download_https_file(&uri, 9).await.unwrap_err();
+            assert!(err.is::<ArtifactTooLarge>());
+        }
     }
 }
