@@ -6,6 +6,7 @@
 use std::{
     collections::{btree_map::Entry, BTreeMap, BTreeSet},
     marker::PhantomData,
+    sync::Mutex,
 };
 
 use alloy_primitives::{keccak256, Keccak256, B256, U256};
@@ -28,15 +29,16 @@ const COMPUTE_NODE_CACHE_LAYERS: usize = 20;
 /// This implementation supports `2^K::bits()` possible indices and uses sparse storage to
 /// efficiently handle large address spaces. Empty subtrees are optimized using precomputed zero
 /// hashes.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct MerkleStorage<K: StorageKey, V: StorageValue, H: MerkleTreeHasher = Keccak256> {
     /// Sparse storage for non-empty leaves (key -> value).
     leaves: BTreeMap<U256, V>,
     /// Precomputed zero hashes for each layer (optimization for sparse trees).
     zero_hashes: Vec<B256>,
-    /// Cache for computed node hashes to avoid recomputation.
+    /// Bounded node cache, shared by roots and proofs. The lock preserves immutable root reads.
+    /// Cloning and serialization omit the cache.
     #[serde(skip)]
-    cache: BTreeMap<(usize, U256), B256>,
+    cache: Mutex<BTreeMap<(usize, U256), B256>>,
     /// Set of keys that have been touched (read or written).
     #[serde(skip)]
     touched_keys: BTreeSet<K>,
@@ -44,6 +46,20 @@ pub struct MerkleStorage<K: StorageKey, V: StorageValue, H: MerkleTreeHasher = K
     _key: PhantomData<K>,
     /// The phantom data for the hasher type.
     _hasher: PhantomData<H>,
+}
+
+// State snapshots copy leaves, not the disposable cache of their source.
+impl<K: StorageKey, V: StorageValue, H: MerkleTreeHasher> Clone for MerkleStorage<K, V, H> {
+    fn clone(&self) -> Self {
+        Self {
+            leaves: self.leaves.clone(),
+            zero_hashes: self.zero_hashes.clone(),
+            cache: Mutex::new(BTreeMap::new()),
+            touched_keys: self.touched_keys.clone(),
+            _key: PhantomData,
+            _hasher: PhantomData,
+        }
+    }
 }
 
 /// Errors that can occur during [`MerkleStorage`] operations.
@@ -96,131 +112,21 @@ pub trait MerkleTreeHasher {
     fn hash_pair<V: StorageValue>(left: &V, right: &V) -> B256;
 }
 
-/// Incremental root calculation against an immutable snapshot of a full tree.
-///
-/// Each update reuses paths changed by earlier updates. Proofs are generated from the owned
-/// snapshot, so callers cannot supply unverified paths. The snapshot itself is never modified.
-/// Retained paths grow with the number of distinct updated keys; create a new updater from the
-/// current full tree at a suitable boundary to release them.
-pub struct MerkleRootUpdater<K: StorageKey, V: StorageValue, H: MerkleTreeHasher = Keccak256> {
-    base: MerkleStorage<K, V, H>,
-    nodes: BTreeMap<(usize, U256), B256>,
-    root: B256,
-}
-
-impl<K: StorageKey, V: StorageValue, H: MerkleTreeHasher> MerkleRootUpdater<K, V, H> {
-    /// Takes ownership of the baseline tree and calculates its initial root.
-    #[must_use]
-    pub fn new(base: MerkleStorage<K, V, H>) -> Self {
-        Self { root: base.root(), base, nodes: BTreeMap::new() }
-    }
-
-    /// Returns the root after all updates applied so far, without rebuilding the tree.
-    #[must_use]
-    pub fn root(&self) -> B256 {
-        self.root
-    }
-
-    /// Sets a leaf's value for root calculation, preserving all earlier updates.
-    ///
-    /// `None` represents an absent leaf, which differs from a present default-valued leaf.
-    /// This changes only the calculated root; callers update their full tree separately.
-    ///
-    /// # Errors
-    /// Returns an error if the key is outside the tree's index space. The calculated root and
-    /// retained paths remain unchanged on failure.
-    pub fn update(&mut self, key: &K, value: Option<&V>) -> Result<B256, MerkleStorageError> {
-        let proof = self.base.proof(key)?;
-        self.root = update_merkle_path(&mut self.nodes, &proof, value);
-        Ok(self.root)
-    }
-}
-
-/// Applies a path authenticated against the common baseline, reusing previously changed nodes.
-/// Callers either verify supplied proofs or generate them from their owned baseline tree.
-fn update_merkle_path<K: StorageKey, V: StorageValue, H: MerkleTreeHasher>(
-    nodes: &mut BTreeMap<(usize, U256), B256>,
-    proof: &MerkleProof<K, V, H>,
-    value: Option<&V>,
-) -> B256 {
-    let mut index = proof.key.index();
-    let mut hash = value.map_or(B256::ZERO, H::hash);
-    nodes.insert((0, index), hash);
-    for (level, original_sibling) in proof.proof.iter().enumerate() {
-        // An earlier update may have changed the sibling since this baseline proof.
-        let sibling = nodes.get(&(level, index ^ U256::ONE)).unwrap_or(original_sibling);
-        hash = if index & U256::ONE == U256::ZERO {
-            H::hash_pair(&hash, sibling)
-        } else {
-            H::hash_pair(sibling, &hash)
-        };
-        index >>= 1;
-        nodes.insert((level + 1, index), hash);
-    }
-    hash
-}
-
 impl<K: StorageKey, V: StorageValue, H: MerkleTreeHasher> MerkleStorage<K, V, H> {
-    /// Compute the merkle root from scratch.
+    /// Computes the root, reusing cached subtrees unaffected by writes.
+    ///
+    /// # Panics
+    /// Panics if an earlier hash calculation panicked while holding the cache lock.
     #[must_use]
     pub fn root(&self) -> B256 {
-        let num_bits = K::bits();
-
-        // If no leaves, return the precomputed empty tree root.
-        if self.leaves.is_empty() {
-            return self.zero_hashes[num_bits];
-        }
-
-        // Build the tree bottom-up.
-        let mut current_layer: BTreeMap<U256, B256> = BTreeMap::new();
-
-        // Start with leaves (layer 0) - hash the values.
-        for (&index, value) in &self.leaves {
-            let hash = H::hash(value);
-            current_layer.insert(index, hash);
-        }
-
-        // Build each layer up to the root.
-        for layer in 1..=num_bits {
-            let mut next_layer: BTreeMap<U256, B256> = BTreeMap::new();
-
-            // Process all nodes that exist in current layer.
-            for (&index, &hash) in &current_layer {
-                let parent_index = index >> 1;
-                let is_left_child = (index & U256::from(1)) == U256::ZERO;
-
-                // Get or create parent entry.
-                let parent_entry = next_layer.entry(parent_index).or_insert_with(|| {
-                    if is_left_child {
-                        H::hash_pair(&hash, &self.zero_hashes[layer - 1])
-                    } else {
-                        H::hash_pair(&self.zero_hashes[layer - 1], &hash)
-                    }
-                });
-
-                // Update parent with both children if we now have the sibling.
-                if is_left_child {
-                    let sibling_index = index | U256::from(1);
-                    if let Some(&sibling_hash) = current_layer.get(&sibling_index) {
-                        *parent_entry = H::hash_pair(&hash, &sibling_hash);
-                    }
-                } else {
-                    let sibling_index = index & !U256::from(1);
-                    if let Some(&sibling_hash) = current_layer.get(&sibling_index) {
-                        *parent_entry = H::hash_pair(&sibling_hash, &hash);
-                    }
-                }
-            }
-
-            current_layer = next_layer;
-        }
-
-        // Return root or empty tree hash if no nodes made it to the top.
-        let num_bits = K::bits();
-        current_layer.get(&U256::ZERO).copied().unwrap_or(self.zero_hashes[num_bits])
+        let mut cache = self.cache.lock().expect("Merkle node cache poisoned");
+        self.compute_node(K::bits(), U256::ZERO, &mut cache)
     }
 
     /// Generate a merkle proof for the value at the given key.
+    ///
+    /// # Panics
+    /// Panics if an earlier hash calculation panicked while holding the cache lock.
     pub fn proof(&mut self, key: &K) -> Result<MerkleProof<K, V, H>, MerkleStorageError> {
         let index = key.index();
         let num_bits = K::bits();
@@ -229,31 +135,14 @@ impl<K: StorageKey, V: StorageValue, H: MerkleTreeHasher> MerkleStorage<K, V, H>
             return Err(MerkleStorageError::IndexOutOfBounds { index, num_bits });
         }
 
+        let mut cache = self.cache.lock().expect("Merkle node cache poisoned");
         let mut proof = Vec::new();
         let mut current_index = index;
         for layer in 0..num_bits {
             // Get sibling index.
             let sibling_index = current_index ^ U256::from(1);
 
-            // Get the sibling hash.
-            let sibling_hash = if layer == 0 {
-                if let Some(value) = self.leaves.get(&sibling_index) {
-                    H::hash(value)
-                } else {
-                    self.zero_hashes[0]
-                }
-            } else if let Some(&cached_hash) = self.cache.get(&(layer, sibling_index)) {
-                cached_hash
-            } else {
-                // Check if sibling subtree is completely empty.
-                if self.is_subtree_empty(layer, sibling_index) {
-                    self.zero_hashes[layer]
-                }
-                // Compute and cache the sibling hash bottom-up.
-                else {
-                    self.compute_node(layer, sibling_index)
-                }
-            };
+            let sibling_hash = self.compute_node(layer, sibling_index, &mut cache);
 
             proof.push(sibling_hash);
             current_index >>= 1;
@@ -280,14 +169,19 @@ impl<K: StorageKey, V: StorageValue, H: MerkleTreeHasher> MerkleStorage<K, V, H>
     /// [`COMPUTE_NODE_CACHE_LAYERS`] layers to bound memory usage. The recursion depth equals
     /// `K::bits()` (e.g. 160 for address/request-id keys), which is well within the default
     /// thread stack size.
-    fn compute_node(&mut self, layer: usize, index: U256) -> B256 {
+    fn compute_node(
+        &self,
+        layer: usize,
+        index: U256,
+        cache: &mut BTreeMap<(usize, U256), B256>,
+    ) -> B256 {
         // Base case: leaf layer.
         if layer == 0 {
             return self.leaves.get(&index).map_or(self.zero_hashes[0], |v| H::hash(v));
         }
 
         // Return cached value if available.
-        if let Some(&cached) = self.cache.get(&(layer, index)) {
+        if let Some(&cached) = cache.get(&(layer, index)) {
             return cached;
         }
 
@@ -297,17 +191,28 @@ impl<K: StorageKey, V: StorageValue, H: MerkleTreeHasher> MerkleStorage<K, V, H>
         }
 
         // Recurse into left and right children.
-        let left_hash = self.compute_node(layer - 1, index << 1);
-        let right_hash = self.compute_node(layer - 1, (index << 1) | U256::from(1));
+        let left_hash = self.compute_node(layer - 1, index << 1, cache);
+        let right_hash = self.compute_node(layer - 1, (index << 1) | U256::from(1), cache);
         let hash = H::hash_pair(&left_hash, &right_hash);
 
         // Only cache the top layers to bound memory usage.
         let cache_threshold = K::bits().saturating_sub(COMPUTE_NODE_CACHE_LAYERS);
         if layer >= cache_threshold {
-            self.cache.insert((layer, index), hash);
+            cache.insert((layer, index), hash);
         }
 
         hash
+    }
+
+    /// Invalidates only ancestors of a potentially changed leaf, including the root.
+    fn invalidate_path(&mut self, index: U256) {
+        let cache = self.cache.get_mut().expect("Merkle node cache poisoned");
+        let first_layer = K::bits().saturating_sub(COMPUTE_NODE_CACHE_LAYERS);
+        let mut index = index >> first_layer;
+        for layer in first_layer..=K::bits() {
+            cache.remove(&(layer, index));
+            index >>= 1;
+        }
     }
 
     /// Get the set of keys that have been touched (read or written).
@@ -447,14 +352,63 @@ impl<K: StorageKey, V: StorageValue, H: MerkleTreeHasher> MerkleStorage<K, V, H>
             }
         }
 
-        // Use the same path calculation as incremental updates, after verifying all inputs.
+        // -----------------------------------------------------------------------------------------
+        // 2. Collect all nodes that are known after the update. We build a map keyed by (level,
+        //    index) -> hash. Level 0 corresponds to leaves, a larger level means a node that is
+        //    further up the tree.  The map is gradually filled while we walk over all proofs.
+        // -----------------------------------------------------------------------------------------
         let num_bits = K::bits();
         let mut nodes: BTreeMap<(usize, U256), B256> = BTreeMap::new();
+
+        // Iterate over every proof and replay its path to the root using the
+        // (possibly updated) value for the leaf.
         for proof in proofs {
-            let value = updated_value_map.get(&proof.key.index()).copied().or(proof.value.as_ref());
-            update_merkle_path(&mut nodes, proof, value);
+            let leaf_index = proof.key.index();
+            let is_updated = updated_value_map.contains_key(&leaf_index);
+            let mut current_hash = if is_updated {
+                H::hash(updated_value_map[&leaf_index])
+            } else {
+                match &proof.value {
+                    Some(v) => H::hash(v),
+                    None => B256::ZERO,
+                }
+            };
+            let mut current_index = leaf_index;
+
+            // Store/overwrite the leaf node.
+            nodes.insert((0, current_index), current_hash);
+
+            // Walk up the tree using the supplied sibling hashes.
+            for (level, &proof_sibling_hash) in proof.proof.iter().enumerate() {
+                let sibling_index = current_index ^ U256::ONE;
+                // Prefer an updated sibling hash that might already be present in the map.
+                let sibling_hash =
+                    nodes.get(&(level, sibling_index)).copied().unwrap_or(proof_sibling_hash);
+
+                // Make sure the sibling is also recorded so later proofs can
+                // make use of a potentially updated version.
+                nodes.entry((level, sibling_index)).or_insert(sibling_hash);
+
+                // Compose the parent hash.
+                let parent_hash = if current_index & U256::ONE == U256::ZERO {
+                    H::hash_pair(&current_hash, &sibling_hash)
+                } else {
+                    H::hash_pair(&sibling_hash, &current_hash)
+                };
+
+                current_index >>= 1;
+                current_hash = parent_hash;
+
+                // Persist the parent for use by subsequent proofs.
+                nodes.insert((level + 1, current_index), current_hash);
+            }
         }
 
+        // -----------------------------------------------------------------------------------------
+        // 3. The root resides at `level == num_bits` and `index == 0` after all proofs have been
+        //    processed.  We stored/overwrote that entry during the previous loop, so we can read it
+        //    directly.
+        // -----------------------------------------------------------------------------------------
         nodes
             .get(&(num_bits, U256::ZERO))
             .copied()
@@ -508,7 +462,7 @@ impl<K: StorageKey, V: StorageValue, H: MerkleTreeHasher> Storage<K, V> for Merk
         Self {
             leaves: BTreeMap::new(),
             zero_hashes,
-            cache: BTreeMap::new(),
+            cache: Mutex::new(BTreeMap::new()),
             touched_keys: BTreeSet::new(),
             _key: PhantomData,
             _hasher: PhantomData,
@@ -523,8 +477,7 @@ impl<K: StorageKey, V: StorageValue, H: MerkleTreeHasher> Storage<K, V> for Merk
         self.leaves.insert(index, value);
         // Track that this key has been touched (written).
         self.touched_keys.insert(key);
-        // Clear cache as tree structure has changed.
-        self.cache.clear();
+        self.invalidate_path(index);
 
         Ok(())
     }
@@ -534,11 +487,8 @@ impl<K: StorageKey, V: StorageValue, H: MerkleTreeHasher> Storage<K, V> for Merk
         let index = key.index();
         // Track that this key has been touched (entry can be used for read or write).
         self.touched_keys.insert(key);
-        // Get the entry.
-        let entry = self.leaves.entry(index);
-        // Clear cache as tree structure may change.
-        self.cache.clear();
-        Ok(entry)
+        self.invalidate_path(index);
+        Ok(self.leaves.entry(index))
     }
 
     /// Get a value at the given key.
@@ -556,11 +506,8 @@ impl<K: StorageKey, V: StorageValue, H: MerkleTreeHasher> Storage<K, V> for Merk
         let index = key.index();
         // Track that this key has been touched (entry can be used for read or write).
         self.touched_keys.insert(key.clone());
-        // Get the leaf.
-        let leaf = self.leaves.get_mut(&index);
-        // Clear cache as tree structure may change.
-        self.cache.clear();
-        Ok(leaf)
+        self.invalidate_path(index);
+        Ok(self.leaves.get_mut(&index))
     }
 }
 
@@ -586,83 +533,204 @@ mod tests {
     type U256Tree = MerkleStorage<U256, U256>;
     type AddressTree = MerkleStorage<Address, U256>;
 
-    #[test]
-    fn incremental_roots_match_full_and_stateless_calculation_across_snapshots() {
-        let keys: Vec<_> = (0_u64..24)
-            .map(|i| {
-                if i % 2 == 0 {
-                    U256::from(i)
+    // Independent bottom-up calculation from before caching was introduced.
+    fn full_root<K: StorageKey, V: StorageValue, H: MerkleTreeHasher>(
+        tree: &MerkleStorage<K, V, H>,
+    ) -> B256 {
+        let num_bits = K::bits();
+
+        // If no leaves, return the precomputed empty tree root.
+        if tree.leaves.is_empty() {
+            return tree.zero_hashes[num_bits];
+        }
+
+        // Build the tree bottom-up.
+        let mut current_layer: BTreeMap<U256, B256> = BTreeMap::new();
+
+        // Start with leaves (layer 0) - hash the values.
+        for (&index, value) in &tree.leaves {
+            let hash = H::hash(value);
+            current_layer.insert(index, hash);
+        }
+
+        // Build each layer up to the root.
+        for layer in 1..=num_bits {
+            let mut next_layer: BTreeMap<U256, B256> = BTreeMap::new();
+
+            // Process all nodes that exist in current layer.
+            for (&index, &hash) in &current_layer {
+                let parent_index = index >> 1;
+                let is_left_child = (index & U256::from(1)) == U256::ZERO;
+
+                // Get or create parent entry.
+                let parent_entry = next_layer.entry(parent_index).or_insert_with(|| {
+                    if is_left_child {
+                        H::hash_pair(&hash, &tree.zero_hashes[layer - 1])
+                    } else {
+                        H::hash_pair(&tree.zero_hashes[layer - 1], &hash)
+                    }
+                });
+
+                // Update parent with both children if we now have the sibling.
+                if is_left_child {
+                    let sibling_index = index | U256::from(1);
+                    if let Some(&sibling_hash) = current_layer.get(&sibling_index) {
+                        *parent_entry = H::hash_pair(&hash, &sibling_hash);
+                    }
                 } else {
-                    U256::from_be_bytes(keccak256(i.to_le_bytes()).0)
+                    let sibling_index = index & !U256::from(1);
+                    if let Some(&sibling_hash) = current_layer.get(&sibling_index) {
+                        *parent_entry = H::hash_pair(&sibling_hash, &hash);
+                    }
                 }
-            })
+            }
+
+            current_layer = next_layer;
+        }
+
+        // Return root or empty tree hash if no nodes made it to the top.
+        let num_bits = K::bits();
+        current_layer.get(&U256::ZERO).copied().unwrap_or(tree.zero_hashes[num_bits])
+    }
+
+    #[test]
+    fn cached_roots_and_proofs_match_full_rebuild_after_every_mutation() {
+        let keys: Vec<_> = [U256::ZERO, U256::ONE, U256::MAX]
+            .into_iter()
+            .chain((0_u64..32).map(|i| U256::from_be_bytes(keccak256(i.to_le_bytes()).0)))
+            .chain((2_u64..34).map(U256::from))
             .collect();
-        let mut baseline = U256Tree::new();
-        for key in &keys[..12] {
-            baseline.insert(*key, U256::ONE).unwrap();
-        }
-        let old_root = baseline.root();
-        let mut proofs: Vec<_> = keys.iter().map(|key| baseline.proof(key).unwrap()).collect();
-        let mut current = baseline.clone();
-        let mut updater = MerkleRootUpdater::new(baseline);
-        assert_eq!(updater.root(), old_root);
-        assert_eq!(updater.update(&keys[23], None).unwrap(), old_root);
-
-        for i in 0..96 {
-            if i == 48 {
-                updater = MerkleRootUpdater::new(current.clone());
-            }
-            let key = keys[(i * 17) % keys.len()];
-            let value = U256::from(i);
-            current.insert(key, value).unwrap();
-            let root = updater.update(&key, Some(&value)).unwrap();
-            assert_eq!(root, current.root(), "full root at update {i}");
-            let values: Vec<_> = keys
-                .iter()
-                .filter_map(|key| current.get_untracked(key).map(|value| (*key, *value)))
-                .collect();
-            proofs.reverse();
-            assert_eq!(
-                root,
-                U256Tree::calculate_new_root(old_root, &proofs, &values).unwrap(),
-                "stateless root at update {i}"
-            );
-        }
-    }
-
-    #[test]
-    fn incremental_roots_distinguish_absent_zero_removed_and_reinserted_leaves() {
         let mut tree = U256Tree::new();
-        tree.insert(U256::ZERO, U256::from(7)).unwrap();
-        tree.insert(U256::ONE, U256::from(8)).unwrap();
-        let mut updater = MerkleRootUpdater::new(tree.clone());
-        for (key, value) in [
-            (U256::from(2), None),
-            (U256::from(2), Some(U256::ZERO)),
-            (U256::ZERO, None),
-            (U256::ONE, Some(U256::from(9))),
-            (U256::ZERO, Some(U256::from(10))),
-            (U256::from(2), None),
-            (U256::from(2), Some(U256::from(11))),
-        ] {
-            let previous_root = tree.root();
-            if let Some(value) = value {
-                tree.insert(key, value).unwrap();
-            } else {
-                tree.leaves.remove(&key);
-            }
-            let root = updater.update(&key, value.as_ref()).unwrap();
-            assert_eq!(root, tree.root());
-            if value == Some(U256::ZERO) {
-                assert_ne!(root, previous_root, "an absent leaf differs from a zero value");
-            }
+        for (i, key) in keys.iter().enumerate() {
+            tree.insert(*key, U256::from(i)).unwrap();
         }
+        for i in 0..160 {
+            let key = keys[(i * 17) % keys.len()];
+            let before = tree.root();
+            let value = U256::from(i);
+            match i % 4 {
+                0 => {
+                    tree.insert(key, value).unwrap();
+                }
+                1 => {
+                    *tree.entry(key).unwrap().or_default() = value;
+                }
+                2 => {
+                    if let Some(stored) = tree.get_mut(&key).unwrap() {
+                        *stored = value;
+                    }
+                }
+                _ => {
+                    if let Entry::Occupied(entry) = tree.entry(key).unwrap() {
+                        entry.remove();
+                    }
+                }
+            }
+            let expected = full_root(&tree);
+            assert_eq!(tree.root(), expected, "mutation {i}, previous root {before}");
+            for queried in [key, keys[(i + 1) % keys.len()]] {
+                let proof = tree.proof(&queried).unwrap();
+                U256Tree::verify_proof(expected, &proof).unwrap();
+            }
+            assert_eq!(tree.root(), expected, "proof reads must preserve the root");
+        }
+        for key in &keys {
+            if let Entry::Occupied(entry) = tree.entry(*key).unwrap() {
+                entry.remove();
+            }
+            assert_eq!(tree.root(), full_root(&tree));
+        }
+        assert_eq!(tree.root(), tree.zero_hashes[256]);
+        let empty = tree.root();
+        tree.insert(U256::MAX, U256::ZERO).unwrap();
+        assert_ne!(tree.root(), empty, "present zero must differ from an absent leaf");
+        assert_eq!(tree.root(), full_root(&tree));
     }
 
     #[test]
-    fn incremental_update_rejects_out_of_bounds_keys_without_changing_the_root() {
+    fn cloning_and_serialization_omit_cache_without_losing_state() {
+        fn assert_send_sync<T: Send + Sync>() {}
+        assert_send_sync::<U256Tree>();
+        let mut tree = U256Tree::new();
+        tree.insert(U256::MAX, U256::ONE).unwrap();
+        let bytes = serde_json::to_vec(&tree).unwrap();
+        let root = tree.root();
+        assert!(!tree.cache.lock().unwrap().is_empty());
+        assert_eq!(serde_json::to_vec(&tree).unwrap(), bytes);
+        let mut cloned = tree.clone();
+        assert!(cloned.cache.lock().unwrap().is_empty());
+        assert_eq!(cloned.get_touched_keys(), tree.get_touched_keys());
+        assert_eq!(cloned.root(), root);
+        cloned.insert(U256::MAX, U256::from(2)).unwrap();
+        assert_ne!(cloned.root(), root);
+        assert_eq!(tree.root(), root);
+        let restored: U256Tree = serde_json::from_slice(&bytes).unwrap();
+        assert!(restored.cache.lock().unwrap().is_empty());
+        assert_eq!(restored.root(), root);
+    }
+
+    #[test]
+    fn writes_preserve_unrelated_cached_subtrees_and_bound_cache_depth() {
+        let mut tree = U256Tree::new();
+        for i in 0_u64..128 {
+            tree.insert(U256::from_be_bytes(keccak256(i.to_le_bytes()).0), U256::ONE).unwrap();
+        }
+        let _ = tree.root();
+        let before = tree.cache.lock().unwrap().clone();
+        assert!(!before.is_empty());
+        assert!(before.keys().all(|(layer, _)| *layer >= 256 - COMPUTE_NODE_CACHE_LAYERS));
+        let key = U256::from_be_bytes(keccak256(0_u64.to_le_bytes()).0);
+        tree.insert(key, U256::from(9)).unwrap();
+        let cache = tree.cache.lock().unwrap();
+        for ((layer, index), hash) in &before {
+            if *index == key >> *layer {
+                assert!(!cache.contains_key(&(*layer, *index)));
+            } else {
+                assert_eq!(cache.get(&(*layer, *index)), Some(hash));
+            }
+        }
+        drop(cache);
+        assert_eq!(tree.root(), full_root(&tree));
+    }
+
+    #[test]
+    fn warm_root_reads_do_no_hashing_and_writes_reuse_other_subtrees() {
+        use std::cell::Cell;
+        thread_local! { static HASHES: Cell<usize> = const { Cell::new(0) }; }
+        struct CountedHasher;
+        impl MerkleTreeHasher for CountedHasher {
+            fn hash<V: StorageValue>(value: &V) -> B256 {
+                HASHES.with(|count| count.set(count.get() + 1));
+                Keccak256::hash(value)
+            }
+            fn hash_pair<V: StorageValue>(left: &V, right: &V) -> B256 {
+                HASHES.with(|count| count.set(count.get() + 1));
+                Keccak256::hash_pair(left, right)
+            }
+        }
+        let mut tree = MerkleStorage::<Address, U256, CountedHasher>::new();
+        for i in 0_u64..128 {
+            let hash = keccak256(i.to_le_bytes());
+            tree.insert(Address::from_slice(&hash[..20]), U256::ONE).unwrap();
+        }
+        HASHES.with(|count| count.set(0));
+        let root = tree.root();
+        let cold = HASHES.with(Cell::get);
+        HASHES.with(|count| count.set(0));
+        assert_eq!(tree.root(), root);
+        assert_eq!(HASHES.with(Cell::get), 0);
+        let hash = keccak256(0_u64.to_le_bytes());
+        tree.insert(Address::from_slice(&hash[..20]), U256::from(2)).unwrap();
+        let _ = tree.root();
+        let changed = HASHES.with(Cell::get);
+        assert!(changed < cold / 10, "cold={cold}, changed={changed}");
+        assert_eq!(tree.root(), full_root(&tree));
+    }
+
+    #[test]
+    fn cached_roots_support_small_key_spaces_and_custom_hashers() {
         #[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
-        struct ByteKey(u16);
+        struct ByteKey(u8);
         impl StorageKey for ByteKey {
             fn index(&self) -> U256 {
                 U256::from(self.0)
@@ -671,22 +739,6 @@ mod tests {
                 8
             }
         }
-        let mut tree = MerkleStorage::<ByteKey, U256>::new();
-        let mut updater = MerkleRootUpdater::new(tree.clone());
-        tree.insert(ByteKey(1), U256::ONE).unwrap();
-        let root = updater.update(&ByteKey(1), Some(&U256::ONE)).unwrap();
-        assert_eq!(
-            updater.update(&ByteKey(256), Some(&U256::ONE)),
-            Err(MerkleStorageError::IndexOutOfBounds { index: U256::from(256), num_bits: 8 })
-        );
-        assert_eq!(updater.root(), root);
-        tree.insert(ByteKey(255), U256::from(2)).unwrap();
-        assert_eq!(updater.update(&ByteKey(255), Some(&U256::from(2))).unwrap(), tree.root());
-    }
-
-    #[test]
-    fn incremental_and_stateless_updates_use_the_configured_hasher() {
-        #[derive(Clone)]
         struct ReversedHasher;
         impl MerkleTreeHasher for ReversedHasher {
             fn hash<V: StorageValue>(value: &V) -> B256 {
@@ -696,52 +748,20 @@ mod tests {
                 Keccak256::hash_pair(right, left)
             }
         }
-        type Tree = MerkleStorage<Address, U256, ReversedHasher>;
-        let keys: Vec<_> = (0..16).map(|i| Address::repeat_byte(i + 1)).collect();
-        let mut baseline = Tree::new();
-        for key in &keys[..8] {
-            baseline.insert(*key, U256::ONE).unwrap();
+        type Tree = MerkleStorage<ByteKey, U256, ReversedHasher>;
+        let mut tree = Tree::new();
+        for i in 0..=255_u8 {
+            tree.insert(ByteKey(i), U256::from(i)).unwrap();
+            assert_eq!(tree.root(), full_root(&tree));
         }
-        let old_root = baseline.root();
-        let proofs: Vec<_> = keys.iter().map(|key| baseline.proof(key).unwrap()).collect();
-        let mut current = baseline.clone();
-        let mut updater = MerkleRootUpdater::new(baseline);
-        for i in 0..32 {
-            let key = keys[i % keys.len()];
-            let value = U256::from(i);
-            current.insert(key, value).unwrap();
-            let root = updater.update(&key, Some(&value)).unwrap();
-            let values: Vec<_> = keys
-                .iter()
-                .filter_map(|key| current.get_untracked(key).map(|value| (*key, *value)))
-                .collect();
-            assert_eq!(root, current.root());
-            assert_eq!(root, Tree::calculate_new_root(old_root, &proofs, &values).unwrap());
+        for i in 0..=255_u8 {
+            if let Entry::Occupied(entry) = tree.entry(ByteKey(i)).unwrap() {
+                entry.remove();
+            }
+            let root = tree.root();
+            assert_eq!(root, full_root(&tree));
+            Tree::verify_proof(root, &tree.proof(&ByteKey(i)).unwrap()).unwrap();
         }
-    }
-
-    #[test]
-    fn stateless_calculation_still_rejects_invalid_read_only_proofs() {
-        let mut tree = U256Tree::new();
-        tree.insert(U256::ONE, U256::from(7)).unwrap();
-        let root = tree.root();
-        let proof = tree.proof(&U256::ONE).unwrap();
-        let mut malformed = proof.clone();
-        malformed.proof.pop();
-        assert_eq!(
-            U256Tree::calculate_new_root(root, &[malformed], &[]),
-            Err(MerkleStorageError::InvalidMerkleProofLength)
-        );
-        let mut tampered = proof.clone();
-        tampered.value = Some(U256::from(8));
-        assert_eq!(
-            U256Tree::calculate_new_root(root, &[tampered], &[]),
-            Err(MerkleStorageError::InvalidMerkleProof)
-        );
-        assert_eq!(
-            U256Tree::calculate_new_root(B256::ZERO, &[proof], &[]),
-            Err(MerkleStorageError::InvalidMerkleProof)
-        );
     }
 
     #[test]
