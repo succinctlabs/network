@@ -85,6 +85,13 @@ contract SuccinctStaking is
     /// @dev A mapping from prover to their unstaking escrow pool.
     mapping(address => EscrowPool) internal escrowPools;
 
+    /// @dev A mapping from prover to the timestamp of its most recent full slash.
+    ///
+    ///      A full slash burns all escrowed $iPROVE and sets the slash factor to zero, but the
+    ///      slash factor is later reset to `SCALAR`. Unstake claims requested at or before this
+    ///      timestamp were fully slashed, so they must redeem nothing after such a reset.
+    mapping(address => uint256) internal fullSlashTimestamps;
+
     /*//////////////////////////////////////////////////////////////
                                 MODIFIER
     //////////////////////////////////////////////////////////////*/
@@ -206,7 +213,11 @@ contract SuccinctStaking is
         uint256 currentFactor = pool.slashFactor;
         if (currentFactor == 0) return 0;
 
+        uint256 fullSlashTimestamp = fullSlashTimestamps[prover];
         for (uint256 i = 0; i < claims.length; i++) {
+            // Skip claims that were fully slashed.
+            if (claims[i].timestamp <= fullSlashTimestamp) continue;
+
             // Apply cumulative slash factor to the escrowed $iPROVE.
             uint256 iPROVEScaled =
                 Math.mulDiv(claims[i].iPROVEEscrow, currentFactor, claims[i].slashFactor);
@@ -305,6 +316,12 @@ contract SuccinctStaking is
 
         // Escrow the $iPROVE.
         uint256 iPROVEEscrow = _escrowUnstakeRequest(msg.sender, prover, _stPROVE);
+
+        // A claim with the same timestamp as the prover's last full slash is treated as fully
+        // slashed, so reject it if it would escrow a non-zero amount.
+        if (iPROVEEscrow != 0 && fullSlashTimestamps[prover] == block.timestamp) {
+            revert ProverFullySlashedThisBlock();
+        }
 
         // Get the prover's escrow pool.
         EscrowPool storage pool = escrowPools[prover];
@@ -472,8 +489,10 @@ contract SuccinctStaking is
             // Update the prover's slash factor.
             uint256 iPROVERemaining = iPROVETotal - iPROVEToSlash;
             if (iPROVERemaining == 0) {
-                // If there is nothing left to slash, set the slash factor to 0.
+                // If there is nothing left to slash, set the slash factor to 0 and record the
+                // full slash so that existing unstake claims redeem nothing after a reset.
                 pool.slashFactor = 0;
+                fullSlashTimestamps[_prover] = block.timestamp;
             } else {
                 // If there is something left to slash, update the slash factor to the new ratio.
                 uint256 ratio = Math.mulDiv(iPROVERemaining, SCALAR, iPROVETotal);
@@ -598,9 +617,11 @@ contract SuccinctStaking is
         // Get the prover's escrow pool.
         EscrowPool storage pool = escrowPools[_prover];
 
-        // Apply cumulative slash factor to the escrowed $iPROVE.
-        uint256 iPROVEScaled =
-            Math.mulDiv(_claim.iPROVEEscrow, pool.slashFactor, _claim.slashFactor);
+        // Apply cumulative slash factor to the escrowed $iPROVE. A claim requested at or before
+        // the prover's last full slash was fully slashed, so it redeems nothing.
+        uint256 iPROVEScaled = _claim.timestamp <= fullSlashTimestamps[_prover]
+            ? 0
+            : Math.mulDiv(_claim.iPROVEEscrow, pool.slashFactor, _claim.slashFactor);
 
         // Clamp to the pool’s remaining balance (protects against rounding).
         if (iPROVEScaled > pool.iPROVEEscrow) {

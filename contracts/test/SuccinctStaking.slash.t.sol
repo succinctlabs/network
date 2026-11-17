@@ -1175,4 +1175,113 @@ contract SuccinctStakingSlashTests is SuccinctStakingTest {
         assertEq(deactivationEventsSecond, 0);
         assertTrue(SuccinctStaking(STAKING).isDeactivatedProver(ALICE_PROVER));
     }
+
+    /// @dev Unstakes all of STAKER_1's stake and then fully slashes the escrow. The prover vault
+    ///      has no shares, so the prover stays active and can be staked to again.
+    function _fullySlashEscrowOfSoleStaker() internal {
+        uint256 stakeAmount = STAKER_PROVE_AMOUNT;
+        _stake(STAKER_1, ALICE_PROVER, stakeAmount);
+        _requestUnstake(STAKER_1, stakeAmount);
+        assertEq(IERC20(ALICE_PROVER).totalSupply(), 0);
+
+        uint256 escrow = SuccinctStaking(STAKING).escrowPool(ALICE_PROVER).iPROVEEscrow;
+        assertGt(escrow, 0);
+        _completeSlash(ALICE_PROVER, escrow);
+
+        assertEq(SuccinctStaking(STAKING).escrowPool(ALICE_PROVER).iPROVEEscrow, 0);
+        assertEq(SuccinctStaking(STAKING).escrowPool(ALICE_PROVER).slashFactor, 0);
+        assertFalse(SuccinctStaking(STAKING).isDeactivatedProver(ALICE_PROVER));
+    }
+
+    // A claim that was fully slashed must not redeem the escrow of a later staker after
+    // requestUnstake() resets the slash factor.
+    function test_Slash_WhenFullySlashedClaimAndLaterStakerUnstakes() public {
+        _fullySlashEscrowOfSoleStaker();
+        skip(1);
+
+        // A later staker stakes to the same prover and requests to unstake.
+        uint256 stakeAmount = STAKER_PROVE_AMOUNT;
+        _stake(STAKER_2, ALICE_PROVER, stakeAmount);
+        _requestUnstake(STAKER_2, stakeAmount);
+
+        skip(UNSTAKE_PERIOD);
+
+        // The fully slashed staker finishes first and must receive nothing.
+        assertEq(_finishUnstake(STAKER_1), 0);
+        assertEq(IERC20(PROVE).balanceOf(STAKER_1), 0);
+
+        // The later staker must receive their full stake.
+        assertEq(_finishUnstake(STAKER_2), stakeAmount);
+        assertEq(IERC20(PROVE).balanceOf(STAKER_2), stakeAmount);
+    }
+
+    // A claim that was fully slashed must report no pending $PROVE after the slash factor resets.
+    function test_Slash_WhenFullySlashedClaimAndUnstakePendingAfterReset() public {
+        _fullySlashEscrowOfSoleStaker();
+        skip(1);
+
+        uint256 stakeAmount = STAKER_PROVE_AMOUNT;
+        _stake(STAKER_2, ALICE_PROVER, stakeAmount);
+        _requestUnstake(STAKER_2, stakeAmount);
+
+        assertEq(SuccinctStaking(STAKING).unstakePending(STAKER_1), 0);
+        assertEq(SuccinctStaking(STAKING).unstakePending(STAKER_2), stakeAmount);
+    }
+
+    // An unstake request in the same block as a full slash would be treated as fully slashed, so
+    // it must revert instead.
+    function test_RevertSlash_WhenUnstakeInSameBlockAsFullSlash() public {
+        _fullySlashEscrowOfSoleStaker();
+
+        uint256 stakeAmount = STAKER_PROVE_AMOUNT;
+        _stake(STAKER_2, ALICE_PROVER, stakeAmount);
+
+        vm.expectRevert(ISuccinctStaking.ProverFullySlashedThisBlock.selector);
+        _requestUnstake(STAKER_2, stakeAmount);
+
+        // In a later block the request succeeds and the claim redeems in full.
+        skip(1);
+        _requestUnstake(STAKER_2, stakeAmount);
+        skip(UNSTAKE_PERIOD);
+        assertEq(_finishUnstake(STAKER_2), stakeAmount);
+    }
+
+    // A claim that was fully slashed must not redeem the escrow of a later staker after
+    // finishUnstake() resets the slash factor.
+    function test_Slash_WhenFullySlashedClaimAndFactorResetByFinishUnstake() public {
+        _fullySlashEscrowOfSoleStaker();
+        skip(1);
+
+        // The claim has not matured, so this only resets the slash factor.
+        _finishUnstake(STAKER_1);
+        assertEq(SuccinctStaking(STAKING).unstakeRequests(STAKER_1).length, 1);
+
+        uint256 stakeAmount = STAKER_PROVE_AMOUNT;
+        _stake(STAKER_2, ALICE_PROVER, stakeAmount);
+        _requestUnstake(STAKER_2, stakeAmount);
+
+        skip(UNSTAKE_PERIOD);
+
+        assertEq(_finishUnstake(STAKER_1), 0);
+        assertEq(_finishUnstake(STAKER_2), stakeAmount);
+    }
+
+    // A claim that was fully slashed must not redeem the escrow of a later staker after a later
+    // partial slash in finishSlash() resets the slash factor.
+    function test_Slash_WhenFullySlashedClaimAndFactorResetByPartialSlash() public {
+        _fullySlashEscrowOfSoleStaker();
+        skip(1);
+
+        // A later staker stakes, the vault is partially slashed, and then the staker unstakes.
+        uint256 stakeAmount = STAKER_PROVE_AMOUNT;
+        _stake(STAKER_2, ALICE_PROVER, stakeAmount);
+        _completeSlash(ALICE_PROVER, stakeAmount / 2);
+        assertEq(SuccinctStaking(STAKING).escrowPool(ALICE_PROVER).slashFactor, SCALAR / 2);
+        _requestUnstake(STAKER_2, stakeAmount);
+
+        skip(UNSTAKE_PERIOD);
+
+        assertEq(_finishUnstake(STAKER_1), 0);
+        assertEq(_finishUnstake(STAKER_2), stakeAmount / 2);
+    }
 }
