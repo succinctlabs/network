@@ -150,12 +150,14 @@ impl Artifact {
     /// * `uri` - The URI to download from (s3:// or https://)
     /// * `s3_region` - The AWS region for S3 operations
     /// * `artifact_type` - The type of artifact determining the S3 prefix
+    /// * `max_bytes` - The largest artifact to accept; a larger one fails with [`ArtifactTooLarge`]
     #[instrument(fields(label = self.label, id = self.id), skip_all)]
     pub async fn download_raw_from_uri(
         &self,
         uri: &str,
         s3_region: &str,
         artifact_type: ArtifactType,
+        max_bytes: u64,
     ) -> Result<Bytes> {
         let parsed_url = Url::parse(uri).context("Failed to parse URI")?;
         match parsed_url.scheme() {
@@ -163,9 +165,9 @@ impl Artifact {
                 let bucket =
                     parsed_url.host_str().ok_or_else(|| anyhow!("S3 URI missing bucket: {uri}"))?;
                 let s3_client = get_s3_client(s3_region).await;
-                download_s3_file(&s3_client, bucket, &self.id, artifact_type, u64::MAX).await
+                download_s3_file(&s3_client, bucket, &self.id, artifact_type, max_bytes).await
             }
-            "https" => download_https_file(uri, u64::MAX).await,
+            "https" => download_https_file(uri, max_bytes).await,
             scheme => Err(anyhow!("Unsupported URI scheme for download_raw_from_uri: {scheme}")),
         }
     }
@@ -245,7 +247,8 @@ impl Artifact {
         uri: &str,
         s3_region: &str,
     ) -> Result<T> {
-        let bytes = self.download_raw_from_uri(uri, s3_region, ArtifactType::Program).await?;
+        let bytes =
+            self.download_raw_from_uri(uri, s3_region, ArtifactType::Program, u64::MAX).await?;
         bincode::deserialize(&bytes).context("Failed to deserialize program from URI")
     }
 
@@ -279,7 +282,8 @@ impl Artifact {
         uri: &str,
         s3_region: &str,
     ) -> Result<T> {
-        let bytes = self.download_raw_from_uri(uri, s3_region, ArtifactType::Stdin).await?;
+        let bytes =
+            self.download_raw_from_uri(uri, s3_region, ArtifactType::Stdin, u64::MAX).await?;
         bincode::deserialize(&bytes).context("Failed to deserialize stdin from URI")
     }
 
@@ -313,7 +317,8 @@ impl Artifact {
         uri: &str,
         s3_region: &str,
     ) -> Result<T> {
-        let bytes = self.download_raw_from_uri(uri, s3_region, ArtifactType::Proof).await?;
+        let bytes =
+            self.download_raw_from_uri(uri, s3_region, ArtifactType::Proof, u64::MAX).await?;
         bincode::deserialize(&bytes).context("Failed to deserialize proof from URI")
     }
 
