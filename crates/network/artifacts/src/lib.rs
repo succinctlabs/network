@@ -535,6 +535,8 @@ async fn download_s3_file_par(
         return download_s3_file(client, bucket, id, artifact_type, max_bytes).await;
     }
 
+    let etag = head_res.e_tag().context("S3 object has no ETag")?.to_string();
+
     let starts: Vec<(usize, i64)> = (0..size).step_by(CHUNK_SIZE).enumerate().collect();
 
     let num_chunks = starts.len();
@@ -547,6 +549,7 @@ async fn download_s3_file_par(
         let client = client.clone();
         let bucket = bucket.to_string();
         let key = key.clone();
+        let etag = etag.clone();
         let tx = tx.clone();
         let chunk_group = chunk_group.to_vec();
 
@@ -560,12 +563,25 @@ async fn download_s3_file_par(
                 let mut delay = Duration::from_secs(1);
 
                 loop {
-                    match client.get_object().bucket(&bucket).key(&key).range(&range).send().await {
+                    match client
+                        .get_object()
+                        .bucket(&bucket)
+                        .key(&key)
+                        .range(&range)
+                        .if_match(&etag)
+                        .send()
+                        .await
+                    {
                         Ok(res) => {
                             let data = res.body.collect().await?;
                             let bytes = data.into_bytes();
                             tx.send((index, bytes)).await?;
                             break;
+                        }
+                        Err(e)
+                            if e.raw_response().is_some_and(|res| res.status().as_u16() == 412) =>
+                        {
+                            return Err(anyhow!("S3 object changed during the download"));
                         }
                         Err(e) => {
                             retry_count += 1;
@@ -812,6 +828,7 @@ async fn upload_file(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use aws_sdk_s3::config::Credentials;
     use spn_artifact_types::ArtifactType;
     use tokio::io::{AsyncReadExt, AsyncWriteExt};
 
@@ -910,5 +927,33 @@ mod tests {
             .await;
             assert!(download_https_file_par(&uri, None, u64::MAX).await.is_err());
         }
+    }
+
+    #[tokio::test]
+    async fn s3_par_download_fails_when_the_object_changes_after_head() {
+        let uri = serve(|request| {
+            if request.starts_with("head") {
+                head("200 OK", "etag: \"old\"\r\n", CHUNK_SIZE + 1)
+            } else if request.contains("if-match: \"old\"") {
+                head("412 Precondition Failed", "", 0)
+            } else {
+                partial(request, &vec![0; CHUNK_SIZE + 2])
+            }
+        })
+        .await;
+        let config = aws_sdk_s3::Config::builder()
+            .behavior_version(BehaviorVersion::latest())
+            .region(Region::new("us-east-1"))
+            .endpoint_url(uri)
+            .force_path_style(true)
+            .credentials_provider(Credentials::new("id", "secret", None, None, "test"))
+            .build();
+        let client = S3Client::from_conf(config);
+        let err =
+            download_s3_file_par(&client, "bucket", "id", ArtifactType::Program, None, u64::MAX)
+                .await
+                .err()
+                .unwrap();
+        assert!(err.to_string().contains("changed"));
     }
 }
