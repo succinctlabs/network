@@ -667,15 +667,15 @@ async fn download_https_file_par(
         .and_then(|v| v.to_str().ok())
         .and_then(|v| v.parse::<usize>().ok());
 
+    if size.is_some_and(|size| size as u64 > max_bytes) {
+        return Err(ArtifactTooLarge { max_bytes }.into());
+    }
+
     if !supports_range || size.is_none() {
         return download_https_file(uri, max_bytes).await;
     }
 
     let size = size.unwrap();
-
-    if size as u64 > max_bytes {
-        return Err(ArtifactTooLarge { max_bytes }.into());
-    }
 
     if size <= CHUNK_SIZE {
         return download_https_file(uri, max_bytes).await;
@@ -808,17 +808,29 @@ mod tests {
         assert_eq!(get_s3_prefix(ArtifactType::PrivateStdin), "private-stdins");
     }
 
-    async fn serve(response: &'static str) -> String {
+    async fn serve(respond: impl Fn(&str) -> Vec<u8> + Send + 'static) -> String {
         let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
         let uri = format!("http://{}/", listener.local_addr().unwrap());
         tokio::spawn(async move {
-            loop {
+            'accept: loop {
                 let (mut socket, _) = listener.accept().await.unwrap();
-                let _ = socket.read(&mut [0; 1024]).await.unwrap();
-                socket.write_all(response.as_bytes()).await.unwrap();
+                let mut request = Vec::new();
+                while !request.ends_with(b"\r\n\r\n") {
+                    let Ok(byte) = socket.read_u8().await else { continue 'accept };
+                    request.push(byte);
+                }
+                let response = respond(&String::from_utf8(request).unwrap().to_lowercase());
+                let _ = socket.write_all(&response).await;
             }
         });
         uri
+    }
+
+    fn head(status: &str, headers: &str, length: usize) -> Vec<u8> {
+        format!(
+            "HTTP/1.1 {status}\r\nconnection: close\r\ncontent-length: {length}\r\n{headers}\r\n"
+        )
+        .into_bytes()
     }
 
     #[tokio::test]
@@ -827,10 +839,24 @@ mod tests {
         let chunked =
             "HTTP/1.1 200 OK\r\ntransfer-encoding: chunked\r\n\r\na\r\n0123456789\r\n0\r\n\r\n";
         for response in [with_length, chunked] {
-            let uri = serve(response).await;
+            let uri = serve(move |_| response.into()).await;
             assert_eq!(download_https_file(&uri, 10).await.unwrap().len(), 10);
             let err = download_https_file(&uri, 9).await.unwrap_err();
             assert!(err.is::<ArtifactTooLarge>());
         }
+    }
+
+    #[tokio::test]
+    async fn https_par_download_rejects_an_oversized_head_without_a_get() {
+        let uri = serve(|request| {
+            if request.starts_with("head") {
+                head("200 OK", "", 10)
+            } else {
+                head("500 Internal Server Error", "", 0)
+            }
+        })
+        .await;
+        let err = download_https_file_par(&uri, None, 9).await.unwrap_err();
+        assert!(err.is::<ArtifactTooLarge>());
     }
 }
