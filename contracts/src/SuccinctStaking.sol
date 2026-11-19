@@ -297,8 +297,7 @@ contract SuccinctStaking is
         _requireNonZeroNumber(_stPROVE);
 
         // Get the prover that the staker is staked with.
-        address prover = stakerToProver[msg.sender];
-        if (prover == address(0)) revert NotStaked();
+        address prover = _requireStaked(msg.sender);
 
         // Check that this staker has not already requested too many unstake requests.
         if (unstakeClaims[msg.sender].length >= maxUnstakeRequests) {
@@ -348,8 +347,7 @@ contract SuccinctStaking is
     /// @inheritdoc ISuccinctStaking
     function finishUnstake(address _staker) external override returns (uint256 PROVE) {
         // Get the prover that the staker is staked with.
-        address prover = stakerToProver[_staker];
-        if (prover == address(0)) revert NotStaked();
+        address prover = _requireStaked(_staker);
 
         // Get the unstake claims for this staker.
         UnstakeClaim[] storage claims = unstakeClaims[_staker];
@@ -408,11 +406,8 @@ contract SuccinctStaking is
 
     /// @inheritdoc ISuccinctStaking
     function cancelSlash(address _prover, uint256 _index) external override onlyForProver(_prover) {
-        // Get the slash claim.
-        SlashClaim storage claim = slashClaims[_prover][_index];
-
-        // Ensure the claim hasn't already been resolved.
-        if (claim.resolved) revert SlashRequestAlreadyResolved();
+        // Resolve the slash claim. If the deadline has not passed, the revert below undoes this.
+        SlashClaim storage claim = _resolveSlashClaim(_prover, _index);
 
         // Calculate the deadline for cancellation. Must be after the slash cancellation period
         // and governance latency has passed. This ensures that governance has had adequate time
@@ -425,14 +420,6 @@ contract SuccinctStaking is
         // Check if the deadline has passed.
         if (block.timestamp < cancelDeadline) revert SlashRequestNotReadyToCancel();
 
-        // Mark the claim as resolved.
-        claim.resolved = true;
-
-        // Decrement the unresolved claim counter.
-        unchecked {
-            --slashClaimCount[_prover];
-        }
-
         emit SlashCancel(_prover, claim.iPROVE, _index);
     }
 
@@ -444,11 +431,8 @@ contract SuccinctStaking is
         onlyForProver(_prover)
         returns (uint256 iPROVEBurned)
     {
-        // Get the slash claim.
-        SlashClaim storage claim = slashClaims[_prover][_index];
-
-        // Ensure the claim hasn't already been resolved.
-        if (claim.resolved) revert SlashRequestAlreadyResolved();
+        // Resolve the slash claim.
+        SlashClaim storage claim = _resolveSlashClaim(_prover, _index);
 
         // Determine how much can actually be slashed (cannot exceed the prover's current balance).
         uint256 iPROVEBalance = IERC20(iProve).balanceOf(_prover);
@@ -457,14 +441,6 @@ contract SuccinctStaking is
         EscrowPool storage pool = escrowPools[_prover];
         uint256 iPROVETotal = iPROVEBalance + pool.iPROVEEscrow;
         uint256 iPROVEToSlash = claim.iPROVE > iPROVETotal ? iPROVETotal : claim.iPROVE;
-
-        // Mark the claim as resolved.
-        claim.resolved = true;
-
-        // Decrement the unresolved claim counter.
-        unchecked {
-            --slashClaimCount[_prover];
-        }
 
         uint256 PROVEBurned = 0;
         iPROVEBurned = 0;
@@ -694,6 +670,29 @@ contract SuccinctStaking is
     /// @dev Thrown if a zero number is passed.
     function _requireNonZeroNumber(uint256 _number) internal pure {
         if (_number == 0) revert ZeroAmount();
+    }
+
+    /// @dev Returns the prover that a staker is staked with, and reverts if there is none.
+    function _requireStaked(address _staker) private view returns (address prover) {
+        prover = stakerToProver[_staker];
+        if (prover == address(0)) revert NotStaked();
+    }
+
+    /// @dev Marks an unresolved slash claim as resolved and decrements the prover's unresolved
+    ///      slash claim count.
+    function _resolveSlashClaim(address _prover, uint256 _index)
+        private
+        returns (SlashClaim storage claim)
+    {
+        claim = slashClaims[_prover][_index];
+
+        // Ensure the claim hasn't already been resolved.
+        if (claim.resolved) revert SlashRequestAlreadyResolved();
+
+        claim.resolved = true;
+        unchecked {
+            --slashClaimCount[_prover];
+        }
     }
 
     /// @dev Validates that a prover has no pending slash requests.
