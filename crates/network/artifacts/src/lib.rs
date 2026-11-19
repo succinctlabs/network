@@ -610,7 +610,7 @@ async fn download_s3_file_par(
 
 async fn download_https_file(uri: &str, max_bytes: u64) -> Result<Bytes> {
     let client = reqwest::Client::new();
-    let mut res = client
+    let res = client
         .get(uri)
         .timeout(Duration::from_secs(90))
         .send()
@@ -619,17 +619,7 @@ async fn download_https_file(uri: &str, max_bytes: u64) -> Result<Bytes> {
     if !res.status().is_success() {
         return Err(anyhow!("Failed to download from HTTPS URL {uri}: status {}", res.status()));
     }
-    if res.content_length().is_some_and(|len| len > max_bytes) {
-        return Err(ArtifactTooLarge { max_bytes }.into());
-    }
-    let mut body = Vec::new();
-    while let Some(chunk) = res.chunk().await.context("Failed to read HTTPS response body")? {
-        if (body.len() + chunk.len()) as u64 > max_bytes {
-            return Err(ArtifactTooLarge { max_bytes }.into());
-        }
-        body.extend_from_slice(&chunk);
-    }
-    Ok(body.into())
+    read_body_within(res, max_bytes).await?.ok_or_else(|| ArtifactTooLarge { max_bytes }.into())
 }
 
 #[allow(clippy::too_many_lines)]
@@ -731,7 +721,15 @@ async fn download_https_file_par(
                                 continue;
                             }
 
-                            let bytes = res.bytes().await?;
+                            if res.status() != reqwest::StatusCode::PARTIAL_CONTENT {
+                                return Err(anyhow!("HTTPS chunk {index} is not a partial response: status {}", res.status()));
+                            }
+
+                            let span = end - start + 1;
+                            let bytes = read_body_within(res, span as u64)
+                                .await?
+                                .filter(|bytes| bytes.len() == span)
+                                .ok_or_else(|| anyhow!("HTTPS chunk {index} is not the requested {span} bytes"))?;
                             tx.send((index, bytes)).await?;
                             break;
                         }
@@ -772,6 +770,20 @@ async fn download_https_file_par(
     }
 
     Ok(Bytes::from(result))
+}
+
+async fn read_body_within(mut res: reqwest::Response, limit: u64) -> Result<Option<Bytes>> {
+    if res.content_length().is_some_and(|len| len > limit) {
+        return Ok(None);
+    }
+    let mut body = Vec::new();
+    while let Some(chunk) = res.chunk().await.context("Failed to read HTTPS response body")? {
+        if (body.len() + chunk.len()) as u64 > limit {
+            return Ok(None);
+        }
+        body.extend_from_slice(&chunk);
+    }
+    Ok(Some(body.into()))
 }
 
 async fn upload_file(
@@ -833,6 +845,13 @@ mod tests {
         .into_bytes()
     }
 
+    fn partial(request: &str, object: &[u8]) -> Vec<u8> {
+        let range = request.split("range: bytes=").nth(1).unwrap().lines().next().unwrap();
+        let (start, end) = range.split_once('-').unwrap();
+        let body = &object[start.parse().unwrap()..=end.parse().unwrap()];
+        [head("206 Partial Content", "", body.len()), body.to_vec()].concat()
+    }
+
     #[tokio::test]
     async fn https_download_rejects_a_body_over_the_cap() {
         let with_length = "HTTP/1.1 200 OK\r\ncontent-length: 10\r\n\r\n0123456789";
@@ -858,5 +877,38 @@ mod tests {
         .await;
         let err = download_https_file_par(&uri, None, 9).await.unwrap_err();
         assert!(err.is::<ArtifactTooLarge>());
+    }
+
+    #[tokio::test]
+    async fn https_par_download_assembles_the_requested_ranges() {
+        let mut object = vec![0; CHUNK_SIZE + 1];
+        object[CHUNK_SIZE] = 1;
+        let uri = serve({
+            let object = object.clone();
+            move |request| {
+                if request.starts_with("head") {
+                    head("200 OK", "accept-ranges: bytes\r\n", object.len())
+                } else {
+                    partial(request, &object)
+                }
+            }
+        })
+        .await;
+        assert!(download_https_file_par(&uri, None, u64::MAX).await.unwrap() == object);
+    }
+
+    #[tokio::test]
+    async fn https_par_download_rejects_a_full_object_in_place_of_a_range() {
+        for status in ["200 OK", "206 Partial Content"] {
+            let uri = serve(move |request| {
+                if request.starts_with("head") {
+                    head("200 OK", "accept-ranges: bytes\r\n", CHUNK_SIZE + 1)
+                } else {
+                    [head(status, "", CHUNK_SIZE + 1), vec![0; CHUNK_SIZE + 1]].concat()
+                }
+            })
+            .await;
+            assert!(download_https_file_par(&uri, None, u64::MAX).await.is_err());
+        }
     }
 }
