@@ -535,6 +535,8 @@ async fn download_s3_file_par(
         return download_s3_file(client, bucket, id, artifact_type, max_bytes).await;
     }
 
+    let etag = head_res.e_tag().context("S3 object has no ETag")?.to_string();
+
     let starts: Vec<(usize, i64)> = (0..size).step_by(CHUNK_SIZE).enumerate().collect();
 
     let num_chunks = starts.len();
@@ -547,6 +549,7 @@ async fn download_s3_file_par(
         let client = client.clone();
         let bucket = bucket.to_string();
         let key = key.clone();
+        let etag = etag.clone();
         let tx = tx.clone();
         let chunk_group = chunk_group.to_vec();
 
@@ -560,12 +563,25 @@ async fn download_s3_file_par(
                 let mut delay = Duration::from_secs(1);
 
                 loop {
-                    match client.get_object().bucket(&bucket).key(&key).range(&range).send().await {
+                    match client
+                        .get_object()
+                        .bucket(&bucket)
+                        .key(&key)
+                        .range(&range)
+                        .if_match(&etag)
+                        .send()
+                        .await
+                    {
                         Ok(res) => {
                             let data = res.body.collect().await?;
                             let bytes = data.into_bytes();
                             tx.send((index, bytes)).await?;
                             break;
+                        }
+                        Err(e)
+                            if e.raw_response().is_some_and(|res| res.status().as_u16() == 412) =>
+                        {
+                            return Err(anyhow!("S3 object changed during the download"));
                         }
                         Err(e) => {
                             retry_count += 1;
@@ -610,7 +626,7 @@ async fn download_s3_file_par(
 
 async fn download_https_file(uri: &str, max_bytes: u64) -> Result<Bytes> {
     let client = reqwest::Client::new();
-    let mut res = client
+    let res = client
         .get(uri)
         .timeout(Duration::from_secs(90))
         .send()
@@ -619,17 +635,7 @@ async fn download_https_file(uri: &str, max_bytes: u64) -> Result<Bytes> {
     if !res.status().is_success() {
         return Err(anyhow!("Failed to download from HTTPS URL {uri}: status {}", res.status()));
     }
-    if res.content_length().is_some_and(|len| len > max_bytes) {
-        return Err(ArtifactTooLarge { max_bytes }.into());
-    }
-    let mut body = Vec::new();
-    while let Some(chunk) = res.chunk().await.context("Failed to read HTTPS response body")? {
-        if (body.len() + chunk.len()) as u64 > max_bytes {
-            return Err(ArtifactTooLarge { max_bytes }.into());
-        }
-        body.extend_from_slice(&chunk);
-    }
-    Ok(body.into())
+    read_body_within(res, max_bytes).await?.ok_or_else(|| ArtifactTooLarge { max_bytes }.into())
 }
 
 #[allow(clippy::too_many_lines)]
@@ -667,15 +673,15 @@ async fn download_https_file_par(
         .and_then(|v| v.to_str().ok())
         .and_then(|v| v.parse::<usize>().ok());
 
+    if size.is_some_and(|size| size as u64 > max_bytes) {
+        return Err(ArtifactTooLarge { max_bytes }.into());
+    }
+
     if !supports_range || size.is_none() {
         return download_https_file(uri, max_bytes).await;
     }
 
     let size = size.unwrap();
-
-    if size as u64 > max_bytes {
-        return Err(ArtifactTooLarge { max_bytes }.into());
-    }
 
     if size <= CHUNK_SIZE {
         return download_https_file(uri, max_bytes).await;
@@ -731,7 +737,15 @@ async fn download_https_file_par(
                                 continue;
                             }
 
-                            let bytes = res.bytes().await?;
+                            if res.status() != reqwest::StatusCode::PARTIAL_CONTENT {
+                                return Err(anyhow!("HTTPS chunk {index} is not a partial response: status {}", res.status()));
+                            }
+
+                            let span = end - start + 1;
+                            let bytes = read_body_within(res, span as u64)
+                                .await?
+                                .filter(|bytes| bytes.len() == span)
+                                .ok_or_else(|| anyhow!("HTTPS chunk {index} is not the requested {span} bytes"))?;
                             tx.send((index, bytes)).await?;
                             break;
                         }
@@ -774,6 +788,20 @@ async fn download_https_file_par(
     Ok(Bytes::from(result))
 }
 
+async fn read_body_within(mut res: reqwest::Response, limit: u64) -> Result<Option<Bytes>> {
+    if res.content_length().is_some_and(|len| len > limit) {
+        return Ok(None);
+    }
+    let mut body = Vec::new();
+    while let Some(chunk) = res.chunk().await.context("Failed to read HTTPS response body")? {
+        if (body.len() + chunk.len()) as u64 > limit {
+            return Ok(None);
+        }
+        body.extend_from_slice(&chunk);
+    }
+    Ok(Some(body.into()))
+}
+
 async fn upload_file(
     client: &S3Client,
     bucket: &str,
@@ -800,6 +828,7 @@ async fn upload_file(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use aws_sdk_s3::config::Credentials;
     use spn_artifact_types::ArtifactType;
     use tokio::io::{AsyncReadExt, AsyncWriteExt};
 
@@ -808,17 +837,36 @@ mod tests {
         assert_eq!(get_s3_prefix(ArtifactType::PrivateStdin), "private-stdins");
     }
 
-    async fn serve(response: &'static str) -> String {
+    async fn serve(respond: impl Fn(&str) -> Vec<u8> + Send + 'static) -> String {
         let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
         let uri = format!("http://{}/", listener.local_addr().unwrap());
         tokio::spawn(async move {
-            loop {
+            'accept: loop {
                 let (mut socket, _) = listener.accept().await.unwrap();
-                let _ = socket.read(&mut [0; 1024]).await.unwrap();
-                socket.write_all(response.as_bytes()).await.unwrap();
+                let mut request = Vec::new();
+                while !request.ends_with(b"\r\n\r\n") {
+                    let Ok(byte) = socket.read_u8().await else { continue 'accept };
+                    request.push(byte);
+                }
+                let response = respond(&String::from_utf8(request).unwrap().to_lowercase());
+                let _ = socket.write_all(&response).await;
             }
         });
         uri
+    }
+
+    fn head(status: &str, headers: &str, length: usize) -> Vec<u8> {
+        format!(
+            "HTTP/1.1 {status}\r\nconnection: close\r\ncontent-length: {length}\r\n{headers}\r\n"
+        )
+        .into_bytes()
+    }
+
+    fn partial(request: &str, object: &[u8]) -> Vec<u8> {
+        let range = request.split("range: bytes=").nth(1).unwrap().lines().next().unwrap();
+        let (start, end) = range.split_once('-').unwrap();
+        let body = &object[start.parse().unwrap()..=end.parse().unwrap()];
+        [head("206 Partial Content", "", body.len()), body.to_vec()].concat()
     }
 
     #[tokio::test]
@@ -827,10 +875,85 @@ mod tests {
         let chunked =
             "HTTP/1.1 200 OK\r\ntransfer-encoding: chunked\r\n\r\na\r\n0123456789\r\n0\r\n\r\n";
         for response in [with_length, chunked] {
-            let uri = serve(response).await;
+            let uri = serve(move |_| response.into()).await;
             assert_eq!(download_https_file(&uri, 10).await.unwrap().len(), 10);
             let err = download_https_file(&uri, 9).await.unwrap_err();
             assert!(err.is::<ArtifactTooLarge>());
         }
+    }
+
+    #[tokio::test]
+    async fn https_par_download_rejects_an_oversized_head_without_a_get() {
+        let uri = serve(|request| {
+            if request.starts_with("head") {
+                head("200 OK", "", 10)
+            } else {
+                head("500 Internal Server Error", "", 0)
+            }
+        })
+        .await;
+        let err = download_https_file_par(&uri, None, 9).await.unwrap_err();
+        assert!(err.is::<ArtifactTooLarge>());
+    }
+
+    #[tokio::test]
+    async fn https_par_download_assembles_the_requested_ranges() {
+        let mut object = vec![0; CHUNK_SIZE + 1];
+        object[CHUNK_SIZE] = 1;
+        let uri = serve({
+            let object = object.clone();
+            move |request| {
+                if request.starts_with("head") {
+                    head("200 OK", "accept-ranges: bytes\r\n", object.len())
+                } else {
+                    partial(request, &object)
+                }
+            }
+        })
+        .await;
+        assert!(download_https_file_par(&uri, None, u64::MAX).await.unwrap() == object);
+    }
+
+    #[tokio::test]
+    async fn https_par_download_rejects_a_full_object_in_place_of_a_range() {
+        for status in ["200 OK", "206 Partial Content"] {
+            let uri = serve(move |request| {
+                if request.starts_with("head") {
+                    head("200 OK", "accept-ranges: bytes\r\n", CHUNK_SIZE + 1)
+                } else {
+                    [head(status, "", CHUNK_SIZE + 1), vec![0; CHUNK_SIZE + 1]].concat()
+                }
+            })
+            .await;
+            assert!(download_https_file_par(&uri, None, u64::MAX).await.is_err());
+        }
+    }
+
+    #[tokio::test]
+    async fn s3_par_download_fails_when_the_object_changes_after_head() {
+        let uri = serve(|request| {
+            if request.starts_with("head") {
+                head("200 OK", "etag: \"old\"\r\n", CHUNK_SIZE + 1)
+            } else if request.contains("if-match: \"old\"") {
+                head("412 Precondition Failed", "", 0)
+            } else {
+                partial(request, &vec![0; CHUNK_SIZE + 2])
+            }
+        })
+        .await;
+        let config = aws_sdk_s3::Config::builder()
+            .behavior_version(BehaviorVersion::latest())
+            .region(Region::new("us-east-1"))
+            .endpoint_url(uri)
+            .force_path_style(true)
+            .credentials_provider(Credentials::new("id", "secret", None, None, "test"))
+            .build();
+        let client = S3Client::from_conf(config);
+        let err =
+            download_s3_file_par(&client, "bucket", "id", ArtifactType::Program, None, u64::MAX)
+                .await
+                .err()
+                .unwrap();
+        assert!(err.to_string().contains("changed"));
     }
 }

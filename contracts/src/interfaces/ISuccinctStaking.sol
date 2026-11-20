@@ -108,6 +108,9 @@ interface ISuccinctStaking is IProverRegistry {
     /// @dev Thrown if staking or unstaking while the prover has one or more pending slash requests.
     error ProverHasSlashRequest();
 
+    /// @dev Thrown if unstaking a non-zero amount in the same block as a full slash of the prover.
+    error ProverFullySlashedThisBlock();
+
     /// @dev Thrown if a slash request has already been resolved.
     error SlashRequestAlreadyResolved();
 
