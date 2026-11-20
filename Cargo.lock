@@ -7534,6 +7534,7 @@ dependencies = [
  "reqwest",
  "serde",
  "spn-artifact-types",
+ "thiserror 1.0.69",
  "tokio",
  "tracing",
  "url",
