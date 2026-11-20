@@ -59,9 +59,7 @@ abstract contract ProverRegistry is IProverRegistry {
 
     /// @dev This call must target a prover that exists in the registry.
     modifier onlyForProver(address _prover) {
-        if (!provers[_prover]) {
-            revert ProverNotFound();
-        }
+        _requireProver(_prover);
         _;
     }
 
@@ -169,6 +167,14 @@ abstract contract ProverRegistry is IProverRegistry {
             deactivatedProvers[_prover] = true;
 
             emit ProverDeactivation(_prover);
+        }
+    }
+
+    /// @dev Reverts if the prover does not exist in the registry. The modifier calls this function
+    ///      so that its check is not inlined into each function that uses it.
+    function _requireProver(address _prover) private view {
+        if (!provers[_prover]) {
+            revert ProverNotFound();
         }
     }
 }
