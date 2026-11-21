@@ -2,6 +2,8 @@
 //!
 //! This module contains types used as inputs into the programs that run inside the SP1 RISC-V zkVM.
 
+pub mod v1_3_0;
+
 use alloy_primitives::{Address, B256};
 use serde::{Deserialize, Serialize};
 
