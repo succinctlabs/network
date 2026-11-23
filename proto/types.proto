@@ -2003,4 +2003,6 @@ enum ProofRequestError {
   PROGRAM_TOO_LARGE = 7;
   // The program artifact cannot be decoded.
   INVALID_PROGRAM = 8;
+  // The stdin artifact exceeds the size limit.
+  STDIN_TOO_LARGE = 9;
 }
