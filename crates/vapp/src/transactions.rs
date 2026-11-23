@@ -5,11 +5,14 @@
 use alloy_primitives::B256;
 use serde::{Deserialize, Serialize};
 use spn_network_types::{
-    BidRequest, ExecuteProofRequest, FulfillProofRequest, RequestProofRequest,
-    SetDelegationRequest, SettleRequest, TransferRequest, WithdrawRequest,
+    BidRequest, FulfillProofRequest, RequestProofRequest, SetDelegationRequest, SettleRequest,
+    TransferRequest, WithdrawRequest,
 };
 
-use crate::sol::{CreateProver, Deposit};
+use crate::{
+    input::v1_3_0::ExecuteProofRequest,
+    sol::{CreateProver, Deposit},
+};
 
 /// A transaction that can be executed and update the [`crate::state::VAppState`].
 #[derive(Debug, Clone, Serialize, Deserialize)]

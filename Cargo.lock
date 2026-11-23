@@ -7707,6 +7707,7 @@ dependencies = [
  "alloy",
  "alloy-primitives",
  "alloy-sol-types",
+ "bincode",
  "eyre",
  "hex",
  "once_cell",

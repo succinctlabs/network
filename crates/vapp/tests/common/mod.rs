@@ -6,13 +6,14 @@ use alloy::signers::{local::PrivateKeySigner, SignerSync};
 use alloy_primitives::{keccak256, Address, Signature, U256};
 use prost::Message;
 use spn_network_types::{
-    BidRequest, BidRequestBody, ExecuteProofRequest, ExecuteProofRequestBody, ExecutionStatus,
-    FulfillProofRequest, FulfillProofRequestBody, FulfillmentStrategy, MessageFormat, ProofMode,
-    RequestProofRequest, RequestProofRequestBody, SetDelegationRequest, SetDelegationRequestBody,
-    SettleRequest, SettleRequestBody, TransactionVariant, WithdrawRequest, WithdrawRequestBody,
+    BidRequest, BidRequestBody, ExecutionStatus, FulfillProofRequest, FulfillProofRequestBody,
+    FulfillmentStrategy, MessageFormat, ProofMode, RequestProofRequest, RequestProofRequestBody,
+    SetDelegationRequest, SetDelegationRequestBody, SettleRequest, SettleRequestBody,
+    TransactionVariant, WithdrawRequest, WithdrawRequestBody,
 };
 use spn_utils::SPN_MAINNET_V1_DOMAIN;
 use spn_vapp_core::{
+    input::v1_3_0::{ExecuteProofRequest, ExecuteProofRequestBody},
     merkle::MerkleStorage,
     receipts::VAppReceipt,
     sol::{Account, CreateProver, Deposit, TransactionStatus},
@@ -651,7 +652,6 @@ pub fn create_clear_tx_with_options(
         punishment: None,
         failure_cause: None,
         variant: TransactionVariant::ExecuteVariant as i32,
-        error_trace: None,
     };
 
     // Create and sign execute.
@@ -964,7 +964,6 @@ pub fn create_clear_tx_with_public_values_hash(
         punishment: None,
         failure_cause: None,
         variant: TransactionVariant::ExecuteVariant as i32,
-        error_trace: None,
     };
 
     // Create and sign execute.
@@ -1172,7 +1171,6 @@ pub fn create_clear_tx_with_version(
         punishment: None,
         failure_cause: None,
         variant: TransactionVariant::ExecuteVariant as i32,
-        error_trace: None,
     };
 
     // Create and sign execute.

@@ -29,3 +29,4 @@ tracing = { workspace = true }
 
 [dev-dependencies]
 alloy = { workspace = true }
+bincode = { workspace = true }

@@ -22,28 +22,31 @@ pub fn verify_signed_message<T: Message + Serialize>(
     signature: &[u8],
     format: MessageFormat,
 ) -> Result<Address, VAppPanic> {
-    let message_bytes = match format {
+    eth_sign_verify(&signing_bytes(message, format)?, signature)
+}
+
+/// Encodes the exact body bytes used for STF signature recovery.
+pub(crate) fn signing_bytes<T: Message + Serialize>(
+    message: &T,
+    format: MessageFormat,
+) -> Result<Vec<u8>, VAppPanic> {
+    match format {
         MessageFormat::Binary => {
             let mut bytes = Vec::new();
             message.encode(&mut bytes).map_err(|e| VAppPanic::FailedToSerializeMessage {
                 format: MessageFormat::Binary.into(),
                 error: e.to_string(),
             })?;
-            bytes
+            Ok(bytes)
         }
         MessageFormat::Json => {
             serde_json::to_vec(message).map_err(|e| VAppPanic::FailedToSerializeMessage {
                 format: MessageFormat::Json.into(),
                 error: e.to_string(),
-            })?
+            })
         }
-        _ => {
-            return Err(VAppPanic::InvalidMessageFormat);
-        }
-    };
-
-    let recovered_signer = eth_sign_verify(&message_bytes, signature)?;
-    Ok(recovered_signer)
+        _ => Err(VAppPanic::InvalidMessageFormat),
+    }
 }
 
 /// Verifies an Ethereum signature using the `personal_sign` format.
